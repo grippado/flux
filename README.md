@@ -187,7 +187,19 @@ Um verbo novo entra assim:
 
 ## Contribuindo
 
-Issues e PRs são bem-vindos. Duas regras que valem para qualquer contribuição:
+Antes de abrir PR, valide os manifests. Este comando pega uma classe de erro que leitura não pega:
+
+```
+claude plugin validate .              # marketplace
+claude plugin validate ./plugins/flux # plugin + frontmatter de cada skill
+```
+
+> **Sempre use aspas na `description` do frontmatter.** Um `: ` (dois-pontos seguido de espaço) num
+> valor YAML sem aspas quebra o parse, e o skill carrega com **metadata vazia**, silenciosamente:
+> sem `name`, sem `description`, sem `user-invocable`. O sintoma é um `1 error during load` genérico
+> no `/reload-plugins`, sem dizer qual arquivo. O `validate` diz.
+
+Duas regras que valem para qualquer contribuição:
 
 1. **Nada de contexto de time hardcoded.** Se o seu time precisa de algo, isso vira campo do manifesto, nunca literal dentro de um verbo. O contrato está em [`shared/flux-context.md`](plugins/flux/shared/flux-context.md).
 2. **Degradar bem em vez de rodar mal.** Toda capacidade nova entra com o caminho de ausência definido e declarado no banner de perfil.

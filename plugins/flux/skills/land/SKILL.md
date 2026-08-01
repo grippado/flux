@@ -1,6 +1,6 @@
 ---
 name: land
-description: Orquestrador `flux:land` — orquestra a entrega multi-PR de uma issue/feature (descobre, ordena, valida regressão com specialists por default via review-agents.md, mantém merge-ready delegando ao `flux:iterate`, emite go/no-go). Global, resolve contexto via flux-context.json. NÃO mergeia. Complementa o mutirao/convocar (que criam PRs); este orquestra PRs já existentes até o merge. Workspace mode.
+description: "Orquestrador `flux:land` — orquestra a entrega multi-PR de uma issue/feature (descobre, ordena, valida regressão com specialists por default via review-agents.md, mantém merge-ready delegando ao `flux:iterate`, emite go/no-go). Global, resolve contexto via flux-context.json. NÃO mergeia. Complementa o mutirao/convocar (que criam PRs); este orquestra PRs já existentes até o merge. Workspace mode."
 user-invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: reply
-description: Orquestrador `flux:reply` — acompanha um CASO de trabalho no Slack embasado no codebase; prospecção em paralelo por repo, rascunho no Slack + board vivo no vault; segue o caso quando ele muda de canal; nunca posta sozinho. Global, resolve contexto leve via flux-context.json (VAULT_ROOT, VAULT_CTX, NO_EMDASH). Prospector e answerer vêm do manifesto; sem eles, cai em general-purpose.
+description: "Orquestrador `flux:reply` — acompanha um CASO de trabalho no Slack embasado no codebase; prospecção em paralelo por repo, rascunho no Slack + board vivo no vault; segue o caso quando ele muda de canal; nunca posta sozinho. Global, resolve contexto leve via flux-context.json (VAULT_ROOT, VAULT_CTX, NO_EMDASH). Prospector e answerer vêm do manifesto; sem eles, cai em general-purpose."
 user-invocable: true
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: issue
-description: Orquestrador `flux:issue` — gera issues de alta qualidade a partir de QUALQUER fonte (thread do Slack, texto livre, PR), embasadas em código real via os specialists do repo (o mesmo arsenal do review/iterate/delivery), com disciplina de links e escrita correta. Grava um rascunho revisável no vault e cria no Linear só após aprovação (HITL). Global, resolve contexto via `flux-context.md`.
+description: "Orquestrador `flux:issue` — gera issues de alta qualidade a partir de QUALQUER fonte (thread do Slack, texto livre, PR), embasadas em código real via os specialists do repo (o mesmo arsenal do review/iterate/delivery), com disciplina de links e escrita correta. Grava um rascunho revisável no vault e cria no Linear só após aprovação (HITL). Global, resolve contexto via `flux-context.md`."
 user-invocable: true
 ---
 

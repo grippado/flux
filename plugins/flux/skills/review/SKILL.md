@@ -1,6 +1,6 @@
 ---
 name: review
-description: Orquestrador `flux:review` — revisão formal de PR ou doc; reviewer holístico + specialists do repo reconciliados conforme `review-agents.md`; badges textuais conforme `review-legend.md`; persiste no vault. Global, resolve contexto via `flux-context.md`. Para relance rápido e read-only, use `/flux:peek`.
+description: "Orquestrador `flux:review` — revisão formal de PR ou doc; reviewer holístico + specialists do repo reconciliados conforme `review-agents.md`; badges textuais conforme `review-legend.md`; persiste no vault. Global, resolve contexto via `flux-context.md`. Para relance rápido e read-only, use `/flux:peek`."
 user-invocable: true
 requires:
   hard:

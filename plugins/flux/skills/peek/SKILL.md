@@ -1,6 +1,6 @@
 ---
 name: peek
-description: Relance read-only de working tree / branch / diff / PR / doc; roda só o reviewer holístico; imprime parecer com badges no chat; não posta, não aplica, não grava no vault (exceto `--save`). Para review formal que persiste e posta, use `/flux:review`.
+description: "Relance read-only de working tree / branch / diff / PR / doc; roda só o reviewer holístico; imprime parecer com badges no chat; não posta, não aplica, não grava no vault (exceto `--save`). Para review formal que persiste e posta, use `/flux:review`."
 user-invocable: true
 requires:
   hard:

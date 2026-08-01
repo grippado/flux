@@ -1,6 +1,6 @@
 ---
 name: iterate
-description: Orquestrador `flux:iterate` — fecha o loop de UMA PR (verifica threads contra o código real, aplica correções, responde, reage 👍/👎, resolve, commita, pusha, vigia CI + bot). `--dry` rascunha réplicas read-only e salva no vault. Global, resolve contexto via `flux-context.md`.
+description: "Orquestrador `flux:iterate` — fecha o loop de UMA PR (verifica threads contra o código real, aplica correções, responde, reage 👍/👎, resolve, commita, pusha, vigia CI + bot). `--dry` rascunha réplicas read-only e salva no vault. Global, resolve contexto via `flux-context.md`."
 user-invocable: true
 ---
 
