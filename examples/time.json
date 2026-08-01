@@ -1,0 +1,20 @@
+{
+  "name": "acme",
+  "holistic_reviewer": "acme-pr-reviewer",
+  "doc_reviewer": "acme-doc-reviewer",
+  "answerer": "acme-pr-answerer",
+  "slack_prospector": "acme-slack-prospector",
+  "slack_answerer": "acme-slack-answerer",
+  "specialists_root": "~/agents/acme/{repo}/repo-owner.md",
+  "specialists_spec": "~/agents/acme/AGENT_SPEC.md",
+  "specialists_repo": "acme/agent-suites",
+  "vault_root": "~/notes",
+  "vault_context": "acme",
+  "workspace_root": "~/code/acme",
+  "linear_org": "acme",
+  "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
+  "repos": ["api-gateway", "web-monorepo", "notifications", "payments"],
+  "exec_command": "workflow",
+  "exec_fallback": "core:implement-task",
+  "no_emdash": true
+}

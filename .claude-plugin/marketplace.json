@@ -1,0 +1,18 @@
+{
+  "name": "flux",
+  "owner": {
+    "name": "Gabriel Gripp",
+    "email": "550632+grippado@users.noreply.github.com"
+  },
+  "metadata": {
+    "description": "Marketplace do flux: o ciclo de trabalho agêntico completo, da ideia ao merge, sem trocar de ferramenta"
+  },
+  "plugins": [
+    {
+      "name": "flux",
+      "source": "./plugins/flux",
+      "description": "Ciclo de trabalho agêntico para qualquer repo Git: issue, build, peek, review, iterate, land e reply. Global e context-agnóstico, com o que é específico do seu time vindo de um manifesto, nunca hardcoded.",
+      "version": "1.0.0"
+    }
+  ]
+}
