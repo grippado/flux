@@ -71,7 +71,9 @@ As flags podem aparecer em qualquer posição e combinadas.
 
 **Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`.** Em resumo:
 
-1. Procurar `flux-context.json` em `.claude/` subindo a árvore a partir do `cwd`:
+1. Resolver a **âncora** (alvo primeiro, `cwd` depois — ver `${FLUX_ROOT}/shared/flux-context.md`,
+   seção "Qual é a âncora") e procurar `flux-context.json` em `.claude/` subindo a árvore a partir
+   dela:
    ```
    <cwd>/.claude/flux-context.json
    <parent>/.claude/flux-context.json

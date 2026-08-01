@@ -8,15 +8,87 @@
 ## O manifesto
 
 Um arquivo `flux-context.json` colocado num `.claude/` de workspace ou repo. O comando procura o
-**mais próximo** subindo a árvore a partir do `cwd` (mesma disciplina do `.claude/` do Claude Code):
+**mais próximo** subindo a árvore a partir de uma **âncora** (mesma disciplina do `.claude/` do
+Claude Code):
 
 ```
-<cwd>/.claude/flux-context.json
+<âncora>/.claude/flux-context.json
 <parent>/.claude/flux-context.json
 ...
 ```
 
 Se achar → **perfil declarado**. Se não achar → **perfil genérico** (abaixo).
+
+## Qual é a âncora: o alvo primeiro, o `cwd` depois
+
+> **O contexto é do trabalho, não de onde você estava sentado quando pediu.** Um elo invocado com um
+> alvo explícito (`/flux:build backoffice-bff …`, `/flux:peek ~/code/acme/api`) deve rodar no perfil
+> **do alvo**, não no do diretório de onde foi chamado. Ancorar só no `cwd` faz o elo abortar com
+> "repo não encontrado" para um repo que existe e está declarado num manifesto, e é o erro que mais
+> confunde: o usuário passou o alvo, e o comando diz que não o achou.
+
+Resolver a âncora **nesta ordem**, parando na primeira que produzir um manifesto:
+
+**1. O alvo, quando ele é um caminho.** Path local (arquivo ou diretório), absoluto ou relativo ao
+`cwd`. Se existe no disco, é a âncora: subir a árvore a partir dele.
+
+**2. O alvo, quando ele é um slug de repo.** Tentar resolver o slug como checkout:
+
+```bash
+for base in "$(pwd)" "$WORKSPACE_ROOT_DO_CWD"; do
+  [ -n "$base" ] && [ -d "$base/$SLUG/.git" ] && ANCHOR="$base/$SLUG" && break
+done
+```
+
+Não resolveu, e **só então**, descobrir os manifestos existentes na máquina e perguntar a eles:
+
+```bash
+find "$HOME" -maxdepth 4 -type f -path '*/.claude/flux-context.json' 2>/dev/null
+```
+
+Um manifesto **reivindica** o slug quando ele aparece no campo `repos`, ou quando existe
+`<workspace_root>/<slug>/.git`. Então:
+
+- **exatamente um** reivindica → é a âncora.
+- **mais de um** reivindica → **perguntar ao usuário** qual contexto usar, listando os candidatos com
+  o `name` de cada um. Nunca escolher por proximidade de path, ordem alfabética ou primeiro achado:
+  rodar no contexto errado escreve no vault errado, invoca os reviewers errados e aponta para a org
+  de tracker errada.
+- **nenhum** reivindica → seguir para o passo 3.
+
+**3. O `cwd`.** O comportamento clássico, e o único caminho quando não há alvo (`/flux:peek` sem
+argumento lê a working tree do `cwd`, e aí o `cwd` **é** o alvo).
+
+**4. Nada disso achou manifesto** → perfil genérico.
+
+### Ordem obrigatória: parse do alvo antes da resolução de contexto
+
+Ancorar no alvo só é possível se o alvo já foi lido. Todo elo segue esta ordem, e não outra:
+
+```
+1. parse dos argumentos           (identifica o alvo; não abre repo, não lê arquivo)
+2. resolve a ÂNCORA               (alvo → cwd)
+3. resolve o MANIFESTO            (sobe a árvore a partir da âncora)
+4. preflight: requires + HOLISTIC (o holístico vem do manifesto, então depende do passo 3)
+5. o trabalho do elo
+```
+
+Fazer o preflight antes do passo 2 resolve o agente holístico do perfil errado, e o elo roda inteiro
+com o reviewer de outro time sem que nada acuse o problema.
+
+### Regras da âncora
+
+- **A âncora é resolvida uma vez, no Step 0, e vale para o elo inteiro.** Nada de resolver contexto de
+  novo no meio do pipeline: dois perfis na mesma execução é como um artefato acaba com `vault_context`
+  de um time e reviewers de outro.
+- **O passo 2 é o único que toca o disco fora do alvo**, e só quando o slug não resolveu pelos
+  caminhos baratos. Não faça a varredura quando os passos 1 ou 2-rápido já resolveram.
+- **Declarar a âncora no banner** quando ela **não** for o `cwd`, para que a origem do perfil seja
+  auditável:
+
+  ```
+  perfil: arco (âncora: alvo ~/code/acme/api-gateway) · nivel: FULL · ...
+  ```
 
 ### Campos
 

@@ -7,6 +7,10 @@
 > exatamente o que falta. Rodar em modo degradado silencioso é pior do que não rodar, porque produz
 > um artefato que parece válido e não é.
 
+> **Este passo roda depois da âncora.** O parse do alvo e a resolução do manifesto vêm antes, porque
+> o agente holístico que o Passo 3 verifica vem do perfil. Ver `${FLUX_ROOT}/shared/flux-context.md`,
+> seção "Ordem obrigatória". Verificar o holístico antes de saber o perfil valida o agente errado.
+
 ## Passo 1 — Resolver `FLUX_ROOT`
 
 Todo path para `shared/` e `agents/` da família é escrito como `${FLUX_ROOT}/...`. Resolver nesta
@@ -103,10 +107,14 @@ Todo elo abre seu output com o banner. Ele não é decoração: é o que impede 
 se passar por um parecer completo.
 
 ```
-perfil: {nome do manifesto | generico} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
 lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
 degradacoes: {lista dos soft ausentes e o que se perde com cada um | nenhuma}
 ```
+
+O trecho `(ancora: alvo <path>)` sai **só quando a âncora não é o `cwd`**, ou seja, quando o perfil
+veio do alvo. É o que torna auditável a pergunta "por que este elo rodou no contexto X se eu o chamei
+de Y", que sem isso é indistinguível de um bug.
 
 A linha `lentes` sai em todo elo que reconcilia review (`flux:review`, `flux:iterate`, `flux:land`)
 **e também no `flux:build`**, com as três camadas de `${FLUX_ROOT}/shared/review-agents.md`. O build

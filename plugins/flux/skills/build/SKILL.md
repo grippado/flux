@@ -73,7 +73,10 @@ Flags próprias do `flux:build` (consumidas aqui, **não** repassadas):
 
 Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
-1. Procurar `flux-context.json` em `.claude/` subindo a árvore a partir do `cwd`.
+1. Resolver a **âncora** e procurar `flux-context.json` subindo a árvore a partir dela, conforme
+   `${FLUX_ROOT}/shared/flux-context.md` (seção "Qual é a âncora"). Neste comando o alvo é sempre
+   explícito (`<repo>`), então **a âncora é o repo, não o `cwd`**: `/flux:build backoffice-bff …`
+   rodado de qualquer lugar tem que achar o perfil do workspace onde `backoffice-bff` vive.
 
 2. Se encontrar (perfil declarado), extrair:
    - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o diretório pai do `.claude/` onde o manifesto foi achado)
@@ -110,24 +113,34 @@ else
 fi
 ```
 
-3. Resolver o checkout:
+3. Resolver o checkout. `WORKSPACE_ROOT` aqui é o do perfil **da âncora**, que no Step 0 já foi
+   resolvida a partir do repo e não do `cwd`:
 
 ```bash
 REPO_PATH="$(pwd)/$REPO"
 [ -d "$REPO_PATH/.git" ] || REPO_PATH="$WORKSPACE_ROOT/$REPO"
 ```
 
-4. Se não resolver, **pare** com erro claro listando o que existe (`REPOS` do manifesto ∩ o que tem checkout local):
+4. Se ainda não resolveu, o candidato pode ser um repo de **outro** contexto declarado na máquina.
+   Antes de abortar, aplicar o passo 2 da resolução de âncora
+   (`${FLUX_ROOT}/shared/flux-context.md`): descobrir os manifestos existentes e ver qual reivindica
+   o slug, seja pelo campo `repos` ou por ter `<workspace_root>/<slug>/.git`.
+
+   - Um reivindica → adotar aquele perfil **inteiro** (não só o `workspace_root`) e seguir.
+   - Mais de um → perguntar ao usuário qual contexto usar.
+   - Nenhum → aí sim, parar:
 
 ```bash
-[ -d "$REPO_PATH/.git" ] || {
-  echo "repo '$REPO' não encontrado. Checkouts disponíveis em $WORKSPACE_ROOT:"
-  ls -d "$WORKSPACE_ROOT"/*/.git 2>/dev/null | xargs -n1 dirname | xargs -n1 basename
-  exit 1
-}
+echo "repo '$REPO' não encontrado. Checkouts disponíveis em $WORKSPACE_ROOT:"
+ls -d "$WORKSPACE_ROOT"/*/.git 2>/dev/null | xargs -n1 dirname | xargs -n1 basename
+echo "e nenhum manifesto conhecido reivindica esse slug."
 ```
 
 Não improvise um repo próximo por similaridade de nome: pare e deixe o usuário escolher.
+
+> **Por que este passo existe.** Sem ele, `/flux:build <repo> …` invocado de fora do workspace aborta
+> com "repo não encontrado" para um repo que existe, está declarado num manifesto e tem checkout
+> local. O usuário passou o alvo explicitamente; dizer que não o achou é o pior erro possível aqui.
 
 ---
 

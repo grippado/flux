@@ -22,9 +22,19 @@ Relance rápido de código ou artefato. Sem cerimônia, sem persistência, sem p
 **Preflight:** `${FLUX_ROOT}/shared/preflight.md`
 **Disciplina de fan-out (o contexto principal orquestra, os agentes trabalham):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 
+## Step 0-alvo: parsear o alvo (antes de tudo)
+
+Fazer **só o parse** dos argumentos para identificar o alvo, conforme "Detecção de alvo" abaixo. Não
+abrir repo, não buscar PR, não ler arquivo: nesta etapa o alvo é só uma string classificada.
+
+O parse vem primeiro porque a **âncora de contexto é o alvo**, não o `cwd`
+(`${FLUX_ROOT}/shared/flux-context.md`, seção "Qual é a âncora"): um `/flux:peek ~/code/acme/api`
+rodado do home tem que usar o perfil do `acme`, e é o perfil que decide qual reviewer holístico o
+preflight vai verificar no passo seguinte.
+
 ## Step 0-preflight: verificar antes de trabalhar
 
-Seguir `${FLUX_ROOT}/shared/preflight.md` **antes de ler o alvo**. Ele resolve `FLUX_ROOT`, verifica
+Seguir `${FLUX_ROOT}/shared/preflight.md` **antes de ler o conteúdo do alvo**. Ele resolve `FLUX_ROOT`, verifica
 os `requires` do frontmatter, resolve e **confere a existência** do agente holístico, e classifica o
 nível de capacidade.
 
