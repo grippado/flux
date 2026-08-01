@@ -50,6 +50,13 @@ Diferenças de coluna no painel:
 - **esforço** = `arquivos tocados · checks (verde/total)`, em vez de `rodadas · threads · flow`.
 - **estado** de cada etapa: `⏳ pendente`, `🔄 rodando`, `✅ ok`, `❌ falhou`, `⏭️ pulada`.
 
+Links obrigatórios neste perfil, assim que cada um existir (ver Disciplina de links):
+
+- o **ticket**, no TL;DR e no `🎯 Próximo Movimento`;
+- a **PR**, na linha 5 do painel, no `🎯 Próximo Movimento` e na timeline de eventos;
+- as **issues bloqueantes/relacionadas** do frontmatter, onde forem citadas;
+- a **PR de origem**, quando a task é reversão/continuação de outra.
+
 O board do build **morre quando a PR nasce**: o `🎯 Próximo Movimento` final aponta para o
 `/flux:iterate` da PR criada, e o board do iterate assume dali (cross-link bidirecional, ver bloco de
 proveniência). Não é um board que vive por dias, é um board que cobre uma execução longa.
@@ -127,6 +134,32 @@ tags: [board, <build|iterate|delivery|slack>, orchestration]
 > por um board cujo `surfaces[].channel_id` (+ `thread_ts`, quando houver) case com o alvo. Casou:
 > atualiza aquele board. Não casou: board novo. Isso é o que impede um caso de virar cinco notas soltas
 > quando a conversa anda de canal.
+
+## Disciplina de links (vale para todos os perfis)
+
+**Nada de citação nua.** Um board é feito para ser reaberto dias depois, de outra máquina, sem a
+sessão que o criou. Toda entidade citada tem que ser clicável de dentro dele, senão o board vira um
+resumo bonito que obriga você a ir procurar tudo de novo, que é exatamente o trabalho que ele deveria
+poupar.
+
+| entidade | forma do link |
+|----------|---------------|
+| **PR** | `[#{n}](https://github.com/{owner}/{repo}/pull/{n})` — no painel, no frontmatter e na timeline |
+| **Ticket** | `[{TICKET}](https://linear.app/{LINEAR_ORG}/issue/{TICKET})`. Sem `LINEAR_ORG`, omitir o link, nunca inventar a org |
+| **Issue relacionada / bloqueante** | mesmo formato do ticket, na seção onde ela é citada |
+| **Commit** | `[{sha:0:7}](https://github.com/{owner}/{repo}/commit/{sha})` |
+| **Código** | permalink no SHA: `https://github.com/{owner}/{repo}/blob/{sha}/{path}#L{n}` |
+| **Board irmão** | wikilink `[[nome-do-arquivo-sem-extensão]]`, para o grafo do vault funcionar |
+| **Thread / mensagem** | o permalink real da superfície, nunca o nome do canal solto |
+| **Worktree / path local** | `` `código inline` ``, sem link (não é clicável e não deve fingir que é) |
+
+**A primeira linha do `🎯 Próximo Movimento` tem que conter o link do alvo da ação.** Se o próximo
+passo é "rodar `/flux:iterate` na PR", o número da PR ali é um link. É a linha que você lê primeiro
+ao reabrir o board, e é o lugar onde a falta de link mais custa.
+
+**Nunca inventar link.** Entidade que ainda não existe (PR não aberta, board filho não criado) fica
+`n/d` até existir. Um link quebrado num board é pior que a ausência dele: ele mente com aparência de
+verdade.
 
 ## Bloco de proveniência (cross-links bidirecionais)
 
