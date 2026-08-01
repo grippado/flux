@@ -52,6 +52,35 @@ O contexto principal é fino por construção. Ele faz:
 
 Tudo o mais é fan-out.
 
+### Lista fechada, não sugestão
+
+Os sete itens acima são **exaustivos**. Se uma ação não está em nenhum deles, ela **não roda na
+main**, e a pergunta certa não é "cabe aqui?" e sim "qual subagente faz isso?".
+
+Em particular, e são as violações mais comuns:
+
+| ação | onde a intuição erra | onde de fato roda |
+|------|----------------------|-------------------|
+| ler o `CLAUDE.md` do repo-alvo | "é um arquivo só" | subagente (carrega o root inteiro junto) |
+| conferir se o subagente fez direito | "é rápido reler" | outro subagente, ou confia no retorno |
+| abrir um segundo repo para comparar | "só uma olhada" | subagente por repo |
+| rodar `grep`/`find` amplo no checkout | "é barato" | subagente (`Explore`) |
+| reler o board para saber onde parou | "preciso do estado" | o board-keeper tem o estado |
+| chamar outro `flux:*` | "é da família" | subagente, sempre |
+
+### Auto-verificação (todo elo, antes de responder)
+
+Antes de emitir a resposta final, o elo confere e o veredito é binário:
+
+1. Todo trabalho que abriu repo, leu mais de 2 arquivos ou rodou outro `flux:*` foi para subagente?
+2. A main recebeu apenas retornos estruturados curtos, e não conteúdo bruto (diff, log de CI,
+   arquivo inteiro)?
+3. A main escreveu só onde tem direito (board/artefato), e nenhum subagente escreveu no mesmo lugar?
+4. Todo gate com o usuário aconteceu na main, nunca dentro de subagente?
+
+Qualquer "não" é violação da regra pétrea. **Declarar no output** o que rodou fora do contrato, em vez
+de esconder: um elo que violou e avisou é corrigível, um que violou calado vira precedente.
+
 ## Unidade de fan-out por elo
 
 Cada elo declara a sua, mas o padrão é este:
@@ -64,6 +93,7 @@ Cada elo declara a sua, mas o padrão é este:
 | `flux:iterate` | **Verificação**: um agente por lente sobre o lote de threads. **Execução**: um agente para aplicar+quality gate no worktree | specialists / `general-purpose` |
 | `flux:land` | **Uma PR** — um subagente rodando `/flux:iterate --auto --once` por PR | `general-purpose` |
 | `flux:build` | O motor de execução do repo inteiro (a main mantém o board de execução) | `general-purpose` |
+| Bootstrap de specialists | Detecção de stack, leitura de L3 e autoria da suite, em paralelo quando independentes | `general-purpose` |
 | `flux:issue` | **Um repo** por prospector | specialists / `Explore` |
 | `flux:reply` | **Um repo** por prospector + o answerer | `<SLACK_PROSPECTOR>` / `<SLACK_ANSWERER>` |
 

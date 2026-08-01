@@ -18,6 +18,10 @@ Toda review madura soma **três lentes**, e elas são cumulativas: nenhuma subst
 | **L2** | **Specialists locais** | a suite que **você** cura por repo (Zod schemas, hooks/service, POM de e2e, contratos, a11y, boundaries de módulo). Vive fora do repo, então evolui no teu ritmo e não depende de PR no projeto. | `<SPECIALISTS_ROOT>`, path do perfil |
 | **L3** | **Specialists do repo** | os agents de review que o **próprio repositório** versiona no `.claude/agents/`. Conhecimento do time que mantém o código. | `<repo-checkout>/.claude/agents/` |
 
+**L1 sempre roda.** Não é fallback de nada: é a lente de síntese, e sem ela uma review vira um
+apanhado de fatias sem visão de conjunto. Quando não há L2 nem L3, ele é tudo que se tem, e o elo
+oferece criar a suite local (ver Passo 5).
+
 **União, nunca ou/ou.** Havendo L2 **e** L3, rodam as duas. Um repo pode ter suite curada por você e
 suite própria do time, e as duas veem coisas diferentes: descartar uma porque a outra existe é perda
 de cobertura silenciosa.
@@ -122,15 +126,23 @@ Fundir `HOLISTIC_REPORT` + `L2_REPORT` + `L3_REPORT` num único `FINAL_REPORT`:
    - Quando corroboram, manter um único finding e anotar `(corroborado por <lente/specialist>)` no
      corpo. Quando se contradizem, manter como `question` explicitando a divergência.
 4. **Ordem das lentes como desempate** (regra secundária), quando o domínio não decide, o tema é
-   ambíguo, ou dois specialists de camadas diferentes dizem a mesma coisa com redações incompatíveis:
+   ambíguo, ou duas lentes dizem a mesma coisa com redações incompatíveis:
 
    ```
-   L1 (holístico)  >  L2 (specialists locais)  >  L3 (specialists do repo)
+   L2 (specialists locais)  >  L3 (specialists do repo)  >  L1 (holístico)
    ```
 
-   L3 fica por último de propósito: é a camada que você menos controla e a que mais envelhece sem
-   aviso, porque evolui no ritmo do repo e não no seu. **Desempate decide redação, nunca existência**:
-   o finding perdedor não some, ele é absorvido pelo vencedor com a proveniência anotada.
+   **O holístico é o último no desempate, e isso não o torna o menos importante.** Ele é a única
+   lente que enxerga cross-cutting e a única que sintetiza, por isso **sempre roda**. Mas quando ele
+   e um specialist falam do mesmo ponto, quem conhece o domínio estreito escreve melhor sobre ele:
+   um specialist de schema é mais confiável que o holístico numa questão de schema, e essa é a razão
+   de ter specialist.
+
+   **L2 na frente de L3** porque a suite local é curada por você, evolui no seu ritmo e você responde
+   por ela; a do repo evolui no ritmo do projeto e pode estar desatualizada sem aviso.
+
+   **Desempate decide redação, nunca existência**: o finding perdedor não some, é absorvido pelo
+   vencedor com a proveniência anotada.
 5. **Mapear severidade → badge** conforme `claude/shared/review-legend.md`. Os specialists usam
    `CRITICAL/IMPORTANT/NOTE`; mapear: `CRITICAL → request-change` (ou `breaking-change` se for
    contrato), `IMPORTANT → question` ou `suggestion` conforme bloqueie ou não, `NOTE → note`.

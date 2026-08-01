@@ -25,6 +25,7 @@ Onde ele fica no ciclo:
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (escrever sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
 **Disciplina de fan-out (despachar, não executar na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`
+**Bootstrap de specialists:** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
 **Formato do board:** `${FLUX_ROOT}/shared/board-template.md`, **perfil execução** (`type: build`). As seções, a legenda de ícones e a disciplina de carimbo de data vivem lá e não são repetidas aqui.
 **Orçamento de contexto (leitura sob demanda, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
 
@@ -207,6 +208,11 @@ de `${FLUX_ROOT}/shared/board-template.md` (`type: build`).
 
 > Despachando para `<repo>` via motor **nativo** (`/<EXEC_COMMAND>`): `<task>`. O motor do repo assume daqui.
 
+O banner de perfil (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) declara, além do motor escolhido,
+**quais camadas de specialists existem para este repo** (L2 local e L3 do repo). Elas não participam
+da execução, mas o build é frequentemente o primeiro elo a tocar um repo novo, e é aqui que você
+descobre que ele está sem cobertura. A oferta de criar vem no Step 4, depois do trabalho.
+
 ou, no fallback:
 
 > `<repo>` não tem motor nativo — despachando via `<EXEC_FALLBACK>` em worktree dedicado. Convenções vêm do `CLAUDE.md` do repo.
@@ -240,13 +246,17 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 
 ## Step 4 — Fechar o board e fazer o handoff
 
-1. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
+1. **Oferecer a suite local quando faltar.** Se o repo não tem L2 (suite de specialists local),
+   oferecer o Bootstrap agora, seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md`. **Aqui e não
+   antes**: quem pediu um build quer código, e uma entrevista sobre agents antes do trabalho é ruído.
+   Havendo L2, não perguntar nada.
+2. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.
-2. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
+3. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
    vai para `done` quando a PR nasce, e o board do `/flux:iterate` assume dali. Gravar
    `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
-3. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
+4. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
    válido e é o que torna a falha investigável depois. Não apagar o board.
 
 Ao final, o resultado é o do motor (tipicamente PR draft + CI monitorado). Feche apontando o próximo elo, escolhendo **um**:

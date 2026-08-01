@@ -20,6 +20,7 @@ Roda independente dos outros. Pensado para PRs com rodadas de bot reviewer, mas 
 
 **Legenda canônica de badges:** `${FLUX_ROOT}/shared/review-legend.md`
 **Contrato de agentes (descoberta + reconciliação):** `${FLUX_ROOT}/shared/review-agents.md`
+**Bootstrap de specialists (repo sem suite local):** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (escrever sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
 **Disciplina de fan-out (OBRIGATÓRIA — verificação e execução em subagente):** `${FLUX_ROOT}/shared/fanout-discipline.md`

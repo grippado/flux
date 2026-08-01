@@ -18,6 +18,7 @@ Não confundir com `mutirao`/`/convocar`: aqueles planejam e CRIAM PRs a partir 
 
 **Legenda canônica de badges (findings):** `${FLUX_ROOT}/shared/review-legend.md`
 **Contrato de agentes (specialists + reconciliação):** `${FLUX_ROOT}/shared/review-agents.md`
+**Bootstrap de specialists (repo sem suite local):** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (o iterate de cada PR escreve sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
 **Disciplina de fan-out (OBRIGATÓRIA — uma PR = um subagente; nada pesado na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`

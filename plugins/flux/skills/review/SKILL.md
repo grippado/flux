@@ -25,6 +25,7 @@ Skill orquestradora de review **formal**, despachada por verbo. Resolve o contex
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de fan-out (o contexto principal orquestra, os agentes trabalham):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Preflight:** `${FLUX_ROOT}/shared/preflight.md`
+**Bootstrap de specialists:** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
 
 ## Step 0-preflight: verificar pré-requisitos
 
@@ -597,61 +598,16 @@ separado para colar seria redundante.
 Em seguida (independente da escolha), seguir para a etapa **Bootstrap de repo-owner** se algum repo
 referenciado não tiver suite no ambiente.
 
-## Bootstrap de repo-owner (repo sem suite no ambiente)
+## Bootstrap de specialists (repo sem suite local)
 
-Acionada em **qualquer verbo**, depois de detectar o(s) repo(s) envolvido(s) e **após gravar a nota**.
+Acionada em **qualquer verbo**, depois de gravar o artefato, quando **L2 está ausente** para o repo.
 
-Para cada repo referenciado/alvo, resolver `SPECIALISTS_ROOT` (substituindo `{repo}` pelo repo-slug) e
-checar se o orquestrador de specialists existe.
+Contrato completo (onde escreve, quando oferecer, como gera, PR draft):
+`${FLUX_ROOT}/shared/bootstrap-specialists.md`. **Não duplicar a lógica aqui.**
 
-| perfil | onde a suite vive | destino da geração |
-|--------|-------------------|--------------------|
-| declarado com `specialists_root` | o template resolvido para o slug | o mesmo path |
-| genérico | `<repo-checkout>/.claude/agents/reviewer.md` | `<repo-checkout>/.claude/agents/` |
-
-Se o orquestrador de specialists existir, nada a fazer. Se **não** existir, o review já
-rodou normalmente (lendo o checkout direto) e agora oferece bootstrapar a suite via `AskUserQuestion`
-(single-select):
-
-- **Header:** `Bootstrap de agents?`
-- **Question:** `O repo \`<slug>\` não tem suite de agents no seu ambiente. Quer gerar um orquestrador + índice (e specialists base) a partir do código real?`
-- **Options:**
-  1. `Gerar e abrir PR draft (Recomendado)` — gera a suite e abre PR draft em `SPECIALISTS_REPO`.
-     **Só oferecer quando `SPECIALISTS_REPO` está declarado no perfil**; sem ele, a opção 2 vira a
-     recomendada e esta some.
-  2. `Só gerar localmente (sem PR)` — escreve os arquivos, sem branch/commit/PR.
-  3. `Agora não` — não faz nada (fica registrado na nota como sugestão).
-
-**Geração (opções 1 e 2).** Quando o perfil declara `SPECIALISTS_SPEC`, esse arquivo é a espec e rege
-o formato da suite. Sem ele, seguir o checklist mínimo abaixo:
-
-1. Confirmar repo-slug: `cd <WORKSPACE_ROOT>/<slug> && gh repo view --json name -q .name`.
-2. Ler `CLAUDE.md` do repo + detectar a stack (package.json / go.mod / Gemfile / pyproject / etc.).
-3. Delegar a autoria a um `general-purpose`, passando `SPECIALISTS_SPEC` como espec quando houver,
-   instruindo a escrever no destino da tabela acima: um **índice** (mapa dos módulos e grafo de deps),
-   um **orquestrador** adaptado à estrutura real (**não** copiado verbatim de outro repo), e
-   specialists base conforme o tipo de repo (ler código real antes de cada specialist).
-
-**PR draft (só opção 1)** — alvo é o `SPECIALISTS_REPO` do perfil, **nunca** o repo revisado:
-
-```bash
-cd <checkout de SPECIALISTS_REPO>
-git checkout -b feat/agents-<slug>-suite
-git add <destino da suite, relativo à raiz do repo>
-git commit -m "$(cat <<'EOF'
-feat(agents): add <slug> agent suite
-
-Co-Authored-By: Claude <noreply@anthropic.com>
-EOF
-)"
-git push -u origin feat/agents-<slug>-suite
-gh pr create --draft --repo <SPECIALISTS_REPO> --base <branch default do repo> \
-  --title "feat(agents): suite de agents para <slug>" \
-  --body-file <arquivo-de-corpo>
-```
-
-Corpo da PR e título sem em-dashes quando `NO_EMDASH == true`. Registrar na resposta do chat o link da PR
-draft (ou o path dos arquivos gerados, na opção 2).
+Ponto que o review não pode esquecer: a suite gerada é **L2, fora do repositório**. Se o repo já tem
+agents de review próprios, eles são L3, já entraram na review por descoberta, e o Bootstrap não os
+toca.
 
 ## Notas finais
 
