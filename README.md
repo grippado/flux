@@ -138,7 +138,7 @@ Um `flux-context.json` num `.claude/` de workspace ou repo. O comando procura o 
   "linear_org": "acme",
   "repos": ["backoffice", "rf-monorepo", "communication-api", "..."],
   "exec_command": "workflow",
-  "exec_fallback": "core:implement-task",
+  "exec_fallback": "acme:implement",
   "no_emdash": true
 }
 ```
@@ -154,7 +154,7 @@ A família **funciona sem configuração nenhuma**. Sem manifesto, cada comando 
 | Reviewer holístico | `pr-reviewer` (agente global, detecta a stack dinamicamente) |
 | Specialists | override local do repo: `<repo>/.claude/agents/reviewer.md`; sem isso, só holístico |
 | Persistência | não persiste; imprime no chat (`--save <dir>` no `flux:review`) |
-| Motor de execução | `/workflow` do repo; fallback `core:implement-task` |
+| Motor de execução | `/workflow` do repo; sem ele, o `exec_fallback` do perfil; sem ele, **modo autônomo** (worktree + `CLAUDE.md` + checks + PR draft) |
 | Travessão | permitido (`no_emdash: false`) |
 
 Quem instala a família já tem review holístico e execução funcionando em qualquer repo GitHub. Declarar um `flux-context.json` é o que **soma** specialists, persistência no vault e integrações do time.

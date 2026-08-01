@@ -13,8 +13,13 @@
   "workspace_root": "~/code/acme",
   "linear_org": "acme",
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
-  "repos": ["api-gateway", "web-monorepo", "notifications", "payments"],
+  "repos": [
+    "api-gateway",
+    "web-monorepo",
+    "notifications",
+    "payments"
+  ],
   "exec_command": "workflow",
-  "exec_fallback": "core:implement-task",
+  "exec_fallback": "meu-time:implement",
   "no_emdash": true
 }

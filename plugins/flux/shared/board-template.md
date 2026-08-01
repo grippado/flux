@@ -86,8 +86,8 @@ pending_organize: true
 # execução (build):
 repo: "<repo-slug>"                 # slug puro, sem a org
 ticket: <ENG-XXXX|null>
-engine: "<workflow|core:implement-task|...>"   # motor que de fato rodou
-engine_kind: nativo                 # nativo | fallback
+engine: "<nome do comando, ou 'autonomo'>"      # motor que de fato rodou
+engine_kind: nativo                 # nativo | fallback | autonomo
 worktree: "<path do worktree dedicado>"
 branch: "<branch criada>"
 pr: <número|null>                   # null até o motor abrir a PR

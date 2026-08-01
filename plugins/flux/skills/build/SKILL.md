@@ -1,6 +1,6 @@
 ---
 name: build
-description: Orquestrador `flux:build` — elo de execução da família: recebe um ticket/descrição e um repo, e despacha para o motor de execução nativo daquele repo (`/workflow`), caindo em `/core:implement-task` quando o repo não tem motor próprio. Produz código + PR draft. Não reimplementa pipeline de implementação. Global, resolve contexto via `flux-context.md`. Local apenas — CI e Forja ficam fora.
+description: Orquestrador `flux:build` — elo de execução da família: recebe um ticket/descrição e um repo, e despacha para o motor de execução nativo daquele repo (`/workflow`), caindo no `exec_fallback` do perfil ou no modo autônomo quando o repo não tem motor próprio. Produz código + PR draft. Não reimplementa pipeline de implementação. Global, resolve contexto via `flux-context.md`. Local apenas — CI e Forja ficam fora.
 user-invocable: true
 ---
 
@@ -46,7 +46,7 @@ Flags próprias do `flux:build` (consumidas aqui, **não** repassadas):
 | Flag | Efeito |
 |------|--------|
 | `--dry` | Resolve repo + motor, imprime o plano de despacho e **para**. Nada é executado. |
-| `--engine <cmd>` | Força o motor (ex.: `--engine core:implement-task`), pulando a descoberta do Step 2. |
+| `--engine <cmd>` | Força o motor (ex.: `--engine meu-time:implement`), pulando a descoberta do Step 2. |
 
 ### Exemplos
 
@@ -78,7 +78,7 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o diretório pai do `.claude/` onde o manifesto foi achado)
    - `REPOS` = `repos` (lista de repos conhecidos, usada para validar e sugerir)
    - `EXEC_COMMAND` = `exec_command` se presente, senão `workflow` (nome do comando nativo de execução dos repos deste contexto)
-   - `EXEC_FALLBACK` = `exec_fallback` se presente, senão `core:implement-task`
+   - `EXEC_FALLBACK` = `exec_fallback` se presente; **sem default** (ausente = modo autônomo)
    - `LINEAR_ORG` = `linear_org` (para normalizar IDs de ticket em URL, quando útil)
    - `VAULT_ROOT` = `vault_root` / `VAULT_CTX` = `vault_context` (onde o board de execução é gravado)
    - `NO_EMDASH` = `no_emdash`
@@ -87,7 +87,7 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `WORKSPACE_ROOT` = o `cwd`
    - `REPOS` = subdiretórios com `.git` do `cwd`
    - `EXEC_COMMAND` = `workflow`
-   - `EXEC_FALLBACK` = `core:implement-task`
+   - `EXEC_FALLBACK` = nenhum (modo autônomo)
    - `VAULT_ROOT` = não persiste por default (o board sai só no chat); `VAULT_CTX` = `generic`
    - `NO_EMDASH` = `false`
 
@@ -142,27 +142,38 @@ Em ordem, primeira opção que existir vence. Se `--engine` foi passado, pule di
 
 O repo declara o próprio pipeline: ele conhece escopo de testes, verificação local (Figma/curl/browser), gates e padrão de PR. Sempre prefira isto.
 
-**B) Fallback genérico** (`EXEC_FALLBACK`, default `core:implement-task`):
+**B) Fallback declarado pelo perfil** (`EXEC_FALLBACK`), **só quando o manifesto declara**:
 
-Usado quando o repo **não tem** motor nativo. Confirme que o comando de fallback está disponível na sessão (ele costuma vir de um plugin instalado, e o default `core:implement-task` vem do plugin `core`). Se estiver:
+Um time que já tem um comando de implementação próprio declara o nome dele em `exec_fallback`, e é
+esse que roda quando o repo não tem motor nativo. Confirme que o comando está disponível na sessão:
 
 ```
 ENGINE="fallback"
 ```
 
-Neste caminho, **você** é responsável pela disciplina que o motor nativo daria de graça:
+> **`exec_fallback` não tem valor default, e isso é deliberado.** Um comando de implementação que
+> venha de um plugin específico é conhecimento **do time que o instalou**, não da família. Assumir um
+> default faria o `flux:build` tentar invocar, na máquina de quem clonou, um comando de um
+> marketplace ao qual essa pessoa talvez nem tenha acesso. Quem tem um, declara.
+
+**C) Modo autônomo** (nem motor nativo, nem `exec_fallback` declarado):
+
+O caminho universal, e o que faz o `flux:build` funcionar em qualquer repo Git sem configuração
+nenhuma. **Não abortar**: despachar um `general-purpose` que assume a disciplina que um motor nativo
+daria de graça.
+
+```
+ENGINE="autonomo"
+```
+
+Nos caminhos **B** e **C**, a disciplina abaixo é responsabilidade do elo, não do motor:
 - Trabalhar em **worktree dedicado** — ver `${FLUX_ROOT}/shared/worktree-discipline.md`. Nunca na árvore principal do repo.
 - Ler o `CLAUDE.md` do repo antes de escrever (convenções do repo vencem qualquer default).
 - Rodar os checks que o repo declarar (lint/typecheck/test) antes de abrir a PR.
+- Abrir a PR como **draft**, sempre.
 
-**C) Nenhum dos dois** → pare com mensagem clara:
-
-```
-'<repo>' não tem /<EXEC_COMMAND> nativo e o fallback '<EXEC_FALLBACK>' não está disponível nesta sessão.
-Opções: abrir sessão em repo mode, habilitar o plugin core, ou usar --engine <cmd> explicitamente.
-```
-
-> Repos sem motor nativo caem no fallback, o que antes era um erro morto.
+Declarar no banner qual dos três caminhos rodou. O modo autônomo é um resultado legítimo, não uma
+falha, mas quem o roda precisa saber que rodou sem os gates do repo.
 > **Antes de cair no fallback, procure uma skill nativa mais específica.** Um repo pode não ter `/<EXEC_COMMAND>` e ainda assim declarar skills próprias para o tipo de trabalho pedido (uma suíte E2E com skills de teste, por exemplo). Nesse caso, ofereça a skill nativa ao usuário em vez do fallback genérico.
 
 ---

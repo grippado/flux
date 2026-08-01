@@ -38,7 +38,6 @@ Se achar → **perfil declarado**. Se não achar → **perfil genérico** (abaix
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
   "repos": ["api-gateway", "web-monorepo", "notifications", "payments", "..."],
   "exec_command": "workflow",
-  "exec_fallback": "core:implement-task",
   "no_emdash": true
 }
 ```
@@ -71,8 +70,10 @@ Se achar → **perfil declarado**. Se não achar → **perfil genérico** (abaix
 - `repos` — repos conhecidos do contexto (usado por `flux:land` pra resolver targets cross-repo).
 - `exec_command` — nome do comando **nativo de execução** dos repos deste contexto, usado pelo `flux:build`
   pra descobrir o motor (`<repo>/.claude/commands/<exec_command>.md`). Default: `workflow`.
-- `exec_fallback` — comando usado pelo `flux:build` quando o repo não tem motor nativo.
-  Default: `core:implement-task`.
+- `exec_fallback` — comando de implementação **do seu time**, usado pelo `flux:build` quando o repo
+  não tem motor nativo. **Sem default, deliberadamente**: um comando vindo de um plugin específico é
+  conhecimento de quem o instalou, não da família, e assumir um faria o `build` invocar, na máquina
+  de outra pessoa, algo de um marketplace ao qual ela pode nem ter acesso. Ausente → modo autônomo.
 - `no_emdash` — quando `true`, o output que pode ser postado no GitHub não usa travessão/en-dash.
 
 ## Perfil genérico (sem manifesto)
@@ -88,8 +89,9 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
   `<repo-checkout>/.claude/agents/review/*.md`. Sem isso → só holístico (fallback gracioso).
 - `vault_root` = não persiste por default (só imprime no chat); `flux:review` pode receber `--save <dir>`.
 - `workspace_root` = o próprio `cwd`; `repos` = subdiretórios com `.git`.
-- `exec_command` = `workflow`; `exec_fallback` = `core:implement-task` (o `flux:build` degrada para o
-  fallback e avisa quando o repo não tem motor nativo).
+- `exec_command` = `workflow`; `exec_fallback` = nenhum. Sem motor nativo e sem fallback declarado, o
+  `flux:build` roda em **modo autônomo** (worktree + `CLAUDE.md` do repo + checks declarados + PR
+  draft) e diz no banner que rodou sem os gates do repo.
 - `no_emdash` = `false`.
 
 Assim, qualquer pessoa que instale a família `flux:` já tem review holístico funcionando em qualquer
