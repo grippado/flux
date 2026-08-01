@@ -63,12 +63,21 @@ Resolver `HOLISTIC` **nesta ordem**, parando no primeiro que existir:
 
 1. `holistic_reviewer` do `flux-context.json`, quando há manifesto.
 2. Override local do repositório: `<repo-checkout>/.claude/agents/reviewer.md`.
-3. Genérico da família: `pr-reviewer`.
+3. Genérico da família, **tentando as duas formas nesta ordem**: `flux:pr-reviewer` e depois
+   `pr-reviewer`.
+
+> **Por que duas formas do genérico.** Instalado via marketplace, o agent do plugin é registrado
+> **com o prefixo do plugin**: `flux:pr-reviewer`. Num checkout direto (ou com o agent copiado para
+> `~/.claude/agents/`), ele é `pr-reviewer`, sem prefixo. As duas instalações são legítimas, então o
+> preflight aceita as duas e para na primeira que existir. Resolver só a forma sem prefixo faria a
+> família abortar em toda instalação por plugin, que é o caminho recomendado do README.
 
 Depois de resolver, **verificar que o agente existe** antes de invocar.
 
 - Existe → seguir.
-- Não existe → `UNAVAILABLE`. Abortar nomeando **qual** agente foi procurado e **onde**.
+- Não existe → `UNAVAILABLE`. Abortar nomeando **qual** agente foi procurado e **onde**. Quando o
+  que falhou foi o genérico, dizer as duas formas tentadas (`flux:pr-reviewer` e `pr-reviewer`), para
+  que quem instalou de um jeito diferente saiba o que declarar no manifesto.
 
 > **Nunca improvisar um reviewer inline.** Um parecer produzido fora do contrato de saída não é
 > comparável com os demais e contamina qualquer métrica de qualidade agregada sobre os artefatos.

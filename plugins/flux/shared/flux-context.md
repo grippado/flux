@@ -79,8 +79,10 @@ Se achar → **perfil declarado**. Se não achar → **perfil genérico** (abaix
 
 Quando nenhum `flux-context.json` é encontrado, o comando cai no default universal:
 
-- `holistic_reviewer` = `pr-reviewer` (agente genérico global, detecta stack dinamicamente).
-- `doc_reviewer` = `pr-reviewer` em modo doc.
+- `holistic_reviewer` = o genérico da família (detecta a stack dinamicamente), resolvido como
+  `flux:pr-reviewer` quando instalado via marketplace ou `pr-reviewer` num checkout direto. Ver
+  `preflight.md`, Passo 3.
+- `doc_reviewer` = o mesmo genérico, em modo doc.
 - `answerer` = o próprio `flux:iterate --dry` sem agente dedicado.
 - `specialists_root` = override local do repo: `<repo-checkout>/.claude/agents/reviewer.md` ou
   `<repo-checkout>/.claude/agents/review/*.md`. Sem isso → só holístico (fallback gracioso).

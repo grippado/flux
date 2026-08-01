@@ -1,12 +1,18 @@
 {
   "name": "flux",
   "description": "Ciclo de trabalho agêntico para qualquer repo Git: issue, build, peek, review, iterate, land e reply. Global e context-agnóstico, com o que é específico do seu time vindo de um manifesto, nunca hardcoded.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": {
     "name": "Gabriel Gripp",
     "email": "550632+grippado@users.noreply.github.com"
   },
   "homepage": "https://github.com/grippado/flux",
   "license": "MIT",
-  "keywords": ["code-review", "pull-request", "agents", "workflow", "orchestration"]
+  "keywords": [
+    "code-review",
+    "pull-request",
+    "agents",
+    "workflow",
+    "orchestration"
+  ]
 }

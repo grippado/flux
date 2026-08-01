@@ -35,8 +35,8 @@ falta.
 Antes de tudo, resolver o perfil de contexto conforme `claude/shared/flux-context.md` (holistic
 reviewer, doc reviewer, raiz dos specialists, repos conhecidos, vault). Os nomes de agente abaixo
 (`<HOLISTIC>`, `<SPECIALISTS_ROOT>`) vêm desse perfil. Num perfil declarado resolvem para o reviewer
-e a raiz de specialists locais do time; sem manifesto, `<HOLISTIC>` cai no `pr-reviewer` genérico e
-L2 fica ausente.
+e a raiz de specialists locais do time; sem manifesto, `<HOLISTIC>` cai no genérico da família
+(`flux:pr-reviewer` ou `pr-reviewer`, ver `preflight.md` Passo 3) e L2 fica ausente.
 
 > **L3 independe do perfil.** Os agents de review do próprio repo são descobertos sempre, com ou sem
 > manifesto. Eles não são o *fallback* de L2: são uma lente própria, que soma.
