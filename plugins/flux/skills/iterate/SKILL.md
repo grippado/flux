@@ -76,7 +76,7 @@ As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo` e `--parent-
 - Não resolver thread humana que esteja em `needs-discussion` (ver guardrail no passo 7).
 - Não retentar escrita em repo cross-org sem acesso — capturar o erro e reportar.
 - **Não editar título nem descrição de PR de terceiro.** A reconciliação do passo 8a só vale para PR cuja `author.login` é a conta autenticada; em PR de outra pessoa, a correção vira sugestão em comentário. Nunca reescrever texto alheio.
-- **Não mexer no prefixo de ticket do título** (`[CPU-1234]`, `[AIPROD-000]`). É chave de rastreabilidade para Linear e CI; trocar ou remover quebra automação em silêncio.
+- **Não mexer no prefixo de ticket do título** (`[ENG-1234]`, `[PROD-000]`). É chave de rastreabilidade para Linear e CI; trocar ou remover quebra automação em silêncio.
 - **Não renomear título que só ficou genérico.** Renomeia-se apenas título que nomeia desenho refutado. A barra do título é mais alta que a da descrição, porque ele vira mensagem de squash commit e circula em notificação.
 - **Não regerar a descrição da PR do zero.** Editar sempre sobre o body atual, cirurgicamente. Body regenerado apaga contexto humano (links de PRs irmãs, checklist marcada pelo revisor) de forma silenciosa e irreversível pela UI.
 - Em modo `--dry`: **nunca** escrever no GitHub (sem reply, sem reação, sem resolve, sem commit, sem push).
@@ -421,7 +421,7 @@ para sempre. Renomear no meio da review confunde quem procura pelo nome antigo. 
   agora. Título que apenas ficou genérico, ou que você escreveria melhor hoje, **não se toca**. A barra é
   mais alta que a da descrição, não igual.
 - **Preservar a convenção do repo, não inventar formato.** Inferir o padrão dos títulos das PRs vizinhas
-  (`gh pr list --limit 20 --json number,title`) e manter exatamente: prefixo de ticket (`[CPU-1234]`,
+  (`gh pr list --limit 20 --json number,title`) e manter exatamente: prefixo de ticket (`[ENG-1234]`,
   `[AIPROD-000]`), tipo e escopo de Conventional Commit (`docs(shared):`), e convenções de escrita do repo
   — incluindo **se o repo escreve título sem acento**, caso em que não se acentua o título novo mesmo com
   a regra geral de PT-BR acentuado valendo para o corpo. O que muda é só o miolo que ficou errado.
@@ -638,6 +638,15 @@ Passar o **mesmo input** (`/flux:iterate <pr>`, que já reentra no watch por ser
 Se o feed de PRs no Slack estiver configurado no perfil, emitir uma atualização a cada **transição** relevante: `nova-rodada-fechada`, `ci-vermelho`, `ci-corrigido-tentativa`, `ci-verde`, `descricao-reconciliada`, `assentou`, `mergeada`. Usar o updater do feed (canvas vivo + ping no thread). Se o feed não estiver configurado, **pular silenciosamente** o hook, o watch funciona sem ele.
 
 ---
+
+## Bootstrap de specialists (repo sem suite local)
+
+Ao **assentar a PR** (fim do watch, ou fim da passada com `--once`), se o repo estiver **sem L2**,
+oferecer a criação da suite local seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md`. Nunca
+antes: fechar a PR é a prioridade, e a oferta no meio do loop é ruído.
+
+A suite gerada é **L2, fora do repositório**. Se o repo tem agents de review próprios, eles são L3,
+já entraram na verificação por descoberta, e o Bootstrap não os toca.
 
 ## Notas finais
 

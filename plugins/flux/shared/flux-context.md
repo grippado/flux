@@ -51,15 +51,15 @@ Se achar → **perfil declarado**. Se não achar → **perfil genérico** (abaix
   redigir a réplica). Opcionais; sem eles, o `flux:reply` cai em `general-purpose` e declara a perda
   no banner de perfil.
 - `specialists_root` — template de path (com `{repo}`) para achar o orquestrador de specialists.
-  Ver `claude/shared/review-agents.md` passo 1.
+  Ver `${FLUX_ROOT}/shared/review-agents.md` passo 1.
 - `linear_ops` — path de um doc que descreve a **mecânica** de criação no Linear do time (cache de
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
 - `specialists_spec` — path da espec que rege a autoria de uma suite de specialists nova (formato dos
-  arquivos, o que cada specialist cobre). Consumido pelo Bootstrap de repo-owner do `flux:review`.
+  arquivos, o que cada specialist cobre). Consumido pelo Bootstrap de specialists (`flux:review`, `flux:iterate`, `flux:land` e `flux:build`).
   Opcional: sem ele, o Bootstrap usa o checklist mínimo embutido no comando.
 - `specialists_repo` — repo (`owner/nome`) onde as suites versionadas vivem, e alvo do PR draft que o
-  Bootstrap abre. **Nunca é o repo revisado.** Opcional: sem ele, o Bootstrap só escreve local e não
+  Bootstrap de specialists abre. **Nunca é o repo revisado.** Opcional: sem ele, o Bootstrap só escreve local e não
   oferece a opção de PR.
 - `vault_root` / `vault_context` — onde persistir o artefato e qual `context:` gravar no frontmatter.
 - `workspace_root` — raiz onde os checkouts dos repos vivem, usada por

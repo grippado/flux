@@ -187,7 +187,7 @@ cronológicas e nenhuma delas de status.
    - **Pendência**: a pergunta ou decisão em uma frase, do jeito que ela precisa ser respondida. Não é
      resumo de assunto ("visibilidade de canal"), é o que está travado ("read-only bloqueia só iniciar
      conversa ou também responder?").
-   - **Bola com**: quem precisa agir. Nome de pessoa, sempre — `Gabriel`, `Alex`, `Cla`. Nunca "time" ou
+   - **Bola com**: quem precisa agir. Nome de pessoa, sempre — `Ana`, `Bruno`, `Cris`. Nunca "time" ou
      "produto": pendência sem dono nomeado é pendência que não anda. Se não há dono definido, o valor é
      `⚠️ sem dono` e isso vira item do Próximo Movimento.
    - **Superfície**: onde essa pendência está viva agora (casa com uma entrada de `surfaces:`). Uma
@@ -213,7 +213,7 @@ cronológicas e nenhuma delas de status.
    | ícone | significado |
    |---|---|
    | 🟣 | **RESOLVIDA** — respondida ou decidida; fica no painel como registro histórico |
-   | 🟢 | **RESPONDIDA** — o Gabriel já respondeu/entregou; a bola está com o outro lado |
+   | 🟢 | **RESPONDIDA** — você já respondeu/entregou; a bola está com o outro lado |
    | 🔒 | **BLOQUEIA** — trava o próximo passo concreto do caso (virar ticket, subir PR, fechar o chamado) |
    | 🟡 | **ABERTA** — perguntada, sem resposta ainda |
    | 🔧 | **APURANDO** — prospector rodando / verificação de código em andamento |
@@ -261,7 +261,7 @@ cronológicas e nenhuma delas de status.
      a MESMA ação insere uma linha aqui. Um tick sem novidade substantiva não gera linha (evita ruído),
      mas ainda rola o carimbo de data das outras seções.
 
-7. **✅ Ação / Continuidade (HITL)** — checklist `- [ ]` de itens acionáveis para o Gabriel continuar a
+7. **✅ Ação / Continuidade (HITL)** — checklist `- [ ]` de itens acionáveis para o usuário continuar a
    parte humana (pedir review, criar flag, rodar QA). Marcar `- [x]` quando resolvido, não apagar a linha.
 
 7-bis. **🔗 Boards de iterate por PR** *(só no perfil multi-PR / delivery-flow)* — lista em prosa (não
@@ -283,7 +283,7 @@ cronológicas e nenhuma delas de status.
    | quando | superfície | quem entrou | por que mudou |
    |---|---|---|---|
    | 30/07 09:48 | [#helpdesk-comunicacao](url) (thread) | Mariana, Alex | origem: chamado da escola |
-   | 31/07 09:46 | [DM Alex](url) | Alex | Gabriel levou o texto para validação antes de postar |
+   | 31/07 09:46 | [DM Bruno](url) | Bruno | Ana levou o texto para validação antes de postar |
    | 31/07 16:05 | [#agenda-e-conversas-ptd](url) (thread) | Cla, Torres | Alex escalou para design + EM |
 
    - **Toda superfície nova é registrada aqui na mesma rodada em que é lida.** Migração de contexto é
@@ -322,7 +322,7 @@ cronológicas e nenhuma delas de status.
    - Estados: `PENDENTE` (salvo, não enviado), `ENVIADO`, `⚠️ INVALIDADO` (achado posterior derrubou
      parte do texto), `DESCARTADO`.
    - **Rascunho invalidado é evento de primeira classe**: gera linha na Timeline de Eventos (tipo
-     `decisão`) e item no Próximo Movimento. Um draft errado parado nos drafts do Gabriel é uma armadilha
+     `decisão`) e item no Próximo Movimento. Um draft errado parado nos drafts do usuário é uma armadilha
      esperando o dia em que ele apertar enviar sem reler.
 
 ## Disciplina de carimbo de data (vale para todos os perfis)

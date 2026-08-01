@@ -20,7 +20,7 @@ Toda review madura soma **três lentes**, e elas são cumulativas: nenhuma subst
 
 **L1 sempre roda.** Não é fallback de nada: é a lente de síntese, e sem ela uma review vira um
 apanhado de fatias sem visão de conjunto. Quando não há L2 nem L3, ele é tudo que se tem, e o elo
-oferece criar a suite local (ver Passo 5).
+oferece criar a suite local (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
 
 **União, nunca ou/ou.** Havendo L2 **e** L3, rodam as duas. Um repo pode ter suite curada por você e
 suite própria do time, e as duas veem coisas diferentes: descartar uma porque a outra existe é perda
@@ -36,7 +36,7 @@ falta.
 
 ## Resolução de contexto
 
-Antes de tudo, resolver o perfil de contexto conforme `claude/shared/flux-context.md` (holistic
+Antes de tudo, resolver o perfil de contexto conforme `${FLUX_ROOT}/shared/flux-context.md` (holistic
 reviewer, doc reviewer, raiz dos specialists, repos conhecidos, vault). Os nomes de agente abaixo
 (`<HOLISTIC>`, `<SPECIALISTS_ROOT>`) vêm desse perfil. Num perfil declarado resolvem para o reviewer
 e a raiz de specialists locais do time; sem manifesto, `<HOLISTIC>` cai no genérico da família
@@ -56,10 +56,17 @@ não cancela a outra.
 
 ### 1a — L2, specialists locais
 
-`SPECIALISTS_L2 = <SPECIALISTS_ROOT>` com `{repo}` substituído pelo `REPO_SLUG`. Achou o arquivo →
-L2 disponível (é um orquestrador: ele resolve os próprios specialists). Não achou → L2 ausente.
+Resolver o caminho **nesta ordem**, parando no primeiro que existir:
 
-Sem `specialists_root` no perfil, L2 é sempre ausente. Isso é esperado no perfil genérico.
+1. `<SPECIALISTS_ROOT>` do perfil, com `{repo}` substituído pelo `REPO_SLUG`.
+2. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o mesmo destino
+   que o Bootstrap usa quando não há manifesto (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
+
+Achou → L2 disponível (é um orquestrador: ele resolve os próprios specialists). Não achou → ausente.
+
+> **Por que o nível 2 existe.** Sem ele, uma suite gerada pelo Bootstrap no perfil genérico seria
+> escrita em disco e **nunca carregada**: o elo ofereceria criá-la de novo a cada review, para um repo
+> que já tem uma. Descoberta e escrita têm que olhar para o mesmo lugar.
 
 ### 1b — L3, specialists do repo
 
@@ -143,7 +150,7 @@ Fundir `HOLISTIC_REPORT` + `L2_REPORT` + `L3_REPORT` num único `FINAL_REPORT`:
 
    **Desempate decide redação, nunca existência**: o finding perdedor não some, é absorvido pelo
    vencedor com a proveniência anotada.
-5. **Mapear severidade → badge** conforme `claude/shared/review-legend.md`. Os specialists usam
+5. **Mapear severidade → badge** conforme `${FLUX_ROOT}/shared/review-legend.md`. Os specialists usam
    `CRITICAL/IMPORTANT/NOTE`; mapear: `CRITICAL → request-change` (ou `breaking-change` se for
    contrato), `IMPORTANT → question` ou `suggestion` conforme bloqueie ou não, `NOTE → note`.
 6. **Escopo:** finding em arquivo fora do diff da PR entra como `note` marcada `[dívida pré-existente]`,
@@ -151,7 +158,7 @@ Fundir `HOLISTIC_REPORT` + `L2_REPORT` + `L3_REPORT` num único `FINAL_REPORT`:
 
 O `FINAL_REPORT` resultante segue o mesmo formato de output do reviewer holístico (seções
 `SUMARIO / COMENTARIOS / CHECKLIST / VEREDITO / STATUS / PRIORIDADE`). **O corpo de cada finding
-reconciliado abre com o banner-imagem do badge** (ver `claude/shared/review-legend.md` — Banner do
+reconciliado abre com o banner-imagem do badge** (ver `${FLUX_ROOT}/shared/review-legend.md` — Banner do
 badge: é imagem `[![...]...]`, nunca link de texto `[...]()`, senão sai sem cor na PR).
 
 ## Passo 4 — Cobertura (substitui a seção Benchmark)

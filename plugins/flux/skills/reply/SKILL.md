@@ -6,9 +6,9 @@ user-invocable: true
 
 # /flux:reply
 
-Skill orquestradora para **acompanhar um caso de trabalho no Slack com embasamento de codebase**, despachada por verbo. Coleta a conversa, delega a colheita de fatos a prospectors (um por repo, em paralelo), delega a redação ao answerer, mantém um **board vivo** no vault Obsidian, e só age no Slack (salvar rascunho, reagir) após escolha explícita do Gabriel via `AskUserQuestion`.
+Skill orquestradora para **acompanhar um caso de trabalho no Slack com embasamento de codebase**, despachada por verbo. Coleta a conversa, delega a colheita de fatos a prospectors (um por repo, em paralelo), delega a redação ao answerer, mantém um **board vivo** no vault Obsidian, e só age no Slack (salvar rascunho, reagir) após escolha explícita do usuário via `AskUserQuestion`.
 
-A ação recomendada é sempre **salvar como rascunho** (`slack_send_message_draft`), para o Gabriel revisar antes de enviar. **Nunca** envia mensagem de fato sozinho.
+A ação recomendada é sempre **salvar como rascunho** (`slack_send_message_draft`), para o usuário revisar antes de enviar. **Nunca** envia mensagem de fato sozinho.
 
 **A unidade de trabalho é o CASO, não a thread.** Uma discussão de trabalho raramente fica onde nasceu: sai do helpdesk, vira DM para validação, e volta como thread num canal de time com mais gente. Isso é normal, não excepcional. O board acompanha o caso por todas as superfícies (ver `## Casos multi-superfície`), em vez de deixar cada mudança de canal virar uma nota órfã.
 
@@ -41,7 +41,7 @@ Sem manifesto: `VAULT_ROOT` = não persiste por default (só imprime o board no 
 |-------|---------|-----------|-------|
 | `responder` | `draft`, `reply` | Núcleo. Lê a conversa, colhe dados, redige resposta embasada, julga (Maria Bonita), cria/atualiza o board, oferece rascunho. Depois fica vigiando (watch default), salvo `--once`. | board em `<VAULT_ROOT>/0-inbox/` + rascunho Slack |
 | `acompanhar` | `watch` | Igual ao `responder`, forma explícita do modo watch (fica de olho nas superfícies do caso; novidades realimentam o board). | mesmo board, cresce por rodada |
-| `mudou` | `migrou`, `move` | **Migração explícita de contexto.** O Gabriel informa que o caso continua em outro lugar. Registra a superfície nova no board existente (sem criar board novo), lê o que já rolou lá, reconcilia o que foi levado contra o dossiê, e segue o pipeline normal a partir da superfície nova. | mesmo board + nova superfície |
+| `mudou` | `migrou`, `move` | **Migração explícita de contexto.** O o usuário informa que o caso continua em outro lugar. Registra a superfície nova no board existente (sem criar board novo), lê o que já rolou lá, reconcilia o que foi levado contra o dossiê, e segue o pipeline normal a partir da superfície nova. | mesmo board + nova superfície |
 
 `resumir` e `reagir` são fase 2 (reusam a mesma infra) — não implementados aqui.
 
@@ -74,10 +74,10 @@ TARGET="${TARGETS[-1]}"                      # a superfície ATUAL é sempre a �
 ```
 
 - Se não há permalink Slack válido em `TARGETS`, **abortar** com mensagem pedindo o link (`/flux:reply responder <permalink>`).
-- **A superfície atual é a ÚLTIMA da lista.** Quando o Gabriel passa dois links ("era nessa thread, agora o papo tá aqui"), o primeiro é histórico e o último é onde a conversa está viva agora.
-- `--board <path>` assume um board existente em vez de procurar/criar. Atalho para quando o Gabriel já sabe qual é.
+- **A superfície atual é a ÚLTIMA da lista.** Quando o usuário passa dois links ("era nessa thread, agora o papo tá aqui"), o primeiro é histórico e o último é onde a conversa está viva agora.
+- `--board <path>` assume um board existente em vez de procurar/criar. Atalho para quando o usuário já sabe qual é.
 - **Watch é DEFAULT-ON**: depois da 1ª passada, o comando fica vigiando o caso até assentar. `--once` (alias `--no-watch`) faz uma passada só.
-- **Linguagem natural conta como sinal de migração.** Se o pedido do Gabriel descreve movimento ("moveram pra cá", "o papo continuou em", "mandei por DM e ele respondeu em", "agora tá no canal X"), tratar como `mudou` mesmo sem o verbo literal. Ele não vai lembrar de digitar o verbo; o comando é que tem que reconhecer a situação.
+- **Linguagem natural conta como sinal de migração.** Se o pedido do usuário descreve movimento ("moveram pra cá", "o papo continuou em", "mandei por DM e ele respondeu em", "agora tá no canal X"), tratar como `mudou` mesmo sem o verbo literal. Ele não vai lembrar de digitar o verbo; o comando é que tem que reconhecer a situação.
 
 ### Resolver o permalink → `channel_id` + `thread_ts`
 
@@ -107,7 +107,7 @@ Confirmar que as MCP tools do Slack (`mcp__plugin_slack_slack__*`) estão dispon
 
 ## Out of scope (NUNCA faça sem escolha explícita)
 
-- **Nunca** `slack_send_message` (enviar de fato na thread). A ação de enviar é sempre do Gabriel, no Slack, revisando o rascunho.
+- **Nunca** `slack_send_message` (enviar de fato na thread). A ação de enviar é sempre do usuário, no Slack, revisando o rascunho.
 - **Nunca** `slack_add_reaction` fora da opção escolhida no menu final (passo 8). Reagir é efeito externo visível.
 - Salvar rascunho (`slack_send_message_draft`) é a **única** ação com efeito no Slack que pode ser automática — e só no modo watch em background (é privado, reversível, não notifica ninguém). Na passada interativa, mesmo o rascunho passa pelo menu.
 - Não escrever em lugar nenhum exceto: o board no vault (`<VAULT_ROOT>/0-inbox/`), o sidecar de estado do watch (`<VAULT_ROOT>/.slack-watch/`), e o rascunho no Slack quando autorizado.
@@ -122,17 +122,17 @@ Um caso vive em N superfícies ao longo do tempo. O board é do **caso**; `surfa
 Antes de criar board novo, procurar um board existente do mesmo caso:
 
 1. **Por superfície:** grep em `<VAULT_ROOT>/0-inbox/` por boards `type: thread` cujo `surfaces[].channel_id` case com `CHANNEL_ID` (e `thread_ts`, quando houver). Casou → é este board, atualiza.
-2. **Por permalink histórico:** se o Gabriel passou mais de um link, casar por **qualquer** um deles. O link antigo é justamente o que reencontra o board.
+2. **Por permalink histórico:** se o usuário passou mais de um link, casar por **qualquer** um deles. O link antigo é justamente o que reencontra o board.
 3. **Por tema, quando 1 e 2 falham:** se a superfície nova for desconhecida mas a conversa citar explicitamente uma thread já registrada (Slack marca `Forwarded message from`, ou o texto traz o permalink), casar por aí.
 4. Nada casou → board novo.
 
-**Nunca criar um segundo board para um caso que já tem um.** Caso fragmentado em várias notas é exatamente o problema que o board resolve. Na dúvida entre dois candidatos, perguntar ao Gabriel via `AskUserQuestion` em vez de chutar.
+**Nunca criar um segundo board para um caso que já tem um.** Caso fragmentado em várias notas é exatamente o problema que o board resolve. Na dúvida entre dois candidatos, perguntar ao usuário via `AskUserQuestion` em vez de chutar.
 
 ### Registrar a superfície nova
 
 Ao entrar numa superfície que ainda não está no board:
 
-1. **Ler o que já rolou lá** (`slack_read_thread` se há `thread_ts`; `slack_read_channel` se é DM/canal), incluindo as mensagens anteriores à entrada do Gabriel — o contexto que os outros já construíram importa.
+1. **Ler o que já rolou lá** (`slack_read_thread` se há `thread_ts`; `slack_read_channel` se é DM/canal), incluindo as mensagens anteriores à entrada do usuário — o contexto que os outros já construíram importa.
 2. **Resolver os interlocutores novos** (`slack_read_user_profile`), inclusive cargo/título: saber que quem entrou é EM, designer ou PM muda o que a resposta precisa endereçar.
 3. **Acrescentar a entrada em `surfaces:`** e a linha no 🧭 Rastro do caso, com o motivo da mudança.
 4. **Marcar a superfície anterior** como `migrada` (nada pendente lá) ou `parada` (ficou pendência aberta). Pendência que ficou para trás continua no painel, apontando a superfície velha.
@@ -140,7 +140,7 @@ Ao entrar numa superfície que ainda não está no board:
 
 ### Reconciliação do encaminhamento (o passo que justifica tudo)
 
-Quando alguém escala a conversa, quase sempre **encurta** o que o Gabriel escreveu: corta números, ressalvas, riscos. O resultado é um time novo decidindo com menos informação do que o board tem, sem ninguém perceber.
+Quando alguém escala a conversa, quase sempre **encurta** o que o usuário escreveu: corta números, ressalvas, riscos. O resultado é um time novo decidindo com menos informação do que o board tem, sem ninguém perceber.
 
 Então, ao registrar superfície nova, **comparar item a item** o que chegou lá contra os 🔬 Achados e o painel:
 
@@ -150,7 +150,7 @@ Então, ao registrar superfície nova, **comparar item a item** o que chegou lá
 
 ### Rascunhos órfãos
 
-Um draft salvo numa superfície que virou `migrada`/`parada` **precisa ser reavaliado**: ou continua válido, ou virou `⚠️ INVALIDADO`. Isso vai para a seção ✍️ Rascunhos e para o Próximo Movimento. Draft errado parado nos drafts do Gabriel é armadilha esperando o dia em que ele apertar enviar sem reler.
+Um draft salvo numa superfície que virou `migrada`/`parada` **precisa ser reavaliado**: ou continua válido, ou virou `⚠️ INVALIDADO`. Isso vai para a seção ✍️ Rascunhos e para o Próximo Movimento. Draft errado parado nos drafts do usuário é armadilha esperando o dia em que ele apertar enviar sem reler.
 
 ## Pipeline `responder` / `acompanhar` / `mudou`
 
@@ -174,16 +174,16 @@ Se o verbo é `mudou` (ou a superfície é nova), executar aqui a rotina de `## 
 
 Do texto da thread, extrair:
 - **Repos citados** — casar contra a lista de `REPOS` do contexto resolvido (ou contra repos detectados localmente em `WORKSPACE_ROOT` se sem manifesto).
-- **PRs / tickets** — regex `#\d+` e `[A-Z]{2,5}-\d+` (ex.: `CPU-4122`).
+- **PRs / tickets** — regex `#\d+` e `[A-Z]{2,5}-\d+` (ex.: `ENG-4122`).
 - **Claims / perguntas** — as afirmações e dúvidas que pedem embasamento de código.
 
-Mapear cada repo → checkout `<WORKSPACE_ROOT>/<repo-slug>` (confirmar com `ls`). Repo sem checkout local vira alvo cross-repo → LACUNA (o answerer degrada com tom assertivo + hedge, decisão do Gabriel).
+Mapear cada repo → checkout `<WORKSPACE_ROOT>/<repo-slug>` (confirmar com `ls`). Repo sem checkout local vira alvo cross-repo → LACUNA (o answerer degrada com tom assertivo + hedge, decisão do usuário).
 
 Para cada PR/ticket extraído, **derivar e guardar a URL canônica** — ela é obrigatória no rascunho (ver `## Convenção de citações`).
 
 ### 3a. Convenção de citações (PADRÃO de escrita de rascunho)
 
-Toda referência a **PR** (`#NNNN`) e a **issue do Linear** (`ABC-NNNN`) no rascunho Slack **DEVE** virar hyperlink mrkdwn `<url|texto>`, nunca texto cru. O texto visível permanece a citação curta (`#1077`, `CPU-4308`); só o alvo do link é a URL. Aplicar em **todas** as ocorrências, inclusive repetidas.
+Toda referência a **PR** (`#NNNN`) e a **issue do Linear** (`ABC-NNNN`) no rascunho Slack **DEVE** virar hyperlink mrkdwn `<url|texto>`, nunca texto cru. O texto visível permanece a citação curta (`#1077`, `ENG-4308`); só o alvo do link é a URL. Aplicar em **todas** as ocorrências, inclusive repetidas.
 
 Derivação da URL canônica:
 - **PR** `#NNNN` → `https://github.com/<ORG>/<repo>/pull/NNNN`, onde `<repo>` é o repo ao qual a PR pertence (inferido do contexto; se ambíguo, resolver antes de linkar).
@@ -213,7 +213,7 @@ Delegar ao `<ANSWERER>` (um só) via Task tool, passando:
 - Os `ACHADOS` de todos os investigadores.
 - Os perfis dos interlocutores (nomes + `user_id`).
 - As reações existentes na mensagem-alvo.
-- Contexto: canal, se a raiz é do próprio Gabriel, e qual mensagem motivou esta rodada.
+- Contexto: canal, se a raiz é do próprio usuário, e qual mensagem motivou esta rodada.
 
 Passar também, quando o board já existe: as **pendências em aberto** do painel (para o rascunho não repetir pergunta já feita nem ignorar pergunta que ficou sem resposta) e o **dossiê acumulado** (para o rascunho poder citar fato de rodada anterior sem reprospecção).
 
@@ -253,7 +253,7 @@ Não repetir o rascunho inteiro no chat. O board é a fonte de verdade. Em segui
 Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva.
 
 **`JULGAMENTO = responder`** — "Rascunho pronto para a thread em `#{canal}`. O que fazer?":
-1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`. Fica nos drafts do Gabriel para revisar e enviar. **Nunca** `slack_send_message`.
+1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`. Fica nos drafts do usuário para revisar e enviar. **Nunca** `slack_send_message`.
 2. `Salvar rascunho + acompanhar` — grava o draft e entra no watch.
 3. `Só documentar (não rascunhar agora)` — o board já está atualizado, encerra.
 4. `Reagir com emoji em vez de responder` — mostra emoji sugerido, confirma, `slack_add_reaction`.
@@ -270,7 +270,7 @@ Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nun
 2. `Acompanhar mesmo assim` (entra no watch, caso espere desdobramento).
 3. `Forçar rascunho de resposta`.
 
-**Heurística de PR própria:** se a mensagem **raiz** da thread é do próprio Gabriel e o que falta é resposta de terceiros, a recomendada de `responder` passa a ser a opção `Salvar rascunho + acompanhar` (o próximo movimento é dos outros, não dele).
+**Heurística de PR própria:** se a mensagem **raiz** da thread é do próprio usuário e o que falta é resposta de terceiros, a recomendada de `responder` passa a ser a opção `Salvar rascunho + acompanhar` (o próximo movimento é dos outros, não dele).
 
 Se a thread é só ruído (nada acionável e `JULGAMENTO = nada` sem desdobramento esperado), pular o passo 9 e encerrar.
 
@@ -317,18 +317,18 @@ Dentro de qualquer bloco de rascunho: nada de headers `#` nem tabelas markdown. 
   ```
   Sidecar antigo no formato por-thread (`<channel_id>-<thread_ts>.json`) continua sendo lido: migrar para o formato por-caso na primeira oportunidade, preservando `lastSeenTs`. Se o sidecar sumir, reconstruir do `surfaces:` do board e do maior `ts` registrado na Timeline (o board é a fonte durável).
 - **Cadência do `delaySeconds`** (Slack é mais lento que CI): caso quente (mensagem nova nos últimos ~15min) → **600s**; caso morno (aguardando, sem novidade) → **1800s**. `reason` específico, ex.: `"watch caso canal-read-only: aguardando Torres em #agenda-e-conversas-ptd, re-checo em 1800s"`.
-- **Detecção de delta**: cada tick lê cada superfície ativa (`slack_read_thread` se há `thread_ts`, senão `slack_read_channel`) e computa o delta = mensagens com `ts > lastSeenTs` **daquela superfície**, excluindo as do próprio Gabriel e as triviais (só emoji / "valeu" / 👍 / LGTM). Numa superfície de canal, checar também respostas **no canal** à mensagem-raiz, não só na thread.
-- **Ação por tick (background, Gabriel ausente):**
+- **Detecção de delta**: cada tick lê cada superfície ativa (`slack_read_thread` se há `thread_ts`, senão `slack_read_channel`) e computa o delta = mensagens com `ts > lastSeenTs` **daquela superfície**, excluindo as do próprio usuário e as triviais (só emoji / "valeu" / 👍 / LGTM). Numa superfície de canal, checar também respostas **no canal** à mensagem-raiz, não só na thread.
+- **Ação por tick (background, o usuário ausente):**
   - Delta não vazio → roda passos 2-7 com escopo no delta. Para cada mensagem nova, o answerer julga:
     - `responder` → **auto-salvar o rascunho** (`slack_send_message_draft` na superfície certa, privado e reversível) + registrar em ✍️ Rascunhos e na Timeline. **Nunca** enviar.
     - `reagir` → registrar o emoji sugerido como **pendência** no board. Não reagir sozinho.
     - `nada` → registrar "sem ação: {motivo}" na Timeline Verbosa.
     - `round++`, atualizar `lastSeenTs` **da superfície**, zerar `quietTicks`.
-  - **Delta que revela superfície nova** (alguém encaminhou o caso para outro canal, ou o Gabriel foi marcado em outro lugar sobre o mesmo assunto) → rodar `## Casos multi-superfície`: registrar em `surfaces:`, reconciliar o encaminhamento, e passar a varrer a nova. **Não abrir board novo.**
+  - **Delta que revela superfície nova** (alguém encaminhou o caso para outro canal, ou o usuário foi marcado em outro lugar sobre o mesmo assunto) → rodar `## Casos multi-superfície`: registrar em `surfaces:`, reconciliar o encaminhamento, e passar a varrer a nova. **Não abrir board novo.**
   - Delta vazio em todas as superfícies ativas → `quietTicks++`.
   - **Toda pendência do painel envelhece**: um tick que encontra pendência `🔒 BLOQUEIA` parada há mais de ~2 dias promove ela no 🎯 Próximo Movimento e diz isso no relatório de saída.
 - **Condição de parada ("assentou"):**
-  - Caso resolvido (desfecho detectado ou Gabriel encerrou) → `execution_status: done` e todas as pendências fechadas ou explicitamente transferidas (para uma issue, um board de delivery, ou o backlog).
+  - Caso resolvido (desfecho detectado ou o usuário encerrou) → `execution_status: done` e todas as pendências fechadas ou explicitamente transferidas (para uma issue, um board de delivery, ou o backlog).
   - `quietTicks >= 3` (sem novidade por ~1h30 morno) → encerra avisando.
   - Guardrails: `round > 8` ou watch ativo > ~8h → para e pede olhada manual.
   - Usuário interrompe a sessão.

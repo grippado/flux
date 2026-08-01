@@ -8,7 +8,7 @@
 > **Não confundir com os irmãos:**
 > - `review-legend.md` — os badges em si (vocabulário, cores, banners, regras de STATUS).
 > - `review-artifact-template.md` — o `.md` completo que fica no vault. Rico, longo, com findings
->   inteiros e permalinks. É pro Gabriel.
+>   inteiros e permalinks. É para o usuário.
 > - **este arquivo** — o resumo curto que abre a review no GitHub. É pro autor da PR e pra quem passa
 >   os olhos. Ele **não repete os findings inline**: aponta, contextualiza e dá o veredito.
 >

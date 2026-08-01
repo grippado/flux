@@ -47,7 +47,7 @@ Nada de citação nua. Se o texto aponta para código, PR, thread, ticket ou doc
 - Título de cada finding é uma **frase descritiva** do problema, não "problema 1" ou "finding N".
 - `code inline` para todo identificador (função, flag, variável, path). Bloco cercado ```ts / ```diff
   para separar o trecho de código do texto corrido.
-- Sem em-dash (—) em qualquer campo que o Gabriel possa colar/postar quando `NO_EMDASH == true`.
+- Sem em-dash (—) em qualquer campo que o usuário possa colar/postar quando `NO_EMDASH == true`.
 
 ---
 
@@ -149,7 +149,7 @@ fix/decisão concreta. Convergência entre lentes: anotar "(corroborado por {spe
 - [ ] {item acionável HITL — ex.: levar a #f1 ao PO: draft preenchido entra em modo edição?}
 - [ ] {alinhar description × código, etc.}
 
-(Checklist do que o Gabriel precisa fazer na parte humana. Marcar `- [x]` quando resolver, não apagar.)
+(Checklist do que o usuário precisa fazer na parte humana. Marcar `- [x]` quando resolver, não apagar.)
 
 ## 🔗 Cobertura & referências
 
@@ -310,7 +310,7 @@ Formato:
 - **Veredito:** procede | procede parcialmente | não procede | precisa de dado que não tenho
 
 ```text
-{réplica pronta, primeira pessoa, no tom do Gabriel. Descreve a edição já feita, não a intenção.}
+{réplica pronta, primeira pessoa, no tom do usuário. Descreve a edição já feita, não a intenção.}
 ```
 ```
 

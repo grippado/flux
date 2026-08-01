@@ -30,7 +30,7 @@ O contexto principal recebe só o retorno estruturado.
 Fazer o mesmo trabalho inline carrega esse lastro **permanentemente** na main (10-20k tokens **por
 repo**, ~14k por skill `flux:` viva, restaurados a cada compact — medições em `context-budget.md`).
 Três PRs em dois repos feitas inline estouram a janela sozinhas e jogam a sessão em thrashing de
-autocompact. Já aconteceu: delivery CPU-4404/4405/4403, 2026-07-24.
+autocompact. Já aconteceu: uma entrega real de 3 PRs cross-repo.
 
 O ganho secundário, mas real: fan-out é **paralelo**. N unidades independentes despachadas juntas
 levam o wall-clock da mais lenta, não a soma.
@@ -44,7 +44,7 @@ O contexto principal é fino por construção. Ele faz:
    JSON pequeno, filtrado na origem, que alimenta decisão de roteamento.
 3. **Roteamento** — decidir quais unidades existem e despachar os subagentes.
 4. **Fan-in** — reconciliar os retornos e formar o veredito.
-5. **HITL** — `AskUserQuestion` e qualquer gate com o Gabriel. Subagente **não tem canal com o
+5. **HITL** — `AskUserQuestion` e qualquer gate com o usuário. Subagente **não tem canal com o
    usuário**: um gate dentro de subagente trava o fluxo em silêncio.
 6. **Board / artefato no vault** — escrita serializada num só lugar, para não haver corrida entre
    subagentes escrevendo a mesma nota.

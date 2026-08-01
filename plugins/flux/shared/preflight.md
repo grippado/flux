@@ -108,8 +108,11 @@ lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
 degradacoes: {lista dos soft ausentes e o que se perde com cada um | nenhuma}
 ```
 
-A linha `lentes` sai em todo elo que reconcilia review (`flux:review`, `flux:iterate`,
-`flux:land`), com as três camadas de `${FLUX_ROOT}/shared/review-agents.md`. **Camada ausente é
+A linha `lentes` sai em todo elo que reconcilia review (`flux:review`, `flux:iterate`, `flux:land`)
+**e também no `flux:build`**, com as três camadas de `${FLUX_ROOT}/shared/review-agents.md`. O build
+não usa as lentes para executar, mas é frequentemente o primeiro elo a tocar um repo novo, e é onde
+se descobre que ele está sem cobertura: sem a linha, a oferta de Bootstrap no fim chegaria sem
+contexto nenhum. **Camada ausente é
 declarada, nunca omitida**: é a diferença entre "o repo não tem specialists" e "eu não procurei".
 
 Exemplo em máquina sem configuração alguma:

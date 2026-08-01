@@ -29,7 +29,7 @@ Não confundir com `mutirao`/`/convocar`: aqueles planejam e CRIAM PRs a partir 
 | Forma | Significado |
 |-------|-------------|
 | `/flux:land <url-issue-linear>` | Descobre as PRs da issue (ex.: ticket CPU-/MOM-) |
-| `/flux:land CPU-4335 CPU-4262 CPU-4261` | Múltiplas issues, entrega agregada |
+| `/flux:land ENG-4335 ENG-4262 ENG-4261` | Múltiplas issues, entrega agregada |
 | `/flux:land <url-pr> <url-pr> ...` | Conjunto explícito de PRs (quando o naming não ajuda) |
 | `/flux:land ... --once` | Uma passada só (desliga o watch consolidado) |
 | `/flux:land ... --solo` | Pula os specialists de regressão; roda só o holístico |
@@ -47,7 +47,7 @@ As flags podem aparecer em qualquer posição e combinadas.
 4. **Montar** o grafo de ordem + locks de merge → refletir no painel.
 5. **Validar** regressão de subida de cada PR (contra o código real de `main`) → refletir no painel.
 6. **Iterar** cada PR acionável **despachando um subagente por PR** (que roda `/flux:iterate --auto --once` lá dentro) para deixá-la merge-ready → atualizar a linha dela no painel com o retorno curto de cada subagente.
-7. **Pedido de review no Slack** (gatilho: PR sai de draft) → perguntar ao Gabriel onde postar e registrar no board.
+7. **Pedido de review no Slack** (gatilho: PR sai de draft) → perguntar ao usuário onde postar e registrar no board.
 8. **Consolidar** o go/no-go no board.
 9. **Watch consolidado** (default): reagendar e repetir até assentar, atualizando o board a cada tick.
 
@@ -116,7 +116,7 @@ ONCE=false; SOLO=false; BOARD=""
 
 ### 1. Descoberta das PRs
 
-**Regra de ouro (não pular): PR não vive só em `claude/<ticket-id>`.** Follow-ups, hotfixes e PRs abertas por outro contexto/pessoa depois da descoberta inicial usam naming totalmente diferente (`claude/<ticket-id>-2`, `fix/<ticket-id>-...`, `<username>/<ticket-id>-...`) e às vezes até base branch diferente (`release-train-terca`, não só `main`). Buscar só por `--head "claude/<ticket-id>"` PERDE essas PRs silenciosamente — já aconteceu (CPU-4335 teve 3 PRs adicionais descobertas só porque o Gabriel reparou depois). Por isso a descoberta é **por conteúdo (título/corpo), não por branch** — branch-match é só um cross-check secundário.
+**Regra de ouro (não pular): PR não vive só em `claude/<ticket-id>`.** Follow-ups, hotfixes e PRs abertas por outro contexto/pessoa depois da descoberta inicial usam naming totalmente diferente (`claude/<ticket-id>-2`, `fix/<ticket-id>-...`, `<username>/<ticket-id>-...`) e às vezes até base branch diferente (`release-train-terca`, não só `main`). Buscar só por `--head "claude/<ticket-id>"` PERDE essas PRs silenciosamente — já aconteceu (uma entrega teve 3 PRs adicionais descobertas só porque o usuário reparou depois). Por isso a descoberta é **por conteúdo (título/corpo), não por branch** — branch-match é só um cross-check secundário.
 
 Para cada target:
 
@@ -146,7 +146,7 @@ Para cada target:
 
 - **URLs de PR** no input: usar direto (`{owner}/{repo}/pull/{n}`).
 
-- **Issues-irmãs descobertas em runtime:** se o corpo de alguma PR encontrada mencionar outro ticket que não estava nos targets originais, **não absorva silenciosamente nem ignore** — pare e pergunte ao Gabriel se esse ticket entra no escopo desta entrega ou fica só como referência cruzada no board.
+- **Issues-irmãs descobertas em runtime:** se o corpo de alguma PR encontrada mencionar outro ticket que não estava nos targets originais, **não absorva silenciosamente nem ignore** — pare e pergunte ao usuário se esse ticket entra no escopo desta entrega ou fica só como referência cruzada no board.
 
 Dedup e monte `PRS[]`. Para cada PR, confira se o **repo** tem checkout local (`<WORKSPACE_ROOT>/<repo>`):
 
@@ -210,7 +210,7 @@ Regras 1, 2 e 3): rodar o iterate inline carrega, no contexto principal e **para
 `CLAUDE.md` + todos os `.claude/rules/**` do repo daquela PR (10-20k tokens **por repo**) mais a
 skill `flux:iterate` (~14k tokens, restaurada a cada compact). Num delivery de 3 PRs em 2 repos
 isso sozinho estoura a janela e joga a sessão em thrashing de autocompact — já aconteceu
-(delivery CPU-4404/4405/4403).
+(medido numa entrega real de 3 PRs).
 
 Dentro do subagente, o comando é o mesmo de sempre:
 
@@ -218,7 +218,7 @@ Dentro do subagente, o comando é o mesmo de sempre:
 /flux:iterate <url-da-pr> --auto --once --parent-board "<path-do-board-deste-delivery>"
 ```
 
-O `--auto` pula confirmação (o subagente não tem canal com o Gabriel — sem ele o iterate trava);
+O `--auto` pula confirmação (o subagente não tem canal com o usuário — sem ele o iterate trava);
 o `--once` garante que o watch é do delivery (consolidado), não N watches por PR; o
 `--parent-board` passa o caminho DESTE board de delivery para o iterate, que então (a) marca no
 board de iterate filho que ele nasceu de um delivery, com link reverso, e (b) permite fechar o
@@ -256,7 +256,7 @@ não gerou board de iterate: `n/d`.
 
 ### 4b. Pedido de review no Slack (gatilho: PR sai de draft)
 
-**Gatilho:** em qualquer tick, se uma PR tinha `isDraft: true` na última leitura e agora está `isDraft: false` — seja porque o Gabriel tirou o draft manualmente, seja porque o `/flux:iterate` chegou nesse estado. Não dispara para PR que nasceu já `ready for review` fora de um tick observado; nesse caso, ofereça a mesma pergunta como parte da confirmação da fase 4, se o Gabriel não tiver pedido review ainda.
+**Gatilho:** em qualquer tick, se uma PR tinha `isDraft: true` na última leitura e agora está `isDraft: false` — seja porque o usuário tirou o draft manualmente, seja porque o `/flux:iterate` chegou nesse estado. Não dispara para PR que nasceu já `ready for review` fora de um tick observado; nesse caso, ofereça a mesma pergunta como parte da confirmação da fase 4, se o usuário não tiver pedido review ainda.
 
 **Agrupamento:** se mais de uma PR da MESMA issue/ticket vira `ready for review` no mesmo tick, agrupe todas num ÚNICO pedido de review.
 
@@ -268,18 +268,18 @@ Pergunte via `AskUserQuestion` (single-select):
   1. `Canal do time (Recomendado)` — `Posta só no canal de PRs do próprio time dono do repo. Sem cc — é o canal certo, o time já está lá.`
   2. `#code-review (escopo aberto)` — `Posta no canal geral #code-review, com "cc @<time>" para chamar atenção de fora do time.`
   3. `Nos dois canais` — `Posta a mesma mensagem no canal do time E no #code-review.`
-  4. `Não postar agora` — `Só registra no board que a PR está pronta pra review; o Gabriel posta manualmente.`
+  4. `Não postar agora` — `Só registra no board que a PR está pronta pra review; o usuário posta manualmente.`
 
 **Formato da mensagem** (uma linha `:open-pr:` por PR, agrupadas pelo mesmo ticket):
 
 ```
-:open-pr:  [CPU-4262] Ajusta visual do banner de ativação de notificações < backoffice
-:open-pr:  [CPU-4262] Ajusta visual do banner de ativação de notificações < rf-monorepo
+:open-pr:  [ENG-4262] Ajusta visual do banner de ativação de notificações < backoffice
+:open-pr:  [ENG-4262] Ajusta visual do banner de ativação de notificações < rf-monorepo
 ```
 
 A linha `cc @<time>` **só aparece quando o post vai para `#code-review`** — no canal do próprio time nunca entra.
 
-**Descobrir canal do time e handle de cc:** inferir o squad a partir do time Linear da issue ou de memória salva. Não existe mapeamento confiável automatizado repo/squad → canal/handle; se não souber com confiança, **perguntar ao Gabriel** antes de postar — nunca adivinhar um nome de canal Slack.
+**Descobrir canal do time e handle de cc:** inferir o squad a partir do time Linear da issue ou de memória salva. Não existe mapeamento confiável automatizado repo/squad → canal/handle; se não souber com confiança, **perguntar ao usuário** antes de postar — nunca adivinhar um nome de canal Slack.
 
 Após postar, registrar o canal usado e o link da mensagem no board (Timeline de Eventos Relevantes, tipo `review`). **Registro no estado:** cada PR em `prs[]` ganha os campos `wasDraft`, `reviewRequestedAt` e `reviewRequestedChannel` (para não perguntar de novo na mesma PR).
 
@@ -315,7 +315,7 @@ painel com N linhas — uma por PR da entrega). Todas as seções (Frontmatter �
 ```json
 {
   "slug": "cpu4335-4262-4261",
-  "issues": ["CPU-4335", "CPU-4262", "CPU-4261"],
+  "issues": ["ENG-4335", "ENG-4262", "ENG-4261"],
   "board": "<VAULT_ROOT>/0-inbox/....md",
   "prs": [
     { "repo": "<ORG>/backoffice-bff", "number": 1054, "worktree": "...",
@@ -358,6 +358,14 @@ Em qualquer saída, **relatório final** no chat: ordem de merge recomendada, ve
 - PT-BR com acentuação correta. Texto postado no GitHub (via iterate) segue as convenções do iterate (sem em-dash quando `NO_EMDASH == true`, markdown com backticks, etc.).
 - O board é doc interno do vault; timeline em horário local.
 - Verificação vem antes de tudo: nenhum veredito de regressão sem confirmação no código real. Vale igual dentro do watch.
+
+## Bootstrap de specialists (repos sem suite local)
+
+No **go/no-go final**, para cada repo da entrega que estiver **sem L2**, oferecer a criação da suite
+local seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md`. Uma oferta por repo no máximo, e
+sempre depois do veredito: a entrega é o produto, a suite é consequência.
+
+A suite gerada é **L2, fora do repositório** revisado.
 
 ## Notas finais
 

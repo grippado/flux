@@ -100,7 +100,7 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 - Não aprovar nem mergear (`gh pr review --approve`, `gh pr merge`)
 - Não escrever em lugar nenhum exceto: o arquivo final no vault; e (opcionalmente) a review da PR via `gh api` no Step 8; e, no modo "aplicar correções", os arquivos de código + commit na branch da PR própria.
 
-**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via `AskUserQuestion`, a ação pós-review. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio Gabriel** (aplicar as correções recomendadas em commits semânticos). Nunca agir sem o usuário escolher uma opção positiva.
+**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via `AskUserQuestion`, a ação pós-review. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Nunca agir sem o usuário escolher uma opção positiva.
 
 ## Inputs aceitos
 
@@ -166,7 +166,7 @@ gh api users/{login} --jq .name
 # se vier null/vazio, usa só o login
 ```
 
-Detectar se a PR é **do próprio Gabriel** (decide o menu do Step 8). Buscar também o assignee:
+Detectar se a PR é **do próprio usuário** (decide o menu do Step 8). Buscar também o assignee:
 
 ```bash
 ME=$(gh api user -q .login)
@@ -338,9 +338,9 @@ Em seguida, vá direto para o Step 8 (sem esperar input adicional do usuário). 
 
 Se há PR aberta e comentários acionáveis no review, perguntar via `AskUserQuestion` (uma única question, single-select). **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline.
 
-#### 8a. PR do próprio Gabriel (`IS_OWN_PR == true`)
+#### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 
-Postar comentário pra si mesmo não agrega; o valor é aplicar a correção. Antes de perguntar, se a PR ainda não tiver o Gabriel como assignee, atribuir:
+Postar comentário pra si mesmo não agrega; o valor é aplicar a correção. Antes de perguntar, se a PR ainda não tiver o usuário como assignee, atribuir:
 
 ```bash
 gh pr edit $PR_NUMBER --repo $REPO_FULL --add-assignee "$ME"
@@ -365,7 +365,7 @@ Perguntar via `AskUserQuestion` (single-select):
 - **Header:** `Postar na PR?`
 - **Question:** `Quer postar algum subset dos comentários direto na PR #{number}?`
 - **Options (nessa ordem):**
-  1. `Prioridades + praise (Recomendado)` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline. Padrão histórico do Gabriel.`
+  1. `Prioridades + praise (Recomendado)` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline. Padrão histórico do usuário.`
   2. `Só prioridades` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE inline. Sem praise.`
   3. `Tudo` — descrição: `Posta todos os comentários do review (request-change, breaking-change, question, suggestion, praise) inline. note nunca vai.`
   4. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
@@ -456,7 +456,7 @@ threads de PR). Se a leitura falhar (sem acesso / mime não suportado), abortar 
 **não** gravar arquivo parcial.
 
 **Detectar autoria (decide a seção de respostas e o menu do d8).** Guardar `IS_OWN_DOC` (bool):
-`true` quando o e-mail/nome do Gabriel aparece como autor no corpo do doc (linhas do tipo "escrito
+`true` quando o e-mail/nome do usuário aparece como autor no corpo do doc (linhas do tipo "escrito
 por", "autor", "responsável") **ou** quando ele é owner/writer do arquivo no Drive. Quando o corpo
 não deixar claro, confirmar com:
 
@@ -464,7 +464,7 @@ não deixar claro, confirmar com:
 mcp__claude_ai_Google_Drive__get_file_permissions  { fileId: docId }
 ```
 
-Co-autoria conta como própria: se o Gabriel é um dos autores, `IS_OWN_DOC = true`. Na dúvida
+Co-autoria conta como própria: se o usuário é um dos autores, `IS_OWN_DOC = true`. Na dúvida
 irredutível, tratar como `true` (o custo de gerar respostas que ele não vai usar é baixo; o de omitir
 é ele descobrir as threads na mão).
 

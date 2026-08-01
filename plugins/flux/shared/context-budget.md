@@ -10,7 +10,7 @@ o contexto enche, compacta, e volta a encher em 2-3 turnos, repetidamente. A cau
 volume de trabalho — é o **lastro estático**: material que o compact **não consegue comprimir**
 porque é reinjetado inteiro depois do resumo.
 
-Três fontes de lastro, medidas numa sessão real (delivery CPU-4404/4405/4403, 2026-07-24):
+Três fontes de lastro, medidas numa sessão real (uma entrega real de 3 PRs cross-repo):
 
 | Fonte | Custo medido |
 |-------|--------------|
