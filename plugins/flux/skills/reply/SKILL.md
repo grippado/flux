@@ -343,5 +343,5 @@ Dentro de qualquer bloco de rascunho: nada de headers `#` nem tabelas markdown. 
 - **Um caso, um board.** Antes de criar, procurar (`## Casos multi-superfície`). Caso espalhado em várias notas é o problema que o board existe para resolver.
 - **O dossiê é o ativo.** Os 🔬 Achados sobrevivem às rodadas e são o insumo direto de `/flux:issue` quando o caso vira issue. Reprospectar o que já está ancorado é desperdício; contradizer sem riscar o antigo é perda de rastro.
 - Se a leitura do Slack falhar (canal sem acesso, permalink inválido), avisar e abortar sem gravar parcial.
-- **Elo com o resto da família:** caso que amadurece vira issue por `/flux:issue` (que consome o dossiê), e entrega multi-PR vira `/flux:land`. Registrar o link forward na seção ✅ Ação / Continuidade quando isso acontecer.
+- **Elo com o resto da família:** caso que amadurece vira issue por `/flux:issue` (que consome o dossiê), e entrega multi-PR vira `/flux:land`. Registrar o link forward na seção ✅ Ação / Continuidade quando isso acontecer. O cross-link fecha dos dois lados: o board de exploração do `/flux:issue` grava o path deste board em `origin_board:` (perfil exploração do `board-template.md`).
 - O comando roda em **workspace mode**, com o plugin `slack@claude-plugins-official` e os agents `<PROSPECTOR>`/`<ANSWERER>` disponíveis.

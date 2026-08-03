@@ -87,23 +87,13 @@ uma **independentemente entregável** (tracer bullet, atravessa as camadas neces
 camada), **1 repo por issue**. Criar os blockers primeiro (pra ter IDs reais nos `blockedBy`). Propor a
 lista numerada e aprovar em lote, nunca por issue.
 
-## Rascunho no vault (antes do Linear)
+## Onde este corpo é gravado
 
-O `flux:issue` grava o rascunho revisável em `<VAULT_ROOT>/linear/YYYY-MM-DD-<slug>.md`:
+Este documento define **o corpo da issue**, e só isso. O corpo é escrito na seção
+**📝 Rascunho da issue** (7-sexies) do **board de exploração** do `flux:issue` — uma subseção por
+candidata do painel. O frontmatter, o caminho no vault (`<VAULT_ROOT>/linear/YYYY-MM-DD-<slug>.md`), o
+versionamento entre rodadas do gate e o ciclo de vida da nota vivem em
+[`board-template.md`](board-template.md), **perfil exploração**. Não duplicar nada disso aqui: definir
+frontmatter em dois lugares é garantir que os dois divirjam.
 
-```yaml
----
-date: "YYYY-MM-DD"
-type: issue-draft
-context: "{VAULT_CTX}"
-source: "{slack-permalink | pr-url | texto}"
-repos: [{repos envolvidos}]
-labels_propostas: { tipo: "...", application: "...", agent_autonomy: "AFK|HITL", prioridade: N }
-linear_ids: []           # preenchido após criação
-pending_organize: true
-tags: [issue-draft, {repo}, {tema}]
----
-```
-
-O corpo é a(s) issue(s) já no formato acima. Só após aprovação (HITL) o comando cria no Linear e
-grava os `linear_ids`/URLs de volta neste arquivo.
+Só após aprovação (HITL) o comando cria no Linear e grava os `linear_ids`/URLs de volta no board.
