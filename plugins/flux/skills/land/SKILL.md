@@ -21,6 +21,7 @@ Não confundir com `mutirao`/`/convocar`: aqueles planejam e CRIAM PRs a partir 
 **Bootstrap de specialists (repo sem suite local):** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (o iterate de cada PR escreve sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
+**Gate de integração com a base (conflito bloqueia merge-ready):** `${FLUX_ROOT}/shared/merge-conflict-gate.md`
 **Disciplina de fan-out (OBRIGATÓRIA — uma PR = um subagente; nada pesado na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Orçamento de contexto (OBRIGATÓRIO — delivery é multi-repo, é o comando que mais sofre):** `${FLUX_ROOT}/shared/context-budget.md`
 
@@ -240,10 +241,17 @@ literalmente este retorno, e nada além dele:
 - threads: <resolvidas>/<total>
 - issueComments: <respondidos>/<acionáveis>   # top-level, não vêm no reviewThreads
 - ci: <passing | failing | pending | n/d>
+- mergeable: <MERGEABLE | CONFLICTING | UNKNOWN>
+- conflito: <n/a | resolvido:<rebase|merge> | bloqueado:<semantico|terceiro|no-rebase|abortado>>
 - isDraft: <true|false>
 - pushed: <true|false>
 - bloqueios: <lista curta, ou nenhum>
 ```
+
+Os campos `mergeable` e `conflito` são **o sinal estruturado** do gate de integração
+(`${FLUX_ROOT}/shared/merge-conflict-gate.md`): sem eles o delivery teria que inferir conflito lendo
+prosa de N relatórios, o que é frágil justamente no dado que decide o go/no-go. `conflito: bloqueado:*`
+⇒ a PR entra em **`hold`** no painel com o motivo, e não recebe `go`.
 
 Proibido no retorno: diffs, conteúdo de arquivo, log de CI cru, transcrição do que foi feito.
 O contexto principal **não relê** os arquivos que o subagente tocou para conferir — confia no
@@ -347,7 +355,9 @@ Cada **tick**:
 
 **Condições de saída (encerrar o watch):**
 - Todas as PRs `MERGED`/`CLOSED`.
-- **Assentou**: todas merge-ready (CI verde + zero threads + veredito `safe`/`needs-order` resolvido) por **2 ticks** (`quietTicks >= 2`) → emitir **go/no-go final** com a ordem e encerrar.
+- **Assentou**: todas merge-ready (CI verde + zero threads + **`mergeable == MERGEABLE`** + veredito `safe`/`needs-order` resolvido) por **2 ticks** (`quietTicks >= 2`) → emitir **go/no-go final** com a ordem e encerrar.
+
+> **Conflito com a base é `no-go` por PR, não detalhe de merge.** O `mergeable` já vem na descoberta (fase 1); uma PR `CONFLICTING` **não** é merge-ready, e o gate quem aplica é o `/flux:iterate` da fase 4 dentro do subagente daquela PR (passo 2b dele, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`). O land não resolve conflito por conta própria: ele lê o retorno do iterate, marca a PR como `hold` no painel quando o gate ficou em modo degradado, e nunca emite `go` para PR conflitante. Numa entrega, isso é ainda mais crítico que numa PR só: a ordem de merge existe justamente porque mergear a #A muda a base da #B, então uma #B já conflitante tende a piorar a cada merge do lote.
 - Limite de segurança: `>~6h` sem assentar → encerrar avisando (provável discussão humana/CI cronicamente vermelho).
 - Usuário interrompe.
 

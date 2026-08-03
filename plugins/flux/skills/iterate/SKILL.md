@@ -1,6 +1,6 @@
 ---
 name: iterate
-description: "Orquestrador `flux:iterate` — fecha o loop de UMA PR (verifica threads contra o código real, aplica correções, responde, reage 👍/👎, resolve, commita, pusha, vigia CI + bot). `--dry` rascunha réplicas read-only e salva no vault. Global, resolve contexto via `flux-context.md`."
+description: "Orquestrador `flux:iterate` — fecha o loop de UMA PR (checa se ela ainda funde com a base e resolve conflito mecânico, verifica threads contra o código real, aplica correções, responde, reage 👍/👎, resolve, commita, pusha, vigia CI + bot). `--dry` rascunha réplicas read-only e salva no vault. Global, resolve contexto via `flux-context.md`."
 user-invocable: true
 ---
 
@@ -9,6 +9,8 @@ user-invocable: true
 Comando orquestrador para **fechar o loop** de uma rodada de review: lê as threads abertas, verifica cada alegação contra o código real, aplica o que é pertinente, responde/reage/resolve no GitHub, **olha o estado do CI** e tenta corrigir o que for atribuível ao próprio push, atualiza a PR com commit + push e **reconcilia título e descrição da PR** com o que a rodada decidiu. Por padrão, fica vivo monitorando CI e novas rodadas do bot até a PR assentar.
 
 Toda escrita acontece num **git worktree dedicado à branch da PR**, nunca na árvore principal do repo (ver `${FLUX_ROOT}/shared/worktree-discipline.md`), e todo trabalho pesado — verificar alegação contra o código, aplicar correção, rodar quality gate — acontece em **subagente**, nunca no contexto principal (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). E o CI é tratado **desde a 1ª passada**, não só no watch: uma PR sem threads abertas mas com CI vermelho ainda é acionável.
+
+**Antes de tudo isso vem o gate de integração com a base** (passo 2b): PR que não funde com a base é PR sobre a qual não se escreve, e o CI verde dela é sinal falso. Uma PR sem threads e sem CI vermelho, mas conflitante, **é acionável**. Ver `${FLUX_ROOT}/shared/merge-conflict-gate.md`.
 
 É o irmão "ativo" da família:
 
@@ -23,6 +25,7 @@ Roda independente dos outros. Pensado para PRs com rodadas de bot reviewer, mas 
 **Bootstrap de specialists (repo sem suite local):** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (escrever sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
+**Gate de integração com a base (OBRIGATÓRIO — 1º gate, antes do CI):** `${FLUX_ROOT}/shared/merge-conflict-gate.md`
 **Disciplina de fan-out (OBRIGATÓRIA — verificação e execução em subagente):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Orçamento de contexto (leitura sob demanda, um root por sessão, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
 
@@ -64,17 +67,23 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 | `/flux:iterate 962 --once` | **Desliga o watch** (alias `--no-watch`): roda só uma passada e termina após o push |
 | `/flux:iterate 962 --dry` | Modo read-only: rascunha réplicas e salva no vault, **nunca** escreve no GitHub |
 | `/flux:iterate 962 --solo` | Pula os specialists; verificação de threads usa só `<HOLISTIC>` |
+| `/flux:iterate 962 --no-rebase` | **Desliga a resolução** do gate de conflito (alias `--skip-conflict-gate`): detecta e reporta o conflito, mas não toca no histórico da branch. Cai no modo degradado do passo 2b. |
 | `/flux:iterate 962 --parent-board <path>` | Marca como filho de um delivery-flow: registra proveniência + link reverso. Passado automaticamente pelo delivery-flow. |
 
 > **O watch é o default.** Depois da 1ª passada e do push, o comando fica vivo monitorando CI + novas rodadas do bot até a PR assentar (CI verde + nada novo) ou mergear. Use `--once` quando quiser só fechar a rodada atual e sair.
 
-As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo` e `--parent-board <path>` podem aparecer em qualquer posição dos argumentos e combinadas entre si. As **rodadas subsequentes do watch rodam em `--auto`** (aplicam + postam + resolvem + commitam + pusham sozinhas). `--once` desliga o watch. `--solo` pula os specialists em todas as rodadas.
+As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebase` (alias `--skip-conflict-gate`) e `--parent-board <path>` podem aparecer em qualquer posição dos argumentos e combinadas entre si. As **rodadas subsequentes do watch rodam em `--auto`** (aplicam + postam + resolvem + commitam + pusham sozinhas). `--once` desliga o watch. `--solo` pula os specialists em todas as rodadas. `--no-rebase` persiste em todas as rodadas.
+
+> **`--auto` nunca autoriza reescrever histórico.** Ele dispensa a confirmação do plano de threads (passo 6), não o gate humano do force-push (passo 2b). Isso vale igual no watch.
 
 ## Out of scope (NUNCA faça)
 
 - Não aprovar nem mergear (`gh pr review --approve`, `gh pr merge`).
 - Não usar `event: APPROVE` / `REQUEST_CHANGES` em nada.
 - Não pushar para `main`. Não fazer `git checkout`/`git switch` de branch na árvore principal do repo: para entrar na branch da PR, resolver/criar a **worktree** dela (ver disciplina de worktree), nunca sequestrar o working tree principal do usuário.
+- **Não `git push --force` sem lease, nunca.** Force-push só com `--force-with-lease`, só na branch da PR, e só depois do gate humano do passo 2b. Não force-pushar branch de terceiro nem branch coautorada.
+- **Não resolver conflito semântico sozinho.** Conflito sobre a mesma lógica (mesma função, mesma condição, mesmo teste, migração, contrato) exige aval humano mesmo em `--auto` e mesmo no watch: registrar bloqueio e cair no modo degradado. Na dúvida entre mecânico e semântico, é semântico.
+- **Não declarar CI confiável, nem "assentou", em PR `CONFLICTING`.** Nem tratar `mergeable: UNKNOWN` como se fosse `MERGEABLE`.
 - Não resolver thread humana que esteja em `needs-discussion` (ver guardrail no passo 7).
 - Não retentar escrita em repo cross-org sem acesso — capturar o erro e reportar.
 - **Não editar título nem descrição de PR de terceiro.** A reconciliação do passo 8a só vale para PR cuja `author.login` é a conta autenticada; em PR de outra pessoa, a correção vira sugestão em comentário. Nunca reescrever texto alheio.
@@ -116,15 +125,18 @@ done
 
 **Localizar o repo (não a branch ainda).** Identifique o checkout local do repo alvo (`REPO_PATH`, ex. `<WORKSPACE_ROOT>/<repo>`). Se o repo **não tem checkout local**, aborte pedindo para cloná-lo (este comando precisa do working tree para aplicar correções e commitar). Em `--dry` não é necessário checkout (opera sobre o diff via `gh`).
 
-**Worktree resolvido no momento de escrever, não agora.** O `pwd` **não** precisa estar na branch da PR nesta etapa. A worktree dedicada à `headRefName` é resolvida (achada ou criada) via `${FLUX_ROOT}/shared/worktree-discipline.md` **logo antes de aplicar correções** (passo 4) ou de tentar um fix de CI (passo 2b), e é lá que o comando passa a operar. Não fazer `git checkout` na árvore principal para trocar de branch; adiar a criação da worktree evita criá-la à toa numa PR sem nada acionável. Fluxos read-only (`--dry`) não criam worktree.
+**Worktree resolvido no momento de escrever, não agora.** O `pwd` **não** precisa estar na branch da PR nesta etapa. A worktree dedicada à `headRefName` é resolvida (achada ou criada) via `${FLUX_ROOT}/shared/worktree-discipline.md` **logo antes de aplicar correções** (passo 4), de resolver um conflito com a base (passo 2b) ou de tentar um fix de CI (passo 2c), e é lá que o comando passa a operar. Não fazer `git checkout` na árvore principal para trocar de branch; adiar a criação da worktree evita criá-la à toa numa PR sem nada acionável. Fluxos read-only (`--dry`) não criam worktree.
 
 Se `DRY == true`, ir direto para o **Modo `--dry`** após a coleta de metadados + threads (passo 2).
 
 ### 2. Coletar metadados + TODAS as threads (abertas e resolvidas)
 
 ```bash
-gh pr view $PR_NUMBER --repo $REPO_FULL --json number,title,headRefName,baseRefName,url,state,isDraft
+gh pr view $PR_NUMBER --repo $REPO_FULL \
+  --json number,title,headRefName,baseRefName,url,state,isDraft,author,headRefOid,mergeable,mergeStateStatus
 ```
+
+`mergeable` e `mergeStateStatus` **não são opcionais nesta coleta**: eles alimentam o gate de integração do passo 2b, que roda antes da triagem de CI. `author` é o guard de autoria (força-push e reconciliação de descrição só valem em PR própria).
 
 Buscar **todas** as threads via GraphQL (a REST não expõe `isResolved`). Buscar resolvidas também é essencial: elas formam o **corpus de referência** para o cross-reference do passo 3.
 
@@ -189,11 +201,16 @@ gh pr checks $PR_NUMBER --repo $REPO_FULL   # ou --json name,state,conclusion,li
 
 Classificar o agregado do CI (mesma regra do watch): `pending`/`in_progress` → **rodando**; todos `success`/`neutral`/`skipped` → **verde**; qualquer `failure`/`timed_out`/`cancelled` → **vermelho**.
 
-**Critério de término da 1ª passada (redefinido):** o run só encerra cedo (avisar no chat, não commitar) quando **não há thread acionável, não há issue comment acionável sem réplica, E o CI não está vermelho** (verde ou ainda rodando). Se houver CI **vermelho**, a PR é acionável mesmo sem threads: seguir para a **triagem de CI** (passo 2b) e, se o watch estiver ligado, ficar vivo monitorando. Registrar no chat o motivo do prosseguimento (ex.: `sem threads abertas, mas CI vermelho — triando`).
+**Critério de término da 1ª passada (redefinido):** o run só encerra cedo (avisar no chat, não commitar) quando **não há thread acionável, não há issue comment acionável sem réplica, o CI não está vermelho** (verde ou ainda rodando) **E a PR integra com a base** (`mergeable == MERGEABLE`). Qualquer um dos três últimos torna a PR acionável mesmo sem thread nenhuma:
+
+- **`mergeable == CONFLICTING`** → seguir para o **gate de integração** (passo 2b). É o caso que mais engana, porque a PR parece limpa: zero threads e CI verde.
+- **CI vermelho** → seguir para a **triagem de CI** (passo 2c).
+
+Registrar no chat o motivo do prosseguimento (ex.: `sem threads abertas e CI verde, mas PR conflitante com a base — acionando o gate de integração`).
 
 ### 2a. Board no vault (nota viva)
 
-Havendo trabalho acionável (threads abertas **ou** CI vermelho), **crie o board deste iterate** antes de seguir para a verificação, e **anuncie o caminho no chat** (o board existe desde o começo, não só no fim; a partir daqui, cada passo relevante e cada tick do watch atualiza o board).
+Havendo trabalho acionável (threads abertas, **PR conflitante com a base** ou CI vermelho), **crie o board deste iterate** antes de seguir para a verificação, e **anuncie o caminho no chat** (o board existe desde o começo, não só no fim; a partir daqui, cada passo relevante e cada tick do watch atualiza o board).
 
 **O formato é fonte única compartilhada:** siga `${FLUX_ROOT}/shared/board-template.md`, **perfil single-PR** (`type: iterate` — canônico no schema do vault, painel com **1 linha** — a PR deste run). Todas as seções (Frontmatter → H1+TLDR → 🎯 Próximo Movimento → 📊 Painel → ⏰ Timeline Verbosa → 📅 Timeline de Eventos Relevantes → ✅ Ação/Continuidade), a legenda de ícones, a regra do painel e a disciplina de carimbo de data vivem lá.
 
@@ -204,9 +221,52 @@ Havendo trabalho acionável (threads abertas **ou** CI vermelho), **crie o board
 - **Quem escreve depende do watch** (`${FLUX_ROOT}/shared/fanout-discipline.md`, seção do board-keeper): com o watch ligado, criar aqui o **board-keeper** (subagente nomeado, escritor único do board) e passar a mandar o delta de cada tick por `SendMessage` — assim o `CLAUDE.md` do vault e o template de board nunca entram no contexto principal, e a main nunca relê o board. Com `--once` (inclusive quando despachado por um delivery), **não criar keeper**: é uma escrita só, a main grava direto.
 - **Em `--dry`:** criar o board normalmente, mas sinalizar no TLDR que o run foi read-only.
 
-### 2b. Triagem de CI (1ª passada E cada tick do watch)
+### 2b. Gate de integração com a base — PRIMEIRO gate (1ª passada E cada tick do watch)
+
+> **Protocolo canônico:** `${FLUX_ROOT}/shared/merge-conflict-gate.md`. Não duplicar a lógica aqui: o
+> shared define detecção, classificação mecânico/semântico, escolha entre rebase e merge da base,
+> resolução em subagente, `--force-with-lease` e o gate humano. Este passo declara só o encaixe no
+> iterate.
+
+**Por que vem antes da triagem de CI:** numa PR `DIRTY` o GitHub não computa o merge commit, então o
+resultado do CI que você leria no passo 2c é sinal falso, e qualquer correção aplicada empilha em cima
+de uma base que já não funde. Triar CI antes de resolver o conflito é triar um número que vai mudar.
+
+Com `mergeable` / `mergeStateStatus` coletados no passo 2:
+
+- **`MERGEABLE`** → nada a fazer; seguir para o passo 2c.
+- **`UNKNOWN`** → reconsultar (até 3 vezes, ~3s). Persistindo, medir localmente com `git merge-tree` e
+  reportar que o GitHub não decidiu. **Nunca** seguir tratando como `MERGEABLE`.
+- **`CONFLICTING`** → acionar o gate:
+  1. **Reconhecer sem tocar no working tree**: `rev-list --left-right --count` (extensão da divergência)
+     e `merge-tree --write-tree --name-only` (arquivos em conflito).
+  2. **Classificar** mecânico vs semântico pela régua do shared. `--no-rebase`, PR de terceiro
+     (`author.login != ` conta autenticada) ou classificação semântica ⇒ **não resolver**: ir ao modo
+     degradado (abaixo).
+  3. **Resolver via subagente executor** (o mesmo do passo 4, mesma disciplina de worktree e de
+     fan-out), que aplica a estratégia, roda o quality gate do repo e **para sem pushar**.
+  4. **Gate humano antes do force-push**, inclusive com `--auto` e no watch, com a estratégia, a decisão
+     por arquivo, o resultado dos gates e o antes/depois do `rev-list`. Push sempre com
+     `--force-with-lease`; merge da base não precisa de force.
+- **`BEHIND`** (sem conflito) → só atualizar se a proteção da base exigir branch atualizada. Não é
+  conflito e não justifica force-push.
+
+**Modo degradado (o gate não resolveu):** não abortar o comando. Suspender o que depende de base
+integrada (aplicar correção, commitar, pushar, triar/corrigir CI, reconciliar título e descrição) e
+seguir com o que não depende (verificar alegações, responder, reagir, resolver threads). Reportar sem
+eufemismo o que ficou de pé. Tabela completa na seção 6 do shared.
+
+**Em `--dry`:** apenas **reportar** o estado de integração, como se faz com o CI. Não resolver nada.
+
+Conflito detectado **conta como trabalho acionável** para o passo 2a (a PR tem board). Emitir os
+eventos `conflito-detectado`, `conflito-resolvido` ou `conflito-bloqueado` no board e no hook Slack.
+
+### 2c. Triagem de CI (1ª passada E cada tick do watch)
 
 > Esta é a lógica **canônica** de CI do iterate. Vale igual na 1ª passada e em todo tick do watch, com ou sem threads no delta. Nunca relaxa o rigor: em `--dry`, apenas **reportar** o estado do CI, sem tentar corrigir.
+>
+> **Pré-requisito:** o gate do passo 2b passou (`mergeable == MERGEABLE`). Em PR conflitante o
+> resultado do CI é inconfiável: reportar o estado e **não** tentar corrigir nada por ele.
 
 Com o estado do CI coletado no passo 2:
 
@@ -274,6 +334,13 @@ Monte o **plano** (o "dry-run" da confirmação): por thread, registre `{databas
 
 ### 4. Aplicar as correções pertinentes · fase 2 — via subagente executor
 
+> **GUARDA DE MODO DEGRADADO (checar antes de despachar):** se o gate do passo 2b não resolveu o
+> conflito (`mergeable == CONFLICTING`), **PULE este passo inteiro**. Não despache executor, não edite
+> arquivo, não rode gate. Vá direto ao passo 7 (responder/reagir/resolver as threads, que não depende
+> de base integrada) e **pule os passos 8 e 8a**. Aplicar correção numa PR que não funde é exatamente
+> o que o gate existe para impedir. Ver a tabela do modo degradado na seção 6 de
+> `${FLUX_ROOT}/shared/merge-conflict-gate.md`.
+
 **A execução também é fan-out.** O contexto principal **não edita arquivo do repo**: despacha **um
 subagente executor** (`subagent_type: general-purpose`) que resolve a worktree, aplica as correções
 e roda o quality gate (passo 5) lá dentro. É o mesmo motivo do passo 3 — abrir o repo na main custa
@@ -334,6 +401,10 @@ Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + me
 
 > A opção recomendada é a primeira, com `(Recomendado)` no label. Com `--auto`, assuma a opção 1 sem perguntar.
 
+**Interação com o gate do passo 2b:**
+- Se o gate **resolveu** um conflito neste run e o force-push ainda não foi aprovado, a aprovação do force-push é **pergunta própria e anterior** a esta (feita no passo 2b, com estratégia + decisão por arquivo + gates), nunca embutida na opção 1. Reescrever histórico e postar réplicas são decisões de risco diferente, e juntá-las esconde a mais grave atrás da mais trivial. `--auto` dispensa **esta** confirmação, não aquela.
+- Se o gate ficou em **modo degradado**, o plano mostrado aqui não tem "arquivos alterados" nem mensagem de commit (o passo 4 foi pulado). Ajustar a pergunta para o que resta: postar as réplicas + reações e resolver as threads. A opção 1 vira equivalente à 2, e isso deve estar dito na descrição da opção, junto do motivo (`PR conflitante com a base, correções suspensas`).
+
 ### 7. Postar réplicas + reações + resolver (opções 1 e 2) · fase 3
 
 Para cada thread endereçada, na ordem: **reply → reação → resolve**.
@@ -356,6 +427,11 @@ Top-level issue comments: responder = novo `gh api repos/$REPO_FULL/issues/$PR_N
 **Guardrail para threads HUMANAS:** resolva automaticamente quando o assunto está encerrado (acolhido + aplicado, ou recusado com justificativa clara e baixa controvérsia). Se a thread precisa de decisão do revisor (`needs-discussion`), **poste a réplica + reação mas NÃO resolva** — deixe aberta e sinalize ao usuário no resumo final.
 
 ### 8. Commit + push (somente opção 1, e só após o passo 7 completo) · fase 4
+
+> **GUARDA DE MODO DEGRADADO:** com `mergeable == CONFLICTING` não resolvido pelo passo 2b, **não
+> commite e não pushe** (nem rode o passo 8a, que pressupõe push). O passo 7 já fechou a conversa; o
+> código fica intocado e o bloqueio vai no relatório do passo 9. Não "aproveitar" o push para
+> atualizar a branch.
 
 Confirme que TODAS as threads endereçadas foram respondidas e resolvidas antes de pushar.
 
@@ -498,6 +574,8 @@ atualizada"). Emitir o evento Slack `descricao-reconciliada` se o feed estiver c
 
 Tabela curta: por thread `{path:line | veredito | sobreposição | 👍/👎}`, depois `{commit hash, range de push}`. Sinalize threads humanas deixadas abertas (`needs-discussion`) e quais foram marcadas como `duplicate`/`related-but-distinct` (com link da irmã). Não repita os bodies completos das réplicas.
 
+**Sempre reportar o estado de integração com a base**, mesmo quando ele estava limpo (é a informação que decide se a PR pode mergear). Quando este run foi despachado por um orquestrador (`--parent-board` presente, ou seja, rodando dentro do subagente de um `/flux:land`), o retorno inclui os campos estruturados `mergeable` e `conflito` do contrato da fase 4 do land, e não só a prosa: quem consome é máquina, e inferir conflito de texto livre é frágil no dado que decide o go/no-go. Se o gate do passo 2b agiu, dizer a estratégia (`rebase` ou `merge`), os arquivos resolvidos com a decisão de cada um, e o resultado dos gates. Se o gate ficou em **modo degradado**, dizer explicitamente o que **não** foi feito: `conflito semântico em <arquivos> — respondi as threads, não apliquei correção nem pushei`. Nunca fechar o relatório dando a PR por pronta quando ela segue conflitante.
+
 Quando o passo 8a mexeu em título ou descrição, dizer em uma linha **o que foi corrigido e por quê** (e, no caso do título, mostrar o antes/depois) (ex.: `descrição: a seção "A proposta" ainda anunciava o verbo-fachada, refutado na thread X`). Quando a PR é de terceiro e a reconciliação virou sugestão em comentário, sinalizar isso explicitamente.
 
 ## Convenções de texto (GitHub = publicação externa)
@@ -547,6 +625,7 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
 
    {N} threads: {X} accepts-suggestion, {Y} defends-decision, {Z} needs-discussion, {W} needs-code-change.
    ```
+   Acrescentar o **estado de integração com a base** (`mergeable`), porque em `--dry` ele é reportado como qualquer outro diagnóstico. PR `CONFLICTING` significa que os rascunhos são aplicáveis, mas a PR precisa do gate do passo 2b num run que escreva.
 
 > Em `--dry`, o watch (**não** faz sentido vigiar CI sem ter pushado nada) é ignorado automaticamente — equivale a `--once`.
 
@@ -576,10 +655,14 @@ Mantenha um arquivo de estado por PR para sobreviver aos `ScheduleWakeup` e às 
   "headRefName": "feat/...",
   "round": 1,
   "solo": false,
+  "noRebase": false,
   "resolvedThreadIds": ["PRRT_..."],
   "answeredCommentIds": [123456789],
   "lastHeadSha": "abc123",
   "lastCiConclusion": "success|failure|pending|null",
+  "lastMergeable": "MERGEABLE|CONFLICTING|UNKNOWN|null",
+  "conflictAttemptedAtBaseSha": null,
+  "forcePushApproved": false,
   "bodySyncedAtSha": "abc123",
   "titleSyncedAtSha": "abc123",
   "quietTicks": 0,
@@ -590,7 +673,9 @@ Mantenha um arquivo de estado por PR para sobreviver aos `ScheduleWakeup` e às 
 }
 ```
 
-Na 1ª passada, gravar o estado inicial (round 1, threads que você resolveu, SHA pós-push, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA para o qual descrição e título foram reconciliados no passo 8a, ou `null` se não houve drift). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente `isResolved == true` de sua autoria, o `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles, e o `board` a partir do naming determinístico do passo 2a.
+Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre).
+
+Na 1ª passada, gravar o estado inicial (round 1, threads que você resolveu, SHA pós-push, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA para o qual descrição e título foram reconciliados no passo 8a, ou `null` se não houve drift). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente `isResolved == true` de sua autoria, o `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles, e o `board` a partir do naming determinístico do passo 2a.
 
 **Atualizar o board a cada tick:** todo tick rola o carimbo de data do board (frontmatter `updated:`, TLDR, título do painel) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline de Eventos Relevantes + parágrafo na Timeline Verbosa. Tick quiet só rola a data.
 
@@ -598,8 +683,9 @@ Na 1ª passada, gravar o estado inicial (round 1, threads que você resolveu, SH
 
 Após a 1ª passada (e a cada wake), execute UM tick:
 
-1. **Estado da PR.** `gh pr view $PR_NUMBER --repo $REPO_FULL --json state,merged,headRefOid,isDraft`.
+1. **Estado da PR.** `gh pr view $PR_NUMBER --repo $REPO_FULL --json state,merged,headRefOid,isDraft,mergeable,mergeStateStatus`.
    - `merged == true` ou `state == "CLOSED"` → **encerrar o watch** com relatório final. Não pushar mais nada.
+   - **`mergeable` entra nesta coleta obrigatoriamente.** A base anda enquanto o watch dorme: uma PR que integrava no tick anterior pode estar `CONFLICTING` agora. Não herdar `lastMergeable` do estado sem reconsultar.
 2. **CI.** `gh pr checks $PR_NUMBER --repo $REPO_FULL --json name,state,conclusion,link` (ou `gh pr checks` simples se o JSON não vier). Classifique o agregado:
    - `pending`/`in_progress` → CI rodando, ainda não decidiu.
    - todos `success`/`neutral`/`skipped` → **verde**.
@@ -609,21 +695,23 @@ Após a 1ª passada (e a cada wake), execute UM tick:
 
 #### Decisão do tick (em ordem de prioridade)
 
+- **PR conflitante (`mergeable == CONFLICTING`) → tem precedência sobre tudo.** Aplicar o **gate de integração do passo 2b** (fonte única) antes de qualquer outra coisa deste tick, pelo mesmo motivo da 1ª passada: correção empilhada em base que não funde piora o conflito, e o CI do tick é inconfiável. Se a base andou desde a última tentativa (`conflictAttemptedAtBaseSha != ` SHA atual de `origin/<base>`), é tentativa nova; se é o mesmo SHA de base, **não retentar**. Resolvido → evento `conflito-resolvido`, atualizar `lastHeadSha` e `lastMergeable`, e seguir o tick normalmente. Não resolvido → evento `conflito-bloqueado`, **modo degradado**: fechar a conversa das threads do delta (responder/reagir/resolver) sem aplicar, commitar ou pushar, e não contar quiet tick.
 - **Nova rodada de threads (delta não vazio)** → executar o fluxo normal (passos 3 a 8a, incluindo a reconciliação da descrição) **só sobre as threads do delta**, com `--auto`. Ao terminar: `round += 1`, adicionar os PRRT recém-resolvidos a `resolvedThreadIds`, atualizar `lastHeadSha`, zerar `quietTicks`. Emitir evento Slack `nova-rodada-fechada` (ver "Hook Slack").
-- **CI vermelho** (e sem delta de threads) → aplicar a **triagem de CI do passo 2b** (fonte única): coletar o porquê, e se a causa for atribuível ao próprio push e dentro do escopo, tentar **uma** correção na worktree da PR + quality gate + commit/push na mesma branch (evento `ci-corrigido-tentativa`); senão, não mexer no código, registrar e reportar (evento `ci-vermelho` com link do log). No máximo **uma** tentativa de auto-fix por SHA — nunca em loop.
-- **CI verde + sem delta de threads** → antes de contar quiet tick, checar **drift de título e descrição**: se `bodySyncedAtSha != lastHeadSha` ou `titleSyncedAtSha != lastHeadSha`, rodar o passo 8a sobre o SHA corrente (uma passada, com os três guardrails). Depois, `quietTicks += 1`. Emitir `ci-verde` apenas na **transição** (quando `lastCiConclusion != success`).
+- **CI vermelho** (e sem delta de threads) → aplicar a **triagem de CI do passo 2c** (fonte única): coletar o porquê, e se a causa for atribuível ao próprio push e dentro do escopo, tentar **uma** correção na worktree da PR + quality gate + commit/push na mesma branch (evento `ci-corrigido-tentativa`); senão, não mexer no código, registrar e reportar (evento `ci-vermelho` com link do log). No máximo **uma** tentativa de auto-fix por SHA — nunca em loop.
+- **CI verde + sem delta de threads + PR integrando** → antes de contar quiet tick, checar **drift de título e descrição**: se `bodySyncedAtSha != lastHeadSha` ou `titleSyncedAtSha != lastHeadSha`, rodar o passo 8a sobre o SHA corrente (uma passada, com os três guardrails). Depois, `quietTicks += 1`. Emitir `ci-verde` apenas na **transição** (quando `lastCiConclusion != success`).
 - **CI pending + sem delta** → não fazer nada além de aguardar (não conta como quiet tick).
 
-Atualizar sempre `lastCiConclusion` e `lastTickAt` no estado.
+Atualizar sempre `lastCiConclusion`, `lastMergeable` e `lastTickAt` no estado.
 
 #### Condições de saída (encerrar o watch)
 
 - PR mergeada ou fechada.
-- **Assentou**: CI verde, zero threads abertas **e título/descrição reconciliados** (`bodySyncedAtSha` e `titleSyncedAtSha` == `lastHeadSha`, ou nenhuma afirmação em drift) por **2 ticks consecutivos** (`quietTicks >= 2`). A PR está pronta para review humano/merge; o watch cumpriu o papel. Não declarar "assentou" com título ou descrição afirmando algo que a PR já refutou.
-- Limite de segurança: `round > 8` ou watch ativo há mais de ~6h sem assentar → encerrar avisando que passou do esperado (provável discussão humana travada ou CI cronicamente vermelho) e pedir olhada manual.
+- **Assentou**: CI verde, zero threads abertas, **`mergeable == MERGEABLE`** e **título/descrição reconciliados** (`bodySyncedAtSha` e `titleSyncedAtSha` == `lastHeadSha`, ou nenhuma afirmação em drift) por **2 ticks consecutivos** (`quietTicks >= 2`). A PR está pronta para review humano/merge; o watch cumpriu o papel. **Nunca declarar "assentou" com a PR `CONFLICTING`** (nem com `UNKNOWN` sem reconsultar): PR conflitante e quieta é PR travada, não PR pronta, exatamente como título ou descrição afirmando algo que a PR já refutou.
+- **Conflito bloqueado sem saída**: `mergeable == CONFLICTING` com o gate em modo degradado (semântico, `--no-rebase` ou PR de terceiro) e **nada mais a fazer** (zero threads no delta, CI não acionável) → encerrar avisando que a PR precisa de resolução humana do conflito. Ficar vivo não muda o bloqueio, e o watch não deve consumir wakes esperando por decisão que é do usuário.
+- Limite de segurança: `round > 8` ou watch ativo há mais de ~6h sem assentar → encerrar avisando que passou do esperado (provável discussão humana travada, CI cronicamente vermelho ou conflito recorrente com uma base muito movimentada) e pedir olhada manual.
 - Usuário interrompe a sessão.
 
-Em qualquer saída, **relatório final** no chat: rodadas fechadas, estado final do CI (com link se vermelho), threads humanas deixadas em `needs-discussion`, e o range de commits pushados durante o watch.
+Em qualquer saída, **relatório final** no chat: rodadas fechadas, estado final do CI (com link se vermelho), **estado final de integração com a base** (e, se houve resolução de conflito, a estratégia usada e os arquivos resolvidos), threads humanas deixadas em `needs-discussion`, e o range de commits pushados durante o watch.
 
 ### Cadência (escolha do `delaySeconds` do próximo wake)
 
@@ -631,13 +719,14 @@ Use `ScheduleWakeup` ao fim de cada tick para reabrir a sessão. A escolha do in
 - **CI rodando** ou **acabei de fechar uma rodada** (espero recomentário rápido do bot): **270s** (mantém o cache quente; é o que muda rápido).
 - **CI verde, aguardando assentar** (quiet ticks): **1200s** (~20 min). Não há o que checar antes disso; paga o cache miss uma vez e espera mais.
 - **CI vermelho aguardando resolução externa**: **1200s**. Já reportei; só re-checo se mudou.
+- **Conflito com a base aguardando decisão humana** (modo degradado): **1200s**, ou encerrar se não houver mais nada a fazer (ver condições de saída). Não ficar acordando de 270s em 270s para reencontrar o mesmo conflito.
 - Nunca 300s (pior dos dois mundos). O `reason` do wake deve ser específico: `"watch PR #962: CI rodando pós-push, re-checo em 270s"`.
 
 Passar o **mesmo input** (`/flux:iterate <pr>`, que já reentra no watch por ser o default) de volta no `prompt` do `ScheduleWakeup`, para o próximo firing reentrar no watch. Omitir o `ScheduleWakeup` apenas nas condições de saída.
 
 ### Hook Slack (feed de status, opcional)
 
-Se o feed de PRs no Slack estiver configurado no perfil, emitir uma atualização a cada **transição** relevante: `nova-rodada-fechada`, `ci-vermelho`, `ci-corrigido-tentativa`, `ci-verde`, `descricao-reconciliada`, `assentou`, `mergeada`. Usar o updater do feed (canvas vivo + ping no thread). Se o feed não estiver configurado, **pular silenciosamente** o hook, o watch funciona sem ele.
+Se o feed de PRs no Slack estiver configurado no perfil, emitir uma atualização a cada **transição** relevante: `conflito-detectado`, `conflito-resolvido`, `conflito-bloqueado`, `nova-rodada-fechada`, `ci-vermelho`, `ci-corrigido-tentativa`, `ci-verde`, `descricao-reconciliada`, `assentou`, `mergeada`. Usar o updater do feed (canvas vivo + ping no thread). Se o feed não estiver configurado, **pular silenciosamente** o hook, o watch funciona sem ele.
 
 ---
 
@@ -652,6 +741,7 @@ já entraram na verificação por descoberta, e o Bootstrap não os toca.
 
 ## Notas finais
 
+- **Integração com a base é o primeiro gate** (passo 2b, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`): PR que não funde com a base é PR sobre a qual não se escreve, e o CI verde dela é sinal falso. Conflito conta como trabalho acionável por si só, então uma PR com zero threads e CI verde **não** encerra a passada se estiver `CONFLICTING` (foi exatamente assim que a `arco-ai-plugins#252` passou batida). Resolução mecânica o flow faz; semântica é do usuário; force-push só com `--force-with-lease` e aval humano, que `--auto` não substitui.
 - Verificação vem antes de tudo: nunca aceitar um comentário sem confirmar a alegação no código real. Vale igual dentro do modo WATCH e no `--dry`.
 - **Specialists por default**: a verificação enriquece com os specialists do repo seguindo `${FLUX_ROOT}/shared/review-agents.md`. Use `--solo` para pular e rodar só com `<HOLISTIC>`. Fallback gracioso quando não houver specialists no repo.
 - **Watch é o default**: após a 1ª passada e o push, fica vivo monitorando CI + novas rodadas do bot até a PR assentar/mergear (ver "Modo WATCH"). Use **`--once`** (alias `--no-watch`) para o comportamento de uma passada só.
