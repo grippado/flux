@@ -26,6 +26,7 @@ Roda independente dos outros. Pensado para PRs com rodadas de bot reviewer, mas 
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (escrever sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
 **Gate de integração com a base (OBRIGATÓRIO — 1º gate, antes do CI):** `${FLUX_ROOT}/shared/merge-conflict-gate.md`
+**Diagnóstico de quality gates externos via API (consultar antes de classificar gate Sonar):** `${FLUX_ROOT}/shared/quality-gate-api.md`
 **Disciplina de fan-out (OBRIGATÓRIA — verificação e execução em subagente):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Orçamento de contexto (leitura sob demanda, um root por sessão, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
 
@@ -212,9 +213,9 @@ Registrar no chat o motivo do prosseguimento (ex.: `sem threads abertas e CI ver
 
 Havendo trabalho acionável (threads abertas, **PR conflitante com a base** ou CI vermelho), **crie o board deste iterate** antes de seguir para a verificação, e **anuncie o caminho no chat** (o board existe desde o começo, não só no fim; a partir daqui, cada passo relevante e cada tick do watch atualiza o board).
 
-**O formato é fonte única compartilhada:** siga `${FLUX_ROOT}/shared/board-template.md`, **perfil single-PR** (`type: iterate` — canônico no schema do vault, painel com **1 linha** — a PR deste run). Todas as seções (Frontmatter → H1+TLDR → 🎯 Próximo Movimento → 📊 Painel → ⏰ Timeline Verbosa → 📅 Timeline de Eventos Relevantes → ✅ Ação/Continuidade), a legenda de ícones, a regra do painel e a disciplina de carimbo de data vivem lá.
+**O formato é fonte única compartilhada:** siga `${FLUX_ROOT}/shared/board-template.md`, **perfil single-PR** (`type: flux-iterate` — canônico no schema do vault, painel com **1 linha** — a PR deste run). Todas as seções (Frontmatter → H1+TLDR → 🎯 Próximo Movimento → 📊 Painel → ⏰ Timeline Verbosa → 📅 Timeline de Eventos Relevantes → ✅ Ação/Continuidade), a legenda de ícones, a regra do painel e a disciplina de carimbo de data vivem lá.
 
-- **Caminho (determinístico):** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-iterate-pr<N>-<repo-slug>.md`. Se `VAULT_ROOT` não estiver definido (perfil genérico), registrar só no chat. Se já existir um board deste iterate (retomada de watch), **atualizá-lo**, nunca duplicar.
+- **Caminho (determinístico):** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md`. Se `VAULT_ROOT` não estiver definido (perfil genérico), registrar só no chat. Se já existir um board deste iterate (retomada de watch), **atualizá-lo**, nunca duplicar.
 - **Proveniência (`--parent-board`):** se `PARENT_BOARD` não estiver vazio, este iterate nasceu de um delivery-flow. Gravar `parent_board: "<PARENT_BOARD>"` no frontmatter e, logo após o TLDR, a linha `> Executado a partir de um delivery-flow: [board da entrega](<PARENT_BOARD>)`. Sem a flag (iterate avulso), o board não tem bloco de proveniência.
 - **Sem fabricação:** todo número do painel vem de fonte real — rodadas = `round` do estado; threads res/tot do GraphQL do passo 2; 👍/👎 filtrados pela conta do `gh`; CI do `gh pr checks`. Onde não houver fonte, `n/d`.
 - O board nasce **tanto no watch quanto no `--once`** (o delivery-flow chama o iterate com `--once`, e ainda assim precisa do board filho). Registrar o path no estado (passo do watch, campo `board`).
@@ -279,8 +280,23 @@ Com o estado do CI coletado no passo 2:
   ```
 
   Classificar a causa:
+  - **Gate de qualidade externo (SonarCloud/SonarQube)** — identificado quando o nome do check ou
+    o log contém `QUALITY GATE STATUS: FAILED` ou similar: **antes de classificar**, consultar a
+    API conforme `${FLUX_ROOT}/shared/quality-gate-api.md`. A sequência é: Etapa 1 (quais condições
+    em `ERROR` e com que números) e depois, guiado pela condição, Etapa 2 (arquivo:linha para bug/
+    vulnerabilidade, arquivos sem cobertura para `new_coverage`, hotspots pendentes para `new_security_hotspots`).
+    Com os dados em mão, aplicar o mapa condição → ação do shared:
+    - Condições resolvíveis por código (`new_vulnerabilities`, `new_bugs`, `new_duplicated_lines_density`,
+      ratings com issue específica): classificar como **atribuível** e despachar o executor com o
+      `arquivo:linha` exato da API. Nunca assumir que o arquivo está no código de produto sem verificar
+      o path retornado — vulnerabilidade em `.github/workflows/` é problema de CI, não de código.
+    - Condições não resolvíveis por código (hotspot pendente, cobertura em arquivo de teste medido
+      como código de produção, override de gate): classificar como **não atribuível** e reportar como
+      pendência humana com a evidência da API (`metricKey`, `actualValue`, `errorThreshold`).
+    - Sem manifesto, sem token ou sem provider configurado: degradação declarada — o shared descreve
+      o comportamento conservador e o texto do banner.
   - **Atribuível ao próprio push e dentro do escopo** (typecheck/lint/teste que este fluxo mexeu quebrou, build da branch): despachar o **subagente executor** do passo 4 com a instrução de resolver a worktree via `${FLUX_ROOT}/shared/worktree-discipline.md`, tentar **uma** correção, rodar o quality gate local (passo 5) e, se passar, commitar + pushar na branch da PR. A investigação do log e a correção rodam nele, não na main. **No máximo uma tentativa de auto-fix por SHA** — não entrar em loop de correção.
-  - **Não atribuível** (falha de infra, flaky, teste não relacionado, mudança de base, gate de cobertura/qualidade externo tipo SonarQube que não se resolve por código): **não** mexer no código. Registrar no board + reportar no chat com link do log, e (no watch) seguir monitorando. Gates que exigem decisão de configuração/produto (ex.: exclusão de cobertura, override de quality gate) são reportados como pendência para o usuário, não "consertados" às cegas.
+  - **Não atribuível** (falha de infra, flaky, teste não relacionado, mudança de base): **não** mexer no código. Registrar no board + reportar no chat com link do log, e (no watch) seguir monitorando.
 
 Emitir os eventos de CI no board/Slack conforme o hook do watch (`ci-vermelho`, `ci-corrigido-tentativa`, `ci-verde`).
 
@@ -697,7 +713,7 @@ Após a 1ª passada (e a cada wake), execute UM tick:
 
 - **PR conflitante (`mergeable == CONFLICTING`) → tem precedência sobre tudo.** Aplicar o **gate de integração do passo 2b** (fonte única) antes de qualquer outra coisa deste tick, pelo mesmo motivo da 1ª passada: correção empilhada em base que não funde piora o conflito, e o CI do tick é inconfiável. Se a base andou desde a última tentativa (`conflictAttemptedAtBaseSha != ` SHA atual de `origin/<base>`), é tentativa nova; se é o mesmo SHA de base, **não retentar**. Resolvido → evento `conflito-resolvido`, atualizar `lastHeadSha` e `lastMergeable`, e seguir o tick normalmente. Não resolvido → evento `conflito-bloqueado`, **modo degradado**: fechar a conversa das threads do delta (responder/reagir/resolver) sem aplicar, commitar ou pushar, e não contar quiet tick.
 - **Nova rodada de threads (delta não vazio)** → executar o fluxo normal (passos 3 a 8a, incluindo a reconciliação da descrição) **só sobre as threads do delta**, com `--auto`. Ao terminar: `round += 1`, adicionar os PRRT recém-resolvidos a `resolvedThreadIds`, atualizar `lastHeadSha`, zerar `quietTicks`. Emitir evento Slack `nova-rodada-fechada` (ver "Hook Slack").
-- **CI vermelho** (e sem delta de threads) → aplicar a **triagem de CI do passo 2c** (fonte única): coletar o porquê, e se a causa for atribuível ao próprio push e dentro do escopo, tentar **uma** correção na worktree da PR + quality gate + commit/push na mesma branch (evento `ci-corrigido-tentativa`); senão, não mexer no código, registrar e reportar (evento `ci-vermelho` com link do log). No máximo **uma** tentativa de auto-fix por SHA — nunca em loop.
+- **CI vermelho** (e sem delta de threads) → aplicar a **triagem de CI do passo 2c** (fonte única): coletar o porquê via log, identificar se é gate de qualidade externo e, nesse caso, consultar a API conforme `${FLUX_ROOT}/shared/quality-gate-api.md` antes de classificar; se a causa for atribuível ao próprio push e dentro do escopo, tentar **uma** correção na worktree da PR + quality gate + commit/push na mesma branch (evento `ci-corrigido-tentativa`); senão, não mexer no código, registrar e reportar (evento `ci-vermelho` com link do log e, para gate externo, com `metricKey`/`actualValue`/`errorThreshold` da API). No máximo **uma** tentativa de auto-fix por SHA — nunca em loop.
 - **CI verde + sem delta de threads + PR integrando** → antes de contar quiet tick, checar **drift de título e descrição**: se `bodySyncedAtSha != lastHeadSha` ou `titleSyncedAtSha != lastHeadSha`, rodar o passo 8a sobre o SHA corrente (uma passada, com os três guardrails). Depois, `quietTicks += 1`. Emitir `ci-verde` apenas na **transição** (quando `lastCiConclusion != success`).
 - **CI pending + sem delta** → não fazer nada além de aguardar (não conta como quiet tick).
 

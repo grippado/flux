@@ -112,7 +112,8 @@ flux/
     ├── board-template.md          formato do board vivo (execução / iterate / delivery / conversa)
     ├── worktree-discipline.md     todo fluxo que escreve opera em worktree dedicado
     ├── fanout-discipline.md       todo trabalho pesado vai para subagente, em paralelo
-    └── context-budget.md          leitura sob demanda, um root por sessão, delegação
+    ├── context-budget.md          leitura sob demanda, um root por sessão, delegação
+    └── quality-gate-api.md        diagnóstico de gates Sonar via API (consultar em vez de deduzir)
 ```
 
 O plugin resolve `skills/<verbo>/SKILL.md` como `/flux:<verbo>`. Adicionar um diretório em `skills/` publica um verbo novo, sem tocar em instalação.

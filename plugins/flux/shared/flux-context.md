@@ -110,7 +110,15 @@ com o reviewer de outro time sem que nada acuse o problema.
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
   "repos": ["api-gateway", "web-monorepo", "notifications", "payments", "..."],
   "exec_command": "workflow",
-  "no_emdash": true
+  "no_emdash": true,
+  "quality_gate": {
+    "provider": "sonarcloud",
+    "host": "https://sonarcloud.io",
+    "org": "olaisaac",
+    "project_key_template": "OlaIsaac_{repo}",
+    "token_env": "SONAR_TOKEN",
+    "secrets_file": "~/.secrets"
+  }
 }
 ```
 
@@ -147,6 +155,17 @@ com o reviewer de outro time sem que nada acuse o problema.
   conhecimento de quem o instalou, não da família, e assumir um faria o `build` invocar, na máquina
   de outra pessoa, algo de um marketplace ao qual ela pode nem ter acesso. Ausente → modo autônomo.
 - `no_emdash` — quando `true`, o output que pode ser postado no GitHub não usa travessão/en-dash.
+- `quality_gate` — bloco opcional para diagnóstico de gates de qualidade externos via API (todo
+  o sub-bloco é opcional):
+  - `provider`: `"sonarcloud"` ou `"sonarqube"`. **Ausente = sem consulta** (degradação declarada
+    por `${FLUX_ROOT}/shared/quality-gate-api.md`, que trata gate externo como pendência humana).
+  - `host`: URL base do servidor. Default `https://sonarcloud.io` quando provider=sonarcloud.
+  - `org`: organização do SonarCloud. Ignorado para SonarQube.
+  - `project_key_template`: template com `{repo}` substituído pelo slug do repo, como
+    `specialists_root` já faz. **Ausente = sem chave de projeto = sem consulta.**
+  - `token_env`: nome da variável com o token. Default `SONAR_TOKEN`.
+  - `secrets_file`: arquivo de secrets a ler quando a variável não estiver no ambiente.
+    Default `~/.secrets`. Formato `KEY=value`, sem `export`, uma chave por linha.
 
 ## Perfil genérico (sem manifesto)
 
@@ -165,6 +184,8 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
   `flux:build` roda em **modo autônomo** (worktree + `CLAUDE.md` do repo + checks declarados + PR
   draft) e diz no banner que rodou sem os gates do repo.
 - `no_emdash` = `false`.
+- `quality_gate` = ausente (sem consulta à API de quality gates; gate externo é tratado como
+  pendência humana com degradação declarada — ver `${FLUX_ROOT}/shared/quality-gate-api.md`).
 
 Assim, qualquer pessoa que instale a família `flux:` já tem review holístico funcionando em qualquer
 repo GitHub; declarar um `flux-context.json` (ou um `<repo>/.claude/agents/reviewer.md`) é o que soma

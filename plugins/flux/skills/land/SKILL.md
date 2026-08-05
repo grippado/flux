@@ -22,6 +22,7 @@ Não confundir com `mutirao`/`/convocar`: aqueles planejam e CRIAM PRs a partir 
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (o iterate de cada PR escreve sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
 **Gate de integração com a base (conflito bloqueia merge-ready):** `${FLUX_ROOT}/shared/merge-conflict-gate.md`
+**Diagnóstico de quality gates externos via API (consultar antes de reportar go/no-go com CI vermelho):** `${FLUX_ROOT}/shared/quality-gate-api.md`
 **Disciplina de fan-out (OBRIGATÓRIA — uma PR = um subagente; nada pesado na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Orçamento de contexto (OBRIGATÓRIO — delivery é multi-repo, é o comando que mais sofre):** `${FLUX_ROOT}/shared/context-budget.md`
 
@@ -297,12 +298,12 @@ Após postar, registrar o canal usado e o link da mensagem no board (Timeline de
 
 **Escritor único.** Com o watch ligado (default), o board é mantido por um **board-keeper** — subagente nomeado, criado junto com o board e retomado por `SendMessage` a cada tick com o delta. Ver a seção do board-keeper em `${FLUX_ROOT}/shared/fanout-discipline.md`: contrato do delta, retorno de uma linha, guardrails e fallback. O keeper é dono **só deste** board; os boards de iterate filhos continuam sendo escritos pelos próprios filhos (a main só registra o path que veio no retorno). Com `--once`, não criar keeper.
 
-Crie (ou assuma via `--board`) a nota em `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-delivery-<slug>.md` **logo após a descoberta (fase 2), não no fim**. Já na criação, escreva o painel de status (mesmo que várias colunas comecem vazias/`pending`) e **anuncie o caminho no chat**. Nunca duplique um board existente da mesma entrega: se já houver (ou `--board` apontar), atualize-o.
+Crie (ou assuma via `--board`) a nota em `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-land-<slug>.md` **logo após a descoberta (fase 2), não no fim**. Já na criação, escreva o painel de status (mesmo que várias colunas comecem vazias/`pending`) e **anuncie o caminho no chat**. Nunca duplique um board existente da mesma entrega: se já houver (ou `--board` apontar), atualize-o.
 
-Frontmatter: segue o template compartilhado (`type: delivery`), com os campos `issues: [...]`, `repos: [...]`, `iterate_boards: [...]` (paths dos boards de iterate filhos, preenchidos conforme nascem), `context: <VAULT_CTX>` e `pending_organize: true`.
+Frontmatter: segue o template compartilhado (`type: flux-land`), com os campos `issues: [...]`, `repos: [...]`, `iterate_boards: [...]` (paths dos boards de iterate filhos, preenchidos conforme nascem), `context: <VAULT_CTX>` e `pending_organize: true`.
 
 **O formato do board é fonte única compartilhada:** siga o template em
-`${FLUX_ROOT}/shared/board-template.md`, **perfil multi-PR** (`type: delivery` — canônico no schema do vault,
+`${FLUX_ROOT}/shared/board-template.md`, **perfil multi-PR** (`type: flux-land` — canônico no schema do vault,
 painel com N linhas — uma por PR da entrega). Todas as seções (Frontmatter → H1+TLDR → 🎯 Próximo Movimento
 → 📊 Painel → ⏰ Timeline Verbosa → 📅 Timeline de Eventos Relevantes → ✅ Ação/Continuidade), a legenda de
 ícones de STATUS do painel (🟣🟢🔒🔗🟡🔧 — nota: esta legenda é de STATUS de PR no board, não os badges de findings do review-legend.md), a regra de ouro do painel ("o painel é a única tabela de status de PR") e a disciplina de carimbo de data vivem lá e valem aqui sem repetição. Editar o formato = editar aquele arquivo.
@@ -342,7 +343,21 @@ painel com N linhas — uma por PR da entrega). Todas as seções (Frontmatter �
 
 Cada **tick**:
 1. **Re-descoberta** (seção 1, descoberta primária por conteúdo): rode de novo para cada ticket-id da entrega. Compare com `prs[]` do estado — qualquer PR nova (mergeada ou não) entra no painel, gera linha `descoberta` na Timeline de Eventos Relevantes e é anunciada no chat.
-2. Para cada PR (incluindo recém-descobertas): mini-tick (estado da PR, CI agregado, delta de threads via GraphQL `reviewThreads` filtrando `resolvedThreadIds`, **e delta de issue comments** via `gh api repos/<owner>/<repo>/issues/<n>/comments` filtrando os já respondidos — o `reviewThreads` não os retorna). Issue comment novo de terceiro dispara iterate igual a thread nova.
+2. Para cada PR (incluindo recém-descobertas): mini-tick (estado da PR, CI agregado via `gh pr checks`,
+   delta de threads via GraphQL `reviewThreads` filtrando `resolvedThreadIds`, **e delta de issue comments**
+   via `gh api repos/<owner>/<repo>/issues/<n>/comments` filtrando os já respondidos — o `reviewThreads`
+   não os retorna). Issue comment novo de terceiro dispara iterate igual a thread nova.
+
+   **Quando CI estiver falhando:** identificar, pelo nome do check ou pelo log, se o step que falhou
+   é um quality gate externo (SonarCloud/SonarQube). Se for, consultar a API conforme
+   `${FLUX_ROOT}/shared/quality-gate-api.md` (Etapa 1: condições em `ERROR` com `metricKey`,
+   `actualValue`, `errorThreshold`; Etapa 2 se a condição pedir detalhe). Registrar o diagnóstico
+   no estado da PR (`ciFailReason`) para que o board e o go/no-go não digam apenas "CI vermelho",
+   mas a condição exata: `CI vermelho: new_coverage 68.5% < 80% (3 arquivos sem cobertura)` ou
+   `CI vermelho: new_vulnerabilities — githubactions:S8541 em .github/workflows/ci.yml:42`. Um
+   go/no-go que diz "CI vermelho, causa desconhecida" quando a causa é consultável é um go/no-go
+   pior do que precisa ser. Sem manifesto/token: degradação declarada por `quality-gate-api.md`,
+   o go/no-go inclui o aviso e reporta CI vermelho com link do log.
 3. Se há delta de threads numa PR → despachar **um subagente** para rodar `/flux:iterate <url> --auto --once` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
 3b. **Checar transição de draft** (compare `isDraft` atual com `wasDraft` salvo). Se alguma PR virou `ready for review` neste tick, dispare a pergunta do passo 4b (agrupando por ticket) antes de seguir. Atualize `wasDraft` para o valor atual de todas as PRs.
 4. Se algum head/base mudou → recomputar ordem/regressão afetada (fases 2–3) só do que mudou.
