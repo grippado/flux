@@ -13,6 +13,18 @@
 `[contexto]: [verbo de ação] [assunto]`, em PT-BR. Ex.: `backoffice: garantir registro duplo de
 componente Gravity`, `flux: mostrar banners coloridos nos comentários de review`. Sem em-dash.
 
+**Gate de legibilidade do título.** O título é o que aparece na lista do board, e é por ele que alguém
+de produto decide se a issue interessa. Ele continua técnico — não vira marketing — mas tem que
+entregar o contexto sozinho. Antes de propor o título, checar:
+
+- **Passa no teste da lista:** lido fora da issue, sem o corpo ao lado, dá pra dizer o que muda e onde.
+- **Diz o assunto, não só a operação.** `ajustar handler` e `corrigir bug do fluxo` reprovam: dizem que
+  algo muda, não o quê. `bloquear envio duplicado no agendamento de comunicado` passa.
+- **Sigla e nome interno só quando são o vocabulário real do time.** `BFF`, `SDD` passam; um nome de
+  símbolo (`useFooBarProvider`) ou de arquivo no título reprova — isso é corpo, não título.
+- **Sem número de ticket, sem prefixo de tipo** (`[BUG]`, `feat:`): o tracker já carrega isso, e no
+  título eles roubam o espaço do que interessa.
+
 ## Seção obrigatória em toda issue: Embasamento no código
 
 É o que distingue a issue do `flux:issue` de uma issue comum. Vem dos achados dos specialists
@@ -34,14 +46,22 @@ Sem citação, é `sem-evidência`. Isso ancora o "O que fazer" e o "Critério d
 Herdadas do `to-issue` (`.../core/skills/to-issue/references/{tipo}.md`), com a seção de embasamento
 inserida logo após a principal. Todas terminam em `## Prompt para IA`.
 
-- **Feature / Improvement:** `## Motivação` · `## O que fazer` · `## Embasamento no código` · `## Critério de aceite` · `## Validações necessárias` · `## Abordagem sugerida` *(opcional)* · `## Prompt para IA`
-- **Bug:** `## Problema` · `## Passos para reproduzir` · `## Comportamento esperado` · `## Embasamento no código` · `## Critério de aceite` · `## Validações necessárias` · `## Abordagem sugerida` *(opcional)* · `## Prompt para IA`
-- **Spike:** `## Objetivo` · `## Escopo` · `## Embasamento no código` · `## Entregável` · `## Validações necessárias` · `## Abordagem sugerida` *(opcional)* · `## Prompt para IA`
+- **Feature / Improvement:** `## Resumo executivo` · `## Motivação` · `## O que fazer` · `## Embasamento no código` · `## Critério de aceite` · `## Validações necessárias` · `## Abordagem sugerida` *(opcional)* · `## Prompt para IA`
+- **Bug:** `## Resumo executivo` · `## Problema` · `## Passos para reproduzir` · `## Comportamento esperado` · `## Embasamento no código` · `## Critério de aceite` · `## Validações necessárias` · `## Abordagem sugerida` *(opcional)* · `## Prompt para IA`
+- **Spike:** `## Resumo executivo` · `## Objetivo` · `## Escopo` · `## Embasamento no código` · `## Entregável` · `## Validações necessárias` · `## Abordagem sugerida` *(opcional)* · `## Prompt para IA`
 
 ### Conteúdo das seções
 
+- **Resumo executivo:** blockquote de 1-2 frases dizendo **o que muda e para quem**, na língua de
+  produto. Sem nome de arquivo, sem nome de símbolo, sem sigla não expandida, sem link. É a única
+  seção escrita para quem **não** vai ler o resto da issue: alguém de produto tem que fechar a issue
+  depois dela e saber do que se trata. Mesmo formato do TLDR dos boards
+  ([`board-template.md`](board-template.md)), para não inventar estilo novo.
 - **Motivação / Problema / Objetivo:** 1 parágrafo não-técnico com o valor de produto/usuário (ou o
-  sintoma, no bug).
+  sintoma, no bug). **Não repetir o resumo executivo:** o resumo diz *o que muda*, esta seção diz *por
+  que agora* — o custo de não fazer, o que originou o pedido. No bug, o resumo carrega o impacto
+  sentido pelo usuário e o `## Problema` fica com o sintoma técnico. Escrever as duas com o mesmo
+  conteúdo é o erro mais fácil de cometer aqui, e deixa a issue pior do que era sem o resumo.
 - **O que fazer / Passos / Escopo:** o trabalho concreto, ancorado nos achados (`ver Embasamento`).
 - **Critério de aceite:** checklist técnico verificável.
 - **Validações necessárias:** teste, feature flag, migração reversível, e2e — o que provar antes de fechar.
@@ -91,7 +111,7 @@ lista numerada e aprovar em lote, nunca por issue.
 
 Este documento define **o corpo da issue**, e só isso. O corpo é escrito na seção
 **📝 Rascunho da issue** (7-sexies) do **board de exploração** do `flux:issue` — uma subseção por
-candidata do painel. O frontmatter, o caminho no vault (`<VAULT_ROOT>/linear/YYYY-MM-DD-<slug>.md`), o
+candidata do painel. O frontmatter, o caminho no vault (`<VAULT_ROOT>/linear/YYYY-MM-DD-flux-issue-<slug>.md`), o
 versionamento entre rodadas do gate e o ciclo de vida da nota vivem em
 [`board-template.md`](board-template.md), **perfil exploração**. Não duplicar nada disso aqui: definir
 frontmatter em dois lugares é garantir que os dois divirjam.
