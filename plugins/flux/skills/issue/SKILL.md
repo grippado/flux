@@ -11,7 +11,7 @@ padrão do time, **embasamento em código real** (achados dos specialists com `a
 labels certas, e a disciplina de links do flux. Nunca cria no Linear sem você aprovar.
 
 **Formato canônico da issue:** `${FLUX_ROOT}/shared/issue-template.md`
-**Formato do board:** `${FLUX_ROOT}/shared/board-template.md`, **perfil exploração** (`type: issue-draft`).
+**Formato do board:** `${FLUX_ROOT}/shared/board-template.md`, **perfil exploração** (`type: flux-issue`).
 As seções, a legenda de ícones e a disciplina de carimbo de data vivem lá e não são repetidas aqui.
 **Descoberta + fan-out de specialists:** `${FLUX_ROOT}/shared/review-agents.md`
 **Disciplina de fan-out (regra pétrea da família):** `${FLUX_ROOT}/shared/fanout-discipline.md`
@@ -53,7 +53,7 @@ Se nenhum repo for identificável, perguntar ao usuário qual repo é o alvo (n�
 **Sem `VAULT_ROOT`** (perfil genérico): não há onde procurar nem o que retomar — pular direto para o
 Step 1-ter, que trata a degradação.
 
-Com `VAULT_ROOT` resolvido, procurar em `<VAULT_ROOT>/linear/` um board `type: issue-draft` cujo campo
+Com `VAULT_ROOT` resolvido, procurar em `<VAULT_ROOT>/linear/` um board `type: flux-issue` cujo campo
 `source:` case com o `SOURCE`. Casou → é **este** o board, atualiza. Não casou → board novo no Step 1-ter.
 
 **Como casar, por tipo de fonte:**
@@ -92,7 +92,7 @@ nenhum; **retomar** o que ele achou, se achou — seguindo o **perfil exploraç�
 > primeira e única notícia. Se um prospector travar ou voltar vazio, um board que nascesse depois não
 > teria rastro de onde parou. Board que nasce depois do trabalho é ata, não board.
 
-1. **Caminho:** o board resolvido no Step 1-bis; ou, sendo novo, `<VAULT_ROOT>/linear/YYYY-MM-DD-<slug>.md`.
+1. **Caminho:** o board resolvido no Step 1-bis; ou, sendo novo, `<VAULT_ROOT>/linear/YYYY-MM-DD-flux-issue-<slug>.md`.
    Path já ocupado por um board de **outro** `source` (slugs diferentes que colidiram): sufixar `-2`,
    `-3`. Nunca sobrescrever board de outro pedido.
 2. **Nasce com:** frontmatter (`execution_status: active`, `source`, `repos`, `linear_ids: []`,

@@ -15,17 +15,28 @@ texto postado no GitHub/Slack, via iterate).
 
 | Perfil | Comando | O que o painel lista | `type` no frontmatter | Naming do arquivo |
 |--------|---------|----------------------|-----------------------|-------------------|
-| **execução** | `/flux:build` | N linhas (as etapas do motor) | `build` | `YYYY-MM-DD-HHMM-build-<repo-slug>-<slug-do-ticket>.md` |
-| **single-PR** | `/flux:iterate` | 1 linha (a PR única) | `iterate` | `YYYY-MM-DD-HHMM-iterate-pr<N>-<repo-slug>.md` |
-| **multi-PR** | `/flux:land` | N linhas (todas as PRs da entrega) | `delivery` | `YYYY-MM-DD-HHMM-delivery-<slug>.md` |
-| **conversa** | `/flux:reply` | N linhas (pendências em aberto do caso) | `thread` | `YYYY-MM-DD-HHMM-slack-board-<slug-do-caso>.md` |
-| **exploração** | `/flux:issue` | N linhas (as issues candidatas) | `issue-draft` | `linear/YYYY-MM-DD-<slug>.md` (única fora do `0-inbox/`; sem `HHMM`, por compatibilidade com os rascunhos já gravados) |
+| **execução** | `/flux:build` | N linhas (as etapas do motor) | `flux-build` | `YYYY-MM-DD-HHMM-flux-build-<repo-slug>-<slug-do-ticket>.md` |
+| **single-PR** | `/flux:iterate` | 1 linha (a PR única) | `flux-iterate` | `YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md` |
+| **multi-PR** | `/flux:land` | N linhas (todas as PRs da entrega) | `flux-land` | `YYYY-MM-DD-HHMM-flux-land-<slug>.md` |
+| **conversa** | `/flux:reply` | N linhas (pendências em aberto do caso) | `thread` | `YYYY-MM-DD-HHMM-flux-reply-<slug-do-caso>.md` |
+| **exploração** | `/flux:issue` | N linhas (as issues candidatas) | `flux-issue` | `linear/YYYY-MM-DD-flux-issue-<slug>.md` (única fora do `0-inbox/`; sem `HHMM`, por compatibilidade com os rascunhos já gravados) |
 
-> **O `type` tem que ser canônico** quando o vault declara um schema (`<VAULT_ROOT>/.schema/note-schema.json`). `build`, `iterate`,
-> `delivery`, `thread` e `issue-draft` estão no enum; os nomes antigos `iterate-board`/`delivery-flow`/`slack-ata`/`slack-thread` só
-> sobrevivem no mapa de colapso, por compatibilidade com os boards já gravados. Emitir tipo fora do enum
+> **O nome do arquivo carrega o nome do comando.** O infixo é sempre `flux-<verbo>`, igual ao comando que
+> gerou o board — quem lista o `0-inbox/` sabe de onde cada nota veio sem abrir nenhuma. Os infixos antigos
+> (`build-`, `iterate-`, `delivery-`, `slack-board-`) foram aposentados em 2026-08-03; boards já gravados com
+> eles foram renomeados no vault. Não emitir nome novo no padrão velho.
+>
+> **O `type` tem que ser canônico** quando o vault declara um schema (`<VAULT_ROOT>/.schema/note-schema.json`). `flux-build`,
+> `flux-iterate`, `flux-land`, `thread` e `flux-issue` estão no enum; os nomes antigos `build`/`iterate`/`delivery`/`issue-draft`
+> (e, antes deles, `iterate-board`/`delivery-flow`/`slack-ata`/`slack-thread`) só sobrevivem no mapa de colapso,
+> por compatibilidade com os boards já gravados. Emitir tipo fora do enum
 > faz o lint do vault **abortar o commit**, quando houver um. `repo:` também é validado: use
 > o slug puro (`web-monorepo`), nunca `acme/web-monorepo`.
+>
+> **Por que o perfil conversa NÃO tem um `type: flux-reply`:** `thread` não é carimbo do flux, é o type
+> genérico do vault — colapsa `reply`, `session`, `context-save` e `handoff`, e cobre centenas de notas que
+> nada têm a ver com esta família. O board do reply se distingue pelo **nome do arquivo** (`flux-reply-`),
+> não pelo type. Renomear `thread` arrastaria o vault inteiro para pagar por um comando só.
 >
 > **Por que o perfil conversa usa `thread` e não `slack`:** no schema, `slack` é o type de *digest*
 > (`done_signal: born_done`, nasce fechado — é o que o `/cantar` emite). `thread` tem exatamente o
@@ -119,7 +130,7 @@ separariam à força o que se lê junto, então é uma nota só, no lugar onde o
 title: "<Board do build — <ticket> (repo)>  |  <Board do iterate — PR #N (repo)>  |  <Delivery board — feature/issues>  |  <Board do issue — <pedido>>"
 date: "<YYYY-MM-DD>"
 updated: "<YYYY-MM-DD HH:MM>"       # rola a CADA tick, mesmo tick sem novidade
-type: iterate                       # ou: build | delivery | thread | issue-draft  (canônicos; ver nota acima)
+type: flux-iterate                  # ou: flux-build | flux-land | thread | flux-issue  (canônicos; ver nota acima)
 context: <VAULT_CTX>
 pending_organize: true
 # execução (build):

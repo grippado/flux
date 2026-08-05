@@ -120,7 +120,7 @@ look é o relance rápido; o formato completo (painel, permalinks, ação) é do
 - Sem seção `## Decisão` formal, sem checklist, sem cobertura de specialists.
 - Se `LOOK_REPORT` vier vazio (sem findings): imprimir só o `SUMARIO` com a conclusão do subagent.
 
-**Com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-look-{alvo-slug}.md` além de imprimir no chat. Não persiste no vault automaticamente (escolha explícita do usuário).
+**Com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-flux-peek-{alvo-slug}.md` além de imprimir no chat. Não persiste no vault automaticamente (escolha explícita do usuário).
 
 ## Pipeline leve de doc (target = URL de Google Docs / Drive)
 

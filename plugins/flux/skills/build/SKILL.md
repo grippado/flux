@@ -26,7 +26,7 @@ Onde ele fica no ciclo:
 **Disciplina de worktree (escrever sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
 **Disciplina de fan-out (despachar, não executar na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Bootstrap de specialists:** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
-**Formato do board:** `${FLUX_ROOT}/shared/board-template.md`, **perfil execução** (`type: build`). As seções, a legenda de ícones e a disciplina de carimbo de data vivem lá e não são repetidas aqui.
+**Formato do board:** `${FLUX_ROOT}/shared/board-template.md`, **perfil execução** (`type: flux-build`). As seções, a legenda de ícones e a disciplina de carimbo de data vivem lá e não são repetidas aqui.
 **Orçamento de contexto (leitura sob demanda, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
 
 ## Uso
@@ -195,13 +195,13 @@ falha, mas quem o roda precisa saber que rodou sem os gates do repo.
 ## Step 2-bis — Criar o board de execução (antes de despachar)
 
 Com `VAULT_ROOT` resolvido, criar o board **antes** de disparar o motor, seguindo o **perfil execução**
-de `${FLUX_ROOT}/shared/board-template.md` (`type: build`).
+de `${FLUX_ROOT}/shared/board-template.md` (`type: flux-build`).
 
 > **Por que antes.** O motor roda em worktree, longe da main, por muitos minutos. Se o board nascesse
 > no fim, o intervalo inteiro seria cego e um motor que trava não deixaria rastro nenhum. Board que
 > nasce depois do trabalho é ata, não board.
 
-1. **Path:** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-build-<repo-slug>-<slug-do-ticket>.md`.
+1. **Path:** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-build-<repo-slug>-<slug-do-ticket>.md`.
    **Anunciar o path no chat** na criação, como fazem os outros elos.
 2. **Frontmatter:** `repo`, `ticket`, `engine`, `engine_kind` (`nativo`/`fallback`), `worktree`,
    `branch`, `pr: null`.

@@ -285,7 +285,7 @@ Entrar no loop de polling (ver `## Modo watch`).
 Parâmetros específicos deste comando:
 
 - **Path**: `<VAULT_ROOT>/0-inbox/`. Sem manifesto: imprimir o board no chat em vez de gravar.
-- **Nome**: `AAAA-MM-DD-HHMM-slack-board-<slug-do-caso>.md`, com a data/hora da **criação** do board (não muda quando o caso migra). Slug em kebab-case ASCII (sem acento) descrevendo **o caso**, não a superfície: tema + ticket ou escola/produto. Ex.: `2026-07-30-1723-slack-board-canal-institucional-read-only.md`. O infixo `board` distingue de atas legadas na listagem do 0-inbox; o slug não carrega o nome do canal, justamente porque o canal muda.
+- **Nome**: `AAAA-MM-DD-HHMM-flux-reply-<slug-do-caso>.md`, com a data/hora da **criação** do board (não muda quando o caso migra). Slug em kebab-case ASCII (sem acento) descrevendo **o caso**, não a superfície: tema + ticket ou escola/produto. Ex.: `2026-07-30-1723-flux-reply-canal-institucional-read-only.md`. O infixo `flux-reply` nomeia o comando que gerou o board, distinguindo-o das atas legadas na listagem do 0-inbox; o slug não carrega o nome do canal, justamente porque o canal muda.
 - **Colisão** no mesmo dia com caso **diferente** → sufixo `-v2`. Mesmo caso → mesmo arquivo, sempre (ver `## Casos multi-superfície`).
 - **Painel**: lista **pendências** (pergunta em aberto / decisão travada / compromisso assumido), não superfícies. As superfícies vão no 🧭 Rastro do caso.
 - **`execution_status`**: `open` enquanto o caso roda; `done` quando resolve; `dropped` se morre sem desfecho.

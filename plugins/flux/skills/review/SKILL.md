@@ -478,7 +478,7 @@ thread. Threads `RESOLVED` viram contexto (não repetir o ponto), não entram em
 ### d2. Rodadas anteriores (vault)
 
 ```bash
-ls <VAULT_ROOT>/0-inbox/ | grep -E "review-doc.*\.md$" | sort
+ls <VAULT_ROOT>/0-inbox/ | grep -E "flux-review-doc.*\.md$" | sort
 ```
 
 Se houver review anterior do mesmo doc (mesmo `source_url` no frontmatter), ler a seção
@@ -527,7 +527,7 @@ Guardar como `FINAL_REPORT`. Se o output vier mal formatado, mostrar o erro e n�
 ### d5. Computar nome do arquivo
 
 - Slug do doc = título em kebab-case (sem stopwords longas).
-- Filename: `YYYY-MM-DD-HHMM-review-doc-{slug}.md` (HHMM da hora local).
+- Filename: `YYYY-MM-DD-HHMM-flux-review-doc-{slug}.md` (HHMM da hora local).
 - Re-runs no mesmo doc/dia: sufixar `-v2`, `-v3`.
 - Path: `<VAULT_ROOT>/0-inbox/{filename}`.
 
