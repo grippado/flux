@@ -153,6 +153,11 @@ ocorre na prática, e a contrapartida é que o elo passa a preferir perguntar a 
 Todo elo abre seu output com o banner. Ele não é decoração: é o que impede um parecer degradado de
 se passar por um parecer completo.
 
+**Emitir sempre dentro de um bloco de código**, nunca como texto solto. As três linhas são separadas
+por quebra simples, e em markdown isso vira um parágrafo corrido: `perfil` e `degradacoes` grudam
+numa frase só e o banner perde exatamente o que o justifica, que é ser lido de relance. O bloco de
+código preserva as quebras em qualquer renderizador.
+
 ```
 perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
 lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
@@ -195,17 +200,24 @@ o que permite comparar execuções.
 
 Ao abortar, dizer o que falta, onde foi procurado e o que fazer. Nunca abortar com mensagem genérica.
 
+**Emitir dentro de um bloco de código**, pelo mesmo motivo do banner (abaixo): em markdown, quebra
+de linha simples vira parágrafo corrido, e uma lista de requisitos faltando colada numa frase só é
+ilegível justo no momento em que o usuário mais precisa ler rápido.
+
 ```
-flux:{verbo} nao pode rodar de forma confiavel.
+${FLUX_CMD}{verbo} nao pode rodar de forma confiavel.
 
 Faltando (hard):
-  - agent: pr-reviewer          procurado em ~/.claude/agents/ e no plugin
+  - agent: pr-reviewer          procurado em ~/.claude/agents/, ~/.cursor/agents/ e no plugin
   - file: shared/review-legend.md   procurado em {FLUX_ROOT}/shared/
 
 Como resolver:
-  - instale a familia flux: (ou rode /flux:bootstrap)
+  - instale a familia flux: (ver README do repo)
 
 Nada foi lido, gravado ou postado.
 ```
+
+O nome do elo na primeira linha usa `${FLUX_CMD}`, não `flux:` literal: o abort é lido por quem vai
+reinvocar o comando, e nomeá-lo na forma de outro harness manda o usuário digitar algo inexistente.
 
 A última linha importa: quem recebeu um abort precisa saber que nenhum efeito colateral ocorreu.
