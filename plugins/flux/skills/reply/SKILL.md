@@ -16,6 +16,28 @@ A ação recomendada é sempre **salvar como rascunho** (`slack_send_message_dra
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de fan-out (regra pétrea da família):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 
+## Banner de perfil — gabarito (copiar VERBATIM)
+
+Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
+degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
+que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
+improvisado, com campos inventados e sem o `nivel`.
+
+Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
+em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+
+````
+```
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
+prospector: {agente} · answerer: {agente}
+degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+```
+````
+
+Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, também verbatim, e o
+nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:reply` num harness,
+`/flux-reply` em outro) — nunca `flux:` literal.
+
 ## Step 0-context: resolver perfil (leve)
 
 Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md` — procurar `flux-context.json` em `.claude/` subindo a árvore a partir do `cwd`. Extrair apenas:

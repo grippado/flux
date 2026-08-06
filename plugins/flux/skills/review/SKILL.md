@@ -27,6 +27,28 @@ Skill orquestradora de review **formal**, despachada por verbo. Resolve o contex
 **Preflight:** `${FLUX_ROOT}/shared/preflight.md`
 **Bootstrap de specialists:** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
 
+## Banner de perfil — gabarito (copiar VERBATIM)
+
+Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
+degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
+que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
+improvisado, com campos inventados e sem o `nivel`.
+
+Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
+em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+
+````
+```
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
+lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
+degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+```
+````
+
+Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, também verbatim, e o
+nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:review` num harness,
+`/flux-review` em outro) — nunca `flux:` literal.
+
 ## Step 0-preflight: verificar pré-requisitos
 
 Seguir `${FLUX_ROOT}/shared/preflight.md` **antes de coletar o alvo**. Ele resolve `FLUX_ROOT`, verifica

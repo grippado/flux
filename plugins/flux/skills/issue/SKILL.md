@@ -18,6 +18,28 @@ As seções, a legenda de ícones e a disciplina de carimbo de data vivem lá e 
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Mecânica Linear (não reimplementar):** `LINEAR_OPS` do perfil (campo `linear_ops` do manifesto)
 
+## Banner de perfil — gabarito (copiar VERBATIM)
+
+Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
+degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
+que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
+improvisado, com campos inventados e sem o `nivel`.
+
+Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
+em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+
+````
+```
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
+specialists: {lista|nenhum}
+degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+```
+````
+
+Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, também verbatim, e o
+nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:issue` num harness,
+`/flux-issue` em outro) — nunca `flux:` literal.
+
 ## Out of scope (nunca sem confirmação explícita)
 
 - Não criar issue no Linear antes do gate de aprovação (Step 5). O único destino de escrita antes disso

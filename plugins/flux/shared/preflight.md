@@ -164,6 +164,13 @@ degradacoes: {lista dos soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
 
+> **O gabarito também mora no corpo de cada elo, e isso não é duplicação por descuido.** Este passo
+> rege as **regras** (quais campos, quando degradar, o que cada nível significa); o gabarito repetido
+> no elo é o que garante que o template esteja em contexto **na hora de emitir**. Um elo que só
+> referencia este arquivo improvisa: inventa campos, omite o `nivel`, e o banner deixa de cumprir a
+> função. Foi observado nos sete elos — o único que acertava era o único que carregava o gabarito.
+> Ao mudar o formato aqui, propagar para os sete.
+
 > **Por que a cerca é obrigatória, e não estilo.** As três linhas são separadas por quebra simples.
 > Em markdown, quebra simples não quebra linha: as três viram um parágrafo corrido, `perfil` e
 > `degradacoes` grudam numa frase só, e o banner perde exatamente o que o justifica, que é ser lido
