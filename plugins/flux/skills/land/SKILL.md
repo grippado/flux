@@ -93,7 +93,7 @@ As flags podem aparecer em qualquer posição e combinadas.
      (ex.: manifesto em `<raiz>/.claude/flux-context.json` → `WORKSPACE_ROOT=<raiz>`)
 
 3. Se não encontrar (perfil genérico):
-   - `HOLISTIC` = `pr-reviewer`
+   - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3), nunca um nome fixo
    - `VAULT_ROOT` = não persiste por default; `--board <path>` ou criar em `pwd`
    - `VAULT_CTX` = `generic`
    - `NO_EMDASH` = `false`
@@ -216,11 +216,18 @@ skill `flux:iterate` (~14k tokens, restaurada a cada compact). Num delivery de 3
 isso sozinho estoura a janela e joga a sessão em thrashing de autocompact — já aconteceu
 (medido numa entrega real de 3 PRs).
 
-Dentro do subagente, o comando é o mesmo de sempre:
+Dentro do subagente, o comando é o mesmo de sempre, montado com o prefixo que o Passo 1b do
+preflight resolveu (**não** escrever `/flux:` literal aqui: o nome invocável é do harness, não
+nosso):
 
 ```
-/flux:iterate <url-da-pr> --auto --once --parent-board "<path-do-board-deste-delivery>"
+${FLUX_CMD}iterate <url-da-pr> --auto --once --parent-board "<path-do-board-deste-delivery>"
 ```
+
+Se `FLUX_CMD` veio `UNAVAILABLE` do preflight, **esta fase aborta** com a mensagem do formato padrão
+("faltando: comando invocável do `iterate`"). Não rode o iterate inline como consolo: além de violar
+a Regra 2 do `context-budget.md`, um delivery cujo iterate rodou inline em 3 PRs não é o mesmo
+artefato que um delivery normal, e o board não teria como registrar a diferença.
 
 O `--auto` pula confirmação (o subagente não tem canal com o usuário — sem ele o iterate trava);
 o `--once` garante que o watch é do delivery (consolidado), não N watches por PR; o
@@ -358,7 +365,7 @@ Cada **tick**:
    go/no-go que diz "CI vermelho, causa desconhecida" quando a causa é consultável é um go/no-go
    pior do que precisa ser. Sem manifesto/token: degradação declarada por `quality-gate-api.md`,
    o go/no-go inclui o aviso e reporta CI vermelho com link do log.
-3. Se há delta de threads numa PR → despachar **um subagente** para rodar `/flux:iterate <url> --auto --once` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
+3. Se há delta de threads numa PR → despachar **um subagente** para rodar `${FLUX_CMD}iterate <url> --auto --once` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
 3b. **Checar transição de draft** (compare `isDraft` atual com `wasDraft` salvo). Se alguma PR virou `ready for review` neste tick, dispare a pergunta do passo 4b (agrupando por ticket) antes de seguir. Atualize `wasDraft` para o valor atual de todas as PRs.
 4. Se algum head/base mudou → recomputar ordem/regressão afetada (fases 2–3) só do que mudou.
 5. Recomputar as métricas do painel e mandar o **delta do tick ao board-keeper** por `SendMessage` (contrato do delta em `fanout-discipline.md`); é ele que atualiza o **painel no topo do board** + próximo movimento + go/no-go. A main não relê o board nem o reescreve. **Rolar o carimbo de data em TODO tick** (mesmo tick sem mudança): frontmatter `updated:`, o TLDR/"Última atualização" e o timestamp no título do painel, todos para o horário local corrente. Atualizar o estado (`lastTickAt`).

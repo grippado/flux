@@ -64,7 +64,7 @@ Quando o perfil declara `SPECIALISTS_SPEC`, esse arquivo é a espec e rege o for
 ele, seguir o checklist mínimo:
 
 1. Confirmar repo-slug: `cd <WORKSPACE_ROOT>/<slug> && gh repo view --json name -q .name`.
-2. Ler `CLAUDE.md` do repo + detectar a stack (package.json / go.mod / Gemfile / pyproject / etc.).
+2. Ler as instruções do repo (`AGENTS.md` e/ou `CLAUDE.md`) + detectar a stack (package.json / go.mod / Gemfile / pyproject / etc.).
 3. **Ler os agents de review que o repo já tem (L3), quando houver.** A suite local deve
    **complementar** o que o repo cobre, não repetir. Registrar no índice o que ficou por conta de L3.
 4. Delegar a autoria a um `general-purpose`, passando `SPECIALISTS_SPEC` quando houver, instruindo a

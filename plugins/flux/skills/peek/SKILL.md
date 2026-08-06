@@ -1,6 +1,6 @@
 ---
 name: peek
-description: "Relance read-only de working tree / branch / diff / PR / doc; roda só o reviewer holístico; imprime parecer com badges no chat; não posta, não aplica, não grava no vault (exceto `--save`). Para review formal que persiste e posta, use `/flux:review`."
+description: "Relance read-only de working tree / branch / diff / PR / doc; roda só o reviewer holístico; imprime parecer com badges no chat; não posta, não aplica, não grava no vault (exceto `--save`). Para review formal que persiste e posta, use o verbo `review` da família."
 user-invocable: true
 requires:
   hard:
@@ -43,8 +43,8 @@ Neste comando, especificamente:
 1. Resolver `FLUX_ROOT` (Passo 1 do preflight).
 2. Verificar os `hard`. Faltou algum → **abortar** no formato do preflight. Não ler o alvo, não
    invocar agente, não gravar nada.
-3. Resolver `HOLISTIC` na ordem canônica (manifesto → `<repo>/.claude/agents/reviewer.md` →
-   `pr-reviewer`) e **verificar que existe**. Não existe → abortar.
+3. Resolver `HOLISTIC` na ordem canônica do Passo 3 (manifesto → override local do repo → genérico
+   da família pela cascata) e **verificar que existe**. Não existe → abortar.
 4. Extrair `NO_EMDASH` do manifesto quando houver. Os demais campos (vault, specialists) não são
    usados neste comando.
 5. Classificar o nível: `REDUCED` com checkout local, `THIN` sem checkout local. Este comando nunca
@@ -160,5 +160,9 @@ Quando o alvo não se encaixa em nenhuma categoria:
 Ao final do parecer no chat, sempre incluir esta linha:
 
 ```
-Para review formal que persiste e posta/aplica no GitHub, use `/flux:review`. Para fechar o loop de uma PR (responder threads, aplicar + commitar), use `/flux:iterate`.
+Para review formal que persiste e posta/aplica no GitHub, use `${FLUX_CMD}review`. Para fechar o loop de uma PR (responder threads, aplicar + commitar), use `${FLUX_CMD}iterate`.
 ```
+
+Montar a linha com o `FLUX_CMD` resolvido no preflight, **nunca** com `/flux:` literal. Esta linha é
+lida por quem vai digitar o comando em seguida: escrever a forma de outro harness manda o usuário
+digitar algo que não existe na máquina dele.

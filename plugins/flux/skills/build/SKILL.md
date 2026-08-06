@@ -182,7 +182,7 @@ ENGINE="autonomo"
 
 Nos caminhos **B** e **C**, a disciplina abaixo é responsabilidade do elo, não do motor:
 - Trabalhar em **worktree dedicado** — ver `${FLUX_ROOT}/shared/worktree-discipline.md`. Nunca na árvore principal do repo.
-- Ler o `CLAUDE.md` do repo antes de escrever (convenções do repo vencem qualquer default).
+- Ler as instruções do repo (`AGENTS.md` e/ou `CLAUDE.md`) antes de escrever — convenções do repo vencem qualquer default.
 - Rodar os checks que o repo declarar (lint/typecheck/test) antes de abrir a PR.
 - Abrir a PR como **draft**, sempre.
 
@@ -274,9 +274,12 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 
 Ao final, o resultado é o do motor (tipicamente PR draft + CI monitorado). Feche apontando o próximo elo, escolhendo **um**:
 
-- PR draft aberta e sozinha → `/flux:review <pr>` (review formal) ou `/flux:peek <pr>` (relance rápido).
-- PR já com threads/CI vermelho → `/flux:iterate <pr>`.
-- Task era uma frente de entrega multi-PR → `/flux:land <issue>`.
+- PR draft aberta e sozinha → `${FLUX_CMD}review <pr>` (review formal) ou `${FLUX_CMD}peek <pr>` (relance rápido).
+- PR já com threads/CI vermelho → `${FLUX_CMD}iterate <pr>`.
+- Task era uma frente de entrega multi-PR → `${FLUX_CMD}land <issue>`.
+
+Montar com o `FLUX_CMD` resolvido no preflight, **nunca** com `/flux:` literal — o usuário vai digitar
+o que estiver escrito aqui.
 
 Não rode o próximo elo automaticamente: informe e devolva o volante ao usuário.
 

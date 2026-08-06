@@ -1,6 +1,6 @@
 ---
 name: review
-description: "Orquestrador `flux:review` — revisão formal de PR ou doc; reviewer holístico + specialists do repo reconciliados conforme `review-agents.md`; badges textuais conforme `review-legend.md`; persiste no vault. Global, resolve contexto via `flux-context.md`. Para relance rápido e read-only, use `/flux:peek`."
+description: "Orquestrador `flux:review` — revisão formal de PR ou doc; reviewer holístico + specialists do repo reconciliados conforme `review-agents.md`; badges textuais conforme `review-legend.md`; persiste no vault. Global, resolve contexto via `flux-context.md`. Para relance rápido e read-only, use o verbo `peek` da família."
 user-invocable: true
 requires:
   hard:
@@ -48,8 +48,8 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    ```
 
 2. Se encontrar (perfil declarado), extrair as variáveis de sessão:
-   - `HOLISTIC` = `holistic_reviewer`
-   - `DOC_REVIEWER` = `doc_reviewer`
+   - `HOLISTIC` = `holistic_reviewer` (campo ausente → cascata genérica do preflight, Passo 3)
+   - `DOC_REVIEWER` = `doc_reviewer` (campo ausente → mesma cascata, em modo doc)
    - `VAULT_ROOT` = `vault_root`
    - `VAULT_CTX` = `vault_context`
    - `NO_EMDASH` = `no_emdash`
@@ -61,8 +61,14 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `LINEAR_ORG` = `linear_org` (org do Linear, para montar URLs de ticket; opcional)
 
 3. Se não encontrar (perfil genérico):
-   - `HOLISTIC` = `pr-reviewer`
-   - `DOC_REVIEWER` = `pr-reviewer` (modo doc)
+   - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3): `flux:pr-reviewer` →
+     `flux-pr-reviewer` → `pr-reviewer`, parando no primeiro que **existir**
+   - `DOC_REVIEWER` = o mesmo agente resolvido acima, em modo doc
+
+   > **Nunca hardcodar `pr-reviewer` aqui.** O nome com que o genérico fica registrado depende de
+   > como a família foi instalada, e num harness que não prefixa por `:` a forma sem prefixo pode
+   > simplesmente não existir. Resolver por cascata é o que faz o perfil genérico funcionar em
+   > qualquer instalação.
    - `VAULT_ROOT` = não persiste por default; aceita `--save <dir>` para gravar
    - `VAULT_CTX` = `generic`
    - `NO_EMDASH` = `false`
@@ -192,7 +198,7 @@ Extrair ticket Linear do título da PR ou nome da branch (regex `[A-Z]{2,5}-\d+`
 
 Se tiver checkout local do repo alvo, também leia:
 
-- `CLAUDE.md`
+- `AGENTS.md` e `CLAUDE.md` (as que existirem, não só a primeira)
 - `.github/PULL_REQUEST_TEMPLATE.md`
 
 **Montar as URLs (disciplina de links do `review-artifact-template.md`).** O artefato exige link em
@@ -373,7 +379,8 @@ Perguntar via `AskUserQuestion` (single-select):
   4. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
 
 > A opção "Recomendado" é a primeira e tem `(Recomendado)` no label.
-> Para rascunhar réplicas às threads abertas da PR, use `/flux:iterate <pr> --dry`.
+> Para rascunhar réplicas às threads abertas da PR, use `${FLUX_CMD}iterate <pr> --dry` (montar com o
+> `FLUX_CMD` do preflight, não com `/flux:` literal).
 
 Se o usuário escolher uma opção positiva (1, 2 ou 3), montar a review e postar via `gh api`:
 

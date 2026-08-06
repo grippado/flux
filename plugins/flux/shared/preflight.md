@@ -11,19 +11,60 @@
 > o agente holístico que o Passo 3 verifica vem do perfil. Ver `${FLUX_ROOT}/shared/flux-context.md`,
 > seção "Ordem obrigatória". Verificar o holístico antes de saber o perfil valida o agente errado.
 
-## Passo 1 — Resolver `FLUX_ROOT`
+## Passo 1 — Resolver `FLUX_ROOT` e `FLUX_CMD`
+
+### 1a — `FLUX_ROOT`
 
 Todo path para `shared/` e `agents/` da família é escrito como `${FLUX_ROOT}/...`. Resolver nesta
 ordem, parando no primeiro que existir:
 
-1. `${CLAUDE_PLUGIN_ROOT}` — quando a família roda instalada como plugin.
-2. O diretório dois níveis acima do arquivo do comando em execução (de `commands/flux/<verbo>.md`
-   sobe para a raiz da instalação). Se o comando foi carregado por symlink, resolver o alvo real
-   antes de subir (`readlink -f`).
-3. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável.
+1. `${CLAUDE_PLUGIN_ROOT}` — instalado como plugin no Claude Code.
+2. `${CURSOR_PLUGIN_ROOT}` — instalado como plugin no Cursor.
+3. O diretório dois níveis acima do arquivo do verbo em execução (de `skills/<verbo>/SKILL.md`
+   sobe para a raiz da instalação). Se o arquivo foi carregado por symlink, resolver o alvo real
+   antes de subir (`readlink -f`) — é o caminho da instalação local do Cursor, que é um symlink
+   para o checkout.
+4. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável.
 
 Se nenhum resolver, é `UNAVAILABLE`: abortar informando que a instalação da família não foi
 localizada.
+
+> **A família não sabe em qual harness roda, e não deve saber.** Os dois primeiros candidatos são a
+> única menção a harness específico em todo o flux. Tudo abaixo deste passo é escrito contra
+> `${FLUX_ROOT}` e `${FLUX_CMD}`, nunca contra o nome de um produto.
+
+### 1b — `FLUX_CMD`
+
+Um elo `flux:` que despacha outro elo (hoje só o `flux:land`, que roda o iterate por PR dentro de
+subagente) precisa escrever o **nome invocável** do irmão. Esse nome é montado pelo harness a partir
+do nome do plugin e do verbo, não por nós: o mesmo `skills/iterate/SKILL.md` vira `/flux:iterate`
+num harness e pode virar outra coisa em outro.
+
+`FLUX_CMD` é o prefixo de invocação da família. Resolver **verificando qual forma a sessão de fato
+expõe**, nesta ordem, parando na primeira que existir:
+
+1. `/flux:` — plugin com namespace por `:` (Claude Code).
+2. `/flux-` — plugin com namespace achatado por hífen.
+3. `/` — skills registradas sem namespace de plugin.
+
+Vale aqui o mesmo rigor do Passo 3: **resolver não é verificar**. Escrever `/flux:iterate` num
+prompt de subagente sem confirmar que essa forma existe produz a pior falha possível — o subagente
+não encontra o comando e improvisa uma iteração inline, fora do contrato de saída e sem nenhuma das
+garantias do elo (worktree, verificação contra código real, disciplina de resposta).
+
+Se **nenhuma** forma resolver, `FLUX_CMD` é `UNAVAILABLE`. Isso não derruba os elos que não
+despacham irmãos; derruba só a fase que depende de despacho, e ela aborta com a mensagem do formato
+padrão em vez de degradar para inline.
+
+**Regra de escrita:** toda menção a um verbo irmão que sai **impressa para o usuário** — linha de
+fechamento, sugestão de próximo elo, texto ao lado de um menu — usa `${FLUX_CMD}`. O `/flux:` literal
+só é aceitável em prosa interna que o usuário nunca lê (comentário de arquitetura, tabela de
+referência entre shareds).
+
+> **Por que a distinção importa.** A linha de fechamento não é decoração: ela existe para o usuário
+> digitar o próximo comando. Escrever ali a forma de outro harness manda alguém digitar um comando
+> que não existe na máquina dele, e o erro chega no formato mais confuso possível — o elo funcionou
+> perfeitamente e ainda assim entregou uma instrução quebrada.
 
 ## Passo 2 — Verificar os requisitos declarados
 
@@ -66,28 +107,34 @@ modelo improvisa um parecer inline fora do contrato de saída.
 Resolver `HOLISTIC` **nesta ordem**, parando no primeiro que existir:
 
 1. `holistic_reviewer` do `flux-context.json`, quando há manifesto.
-2. Override local do repositório: `<repo-checkout>/.claude/agents/reviewer.md`.
-3. Genérico da família, **tentando as duas formas nesta ordem**: `flux:pr-reviewer` e depois
+2. Override local do repositório: `<repo-checkout>/.claude/agents/reviewer.md`, e depois
+   `<repo-checkout>/.cursor/agents/reviewer.md`.
+3. Genérico da família, **tentando as formas nesta ordem**: `flux:pr-reviewer`, `flux-pr-reviewer`,
    `pr-reviewer`.
 
-> **Por que duas formas do genérico.** Instalado via marketplace, o agent do plugin é registrado
-> **com o prefixo do plugin**: `flux:pr-reviewer`. Num checkout direto (ou com o agent copiado para
-> `~/.claude/agents/`), ele é `pr-reviewer`, sem prefixo. As duas instalações são legítimas, então o
-> preflight aceita as duas e para na primeira que existir. Resolver só a forma sem prefixo faria a
+> **Por que várias formas do genérico.** Instalado via marketplace, o agent do plugin é registrado
+> **com o prefixo do plugin** (`flux:pr-reviewer`, ou `flux-pr-reviewer` num harness que achata o
+> namespace). Num checkout direto (ou com o agent copiado para `~/.claude/agents/` ou
+> `~/.cursor/agents/`), ele é `pr-reviewer`, sem prefixo. Todas as instalações são legítimas, então o
+> preflight aceita todas e para na primeira que existir. Resolver só a forma sem prefixo faria a
 > família abortar em toda instalação por plugin, que é o caminho recomendado do README.
 
 Depois de resolver, **verificar que o agente existe** antes de invocar.
 
 - Existe → seguir.
 - Não existe → `UNAVAILABLE`. Abortar nomeando **qual** agente foi procurado e **onde**. Quando o
-  que falhou foi o genérico, dizer as duas formas tentadas (`flux:pr-reviewer` e `pr-reviewer`), para
-  que quem instalou de um jeito diferente saiba o que declarar no manifesto.
+  que falhou foi o genérico, dizer todas as formas tentadas (`flux:pr-reviewer`, `flux-pr-reviewer`,
+  `pr-reviewer`), para que quem instalou de um jeito diferente saiba o que declarar no manifesto.
 
 > **Nunca improvisar um reviewer inline.** Um parecer produzido fora do contrato de saída não é
 > comparável com os demais e contamina qualquer métrica de qualidade agregada sobre os artefatos.
 
-> **Caminho canônico do override local:** `<repo-checkout>/.claude/agents/reviewer.md`. Este é o
-> único caminho válido. Qualquer outro nome de arquivo não é procurado.
+> **Caminhos canônicos do override local:** `<repo-checkout>/.claude/agents/reviewer.md` e
+> `<repo-checkout>/.cursor/agents/reviewer.md`, nessa ordem. São os únicos procurados; qualquer outro
+> nome de arquivo é ignorado. `.claude/agents/` continua sendo o preferido por ser lido pelos dois
+> harnesses — um repo que ponha o override só em `.cursor/agents/` fica sem reviewer contextual no
+> Claude Code, e o Passo 3 vai detectar isso (o arquivo existe, o agente não está registrado) e cair
+> para o genérico em vez de invocar um agente fantasma.
 
 ## Passo 4 — Classificar o nível de capacidade
 

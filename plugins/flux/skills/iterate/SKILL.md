@@ -51,7 +51,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `ANSWERER` = `answerer` (agente para rascunhar réplicas em `--dry`; se ausente, usar `<HOLISTIC>` com instrução de rascunhar)
 
 3. Se não encontrar (perfil genérico):
-   - `HOLISTIC` = `pr-reviewer`
+   - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3), nunca um nome fixo
    - `VAULT_ROOT` = não persiste por default; imprime no chat
    - `NO_EMDASH` = `false`
    - `SPECIALISTS_ROOT` = `<repo-checkout>/.claude/agents/reviewer.md` ou `<repo-checkout>/.claude/agents/review/*.md`
