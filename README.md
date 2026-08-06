@@ -29,7 +29,7 @@ O flux é **um plugin só, com dois manifestos**. O mesmo `plugins/flux/` (as sk
 ```bash
 git clone https://github.com/grippado/flux ~/code/flux
 ~/code/flux/scripts/install-cursor.sh
-# reiniciar o Cursor (Cmd+Q, não só fechar a janela)
+# encerrar o Cursor por completo e abrir de novo
 ```
 
 Os verbos ficam como `/flux-peek`, `/flux-review`, `/flux-iterate`. Confira em Settings → Customize → Plugins.
@@ -40,7 +40,7 @@ O script existe por dois motivos que não dá para resolver no README:
 
 **O Cursor não prefixa skill de plugin.** O nome invocável sai do campo `name` do frontmatter, e sem namespace: `name: peek` viraria `/peek`, no mesmo espaço onde o próprio Cursor já tem uma skill nativa chamada `review`. Prefixar na fonte não serve, porque o Claude Code usa o mesmo campo e viraria `/flux:flux-peek`. Então o prefixo é aplicado **na cópia instalada**, pelo script. O repo mantém um nome só por verbo.
 
-Não há hot-reload: a cada `git pull`, rode o script de novo e reinicie o Cursor.
+Não há hot-reload: a cada `git pull`, rode o script de novo e **encerre o Cursor por completo** antes de reabrir. Fechar a janela normalmente deixa o app rodando, e ele volta com a versão antiga em memória — o sintoma é confuso, porque o elo funciona, só que com o comportamento da versão anterior.
 
 Em plano Teams/Enterprise dá para importar o repo em Dashboard → Plugins e distribuir pelo marketplace do time, com auto-refresh.
 

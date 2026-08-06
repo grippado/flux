@@ -15,8 +15,12 @@
 #
 #      Então o prefixo é aplicado AQUI, na cópia instalada. O repo mantém um nome só.
 #
-# Não há hot-reload: depois de rodar isto, reinicie o Cursor (Cmd+Q, não só fechar
-# a janela).
+# Não há hot-reload: depois de rodar isto, encerre o Cursor por completo e abra de
+# novo. Fechar a janela normalmente deixa o app rodando com a versão antiga em
+# memória.
+#
+# Requisitos: bash, python3 e (opcionalmente) rsync. No Windows, rode a partir do
+# WSL ou do Git Bash.
 
 set -euo pipefail
 
@@ -31,10 +35,23 @@ PREFIX="${FLUX_CURSOR_PREFIX:-flux-}"
   exit 1
 }
 
-command -v rsync >/dev/null || { echo "erro: rsync nao encontrado." >&2; exit 1; }
+# python3 faz o trabalho de renomeação; em alguns sistemas o executável é `python`.
+PYTHON=""
+for candidate in python3 python; do
+  if command -v "$candidate" >/dev/null 2>&1; then PYTHON="$candidate"; break; fi
+done
+[ -n "$PYTHON" ] || { echo "erro: python3 nao encontrado (necessario para prefixar os nomes)." >&2; exit 1; }
 
+# Cópia limpa: o destino é recriado do zero a cada run, para que arquivo removido
+# do repo não sobreviva na instalação. rsync quando existir; senão, cp portável.
 mkdir -p "$(dirname "$DEST")"
-rsync -a --delete --exclude '.git' "$SRC/" "$DEST/"
+rm -rf "$DEST"
+mkdir -p "$DEST"
+if command -v rsync >/dev/null 2>&1; then
+  rsync -a --exclude '.git' "$SRC/" "$DEST/"
+else
+  (cd "$SRC" && tar cf - --exclude '.git' .) | (cd "$DEST" && tar xf -)
+fi
 
 # Prefixar o `name` do frontmatter E o nome do diretorio/arquivo na copia instalada.
 #
@@ -42,7 +59,7 @@ rsync -a --delete --exclude '.git' "$SRC/" "$DEST/"
 # lista as skills certas em Customize mas nao as oferece no menu do chat, porque
 # colide com a instalacao do flux pelo lado Claude Code (que o Cursor tambem le,
 # e cujos diretorios tem os mesmos nomes). Prefixar os dois resolve a colisao.
-python3 - "$DEST" "$PREFIX" <<'PY'
+"$PYTHON" - "$DEST" "$PREFIX" <<'PY'
 import glob, os, re, sys
 
 dest, prefix = sys.argv[1], sys.argv[2]
@@ -97,7 +114,8 @@ cat <<EOF
 flux instalado em: $DEST
 origem:            $SRC
 
-Reinicie o Cursor (Cmd+Q) e confira em Settings -> Customize -> Plugins.
+Encerre o Cursor por completo, abra de novo, e confira em
+Settings -> Customize -> Plugins.
 Os verbos ficam como /${PREFIX}peek, /${PREFIX}review, /${PREFIX}iterate, etc.
 
 Nao ha hot-reload: a cada mudanca no repo, rode este script de novo e reinicie.
