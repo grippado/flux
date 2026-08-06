@@ -101,7 +101,7 @@ pergunta; o de errar para o outro é um force-push que apaga a intenção de alg
 
 Não existe default universal, existe convenção de repo. Inferir, nesta ordem:
 
-1. **Convenção declarada** no `CLAUDE.md`/`CONTRIBUTING.md` do repo, se disser algo.
+1. **Convenção declarada** no `AGENTS.md`/`CLAUDE.md`/`CONTRIBUTING.md` do repo, se disser algo.
 2. **Histórico da base**: `git -C "$REPO_PATH" log --oneline --merges -10 "origin/$BASE"`. Base cheia
    de merge commits tolera `merge`; base linear indica squash/rebase.
 3. **Default**: `rebase` sobre `origin/$BASE`, que é o que mantém a PR legível.

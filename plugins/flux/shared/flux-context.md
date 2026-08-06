@@ -7,15 +7,22 @@
 
 ## O manifesto
 
-Um arquivo `flux-context.json` colocado num `.claude/` de workspace ou repo. O comando procura o
-**mais próximo** subindo a árvore a partir de uma **âncora** (mesma disciplina do `.claude/` do
-Claude Code):
+Um arquivo `flux-context.json` colocado num `.claude/` (ou `.cursor/`) de workspace ou repo. O
+comando procura o **mais próximo** subindo a árvore a partir de uma **âncora** (mesma disciplina de
+diretório de config subindo a árvore que os harnesses já usam):
 
 ```
 <âncora>/.claude/flux-context.json
+<âncora>/.cursor/flux-context.json
 <parent>/.claude/flux-context.json
+<parent>/.cursor/flux-context.json
 ...
 ```
+
+**A proximidade vence o diretório.** Em cada nível, `.claude/` é consultado antes de `.cursor/`, mas
+um manifesto num nível mais fundo vence um mais raso independentemente de qual dos dois diretórios o
+abriga. O contrário faria um `.cursor/flux-context.json` do repo perder para um `.claude/` do
+workspace, que é exatamente o override que quem trabalha no Cursor quer declarar.
 
 Se achar → **perfil declarado**. Se não achar → **perfil genérico** (abaixo).
 
@@ -43,7 +50,8 @@ done
 Não resolveu, e **só então**, descobrir os manifestos existentes na máquina e perguntar a eles:
 
 ```bash
-find "$HOME" -maxdepth 4 -type f -path '*/.claude/flux-context.json' 2>/dev/null
+find "$HOME" -maxdepth 4 -type f \
+  \( -path '*/.claude/flux-context.json' -o -path '*/.cursor/flux-context.json' \) 2>/dev/null
 ```
 
 Um manifesto **reivindica** o slug quando ele aparece no campo `repos`, ou quando existe
@@ -171,9 +179,10 @@ com o reviewer de outro time sem que nada acuse o problema.
 
 Quando nenhum `flux-context.json` é encontrado, o comando cai no default universal:
 
-- `holistic_reviewer` = o genérico da família (detecta a stack dinamicamente), resolvido como
-  `flux:pr-reviewer` quando instalado via marketplace ou `pr-reviewer` num checkout direto. Ver
-  `preflight.md`, Passo 3.
+- `holistic_reviewer` = o genérico da família (detecta a stack dinamicamente), resolvido pela
+  cascata `flux:pr-reviewer` → `flux-pr-reviewer` → `pr-reviewer`, conforme a instalação. Ver
+  `preflight.md`, Passo 3. **O campo ausente no manifesto cai nessa mesma cascata**, que é mais
+  robusta que declarar um nome fixo.
 - `doc_reviewer` = o mesmo genérico, em modo doc.
 - `answerer` = o próprio `flux:iterate --dry` sem agente dedicado.
 - `specialists_root` = override local do repo: `<repo-checkout>/.claude/agents/reviewer.md` ou

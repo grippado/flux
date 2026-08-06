@@ -9,18 +9,48 @@
    da ideia ao merge, sem trocar de ferramenta
 ```
 
-[![license](https://img.shields.io/badge/license-MIT-6B7280)](LICENSE) [![claude code](https://img.shields.io/badge/Claude%20Code-plugin-8B5CF6)](#instalação)
+[![license](https://img.shields.io/badge/license-MIT-6B7280)](LICENSE) [![claude code](https://img.shields.io/badge/Claude%20Code-plugin-8B5CF6)](#claude-code) [![cursor](https://img.shields.io/badge/Cursor-plugin-3B82F6)](#cursor)
 
 > Família de comandos **globais e context-agnósticos** que cobre o ciclo inteiro de trabalho num repo: da issue ao código, do código ao review, do review ao merge, do merge à comunicação.
 
 ## Instalação
+
+O flux é **um plugin só, com dois manifestos**. O mesmo `plugins/flux/` (as skills, os agents, os shared) serve os dois harnesses: não há fork, versão portada nem arquivo duplicado.
+
+### Claude Code
 
 ```
 /plugin marketplace add grippado/flux
 /plugin install flux@flux
 ```
 
+### Cursor
+
+```bash
+git clone https://github.com/grippado/flux ~/code/flux
+~/code/flux/scripts/install-cursor.sh
+# reiniciar o Cursor (Cmd+Q, não só fechar a janela)
+```
+
+Os verbos ficam como `/flux-peek`, `/flux-review`, `/flux-iterate`. Confira em Settings → Customize → Plugins.
+
+O script existe por dois motivos que não dá para resolver no README:
+
+**O Cursor não segue symlink** em `~/.cursor/plugins/local/`. Um symlink registra o plugin e não carrega nada, sem erro em lugar nenhum. Tem que ser diretório real, então o script copia.
+
+**O Cursor não prefixa skill de plugin.** O nome invocável sai do campo `name` do frontmatter, e sem namespace: `name: peek` viraria `/peek`, no mesmo espaço onde o próprio Cursor já tem uma skill nativa chamada `review`. Prefixar na fonte não serve, porque o Claude Code usa o mesmo campo e viraria `/flux:flux-peek`. Então o prefixo é aplicado **na cópia instalada**, pelo script. O repo mantém um nome só por verbo.
+
+Não há hot-reload: a cada `git pull`, rode o script de novo e reinicie o Cursor.
+
+Em plano Teams/Enterprise dá para importar o repo em Dashboard → Plugins e distribuir pelo marketplace do time, com auto-refresh.
+
+### Depois de instalar, nos dois
+
 Pronto: `/flux:peek`, `/flux:review`, `/flux:iterate` e os demais ficam disponíveis em qualquer repo Git, sem configuração nenhuma.
+
+Requisitos reais: **`git`** (duro — sem ele o preflight aborta) e **`gh` autenticado** (mole, mas é o que separa "roda em PR" de "roda só na working tree"). Nada além disso. Sem manifesto, sem vault e sem specialists, a família roda no perfil genérico e [o banner do preflight](#convenções-transversais) declara o nível degradado em vez de fingir que está completo.
+
+Dois elos dependem de MCP e vão degradar sem ele: o `flux:reply` precisa de um MCP de Slack, e o modo doc do `flux:review`/`flux:peek` precisa de um MCP de Google Drive.
 
 Para somar specialists, persistência no vault e integrações do seu time, declare um [manifesto de contexto](#o-manifesto-de-contexto). Exemplos prontos em [`examples/`](examples/).
 
@@ -30,7 +60,7 @@ Para somar specialists, persistência no vault e integrações do seu time, decl
 
 Dois princípios sustentam isso:
 
-1. **Os comandos são globais e não sabem nada do seu time.** Eles vivem na raiz da instalação (`${FLUX_ROOT}/commands/flux/`) e funcionam em qualquer repo Git. O que é específico de um time (quais reviewers, qual vault, quais repos) vem de um **manifesto de contexto** — `flux-context.json` —, nunca hardcoded no comando.
+1. **Os comandos são globais e não sabem nada do seu time.** Eles vivem na raiz da instalação (`${FLUX_ROOT}/skills/`) e funcionam em qualquer repo Git, em qualquer harness. O que é específico de um time (quais reviewers, qual vault, quais repos) vem de um **manifesto de contexto** — `flux-context.json` —, nunca hardcoded no comando.
 2. **Cada elo delega o trabalho especializado.** Review vai para agents reviewers; execução vai para o motor nativo do repo; prospecção de codebase vai para specialists. Os comandos orquestram, não reimplementam.
 
 ## O ciclo
@@ -94,9 +124,12 @@ flux/
 ├── README.md                       ← este arquivo (doc da família)
 ├── LICENSE                         MIT
 ├── examples/                       manifestos prontos: solo / time / pessoal
-├── .claude-plugin/marketplace.json o marketplace (é o que o /plugin add lê)
+├── scripts/install-cursor.sh       instalação no Cursor (copia + prefixa os nomes)
+├── .claude-plugin/marketplace.json o marketplace do Claude Code (o /plugin add lê este)
+├── .cursor-plugin/marketplace.json o mesmo, para o Cursor
 └── plugins/flux/                   ← ${FLUX_ROOT} quando instalado
-    ├── .claude-plugin/plugin.json
+    ├── .claude-plugin/plugin.json  manifesto Claude Code
+    ├── .cursor-plugin/plugin.json  manifesto Cursor (mesmo corpo, outro harness)
     ├── agents/pr-reviewer.md       o holístico genérico (default universal)
     ├── skills/                     ← os verbos (globais, context-agnósticos)
     │   ├── issue/  build/  peek/
@@ -116,13 +149,17 @@ flux/
     └── quality-gate-api.md        diagnóstico de gates Sonar via API (consultar em vez de deduzir)
 ```
 
-O plugin resolve `skills/<verbo>/SKILL.md` como `/flux:<verbo>`. Adicionar um diretório em `skills/` publica um verbo novo, sem tocar em instalação.
+O harness resolve `skills/<verbo>/SKILL.md` como `/flux:<verbo>`. Adicionar um diretório em `skills/` publica um verbo novo, sem tocar em instalação.
 
-`${FLUX_ROOT}` é resolvido pelo [`preflight`](plugins/flux/shared/preflight.md) na ordem: `${CLAUDE_PLUGIN_ROOT}` (instalação via marketplace) → dois níveis acima do verbo em execução (checkout direto) → `${FLUX_HOME}` do ambiente. Por isso os mesmos arquivos funcionam instalados como plugin ou clonados na mão.
+**O nome invocável é montado pelo harness, não escrito por nós.** O mesmo `skills/iterate/SKILL.md` vira `/flux:iterate` num harness e pode virar outra forma em outro. Por isso o único elo que despacha um irmão (o `flux:land`, que roda o iterate por PR dentro de subagente) escreve `${FLUX_CMD}iterate`, com o prefixo resolvido **e verificado** pelo [Passo 1b do preflight](plugins/flux/shared/preflight.md). O rigor é o mesmo do agente holístico: um nome de comando resolvido sem confirmação vira um subagente que não acha o comando e improvisa a iteração fora do contrato.
+
+`${FLUX_ROOT}` é resolvido pelo [`preflight`](plugins/flux/shared/preflight.md) na ordem: `${CLAUDE_PLUGIN_ROOT}` → `${CURSOR_PLUGIN_ROOT}` → dois níveis acima do verbo em execução, resolvendo symlink antes de subir (checkout direto, e a instalação local do Cursor) → `${FLUX_HOME}` do ambiente. Por isso os mesmos arquivos funcionam instalados como plugin nos dois harnesses ou clonados na mão.
+
+Esses dois nomes de variável são **a única menção a harness específico em todo o flux**. Tudo abaixo do Passo 1 do preflight é escrito contra `${FLUX_ROOT}` e `${FLUX_CMD}`.
 
 ### O manifesto de contexto
 
-Um `flux-context.json` num `.claude/` de workspace ou repo. O comando procura o **mais próximo** subindo a árvore a partir do `cwd` — mesma disciplina do `.claude/` do Claude Code. Achou → perfil declarado. Não achou → perfil genérico.
+Um `flux-context.json` num `.claude/` (ou `.cursor/`) de workspace ou repo. O comando procura o **mais próximo** subindo a árvore a partir do `cwd`, consultando `.claude/` antes de `.cursor/` em cada nível — mas proximidade sempre vence diretório. Achou → perfil declarado. Não achou → perfil genérico.
 
 ```json
 {
@@ -152,10 +189,10 @@ A família **funciona sem configuração nenhuma**. Sem manifesto, cada comando 
 
 | Aspecto | Default sem manifesto |
 |---------|----------------------|
-| Reviewer holístico | `pr-reviewer` (agente global, detecta a stack dinamicamente) |
+| Reviewer holístico | genérico da família, resolvido pela cascata do preflight (detecta a stack dinamicamente) |
 | Specialists | override local do repo: `<repo>/.claude/agents/reviewer.md`; sem isso, só holístico |
 | Persistência | não persiste; imprime no chat (`--save <dir>` no `flux:review`) |
-| Motor de execução | `/workflow` do repo; sem ele, o `exec_fallback` do perfil; sem ele, **modo autônomo** (worktree + `CLAUDE.md` + checks + PR draft) |
+| Motor de execução | `/workflow` do repo; sem ele, o `exec_fallback` do perfil; sem ele, **modo autônomo** (worktree + `AGENTS.md`/`CLAUDE.md` do repo + checks + PR draft) |
 | Travessão | permitido (`no_emdash: false`) |
 
 Quem instala a família já tem review holístico e execução funcionando em qualquer repo GitHub. Declarar um `flux-context.json` é o que **soma** specialists, persistência no vault e integrações do time.

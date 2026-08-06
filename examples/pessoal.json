@@ -1,6 +1,5 @@
 {
   "name": "pessoal",
-  "holistic_reviewer": "pr-reviewer",
   "specialists_root": "~/agents/{repo}/repo-owner.md",
   "vault_root": "~/notes",
   "vault_context": "pessoal",
