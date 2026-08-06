@@ -6,7 +6,7 @@ user-invocable: true
 
 # /flux:reply
 
-Skill orquestradora para **acompanhar um caso de trabalho no Slack com embasamento de codebase**, despachada por verbo. Coleta a conversa, delega a colheita de fatos a prospectors (um por repo, em paralelo), delega a redação ao answerer, mantém um **board vivo** no vault Obsidian, e só age no Slack (salvar rascunho, reagir) após escolha explícita do usuário via `AskUserQuestion`.
+Skill orquestradora para **acompanhar um caso de trabalho no Slack com embasamento de codebase**, despachada por verbo. Coleta a conversa, delega a colheita de fatos a prospectors (um por repo, em paralelo), delega a redação ao answerer, mantém um **board vivo** no vault Obsidian, e só age no Slack (salvar rascunho, reagir) após escolha explícita do usuário.
 
 A ação recomendada é sempre **salvar como rascunho** (`slack_send_message_draft`), para o usuário revisar antes de enviar. **Nunca** envia mensagem de fato sozinho.
 
@@ -27,6 +27,7 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md` — procurar `flux-c
 - `WORKSPACE_ROOT` = pai do diretório `.claude/` onde o manifesto foi encontrado; sem manifesto: `pwd`
 - `PROSPECTOR` = `slack_prospector` do manifesto; sem o campo: `general-purpose`
 - `ANSWERER` = `slack_answerer` do manifesto; sem o campo: `general-purpose`
+- `MCP_SLACK` = `mcp.slack` do manifesto; sem o campo: descobrir a capacidade na sessão (ver "Validar ambiente")
 
 > **Nota:** `slack_prospector` e `slack_answerer` são campos **opcionais** do manifesto. Declará-los é
 > o que troca o `general-purpose` genérico por agentes que conhecem os repos e o tom do time, e é a
@@ -103,7 +104,9 @@ fi
 
 ### Validar ambiente
 
-Confirmar que as MCP tools do Slack (`mcp__plugin_slack_slack__*`) estão disponíveis. Se não estiverem (sessão sem o plugin Slack), **abortar** sem gravar nada, avisando que o comando roda em workspace mode com o plugin `slack@claude-plugins-official` ativo.
+Confirmar que as MCP tools do Slack estão disponíveis, no prefixo `${MCP_SLACK}` resolvido do manifesto (campo `mcp.slack` — ver `${FLUX_ROOT}/shared/flux-context.md`). Sem o campo, procurar na sessão um servidor que ofereça as capacidades de Slack; achando mais de um, abrir um GATE (`${FLUX_ROOT}/shared/hitl.md`) perguntando qual usar, em vez de escolher.
+
+Sem canal de Slack nenhum, **abortar** sem gravar nada, dizendo qual prefixo foi procurado e que este elo depende de um MCP de Slack ativo na sessão. Os nomes de tool citados adiante (`slack_send_message_draft`, `slack_add_reaction`, `slack_get_reactions`) são os do servidor de referência: num servidor diferente, usar as tools equivalentes do prefixo resolvido.
 
 ## Out of scope (NUNCA faça sem escolha explícita)
 
@@ -126,7 +129,7 @@ Antes de criar board novo, procurar um board existente do mesmo caso:
 3. **Por tema, quando 1 e 2 falham:** se a superfície nova for desconhecida mas a conversa citar explicitamente uma thread já registrada (Slack marca `Forwarded message from`, ou o texto traz o permalink), casar por aí.
 4. Nada casou → board novo.
 
-**Nunca criar um segundo board para um caso que já tem um.** Caso fragmentado em várias notas é exatamente o problema que o board resolve. Na dúvida entre dois candidatos, perguntar ao usuário via `AskUserQuestion` em vez de chutar.
+**Nunca criar um segundo board para um caso que já tem um.** Caso fragmentado em várias notas é exatamente o problema que o board resolve. Na dúvida entre dois candidatos, abrir um GATE (`${FLUX_ROOT}/shared/hitl.md`) em vez de chutar.
 
 ### Registrar a superfície nova
 
@@ -248,7 +251,7 @@ Veredito: {responder|reagir|nada} — {1 frase do racional}.
 
 Não repetir o rascunho inteiro no chat. O board é a fonte de verdade. Em seguida, ir ao passo 9 (passada interativa) ou entrar no watch (tick de background).
 
-### 9. Menu de ação (`AskUserQuestion`, só na passada interativa)
+### 9. Menu de ação (GATE — `${FLUX_ROOT}/shared/hitl.md` —, só na passada interativa)
 
 Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva.
 

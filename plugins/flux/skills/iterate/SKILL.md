@@ -405,7 +405,7 @@ Integração roda em Docker. Se o daemon estiver down (`docker info` falha), **n
 
 ### 6. Confirmação interativa (pular se `--auto`)
 
-Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + mensagem de commit), e pergunte via `AskUserQuestion` (single-select):
+Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + mensagem de commit), e abra um GATE (`${FLUX_ROOT}/shared/hitl.md`) (single-select):
 
 - **Header:** `Atualizar PR?`
 - **Question:** `Apliquei as correções e preparei as respostas das {N} threads da PR #{number}. O que fazer agora?`

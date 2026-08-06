@@ -45,8 +45,8 @@ Neste comando, especificamente:
    invocar agente, não gravar nada.
 3. Resolver `HOLISTIC` na ordem canônica do Passo 3 (manifesto → override local do repo → genérico
    da família pela cascata) e **verificar que existe**. Não existe → abortar.
-4. Extrair `NO_EMDASH` do manifesto quando houver. Os demais campos (vault, specialists) não são
-   usados neste comando.
+4. Extrair `NO_EMDASH` do manifesto quando houver, e `MCP_DOCS` (`mcp.docs`) **só quando o alvo for
+   um doc**. Os demais campos (vault, specialists) não são usados neste comando.
 5. Classificar o nível: `REDUCED` com checkout local, `THIN` sem checkout local. Este comando nunca
    atinge `FULL`, porque por definição não roda specialists.
 
@@ -126,12 +126,14 @@ look é o relance rápido; o formato completo (painel, permalinks, ação) é do
 
 Para um relance rápido num documento, sem o pipeline completo do `flux:review doc`:
 
-1. Buscar metadados e conteúdo via Drive MCP:
+1. Buscar metadados e conteúdo via MCP de documentos, no prefixo `${MCP_DOCS}` do manifesto
+   (campo `mcp.docs`; sem o campo, descobrir a capacidade na sessão — ver
+   `${FLUX_ROOT}/shared/flux-context.md`):
    ```
-   mcp__claude_ai_Google_Drive__get_file_metadata  { fileId: docId }
-   mcp__claude_ai_Google_Drive__read_file_content  { fileId: docId }
+   ${MCP_DOCS}__get_file_metadata  { fileId: docId }
+   ${MCP_DOCS}__read_file_content  { fileId: docId }
    ```
-   Se falhar, avisar e abortar (não gravar nada).
+   Sem canal de documentos, ou se a leitura falhar: avisar e abortar (não gravar nada).
 
 2. Rodar `<HOLISTIC>` em modo doc com o conteúdo obtido. Instrução: parecer rápido, sem profundidade de spec-review — identificar inconsistências, ambiguidades e pontos de atenção.
 
@@ -143,7 +145,7 @@ Quando o alvo não se encaixa em nenhuma categoria:
 
 1. Classificar: tentar inferir o tipo (diff de código, doc, planilha, apresentação, texto livre, URL desconhecida).
 2. Propor ao usuário: "Reconheci isso como {tipo}. Posso fazer {o que}. Quer continuar?"
-3. Só rodar após confirmação. Sem `AskUserQuestion` formal — uma mensagem direta no chat é suficiente para este fluxo leve.
+3. Só rodar após confirmação. Sem GATE formal — uma mensagem direta no chat basta neste fluxo leve (é o caso previsto em `${FLUX_ROOT}/shared/hitl.md`, "o que NÃO precisa de gate").
 4. Usar `<HOLISTIC>` em qualquer caso textual. Para formatos sem suporte real (Figma, planilha como dado puro), dizer com honestidade e propor o encaixe mais próximo.
 
 ## Flags

@@ -62,12 +62,12 @@ Com `VAULT_ROOT` resolvido, procurar em `<VAULT_ROOT>/linear/` um board `type: f
   `?thread_ts=` (o mesmo alvo copiado duas vezes pode trazer parâmetros diferentes).
 - **Texto livre**: o `source:` gravado é o texto cru; o match é pelo **slug normalizado** dos dois lados
   (minúsculas, sem acento, pontuação virando hífen, kebab-case ASCII). Bateu o slug → é o mesmo pedido.
-- **Casou parcialmente** (mesmo repo e tema, slug diferente; ou mais de um candidato): **perguntar via
-  `AskUserQuestion`** qual board retomar, ou se é pedido novo. Nunca escolher por proximidade de data.
+- **Casou parcialmente** (mesmo repo e tema, slug diferente; ou mais de um candidato): **abrir um GATE**
+  (`${FLUX_ROOT}/shared/hitl.md`) perguntando qual board retomar, ou se é pedido novo. Nunca escolher por proximidade de data.
 
 **Nunca criar um segundo board para um pedido que já tem um.** O mesmo pedido rodado duas vezes tem que
 convergir num rascunho só; dois arquivos concorrentes da mesma issue é exatamente o problema que o board
-existe para evitar. Na dúvida entre dois candidatos, perguntar via `AskUserQuestion` em vez de chutar.
+existe para evitar. Na dúvida entre dois candidatos, abrir um GATE (`${FLUX_ROOT}/shared/hitl.md`) em vez de chutar.
 Retomando um board existente, **consultar a 🔬 Achados de codebase antes de reprospectar**: o que já foi
 verificado (inclusive o que foi refutado) continua valendo e não precisa de subagente de novo.
 
@@ -171,7 +171,7 @@ Sem `VAULT_ROOT` (perfil genérico): imprimir o rascunho no chat, sem board.
 
 ## Step 5 — HITL (gate de aprovação)
 
-Mostrar a prévia via `AskUserQuestion` (single-select): título(s), tipo, labels, prioridade, e um
+Mostrar a prévia num GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select: título(s), tipo, labels, prioridade, e um
 resumo de 2-3 linhas da descrição. Opções:
 
 1. `Criar no Linear (Recomendado)` — cria a(s) issue(s) conforme o rascunho.

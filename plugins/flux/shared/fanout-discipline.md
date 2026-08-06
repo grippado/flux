@@ -44,7 +44,7 @@ O contexto principal é fino por construção. Ele faz:
    JSON pequeno, filtrado na origem, que alimenta decisão de roteamento.
 3. **Roteamento** — decidir quais unidades existem e despachar os subagentes.
 4. **Fan-in** — reconciliar os retornos e formar o veredito.
-5. **HITL** — `AskUserQuestion` e qualquer gate com o usuário. Subagente **não tem canal com o
+5. **HITL** — todo GATE com o usuário (protocolo em `${FLUX_ROOT}/shared/hitl.md`). Subagente **não tem canal com o
    usuário**: um gate dentro de subagente trava o fluxo em silêncio.
 6. **Board / artefato no vault** — escrita serializada num só lugar, para não haver corrida entre
    subagentes escrevendo a mesma nota.

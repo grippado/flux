@@ -278,7 +278,7 @@ não gerou board de iterate: `n/d`.
 
 **Agrupamento:** se mais de uma PR da MESMA issue/ticket vira `ready for review` no mesmo tick, agrupe todas num ÚNICO pedido de review.
 
-Pergunte via `AskUserQuestion` (single-select):
+Abra um GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select:
 
 - **Header:** `Pedir review?`
 - **Question:** `{N} PR(s) da entrega saíram de draft e estão prontas pra review: {lista "#PR (repo)"}. Postar pedido no Slack?`

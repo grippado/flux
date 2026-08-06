@@ -50,6 +50,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 2. Se encontrar (perfil declarado), extrair as variáveis de sessão:
    - `HOLISTIC` = `holistic_reviewer` (campo ausente → cascata genérica do preflight, Passo 3)
    - `DOC_REVIEWER` = `doc_reviewer` (campo ausente → mesma cascata, em modo doc)
+   - `MCP_DOCS` = `mcp.docs` (prefixo do MCP de documentos; ausente → descoberta na sessão)
    - `VAULT_ROOT` = `vault_root`
    - `VAULT_CTX` = `vault_context`
    - `NO_EMDASH` = `no_emdash`
@@ -64,6 +65,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3): `flux:pr-reviewer` →
      `flux-pr-reviewer` → `pr-reviewer`, parando no primeiro que **existir**
    - `DOC_REVIEWER` = o mesmo agente resolvido acima, em modo doc
+   - `MCP_DOCS` = descoberto na sessão; ambíguo ou ausente → o modo doc degrada e declara
 
    > **Nunca hardcodar `pr-reviewer` aqui.** O nome com que o genérico fica registrado depende de
    > como a família foi instalada, e num harness que não prefixa por `:` a forma sem prefixo pode
@@ -108,7 +110,7 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 - Não aprovar nem mergear (`gh pr review --approve`, `gh pr merge`)
 - Não escrever em lugar nenhum exceto: o arquivo final no vault; e (opcionalmente) a review da PR via `gh api` no Step 8; e, no modo "aplicar correções", os arquivos de código + commit na branch da PR própria.
 
-**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via `AskUserQuestion`, a ação pós-review. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Nunca agir sem o usuário escolher uma opção positiva.
+**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via GATE (`${FLUX_ROOT}/shared/hitl.md`), a ação pós-review. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Nunca agir sem o usuário escolher uma opção positiva.
 
 ## Inputs aceitos
 
@@ -344,7 +346,7 @@ Em seguida, vá direto para o Step 8 (sem esperar input adicional do usuário). 
 
 ### 8. Oferecer ação pós-review (aplicar ou publicar)
 
-Se há PR aberta e comentários acionáveis no review, perguntar via `AskUserQuestion` (uma única question, single-select). **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline.
+Se há PR aberta e comentários acionáveis no review, abrir um **GATE** (`${FLUX_ROOT}/shared/hitl.md`) — uma única question, single-select. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline.
 
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 
@@ -368,7 +370,7 @@ Se escolher 1 ou 2 → ir para **8c**. Se escolher 3 → usar a postagem de **8b
 
 #### 8b. PR de terceiros (`IS_OWN_PR == false`) — publicar inline
 
-Perguntar via `AskUserQuestion` (single-select):
+Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
 
 - **Header:** `Postar na PR?`
 - **Question:** `Quer postar algum subset dos comentários direto na PR #{number}?`
@@ -452,11 +454,14 @@ repositório de suites do perfil, nunca o repo revisado). Escreve **apenas** o a
 
 Extrair o `docId` do URL (`docs.google.com/document/d/{docId}/...` ou `drive.google.com/.../d/{docId}`).
 
-Buscar metadados e conteúdo via Drive MCP:
+Buscar metadados e conteúdo via MCP de documentos, usando o prefixo `${MCP_DOCS}` resolvido do
+manifesto (campo `mcp.docs` — ver `${FLUX_ROOT}/shared/flux-context.md`). Os nomes abaixo são os do
+servidor de referência; num servidor diferente, localizar as tools daquele prefixo que atendem às
+mesmas capacidades (metadados, conteúdo com comentários):
 
 ```
-mcp__claude_ai_Google_Drive__get_file_metadata  { fileId: docId }
-mcp__claude_ai_Google_Drive__read_file_content  { fileId: docId, includeComments: true }
+${MCP_DOCS}__get_file_metadata  { fileId: docId }
+${MCP_DOCS}__read_file_content  { fileId: docId, includeComments: true }
 ```
 
 Guardar: `DOC_TITLE`, `DOC_AUTHOR` (responsável, se aparecer no corpo/metadata), `DOC_UPDATED`
@@ -470,7 +475,7 @@ por", "autor", "responsável") **ou** quando ele é owner/writer do arquivo no D
 não deixar claro, confirmar com:
 
 ```
-mcp__claude_ai_Google_Drive__get_file_permissions  { fileId: docId }
+${MCP_DOCS}__get_file_permissions  { fileId: docId }
 ```
 
 Co-autoria conta como própria: se o usuário é um dos autores, `IS_OWN_DOC = true`. Na dúvida
@@ -578,7 +583,7 @@ Não repetir o conteúdo do review no chat. O arquivo é a fonte de verdade.
 ### d8. Ação pós-review (doc)
 
 Documentos não aceitam comentário inline via API neste fluxo. Após gravar, oferecer via
-`AskUserQuestion` (single-select). **O menu muda conforme `IS_OWN_DOC`**, porque em doc próprio o
+GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select. **O menu muda conforme `IS_OWN_DOC`**, porque em doc próprio o
 artefato já traz as ações e as réplicas prontas na seção `⚡ Ações no documento` — gerar um bloco
 separado para colar seria redundante.
 
