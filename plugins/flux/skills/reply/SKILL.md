@@ -28,11 +28,15 @@ em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
 
 ````
 ```
-perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN}
 prospector: {agente} · answerer: {agente}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
+
+Este elo **não** resolve reviewer holístico (o trabalho de agente aqui é do prospector e do
+answerer), então o campo `holistico:` **não entra no banner**. Declarar um agente que o elo não
+resolveu nem verificou é o oposto do que o banner existe para fazer.
 
 Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, também verbatim, e o
 nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:reply` num harness,

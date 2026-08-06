@@ -41,12 +41,17 @@ em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
 
 ````
 ```
-perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN}
 lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
 motor: {nativo <cmd> | exec_fallback <cmd> | autonomo}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
+
+Este elo **não** resolve reviewer holístico — quem revisa é o motor do repo, depois, em outro
+elo. O campo `holistico:` **não entra no banner**; a linha `lentes` sai porque o build é
+frequentemente o primeiro elo a tocar um repo novo e é onde se descobre que ele está sem
+cobertura (ver `${FLUX_ROOT}/shared/preflight.md`, Passo 5).
 
 Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, também verbatim, e o
 nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:build` num harness,
