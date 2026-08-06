@@ -47,7 +47,7 @@ Havendo apenas L3, oferecer mesmo assim, dizendo o que a suite local somaria à 
 
 ## A oferta
 
-`AskUserQuestion` single-select:
+GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select:
 
 - **Header:** `Bootstrap de agents?`
 - **Question:** `O repo \`<slug>\` não tem suite de specialists local. Quer gerar um orquestrador + índice (e specialists base) a partir do código real?`

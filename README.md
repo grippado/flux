@@ -50,7 +50,7 @@ Pronto: `/flux:peek`, `/flux:review`, `/flux:iterate` e os demais ficam disponí
 
 Requisitos reais: **`git`** (duro — sem ele o preflight aborta) e **`gh` autenticado** (mole, mas é o que separa "roda em PR" de "roda só na working tree"). Nada além disso. Sem manifesto, sem vault e sem specialists, a família roda no perfil genérico e [o banner do preflight](#convenções-transversais) declara o nível degradado em vez de fingir que está completo.
 
-Dois elos dependem de MCP e vão degradar sem ele: o `flux:reply` precisa de um MCP de Slack, e o modo doc do `flux:review`/`flux:peek` precisa de um MCP de Google Drive.
+Dois elos dependem de MCP e degradam sem ele: o `flux:reply` precisa de um canal de Slack, e o modo doc do `flux:review`/`flux:peek` precisa de um canal de documentos. Qual servidor atende cada canal vem do campo `mcp` do [manifesto](#o-manifesto-de-contexto); sem o campo, o elo procura a capacidade na sessão. Nenhum id de MCP é hardcoded na família — ele depende de como cada máquina instalou o servidor.
 
 Para somar specialists, persistência no vault e integrações do seu time, declare um [manifesto de contexto](#o-manifesto-de-contexto). Exemplos prontos em [`examples/`](examples/).
 
@@ -136,6 +136,7 @@ flux/
     │   └── review/  iterate/  land/  reply/
     └── shared/                     contratos compartilhados (fonte única, não duplicar nos verbos)
     ├── preflight.md               verificação de pré-requisitos, níveis de capacidade, banner
+    ├── hitl.md                    quando o elo para e pergunta, e como pergunta sem o tool preferido
     ├── flux-context.md            resolução de contexto via manifesto
     ├── review-agents.md           descoberta + reconciliação de specialists
     ├── review-legend.md           badges canônicos dos findings

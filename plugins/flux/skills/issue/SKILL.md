@@ -18,6 +18,28 @@ As seções, a legenda de ícones e a disciplina de carimbo de data vivem lá e 
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Mecânica Linear (não reimplementar):** `LINEAR_OPS` do perfil (campo `linear_ops` do manifesto)
 
+## Banner de perfil — gabarito (copiar VERBATIM)
+
+Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
+degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
+que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
+improvisado, com campos inventados e sem o `nivel`.
+
+Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
+em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+
+````
+```
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
+specialists: {lista|nenhum}
+degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+```
+````
+
+Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, também verbatim, e o
+nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:issue` num harness,
+`/flux-issue` em outro) — nunca `flux:` literal.
+
 ## Out of scope (nunca sem confirmação explícita)
 
 - Não criar issue no Linear antes do gate de aprovação (Step 5). O único destino de escrita antes disso
@@ -62,12 +84,12 @@ Com `VAULT_ROOT` resolvido, procurar em `<VAULT_ROOT>/linear/` um board `type: f
   `?thread_ts=` (o mesmo alvo copiado duas vezes pode trazer parâmetros diferentes).
 - **Texto livre**: o `source:` gravado é o texto cru; o match é pelo **slug normalizado** dos dois lados
   (minúsculas, sem acento, pontuação virando hífen, kebab-case ASCII). Bateu o slug → é o mesmo pedido.
-- **Casou parcialmente** (mesmo repo e tema, slug diferente; ou mais de um candidato): **perguntar via
-  `AskUserQuestion`** qual board retomar, ou se é pedido novo. Nunca escolher por proximidade de data.
+- **Casou parcialmente** (mesmo repo e tema, slug diferente; ou mais de um candidato): **abrir um GATE**
+  (`${FLUX_ROOT}/shared/hitl.md`) perguntando qual board retomar, ou se é pedido novo. Nunca escolher por proximidade de data.
 
 **Nunca criar um segundo board para um pedido que já tem um.** O mesmo pedido rodado duas vezes tem que
 convergir num rascunho só; dois arquivos concorrentes da mesma issue é exatamente o problema que o board
-existe para evitar. Na dúvida entre dois candidatos, perguntar via `AskUserQuestion` em vez de chutar.
+existe para evitar. Na dúvida entre dois candidatos, abrir um GATE (`${FLUX_ROOT}/shared/hitl.md`) em vez de chutar.
 Retomando um board existente, **consultar a 🔬 Achados de codebase antes de reprospectar**: o que já foi
 verificado (inclusive o que foi refutado) continua valendo e não precisa de subagente de novo.
 
@@ -171,7 +193,7 @@ Sem `VAULT_ROOT` (perfil genérico): imprimir o rascunho no chat, sem board.
 
 ## Step 5 — HITL (gate de aprovação)
 
-Mostrar a prévia via `AskUserQuestion` (single-select): título(s), tipo, labels, prioridade, e um
+Mostrar a prévia num GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select: título(s), tipo, labels, prioridade, e um
 resumo de 2-3 linhas da descrição. Opções:
 
 1. `Criar no Linear (Recomendado)` — cria a(s) issue(s) conforme o rascunho.

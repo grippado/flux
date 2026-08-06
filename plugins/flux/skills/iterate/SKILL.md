@@ -30,6 +30,28 @@ Roda independente dos outros. Pensado para PRs com rodadas de bot reviewer, mas 
 **Disciplina de fan-out (OBRIGATÓRIA — verificação e execução em subagente):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Orçamento de contexto (leitura sob demanda, um root por sessão, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
 
+## Banner de perfil — gabarito (copiar VERBATIM)
+
+Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
+degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
+que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
+improvisado, com campos inventados e sem o `nivel`.
+
+Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
+em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+
+````
+```
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
+lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
+degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+```
+````
+
+Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, também verbatim, e o
+nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:iterate` num harness,
+`/flux-iterate` em outro) — nunca `flux:` literal.
+
 ## Step 0-context: resolver perfil de contexto
 
 Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
@@ -405,7 +427,7 @@ Integração roda em Docker. Se o daemon estiver down (`docker info` falha), **n
 
 ### 6. Confirmação interativa (pular se `--auto`)
 
-Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + mensagem de commit), e pergunte via `AskUserQuestion` (single-select):
+Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + mensagem de commit), e abra um GATE (`${FLUX_ROOT}/shared/hitl.md`) (single-select):
 
 - **Header:** `Atualizar PR?`
 - **Question:** `Apliquei as correções e preparei as respostas das {N} threads da PR #{number}. O que fazer agora?`

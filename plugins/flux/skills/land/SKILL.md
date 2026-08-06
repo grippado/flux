@@ -26,6 +26,28 @@ Não confundir com `mutirao`/`/convocar`: aqueles planejam e CRIAM PRs a partir 
 **Disciplina de fan-out (OBRIGATÓRIA — uma PR = um subagente; nada pesado na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Orçamento de contexto (OBRIGATÓRIO — delivery é multi-repo, é o comando que mais sofre):** `${FLUX_ROOT}/shared/context-budget.md`
 
+## Banner de perfil — gabarito (copiar VERBATIM)
+
+Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
+degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
+que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
+improvisado, com campos inventados e sem o `nivel`.
+
+Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
+em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+
+````
+```
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
+lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
+degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+```
+````
+
+Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, também verbatim, e o
+nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:land` num harness,
+`/flux-land` em outro) — nunca `flux:` literal.
+
 ## Inputs aceitos
 
 | Forma | Significado |
@@ -278,7 +300,7 @@ não gerou board de iterate: `n/d`.
 
 **Agrupamento:** se mais de uma PR da MESMA issue/ticket vira `ready for review` no mesmo tick, agrupe todas num ÚNICO pedido de review.
 
-Pergunte via `AskUserQuestion` (single-select):
+Abra um GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select:
 
 - **Header:** `Pedir review?`
 - **Question:** `{N} PR(s) da entrega saíram de draft e estão prontas pra review: {lista "#PR (repo)"}. Postar pedido no Slack?`

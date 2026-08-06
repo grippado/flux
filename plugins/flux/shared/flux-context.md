@@ -118,6 +118,10 @@ com o reviewer de outro time sem que nada acuse o problema.
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
   "repos": ["api-gateway", "web-monorepo", "notifications", "payments", "..."],
   "exec_command": "workflow",
+  "mcp": {
+    "docs": "mcp__claude_ai_Google_Drive",
+    "slack": "mcp__plugin_slack_slack"
+  },
   "no_emdash": true,
   "quality_gate": {
     "provider": "sonarcloud",
@@ -143,6 +147,17 @@ com o reviewer de outro time sem que nada acuse o problema.
 - `linear_ops` — path de um doc que descreve a **mecânica** de criação no Linear do time (cache de
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
+- `mcp` — prefixos das MCP tools que os elos com integração externa usam. Dois canais:
+  `docs` (leitura de documento — o modo doc do `flux:review` e do `flux:peek`) e `slack`
+  (o `flux:reply`). Declare **o prefixo**, não os nomes das tools: o elo descobre as tools daquele
+  prefixo e escolhe a que atende cada capacidade (ler conteúdo, ler metadados, ler permissões,
+  salvar rascunho, reagir). É a mesma granularidade que o `requires: mcp: <prefixo>` do preflight
+  já usa.
+
+  Sem o campo, o elo procura na sessão um servidor que ofereça a capacidade e, achando um só, usa
+  ele; achando vários ou nenhum, degrada e declara no banner. **Nunca chute um prefixo**: um id de
+  MCP é específico de como aquela máquina instalou o servidor, e hardcodar o da sua faz o elo
+  abortar na máquina de qualquer outra pessoa.
 - `specialists_spec` — path da espec que rege a autoria de uma suite de specialists nova (formato dos
   arquivos, o que cada specialist cobre). Consumido pelo Bootstrap de specialists (`flux:review`, `flux:iterate`, `flux:land` e `flux:build`).
   Opcional: sem ele, o Bootstrap usa o checklist mínimo embutido no comando.
@@ -193,6 +208,9 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
   `flux:build` roda em **modo autônomo** (worktree + `CLAUDE.md` do repo + checks declarados + PR
   draft) e diz no banner que rodou sem os gates do repo.
 - `no_emdash` = `false`.
+- `mcp` = ausente; cada elo com integração externa descobre a capacidade na sessão e degrada
+  declarando a perda quando não achar (o `flux:reply` sem canal Slack aborta; o modo doc do
+  `flux:review`/`flux:peek` aborta só naquele alvo).
 - `quality_gate` = ausente (sem consulta à API de quality gates; gate externo é tratado como
   pendência humana com degradação declarada — ver `${FLUX_ROOT}/shared/quality-gate-api.md`).
 
