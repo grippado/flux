@@ -243,6 +243,12 @@ Duas regras que valem para qualquer contribuição:
 1. **Nada de contexto de time hardcoded.** Se o seu time precisa de algo, isso vira campo do manifesto, nunca literal dentro de um verbo. O contrato está em [`shared/flux-context.md`](plugins/flux/shared/flux-context.md).
 2. **Degradar bem em vez de rodar mal.** Toda capacidade nova entra com o caminho de ausência definido e declarado no banner de perfil.
 
+## Construído com flux:
+
+- [Violeet](https://github.com/grippado/violeet) — terminal macOS que roda vários agentes de IA
+  como abas de uma janela só, com o HITL na sidebar. O fan-out da família fica visível ali:
+  uma aba por agente.
+
 ## Licença
 
 [MIT](LICENSE).
