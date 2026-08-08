@@ -94,7 +94,8 @@ Cada elo declara a sua, mas o padrão é este:
 | `flux:land` | **Uma PR** — um subagente rodando `/flux:iterate --auto --once` por PR | `general-purpose` |
 | `flux:build` | O motor de execução do repo inteiro (a main mantém o board de execução) | `general-purpose` |
 | Bootstrap de specialists | Detecção de stack, leitura de L3 e autoria da suite, em paralelo quando independentes | `general-purpose` |
-| `flux:issue` | **Um repo** por prospector | specialists / `Explore` |
+| `flux:issue` (prospecção) | **Um repo** por prospector | specialists / `Explore` |
+| `flux:issue` (criação) | **Uma candidata** por agente, em levas de até 3, blockers primeiro | `issue-creator` (sonnet) |
 | `flux:reply` | **Um repo** por prospector + o answerer | `<SLACK_PROSPECTOR>` / `<SLACK_ANSWERER>` |
 
 Regra de composição: PRs/repos **diferentes** vão em paralelo; unidades que escrevem no **mesmo
@@ -123,8 +124,20 @@ Idêntico ao da Regra 3 do orçamento de contexto, valendo para todo elo:
 - **Retorno estruturado e curto — alvo `< 40 linhas`.** É o que alimenta o board/veredito, não a
   transcrição do trabalho. Proibido no retorno: diff, conteúdo de arquivo, log de CI cru, narrativa
   do que foi feito passo a passo.
-- **A main não confere relendo.** O contexto principal **não relê** os arquivos que o subagente
-  tocou para validar. Confia no retorno; se precisar de verificação, **despacha outro subagente**.
+- **A main não relê conteúdo — mas sempre verifica metadado.** São duas coisas diferentes, e confundi-las
+  já custou caro. O contexto principal **não relê** os arquivos que o subagente tocou: isso é caro e é
+  o que o fan-out existe para evitar; precisando de verificação de conteúdo, **despacha outro subagente**.
+  **Consulta de metadado é o oposto**: é o item 2 da lista fechada acima, custa uma chamada e não carrega
+  contexto nenhum. Onde o subagente produziu um **efeito externo verificável** (issue criada, label
+  aplicada, PR aberta, relação de bloqueio), a main **confere o resultado real na fonte**, sempre, e não
+  aceita o "ok" do retorno como prova.
+
+  > **Por que a distinção é pétrea.** A autoconferência do subagente é feita pelo mesmo processo que
+  > pode ter errado. Num lote real de criação de issues (2026-08-08), duas de 22 nasceram sem um label
+  > obrigatório **e o agente reportou os campos como conferidos** — 9% de falha silenciosa. A query de
+  > verificação da main custou dois segundos e pegou as duas. Verificação determinística de efeito
+  > externo nunca é subagente: é comparação de conjuntos, e um modelo conferindo outro modelo troca uma
+  > afirmação não verificada por duas.
 - **Flags de autonomia.** Comando delegado a subagente vai sempre com as flags que evitam gate
   interativo (`--auto`) e watch aninhado (`--once`) — o HITL e o watch são da main.
 - **Escolha do tipo:** análise com lente de repo → specialist de `review-agents.md`; varredura

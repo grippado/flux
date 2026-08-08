@@ -342,11 +342,14 @@ cronológicas e nenhuma delas de status.
    **Perfil exploração.** A unidade é a **issue candidata** — cada slice que vai (ou não) nascer no
    Linear. Colunas mínimas:
 
-   | # | Título proposto | Repo | Tipo | Embasamento | Status | Linear |
+   | # | Título proposto | Repo | Tipo | Autonomia | Embasamento | Status | Linear |
 
    - **Título proposto**: o título no formato do `issue-template.md` (`[contexto]: [verbo] [assunto]`),
      não um resumo do assunto.
    - **Tipo**: `Feature` | `Bug` | `Improvement` | `Spike`, o mesmo que vai virar label.
+   - **Autonomia**: `AFK` | `HITL`, pelo critério do Step 3 do `flux:issue`. É o que diz se a issue
+     pode ser despachada sem ninguém olhando. `n/d` apenas quando o workspace não tem o label e a
+     degradação graciosa se aplicou; nesse caso a classificação continua no corpo da issue.
    - **Embasamento**: contagem compacta dos achados que sustentam **aquela** candidata, no formato
      `✔N ◐N ✘N ?N` (confirma · parcial · refuta · sem-evidência), contados da 🔬 Achados de codebase.
      Vale a regra geral do painel: número sem fonte real é proibido, use `n/d`. Uma candidata com
