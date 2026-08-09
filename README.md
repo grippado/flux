@@ -130,7 +130,9 @@ flux/
 └── plugins/flux/                   ← ${FLUX_ROOT} quando instalado
     ├── .claude-plugin/plugin.json  manifesto Claude Code
     ├── .cursor-plugin/plugin.json  manifesto Cursor (mesmo corpo, outro harness)
-    ├── agents/pr-reviewer.md       o holístico genérico (default universal)
+    ├── agents/                      os agentes que a família despacha
+    │   ├── pr-reviewer.md          o holístico genérico (default universal)
+    │   └── issue-creator.md        redige e cria issues aprovadas no tracker (sonnet, fan-out)
     ├── skills/                     ← os verbos (globais, context-agnósticos)
     │   ├── issue/  build/  peek/
     │   └── review/  iterate/  land/  reply/

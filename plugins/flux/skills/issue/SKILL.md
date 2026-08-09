@@ -14,6 +14,10 @@ labels certas, e a disciplina de links do flux. Nunca cria no Linear sem você a
 **Formato do board:** `${FLUX_ROOT}/shared/board-template.md`, **perfil exploração** (`type: flux-issue`).
 As seções, a legenda de ícones e a disciplina de carimbo de data vivem lá e não são repetidas aqui.
 **Descoberta + fan-out de specialists:** `${FLUX_ROOT}/shared/review-agents.md`
+**Agente de criação no tracker (Step 6):** `issue-creator`, resolvido pela cascata
+`flux:issue-creator` → `flux-issue-creator` → `issue-creator`, conforme a instalação. Ausente: a main
+cria inline e **declara a degradação no banner** (perde-se o paralelismo e a economia de contexto, não
+a capacidade).
 **Disciplina de fan-out (regra pétrea da família):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Mecânica Linear (não reimplementar):** `LINEAR_OPS` do perfil (campo `linear_ops` do manifesto)
@@ -173,8 +177,43 @@ Montar seguindo o **`issue-template.md`** (formato to-issue enriquecido):
 - **Descrição:** as seções do tipo + a seção obrigatória `## Embasamento no código` (os `FINDINGS`, cada
   achado com `arquivo:linha` como **permalink** e o veredito). Ancorar "O que fazer" e "Critério de
   aceite" nos achados. Aplicar a disciplina de links e as regras de escrita do template.
-- **Labels propostas:** tipo + `Application` (repo) + `Agent autonomy` (AFK/HITL) + prioridade 1-4 se
-  o pedido indicar urgência (ver `LINEAR-OPS.md`).
+- **Labels propostas:** tipo + `Application` (repo) + **autonomia de agente (AFK/HITL)** + prioridade
+  1-4 se o pedido indicar urgência (ver `LINEAR-OPS.md`).
+
+#### Autonomia de agente (AFK/HITL) — obrigatória em toda issue
+
+**Toda candidata recebe a classificação, sem exceção.** É a informação que decide se a issue pode ser
+despachada para um `/flux:build` sem ninguém olhando ou se ela vai parar esperando um humano, e uma
+issue sem ela obriga a redescobrir isso na hora de executar, que é o pior momento.
+
+Critério, e ele é binário de propósito:
+
+- **AFK** — os critérios de aceite são verificáveis por teste ou por comando, e a issue **não** exige
+  desenho visual novo, decisão em aberto, nem julgamento sobre texto em linguagem natural. Um agente
+  leva do início ao fim e o humano só revisa o resultado.
+- **HITL** — em algum ponto é preciso julgamento humano: desenho de UI novo, uma decisão que a própria
+  issue declara em aberto (toda issue com `needs-decision` é HITL por construção), interpretação de uma
+  medição, ou revisão de conteúdo redigido (tradução, copy).
+
+**Como achar o label, nesta ordem.** O nome do grupo varia entre workspaces e não pode ser hardcoded:
+
+1. Um **grupo de labels** cujos filhos sejam exatamente um par do tipo AFK/HITL. Casar pelos **filhos**,
+   não pelo nome do grupo, é o que sobrevive a o grupo se chamar `AI Operation`, `Agent autonomy`,
+   `Autonomia` ou qualquer outra coisa.
+2. Não havendo grupo, labels soltos cujos nomes sejam `AFK` e `HITL` (ou equivalentes evidentes:
+   `autonomous`/`supervised`, `unattended`/`attended`).
+
+**Degradação graciosa, e ela é obrigatória.** Não achou nem grupo nem par solto: **seguir criando a
+issue sem esse label**. Não criar o label, não inventar um nome parecido, não travar a criação, e não
+perguntar ao usuário no meio do fan-out. Registrar a ausência uma única vez, no banner de perfil e no
+board, com a forma:
+
+```
+degradacoes: sem label de autonomia AFK/HITL no workspace (issues nascem sem a classificação)
+```
+
+A classificação em si continua sendo feita e **fica escrita no corpo da issue**, mesmo sem label. O que
+degrada é a etiqueta, não o julgamento.
 - **Decomposição:** se o pedido tem ≥2 ACs independentes ou toca >1 repo, decompor em vertical slices
   (1 repo por issue, blockers primeiro), conforme o template.
 
@@ -213,13 +252,159 @@ Só seguir pro Step 6 na opção 1.
 - **Opção 1:** candidatas aprovadas vão para `🟢 APROVADA` antes de o Step 6 rodar — assim, se a criação
   falhar no meio, o board já registra o que tinha sinal verde.
 
-## Step 6 — Criar no Linear
+## Step 6 — Criar no Linear (fan-out, um agente por candidata)
 
 Quando o perfil declara `LINEAR_OPS`, **ler esse doc antes** e seguir a mecânica dele (cache de
 team/project em `.claude/cache/`, team routing inferido do contexto, nunca hardcoded). Sem
-`LINEAR_OPS`, resolver team e project pelos MCP tools do Linear e confirmar com o usuário antes de criar. Criar via os
-MCP tools do Linear (`save_issue` e afins), aplicando labels, prioridade e — em decomposição — criando
-os **blockers primeiro** para ter IDs reais nos `blockedByIds`. `assignee: "me"`.
+`LINEAR_OPS`, resolver team e project pelos MCP tools do Linear e confirmar com o usuário antes de criar.
+
+### Step 6-pre — gate de transporte: API direta ou MCP
+
+Há dois caminhos para chegar ao tracker, e eles têm custos muito diferentes. **Testar, não presumir.**
+
+**O que decide.** A API GraphQL do Linear aceita **N mutations aliasadas num único request**; o MCP
+expõe **uma issue por chamada de tool**. Numa criação de 20 issues isso é a diferença entre 2 requests
+e 20 round-trips. Medição real (workspace pessoal, 2026-08-08): 6 issues atualizadas num request só, em
+**0,71s**; uma query de identidade sozinha custa **0,43s**, ou seja, o custo é quase todo de ida e
+volta, e é exatamente esse custo que o batching amortiza.
+
+O gate, nesta ordem, e ele para no primeiro "não":
+
+1. **Existe token?** `LINEAR_API_KEY` no ambiente, ou no arquivo declarado em `secrets_file` do
+   manifesto (default `~/.secrets`, formato `KEY=value`). Ausente: **MCP**.
+2. **O token autentica?** Uma query `{ viewer { id name } }`. Resposta diferente de `200`, ou payload
+   com `errors`: **MCP**.
+3. **O token enxerga o alvo?** Uma query do team com os labels, que é a mesma que resolve os UUIDs do
+   passo seguinte. Falhou: **MCP**.
+4. **O token escreve?** **Não existe dry run de mutation**, e é por isso que este passo é um *canário*
+   e não uma pergunta: criar **a primeira candidata sozinha** pela API. Nasceu: seguir pela API com o
+   resto em levas. Falhou por autenticação ou permissão: **cair para MCP e criar todo o resto por lá**,
+   inclusive essa primeira.
+
+> **Por que canário e não uma leva inteira.** Descobrir a falta de permissão no meio de um batch de 3
+> deixa um estado ambíguo: parte do documento GraphQL pode ter sido aplicada. Uma criação sozinha falha
+> de forma limpa, e o fallback fica trivial.
+
+**O que a API cobra a mais, e que o MCP resolvia sozinho:** ela quer **UUIDs**, não nomes. Team,
+project, milestone, labels, estado e responsável precisam ser resolvidos antes. É **uma query**, feita
+uma vez, cujo resultado serve a criação inteira, e é a mesma do passo 3 do gate. Resolver nome por nome
+a cada issue joga fora todo o ganho.
+
+**Declarar no banner** qual caminho está em uso, porque a diferença de velocidade é visível e a origem
+dela precisa ser auditável:
+
+```
+transporte: api (batch) | api (canário falhou, caiu para mcp) | mcp (sem LINEAR_API_KEY)
+```
+
+**Nunca imprimir o token**, nem em log, nem em mensagem de erro, nem no board. Ao ecoar resposta de
+erro da API, filtrar o valor antes.
+
+### Step 6 — a criação
+
+**A main resolve, os agentes criam.** Resolver team, project, milestone e os labels é trabalho
+de metadado barato e fica na main (item 2 da lista fechada de `${FLUX_ROOT}/shared/fanout-discipline.md`).
+A **criação em si não fica**: cada candidata vai para um subagente `issue-creator`, e a unidade de
+fan-out deste passo é **uma candidata**.
+
+> **Quando o transporte é `api`, a unidade muda.** O gargalo deixa de ser o round-trip por issue e passa
+> a ser o corpo das issues atravessando o contexto. Aí cada `issue-creator` leva **uma leva inteira** (as
+> 3 candidatas da leva) e as cria **num único request batched**, em vez de um agente por candidata. O
+> fan-out continua existindo pelo motivo de contexto; o que encolhe é o número de agentes.
+
+> **Por que.** O corpo de uma issue do `flux:issue` é longo por construção — é embasado em código, com
+> citação de `arquivo:linha` e permalink. Criar N delas inline arrasta pelo contexto principal tanto o
+> dossiê lido quanto o corpo escrito, e os dois ficam lá, restaurados a cada compact. Em subagente,
+> isso morre com quem redigiu. E as candidatas são independentes entre si, tirando a ordem dos
+> bloqueios, então a redação de N issues paraleliza.
+>
+> **O agente é `sonnet`, e a escolha do tier importa.** A tentação é tratar isto como transporte e
+> descer para `haiku`, mas **o board não guarda o corpo pronto** — guarda a apuração, com os achados
+> de todas as candidatas misturados, inclusive os refutados. Compor a issue é escolher quais achados
+> sustentam **aquela** candidata e ancorar o critério de aceite neles, o que é julgamento. A regra da
+> casa vale aqui: mecânico vai de `haiku`, julgamento vai de `sonnet`. Se algum dia o board passar a
+> carregar o corpo literal, a tarefa vira transporte e `haiku` passa a ser o certo.
+>
+> **Medição que sustenta o desenho** (2026-08-08, workspace pessoal): criar issues uma a uma na main
+> custou **~23s por issue**, e quase tudo foi geração de texto — o transporte pela API leva menos de
+> um segundo para um lote inteiro. Logo, o ganho de tempo vem de paralelizar a **redação**, não de
+> trocar o canal.
+
+### Levas de 3, e a ordem que as governa
+
+Despachar em **levas de até 3 agentes**, cada leva num único bloco de tool calls. Três é o ponto em que
+o paralelismo já paga e o fan-in ainda cabe numa leitura: cada leva volta com até 3 retornos para a
+main reconciliar e gravar no board antes de soltar a próxima, e é isso que mantém o board fiel mesmo
+se a criação for interrompida no meio.
+
+A ordem entre as levas não é livre, e é a mesma de sempre: **blockers primeiro**.
+
+1. **Leva(s) de blockers** — toda candidata que aparece como bloqueadora no grafo do painel. Só depois
+   de confirmados os identificadores reais delas é que as bloqueadas podem ser despachadas.
+2. **Levas das candidatas sem vínculo** — o grosso, em levas de 3.
+3. **Leva(s) das bloqueadas** — por último, já com os `blockedBy` resolvidos em identificadores reais.
+
+**Nunca despachar uma candidata bloqueada na mesma leva do bloqueador dela.** Os agentes de uma leva
+correm em paralelo e não se falam: o identificador do bloqueador não existe enquanto a leva não voltou.
+
+### O que vai no prompt de cada agente
+
+Prompt auto-contido (o subagente não herda a conversa):
+
+- **path do board** e o **número da candidata** no painel — é de lá que ele lê o corpo. Passar o path
+  em vez do corpo é deliberado: assim o corpo não precisa estar no contexto da main para ser criado.
+- **team, project, milestone, labels, prioridade, estado e responsável**, já resolvidos, com os nomes
+  exatos que o tracker aceita.
+- **`blockedBy`** com identificadores **reais**, quando houver. Marcador por preencher faz o agente
+  abortar, de propósito.
+- **`NO_EMDASH`** quando o perfil o declara, e o idioma do corpo.
+
+### Fan-in
+
+Cada leva volta com até 3 retornos curtos. A main reconcilia e **grava o board antes da leva
+seguinte** — o board é o que sobrevive a uma interrupção, e uma criação de 20 issues tem tempo de ser
+interrompida.
+
+Tratar os vereditos assim:
+
+- **`CRIADA`** → `🟣 CRIADA` no painel, identificador linkado.
+- **`CRIADA COM DIVERGENCIA`** → também `🟣 CRIADA` (a issue existe), mas a divergência vira linha da
+  Timeline de Eventos e item do 🎯 Próximo Movimento. Não colapsar com `CRIADA`: a issue nasceu sem a
+  label ou sem o milestone que foi decidido no gate, e isso não se descobre sozinho depois.
+- **`FALHOU`** → candidata segue em `🟢 APROVADA`, com a causa no veredito. Corrigir e redespachar.
+- **`INDETERMINADO`** → **a main confere no tracker antes de qualquer coisa.** É o caso em que a
+  criação pode ter funcionado sem o agente saber. Redespachar sem conferir cria duplicata, e o agente
+  não repete a chamada exatamente para que essa decisão seja da main.
+
+Uma candidata que falhou e era **bloqueadora** trava a leva 3 inteira: as bloqueadas dela não podem ser
+criadas sem o vínculo, e criá-las mesmo assim perde o vínculo em silêncio.
+
+### Step 6-pos — verificação determinística (obrigatória, e não é agente)
+
+Depois do fan-in da última leva, **a main verifica o lote inteiro contra o que foi decidido no gate**.
+Uma query de metadados sobre o projeto, comparação de conjuntos, e um veredito. **Sem subagente**: isto
+é comparação de conjuntos, não julgamento, e um modelo conferindo o trabalho de outro modelo troca uma
+afirmação não verificada por duas.
+
+Verificar, por issue criada:
+
+- **labels** — igualdade de conjunto com o pedido, sem faltar nem sobrar. Inclui o label de autonomia,
+  que é o mais fácil de sumir sem ninguém notar;
+- **milestone**, **prioridade**, **estado** e **responsável** — igualdade simples;
+- **relações de bloqueio** — existem, e no **sentido** certo (o sujeito é quem bloqueia);
+- **contagem** — o número de issues do lote bate com o número de candidatas aprovadas.
+
+Divergência não vira aviso solto: vira item do 🎯 Próximo Movimento e linha da Timeline de Eventos, e a
+criação **não é declarada completa** até ser corrigida.
+
+> **Por que isto é obrigatório, com o número que o motivou.** Num lote real de 22 issues (2026-08-08),
+> **duas nasceram sem o label de autonomia e os agentes que as criaram reportaram os campos como
+> conferidos** — 9% de falha silenciosa num campo que existe justamente para decidir o que pode ser
+> despachado sem supervisão. A autoconferência do subagente é útil e não é suficiente: ela é feita pelo
+> mesmo processo que errou. A verificação da main custou uma query e dois segundos, e pegou as duas.
+>
+> Vale para os dois transportes. Não é defeito da API nem do MCP: o tracker aceita a criação e **descarta
+> em silêncio** o que não entendeu, em qualquer canal.
 
 **Fechar o board** (é o passo que encerra o ciclo de vida da nota):
 
