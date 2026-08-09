@@ -1,0 +1,42 @@
+{
+  "name": "flux",
+  "version": "1.14.0",
+  "description": "A complete, harness-neutral work cycle for Git repositories: issue, build, peek, review, iterate, land, and reply.",
+  "author": {
+    "name": "Gabriel Gripp",
+    "email": "550632+grippado@users.noreply.github.com",
+    "url": "https://github.com/grippado"
+  },
+  "homepage": "https://github.com/grippado/flux",
+  "repository": "https://github.com/grippado/flux",
+  "license": "MIT",
+  "keywords": [
+    "code-review",
+    "pull-request",
+    "agents",
+    "workflow",
+    "orchestration",
+    "codex"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Flux",
+    "shortDescription": "One workflow. Every harness.",
+    "longDescription": "Flux is a shared family of seven workflows that carries work from idea to issue, code, review, iteration, landing, and reply. Claude Code, Cursor, and Codex use the same skills, agents, and contracts through native harness adapters.",
+    "developerName": "Gabriel Gripp",
+    "category": "Developer Tools",
+    "capabilities": ["Interactive", "Read", "Write", "CodeReview", "MultiAgent"],
+    "websiteURL": "https://github.com/grippado/flux",
+    "privacyPolicyURL": "https://github.com/grippado/flux/blob/main/PRIVACY.md",
+    "termsOfServiceURL": "https://github.com/grippado/flux/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Review this pull request with Flux.",
+      "Turn this idea into a well-grounded issue.",
+      "Iterate on this PR until its checks settle."
+    ],
+    "brandColor": "#8B5CF6",
+    "composerIcon": "./assets/flux-logo.svg",
+    "logo": "./assets/flux-logo.svg",
+    "logoDark": "./assets/flux-logo-dark.svg"
+  }
+}

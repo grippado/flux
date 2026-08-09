@@ -9,13 +9,13 @@
    da ideia ao merge, sem trocar de ferramenta
 ```
 
-[![license](https://img.shields.io/badge/license-MIT-6B7280)](LICENSE) [![claude code](https://img.shields.io/badge/Claude%20Code-plugin-8B5CF6)](#claude-code) [![cursor](https://img.shields.io/badge/Cursor-plugin-3B82F6)](#cursor)
+[![license](https://img.shields.io/badge/license-MIT-6B7280)](LICENSE) [![claude code](https://img.shields.io/badge/Claude%20Code-plugin-8B5CF6)](#claude-code) [![cursor](https://img.shields.io/badge/Cursor-plugin-3B82F6)](#cursor) [![codex](https://img.shields.io/badge/Codex-plugin-A78BFA)](#codex)
 
 > Família de comandos **globais e context-agnósticos** que cobre o ciclo inteiro de trabalho num repo: da issue ao código, do código ao review, do review ao merge, do merge à comunicação.
 
 ## Instalação
 
-O flux é **um plugin só, com dois manifestos**. O mesmo `plugins/flux/` (as skills, os agents, os shared) serve os dois harnesses: não há fork, versão portada nem arquivo duplicado.
+O Flux é **um corpo de workflows com adaptadores por harness**. O mesmo `plugins/flux/` (as skills, os agents, os shared) serve Claude Code, Cursor e Codex: não há fork de comportamento nem arquivo duplicado.
 
 ### Claude Code
 
@@ -44,9 +44,21 @@ Não há hot-reload: a cada `git pull`, rode o script de novo e **encerre o Curs
 
 Em plano Teams/Enterprise dá para importar o repo em Dashboard → Plugins e distribuir pelo marketplace do time, com auto-refresh.
 
-### Depois de instalar, nos dois
+### Codex
 
-Pronto: `/flux:peek`, `/flux:review`, `/flux:iterate` e os demais ficam disponíveis em qualquer repo Git, sem configuração nenhuma.
+Abra o Plugin Directory do Codex, encontre `Flux` e selecione **Install**. Para um checkout em
+desenvolvimento, valide `plugins/flux/.codex-plugin/plugin.json` e mantenha o plugin disponível no
+diretório de plugins do seu ambiente. A forma de invocar uma skill é a que o Codex registrar; use
+`@Flux` ou o nome exibido pela sessão, nunca presuma `/flux:`.
+
+O adaptador Codex usa a delegação nativa de subagentes para o fan-out. MCP, vault, Linear, Slack e
+specialists são capacidades opcionais: quando ausentes, o preflight declara a degradação e o Flux
+continua no perfil genérico.
+
+### Depois de instalar, nos três
+
+Depois de instalar, os sete verbos ficam disponíveis em qualquer repo Git. No Claude Code, a forma
+é `/flux:peek`; no Cursor, `/flux-peek`; no Codex, use o nome que o Plugin Directory registrar.
 
 Requisitos reais: **`git`** (duro — sem ele o preflight aborta) e **`gh` autenticado** (mole, mas é o que separa "roda em PR" de "roda só na working tree"). Nada além disso. Sem manifesto, sem vault e sem specialists, a família roda no perfil genérico e [o banner do preflight](#convenções-transversais) declara o nível degradado em vez de fingir que está completo.
 
@@ -99,6 +111,11 @@ Dois princípios sustentam isso:
 
 Nenhum elo é obrigatório e nenhum chama o próximo sozinho. Cada um termina apontando o elo seguinte e devolvendo o volante para você.
 
+`flux:iterate` fecha uma PR por execução. É eficiente rodar até três iterações independentes em
+paralelo; quando a entrega passa desse tamanho, `flux:land` coordena o lote de múltiplas PRs,
+ordena dependências e emite o go/no-go. `flux:reply` é standalone: pode ser chamado em qualquer
+ponto para transformar um caso em comunicação embasada, não apenas depois do land.
+
 ## Os comandos
 
 | Comando | Entrada | Saída | Escreve? |
@@ -130,6 +147,8 @@ flux/
 └── plugins/flux/                   ← ${FLUX_ROOT} quando instalado
     ├── .claude-plugin/plugin.json  manifesto Claude Code
     ├── .cursor-plugin/plugin.json  manifesto Cursor (mesmo corpo, outro harness)
+    ├── .codex-plugin/plugin.json   manifesto Codex + metadata de interface
+    ├── shared/codex-compat.md      adaptador de delegação nativa e capacidades opcionais
     ├── agents/                      os agentes que a família despacha
     │   ├── pr-reviewer.md          o holístico genérico (default universal)
     │   └── issue-creator.md        redige e cria issues aprovadas no tracker (sonnet, fan-out)
@@ -156,9 +175,9 @@ O harness resolve `skills/<verbo>/SKILL.md` como `/flux:<verbo>`. Adicionar um d
 
 **O nome invocável é montado pelo harness, não escrito por nós.** O mesmo `skills/iterate/SKILL.md` vira `/flux:iterate` num harness e pode virar outra forma em outro. Por isso o único elo que despacha um irmão (o `flux:land`, que roda o iterate por PR dentro de subagente) escreve `${FLUX_CMD}iterate`, com o prefixo resolvido **e verificado** pelo [Passo 1b do preflight](plugins/flux/shared/preflight.md). O rigor é o mesmo do agente holístico: um nome de comando resolvido sem confirmação vira um subagente que não acha o comando e improvisa a iteração fora do contrato.
 
-`${FLUX_ROOT}` é resolvido pelo [`preflight`](plugins/flux/shared/preflight.md) na ordem: `${CLAUDE_PLUGIN_ROOT}` → `${CURSOR_PLUGIN_ROOT}` → dois níveis acima do verbo em execução, resolvendo symlink antes de subir (checkout direto, e a instalação local do Cursor) → `${FLUX_HOME}` do ambiente. Por isso os mesmos arquivos funcionam instalados como plugin nos dois harnesses ou clonados na mão.
+`${FLUX_ROOT}` é resolvido pelo [`preflight`](plugins/flux/shared/preflight.md) na ordem: `${CLAUDE_PLUGIN_ROOT}` → `${CURSOR_PLUGIN_ROOT}` → raiz fornecida pelo Codex → dois níveis acima do verbo em execução, resolvendo symlink antes de subir (checkout direto, e a instalação local do Cursor) → `${FLUX_HOME}` do ambiente. O contrato específico do Codex está em [`shared/codex-compat.md`](plugins/flux/shared/codex-compat.md).
 
-Esses dois nomes de variável são **a única menção a harness específico em todo o flux**. Tudo abaixo do Passo 1 do preflight é escrito contra `${FLUX_ROOT}` e `${FLUX_CMD}`.
+Esses nomes de variável são a única dependência de harness nos contratos compartilhados. Tudo abaixo do Passo 1 do preflight é escrito contra `${FLUX_ROOT}` e `${FLUX_CMD}`.
 
 ### O manifesto de contexto
 
@@ -225,6 +244,20 @@ Um verbo novo entra assim:
 4. Aponte os shared que se aplicam em vez de reescrever a lógica deles.
 5. Termine com **handoff**: qual elo vem depois, e por que.
 6. Registre o verbo na tabela [Os comandos](#os-comandos) e, se ele mudar o ciclo, no diagrama.
+
+Propostas de tradução, novos comandos, agents, melhorias de acessibilidade, integrações e novos
+engines/harnesses são bem-vindas. Antes de implementar uma mudança transversal, abra uma [RFC](.github/ISSUE_TEMPLATE/rfc-harness.md)
+com a tese, escopo, dados ou exemplos que a sustentam,
+alternativas e critérios de aceitação. Uma RFC pode virar PR, e uma PR pequena também pode ser
+aberta diretamente quando a decisão já estiver clara.
+
+## Violeet, Violeeter e [GLabs]
+
+O Flux é uma ferramenta irmã do ecossistema: **Violeet** é o produto, **Violeeter** é o sistema
+visual, e Flux reutiliza essa linguagem com símbolo e wordmark próprios. **[GLabs]** é o guarda-chuva
+que amarra esses produtos, usando a identidade visual compartilhada da família.
+
+Veja a [landing page](docs/index.html) para instalação, ciclo e contribuições.
 
 ## Contribuindo
 

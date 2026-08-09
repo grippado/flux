@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Flux is one workflow for Claude Code, Cursor, and Codex.">
+  <title>Flux — One workflow. Every harness.</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .family-links{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:30px}.family-link{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none}.family-link img{width:42px;height:42px;object-fit:contain;border-radius:10px}.family-link img.violeeter-mark{border-radius:0;object-fit:contain}.family-link strong{display:block}.family-link small{color:var(--muted)}.glabs-banner{margin-top:28px}.glabs-banner img{width:90px;height:90px;object-fit:contain;border-radius:0}.workflow-head{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:28px}.workflow-head p{color:var(--muted);max-width:560px}.workflow-tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:18px}.workflow-tab{border:0;background:none;color:var(--muted);padding:10px 14px;cursor:pointer;font:inherit}.workflow-tab[aria-selected=true]{color:var(--ink);border-bottom:2px solid var(--violet)}.workflow-panel{border:1px solid var(--line);border-radius:14px;background:var(--panel);overflow:auto;min-height:300px}.workflow-panel[hidden]{display:none}.mermaid{min-width:900px;padding:28px;margin:0}.mermaid svg{max-width:none}.workflow-code{margin:0;padding:28px;color:var(--muted);font-size:.8rem;line-height:1.7;min-width:760px}.workflow-note{color:var(--muted);font-size:.85rem;margin:16px 0 0}.workflow-note strong{color:var(--violet)}.command-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.command-card{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:22px}.command-card h3{margin:0 0 8px}.command-card h3 a{text-decoration:none}.command-card p{color:var(--muted);font-size:.9rem}.command-meta{display:grid;grid-template-columns:90px 1fr;gap:5px 12px;font-size:.78rem;border-top:1px solid var(--line);padding-top:14px}.command-meta dt{color:var(--violet);font-weight:700}.command-meta dd{margin:0;color:var(--muted)}.harness-cta{border:1px solid var(--violet-strong);background:linear-gradient(120deg,var(--panel),color-mix(in srgb,var(--violet-strong),var(--panel) 88%));border-radius:16px;padding:38px;display:flex;justify-content:space-between;align-items:center;gap:30px}.harness-cta p{color:var(--muted);max-width:650px}.harness-cta ul{color:var(--muted);margin:14px 0 0;padding-left:18px}.harness-cta li::marker{color:var(--violet)}@media(max-width:800px){.workflow-head,.harness-cta{display:block}.command-grid{grid-template-columns:1fr}.harness-cta .button{margin-top:18px}}@media(max-width:520px){.family-links{grid-template-columns:1fr}}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Flux home"><span class="flux-mark">f</span><span>flux</span></a>
+    <nav aria-label="Main navigation">
+      <a href="#install" data-i18n="navInstall">Install</a>
+      <a href="#contribute" data-i18n="navContribute">Contribute</a>
+    </nav>
+    <div class="header-actions">
+      <label class="sr-only" for="language">Language</label>
+      <select id="language" aria-label="Language">
+        <option value="en">EN</option><option value="pt">PT</option><option value="es">ES</option><option value="de">DE</option>
+      </select>
+      <button id="theme" class="icon-button" type="button" aria-label="Toggle color theme">☼</button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero wrap">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="pulse"></span> open workflow family</p>
+        <h1 data-i18n="heroTitle">One workflow.<br><em>Every harness.</em></h1>
+        <p class="lede" data-i18n="heroLede">Flux carries work from an idea to a shipped change, with the same contracts wherever you run it.</p>
+        <div class="actions"><a class="button primary" href="#install" data-i18n="installCta">Install Flux</a><a class="button quiet" href="https://github.com/grippado/flux" data-i18n="githubCta">View on GitHub ↗</a></div>
+      </div>
+      <div class="hero-art" aria-label="Flux cycle: idea, issue, build, review, iterate, land, reply">
+        <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+        <div class="cycle-center"><span class="flux-mark">f</span><strong>flux</strong><small>one shared core</small></div>
+        <span class="node n1">idea</span><span class="node n2">issue</span><span class="node n3">build</span><span class="node n4">review</span><span class="node n5">iterate</span><span class="node n6">land</span><span class="node n7">reply</span>
+      </div>
+    </section>
+
+    <section id="workflow" class="section workflow-section wrap">
+      <div class="workflow-head"><div><p class="eyebrow">the map</p><h2>Input first. Commands second.</h2></div><p>A thread, bug report, or idea is the input. The seven Flux commands are the operational steps that turn it into a reviewed, merge-ready change and a grounded reply.</p></div>
+      <div class="workflow-tabs" role="tablist" aria-label="Workflow diagram views"><button class="workflow-tab" role="tab" aria-selected="true" aria-controls="diagram-panel" data-workflow-tab="diagram">Diagram</button><button class="workflow-tab" role="tab" aria-selected="false" aria-controls="code-panel" data-workflow-tab="code">Code</button></div>
+      <div id="diagram-panel" class="workflow-panel" role="tabpanel"><pre class="mermaid">flowchart LR
+  INPUT([Idea / thread / bug]):::input --> ISSUE["flux:issue<br/>grounded issue"]
+  ISSUE --> BUILD["flux:build<br/>code + PR draft"]
+  BUILD --> PR([one or more PRs]):::artifact
+  PR --> REVIEW["flux:review<br/>formal review"]
+  PR --> PEEK["flux:peek<br/>read-only pass"]
+  REVIEW --> ITERATE["flux:iterate<br/>one PR + CI"]
+  PEEK --> ITERATE
+  PR --> LAND["flux:land<br/>multi-PR go/no-go"]
+  ITERATE --> READY["one PR ready"]:::artifact
+  LAND --> READY_MULTI["multiple PRs ready"]:::artifact
+  REPLY["flux:reply<br/>standalone communication"]:::standalone -. available at any point .-> INPUT
+  ISSUE -.-> REPLY
+  BUILD -.-> REPLY
+  REVIEW -.-> REPLY
+  ITERATE -.-> REPLY
+  LAND -.-> REPLY
+  READY -.-> REPLY
+  READY_MULTI -.-> REPLY
+  classDef input fill:#2a2440,stroke:#a78bfa,color:#f7f4ff
+  classDef artifact fill:#171326,stroke:#6fe39b,color:#f7f4ff
+  classDef standalone fill:#241c3d,stroke:#c78bf7,color:#f7f4ff</pre></div>
+      <div id="code-panel" class="workflow-panel" role="tabpanel" hidden><pre class="workflow-code"><code>flowchart LR
+  INPUT([Idea / thread / bug]) --> ISSUE["flux:issue"]
+  ISSUE --> BUILD["flux:build"]
+  BUILD --> PR([one or more PRs])
+  PR --> REVIEW["flux:review"]
+  PR --> PEEK["flux:peek"]
+  REVIEW --> ITERATE["flux:iterate · one PR"]
+  PEEK --> ITERATE
+  PR --> LAND["flux:land · multiple PRs"]
+  ITERATE --> READY["one PR ready"]
+  LAND --> READY_MULTI["multiple PRs ready"]
+  REPLY["flux:reply · standalone"] -. available at any point .-> INPUT
+  ISSUE -.-> REPLY
+  BUILD -.-> REPLY
+  REVIEW -.-> REPLY
+  ITERATE -.-> REPLY
+  LAND -.-> REPLY</code></pre></div>
+      <p class="workflow-note"><strong>Input:</strong> idea, thread, or bug. <strong>One PR:</strong> use `flux:iterate`; up to three can be iterated in parallel. <strong>More than three PRs:</strong> use `flux:land` to coordinate the delivery. <strong>Communication:</strong> `flux:reply` is standalone and can be called at any point.</p>
+    </section>
+
+    <section id="install" class="section wrap">
+      <div class="section-intro"><p class="eyebrow">start here</p><h2 data-i18n="installTitle">Pick your native harness.</h2><p data-i18n="installLede">One source of truth, installed where you already work.</p></div>
+      <div class="install-grid">
+        <article class="install-card"><div class="card-top"><span class="harness-icon claude">C</span><span>01</span></div><h3>Claude Code</h3><code>/plugin marketplace add grippado/flux</code><code>/plugin install flux@flux</code><a href="https://github.com/grippado/flux#claude-code">Read the guide ↗</a></article>
+        <article class="install-card"><div class="card-top"><span class="harness-icon cursor">⌁</span><span>02</span></div><h3>Cursor</h3><code>git clone github.com/grippado/flux</code><code>scripts/install-cursor.sh</code><a href="https://github.com/grippado/flux#cursor">Read the guide ↗</a></article>
+        <article class="install-card featured"><div class="card-top"><span class="harness-icon codex">✦</span><span>03</span></div><h3>Codex</h3><code>Plugin Directory → Flux</code><code>@Flux · native subagents</code><a href="https://github.com/grippado/flux#codex">Read the guide ↗</a></article>
+      </div>
+    </section>
+
+    <section id="commands" class="section tinted"><div class="wrap"><div class="section-intro"><p class="eyebrow">the seven verbs</p><h2>Every command has a boundary.</h2><p>Inputs and outputs below mirror the shared skill contracts in the repository. No command silently calls the next one.</p></div><div class="command-grid">
+      <article class="command-card"><h3><a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/issue/SKILL.md">flux:issue ↗</a></h3><p>Turns free-form context into an issue grounded in the real codebase.</p><dl class="command-meta"><dt>Input</dt><dd>thread, text, PR</dd><dt>Output</dt><dd>issue draft; Linear only after approval</dd><dt>Writes</dt><dd>vault draft, optional tracker issue</dd></dl></article>
+      <article class="command-card"><h3><a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/build/SKILL.md">flux:build ↗</a></h3><p>Dispatches implementation to the repository’s native execution motor.</p><dl class="command-meta"><dt>Input</dt><dd>ticket or description + repo</dd><dt>Output</dt><dd>code and PR draft</dd><dt>Writes</dt><dd>dedicated worktree via repo motor</dd></dl></article>
+      <article class="command-card"><h3><a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/peek/SKILL.md">flux:peek ↗</a></h3><p>A fast, read-only lens for a tree, diff, branch, PR, document, or path.</p><dl class="command-meta"><dt>Input</dt><dd>working tree, range, PR, doc, path</dd><dt>Output</dt><dd>holistic report in chat</dd><dt>Writes</dt><dd>nothing, except explicit `--save`</dd></dl></article>
+      <article class="command-card"><h3><a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/review/SKILL.md">flux:review ↗</a></h3><p>Produces a formal review by reconciling the holistic lens with specialists.</p><dl class="command-meta"><dt>Input</dt><dd>PR or document</dd><dt>Output</dt><dd>structured review artifact</dd><dt>Writes</dt><dd>vault; posts only after approval</dd></dl></article>
+      <article class="command-card"><h3><a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/iterate/SKILL.md">flux:iterate ↗</a></h3><p>Closes the loop on one PR: verifies findings, applies corrections, responds, and watches CI. Run up to three independently in parallel; above that, use `land`.</p><dl class="command-meta"><dt>Input</dt><dd>one PR</dd><dt>Output</dt><dd>one PR ready, with replies and CI state</dd><dt>Writes</dt><dd>worktree, commits, push, GitHub actions</dd></dl></article>
+      <article class="command-card"><h3><a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/land/SKILL.md">flux:land ↗</a></h3><p>Coordinates a delivery made of multiple PRs, delegating per-PR iteration and emitting a merge-ready go/no-go.</p><dl class="command-meta"><dt>Input</dt><dd>issue or multi-PR feature</dd><dt>Output</dt><dd>topological order and multi-PR verdict</dd><dt>Writes</dt><dd>keeps PRs ready; never merges</dd></dl></article>
+      <article class="command-card"><h3><a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/reply/SKILL.md">flux:reply ↗</a></h3><p>A standalone communication lane: turn a Slack case into a code-grounded, reviewable draft at any point in the work.</p><dl class="command-meta"><dt>Input</dt><dd>thread permalink</dd><dt>Output</dt><dd>Slack-safe draft and case board</dd><dt>Writes</dt><dd>draft/vault; never sends alone</dd></dl></article>
+    </div></div></section>
+
+    <section class="section tinted"><div class="wrap two-col"><div><p class="eyebrow">native by design</p><h2 data-i18n="nativeTitle">Built in its native harness.</h2></div><div class="copy"><p data-i18n="nativeLede">The Claude plugin was made by Claude. The Cursor plugin was made by Cursor. The Codex plugin was made by Codex. Each adapter respects its host while the workflow contracts remain shared.</p><div class="author-lines"><span><b>Claude</b> → Claude plugin</span><span><b>Cursor</b> → Cursor plugin</span><span><b>Codex</b> → Codex plugin</span></div></div></div></section>
+
+    <section class="section wrap"><div class="two-col family"><div><p class="eyebrow">not a motor</p><h2 data-i18n="familyTitle">A family of open workflows.</h2></div><div class="copy"><p data-i18n="familyLede">Flux is not a tool tied to one engine. It is a portable set of decisions, boundaries, and handoffs. New harnesses can speak the same language without forking behavior.</p><p class="muted">Violeet is the product. Violeeter is the visual system. Flux is a sibling tool built with the same visual language.</p></div></div></section>
+
+    <section id="contribute" class="section contribution"><div class="wrap contribution-box"><div><p class="eyebrow">make it yours</p><h2 data-i18n="contributeTitle">Bring the next good idea.</h2><p data-i18n="contributeLede">Translations, new commands, agents, accessibility improvements, integrations, and new harnesses all belong in the conversation.</p></div><a class="button primary" href="https://github.com/grippado/flux/issues/new/choose" data-i18n="rfcCta">Choose a contribution path ↗</a></div><div class="wrap rfc-note"><span class="quote-mark">“</span><p data-i18n="rfcNote">Choose a focused template, or open a clear RFC with your own structure, thesis, evidence, alternatives, scope, and acceptance criteria.</p></div></section>
+
+    <section id="new-harness" class="section wrap"><div class="harness-cta"><div><p class="eyebrow">open invitation</p><h2>A harness is next.</h2><p>Bring Flux to another engine without forking the workflow. A good adapter should preserve the shared skills and contracts while translating resource resolution, delegation, and capability limits into its native runtime.</p><ul><li>show a real user need and evidence</li><li>define the native delegation model</li><li>document degraded capabilities and acceptance checks</li></ul></div><a class="button primary" href="https://github.com/grippado/flux/issues/new/choose">Choose a proposal type ↗</a></div></section>
+
+    <section class="section wrap umbrella"><div class="glabs-banner"><img src="glabs-mark.svg" alt="[GLabs] logo"></div><div><p class="eyebrow">the wider constellation</p><h2>Held by <span>[GLabs]</span>.</h2><p>[GLabs] is the umbrella that ties the family together in Violeeter’s visual language.</p><div class="family-links"><a class="family-link" href="https://github.com/grippado/violeet" aria-label="Violeet, the product"><img src="violeet-mark.svg" alt="Violeet logo"><span><strong>Violeet</strong><small>the product · direct reference ↗</small></span></a><a class="family-link" href="https://github.com/grippado/violeeter" aria-label="Violeeter, the visual system"><img class="violeeter-mark" src="https://grippado.github.io/violeeter/violeeter-dark.svg" alt="Violeeter logo"><span><strong>Violeeter</strong><small>the visual system · direct reference ↗</small></span></a></div></div></section>
+  </main>
+  <footer class="site-footer wrap"><span>© 2026 Flux · MIT</span><span>Made for the work between idea and merge.</span><a href="https://github.com/grippado/flux">GitHub ↗</a></footer>
+  <script src="script.js"></script>
+</body>
+</html>

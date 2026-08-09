@@ -7,6 +7,10 @@
 > exatamente o que falta. Rodar em modo degradado silencioso é pior do que não rodar, porque produz
 > um artefato que parece válido e não é.
 
+> **Codex:** carregar [`codex-compat.md`](codex-compat.md) junto deste contrato. Onde os
+> adaptadores Claude/Cursor dizem `Task tool`, o Codex usa sua delegação nativa de subagentes;
+> nenhum nome de ferramenta é simulado.
+
 > **Este passo roda depois da âncora.** O parse do alvo e a resolução do manifesto vêm antes, porque
 > o agente holístico que o Passo 3 verifica vem do perfil. Ver `${FLUX_ROOT}/shared/flux-context.md`,
 > seção "Ordem obrigatória". Verificar o holístico antes de saber o perfil valida o agente errado.

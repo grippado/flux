@@ -5,6 +5,11 @@
 > (`issuer`, `build`, `look`, `review`, `iterate`, `delivery`, `slack`). **Não duplicar esta lógica**
 > nos comandos: apontar para cá e declarar só o que for específico (qual é a unidade de fan-out
 > daquele elo, qual o agente).
+
+> **Adaptador Codex:** toda ocorrência de `Task tool` neste contrato significa a delegação nativa
+> de subagentes quando a skill estiver rodando no Codex. Unidades independentes continuam em
+> paralelo, com prompt autocontido, retorno curto e nenhum gate no subagente. Ver
+> [`codex-compat.md`](codex-compat.md) para o contrato completo.
 >
 > É par simétrico de [`worktree-discipline.md`](worktree-discipline.md) — aquele isola a **escrita
 > em disco**, este isola o **consumo de contexto**. E é o braço operacional de

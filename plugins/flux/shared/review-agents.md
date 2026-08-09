@@ -169,7 +169,7 @@ em `disponível` é pior: promete uma cobertura que não houve.
 
 Com `--solo`, pular este passo inteiro e o 2b, independentemente do que exista.
 
-## Passo 2 — Rodar as lentes (em paralelo, via Task tool)
+## Passo 2 — Rodar as lentes (em paralelo, via Task tool ou subagentes nativos do Codex)
 
 - **2a — L1, holístico.** Task com `subagent_type: <HOLISTIC>` passando os inputs base do comando
   (diff, commits, metadados, checkout, revisões anteriores, threads). Guardar como `HOLISTIC_REPORT`.
