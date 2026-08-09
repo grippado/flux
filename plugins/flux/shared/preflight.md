@@ -159,10 +159,18 @@ cercas ```` ``` ```` fazem parte do que se emite, não são formatação deste d
 ````
 ```
 perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
-lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
+lentes: L1 {agente} · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 degradacoes: {lista dos soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
+
+> **`ausente` e `inalcancavel` não são sinônimos**, e a distinção está no contrato de
+> `${FLUX_ROOT}/shared/review-agents.md` (passo 1a-bis). `ausente` é não existir suite para o repo.
+> `inalcancavel` é a suite existir em disco e não ser invocável, tipicamente porque o `name:` do
+> frontmatter não está registrado como `subagent_type` nesta instalação. Só entra em `lentes:` como
+> nome de agente o que foi de fato **invocado**; achado e não invocado vai para `degradacoes`, com o
+> motivo. Um banner que lista uma lente que não rodou é pior que um banner sem a lente, porque
+> promete cobertura que não houve.
 
 > **O gabarito também mora no corpo de cada elo, e isso não é duplicação por descuido.** Este passo
 > rege as **regras** (quais campos, quando degradar, o que cada nível significa); o gabarito repetido

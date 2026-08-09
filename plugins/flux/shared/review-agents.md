@@ -62,11 +62,58 @@ Resolver o caminho **nesta ordem**, parando no primeiro que existir:
 2. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o mesmo destino
    que o Bootstrap usa quando não há manifesto (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
 
-Achou → L2 disponível (é um orquestrador: ele resolve os próprios specialists). Não achou → ausente.
+Achou → seguir para o passo 1a-bis. Não achou → **ausente**.
 
 > **Por que o nível 2 existe.** Sem ele, uma suite gerada pelo Bootstrap no perfil genérico seria
 > escrita em disco e **nunca carregada**: o elo ofereceria criá-la de novo a cada review, para um repo
 > que já tem uma. Descoberta e escrita têm que olhar para o mesmo lugar.
+
+### 1a-bis — O arquivo existir não é o mesmo que o agente ser invocável
+
+**Achar o arquivo não basta, e tratar como se bastasse é a falha silenciosa mais cara deste
+contrato.** O que se resolve no passo 1a é um **caminho**; o que a Task tool aceita é um **nome
+registrado** (`subagent_type`). Um não vira o outro sozinho.
+
+Resolver o nome, nesta ordem:
+
+1. O campo `name:` do frontmatter do arquivo achado. **É ele a identidade**, não o nome do arquivo:
+   os dois podem divergir, e quando divergem quem vale é o `name:`.
+2. Sem `name:` no frontmatter, o agente **não é invocável**. Não inventar um nome a partir do path.
+
+Com o nome em mãos, **conferir que ele está registrado na sessão** antes de declarar a lente
+disponível. Não está → o estado não é `ausente`, é **`inalcançável`**, e os dois são coisas
+diferentes que precisam aparecer diferentes no banner:
+
+```
+degradacoes: L2 inalcancavel — <path> existe e declara `name: <nome>`, mas <nome> nao esta
+             registrado como subagent_type nesta instalacao (o arquivo nao esta sob
+             ~/.claude/agents/ nem sob <repo>/.claude/agents/)
+```
+
+**Nunca declarar `lentes: L2 <nome>` para um agente que não se conseguiu invocar.** O banner existe
+para impedir que uma execução degradada se passe por completa, e uma lente listada e não executada é
+exatamente isso.
+
+**Não improvisar com `general-purpose` carregando o corpo do specialist como prompt.** É tentador e
+parece equivalente, mas não é: o resultado deixa de ser comparável com o de uma execução normal, e o
+banner passaria a mentir de um jeito mais difícil de detectar. Registrar a degradação e seguir com o
+que existe.
+
+**O que fazer com a informação, no fechamento do elo:** um `inalcançável` é acionável e um `ausente`
+não é. Ausente pede Bootstrap (criar a suite). Inalcançável pede **instalação**, porque a suite já
+existe e o trabalho de escrevê-la já foi feito. Ofereça o caminho certo:
+
+- Suite sob um diretório que o harness varre (`~/.claude/agents/`, incluindo subdiretórios) → conferir
+  se o `name:` está lá e se não colide com outro agente de mesmo nome.
+- Suite fora desses diretórios (num repositório de dotfiles, por exemplo) → ela precisa ser exposta,
+  tipicamente por symlink, e **o nome precisa ser único entre todas as suites**, porque a identidade é
+  o `name:` e não o caminho: dois arquivos com o mesmo `name` fazem o harness carregar só um, sem
+  precedência definida.
+
+> **Isto não é hipotético.** Um perfil com `specialists_root` apontando para uma suite de 9 agentes,
+> todos em disco e nenhum registrado, produziu por semanas banners dizendo `L2 disponível` e reviews
+> rodando só com o holístico. O teste de existência passava, a invocação nunca acontecia, e nada no
+> output denunciava a diferença.
 
 ### 1b — L3, specialists do repo
 
@@ -90,15 +137,35 @@ resolva os próprios subordinados, em vez de invocar os agents individualmente.
 **Registrar os excluídos.** Guardar a lista dos agents que existiam e não passaram no filtro, para o
 banner. O usuário precisa poder discordar do filtro sem ter que ler o diretório na mão.
 
+**O mesmo gate do 1a-bis vale aqui**, com uma diferença de probabilidade: agents versionados no
+próprio repositório costumam ser registrados pelo harness por serem agents de projeto, então L3
+raramente fica inalcançável. Ainda assim, um arquivo sem `name:` no frontmatter não é invocável, e
+entra na lista dos excluídos com esse motivo, não como "não passou no filtro de intenção".
+
 ### 1c — Consolidar
 
 ```
-LENTES = [L1] + ([L2] se disponível) + ([L3...] se disponível)
+LENTES = [L1] + ([L2] se INVOCÁVEL) + ([L3...] se INVOCÁVEIS)
 ```
+
+Note o critério: **invocável**, não "existe". Um specialist que foi achado em disco e não pôde ser
+invocado não entra em `LENTES`, entra em `degradacoes`.
 
 **Fallback gracioso.** Sem L2 e sem L3, avisar no banner
 (`sem specialists para <REPO_SLUG>: seguindo com o reviewer holístico sozinho`), pular o passo 2b e
 seguir. Nunca travar por ausência de specialists.
+
+**Os três estados, e eles não colapsam:**
+
+| estado | significado | o que o banner diz | o que o elo oferece no fim |
+|---|---|---|---|
+| **disponível** | achado e invocável | `lentes: L2 <nome>` | nada |
+| **ausente** | não há suite para este repo | `L2 ausente` | Bootstrap (criar a suite) |
+| **inalcançável** | a suite existe e não é invocável | `L2 inalcancavel — <motivo>` | instalar/expor a suite que já existe |
+
+Colapsar `inalcançável` em `ausente` faz o elo oferecer **criar de novo** uma suite que já foi
+escrita, que é o mesmo erro que o nível 2 do passo 1a existe para evitar, um degrau acima. Colapsar
+em `disponível` é pior: promete uma cobertura que não houve.
 
 Com `--solo`, pular este passo inteiro e o 2b, independentemente do que exista.
 
