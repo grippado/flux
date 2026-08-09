@@ -94,6 +94,9 @@ Flags próprias do `flux:build` (consumidas aqui, **não** repassadas):
 - **Forja fica de fora.** Qualquer `/forja:*` é opt-in e explícito do usuário; nunca o invoque a partir daqui.
 - **Não mergeie nada.** Merge é decisão do `/flux:land` + humano.
 - Um repo por invocação. Para várias frentes, várias invocações (ou `/convocar` para mutirão).
+- **Não acione specialists.** Nem como briefing antes de implementar, nem como gate sobre o diff
+  antes da PR. O motivo está no Step 2-ter: o embasamento que eles produziriam já existe, escrito na
+  issue, e as suites declaram que não participam de autoria. Quem revisa é o `/flux:review`, depois.
 
 ---
 
@@ -220,6 +223,47 @@ falha, mas quem o roda precisa saber que rodou sem os gates do repo.
 
 ---
 
+## Step 2-ter — O embasamento da issue é o briefing (não rode specialists aqui)
+
+Quando a task é um ticket, **leia a issue inteira e repasse ao motor a seção de embasamento em
+código**, junto da descrição. Não resuma: o motor precisa dos `arquivo:linha` literais.
+
+Uma issue nascida do `/flux:issue` já teve os specialists do repo rodando sobre ela, na prospecção
+(`${FLUX_ROOT}/skills/issue/SKILL.md`, Step 2). O que está escrito ali sob "Embasamento no código"
+**é** o parecer dos specialists daquele repo, persistido no tracker no momento em que eles tinham
+terreno para trabalhar. Repassar isso ao implementador custa zero chamada de agente e é a diferença
+entre ele descobrir o território e ele já chegar com o mapa.
+
+Duas ressalvas de honestidade sobre esse embasamento, que devem ir junto no prompt do motor:
+
+- **Os números de linha envelhecem.** A apuração foi feita contra o SHA de quando a issue nasceu, e a
+  `main` andou desde então. Instrua o motor a localizar **pelo nome do símbolo**, não pela linha, e a
+  reportar no retorno o que divergiu.
+- **Uma issue escrita à mão não tem esse embasamento**, e isso não é degradação: é só uma issue de
+  outra origem. Não invente a seção, não rode specialists para produzi-la.
+
+### Por que este elo não aciona specialists
+
+Foi avaliado em 2026-08-09, com dois desenhos concorrentes especificados e descartados. O registro
+existe para não se refazer a discussão:
+
+- **Briefing de entrada** (specialist informa invariantes antes de o motor escrever) duplica o que a
+  issue já carrega, e esbarra num contrato das próprias suites: uma suite de specialists típica
+  declara que pedido de autoria "não é desta suite, esta suite revisa, não escreve". Além disso, os
+  specialists individuais são formados pelo diff (a regra de atribuição deles é o escopo
+  `DIFF_FILES`), então sem diff eles devolvem aprovação vazia.
+- **Gate de saída** (specialist revisa o diff antes de a PR nascer) otimiza para o caso que menos
+  precisa de ajuda. Se o gate acha algo, paga-se gate + correção + gate e **ainda** o `/flux:review`
+  depois, que é quem roda o holístico. Só se paga quando passa limpo de primeira, que é exatamente
+  quando o ciclo que ele queria encurtar já seria barato. E no modo autônomo, sem suite no repo, o
+  gate seria o mesmo modelo relendo o diff que acabou de escrever: confirmação circular, não segunda
+  lente.
+
+A regra que ficou: **o build carrega o parecer que já existe; quem produz parecer novo é o
+`/flux:review`, sobre o diff, depois.**
+
+---
+
 ## Step 2-bis — Criar o board de execução (antes de despachar)
 
 Com `VAULT_ROOT` resolvido, criar o board **antes** de disparar o motor, seguindo o **perfil execução**
@@ -266,7 +310,9 @@ ou, no fallback:
 
    - **Workspace mode** (`cwd` é o workspace, `REPO_PATH` é outro diretório) → **subagente
      obrigatório** (`subagent_type: general-purpose`). O prompt é auto-contido: `cd "$REPO_PATH"`,
-     rodar `/<EXEC_COMMAND> $REST` (ou `/<EXEC_FALLBACK> $REST`), e devolver **< 40 linhas**:
+     rodar `/<EXEC_COMMAND> $REST` (ou `/<EXEC_FALLBACK> $REST`), e devolver **< 40 linhas**.
+     O prompt carrega também o **embasamento em código da issue** (Step 2-ter), literal, e a
+     instrução de localizar por símbolo e não por linha. Retorno:
      `{branch, worktree, PR criada (url) ou n/a, CI, arquivos tocados (só a lista), checks
      (verde/total), etapa em que parou se falhou, bloqueios}`. O prompt carrega o **path do board**
      para o subagente citá-lo no retorno, mas **quem escreve o board é a main**, nunca o subagente
