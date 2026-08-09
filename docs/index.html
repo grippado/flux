@@ -11,7 +11,7 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="stylesheet" href="styles.css">
   <style>
-    .family-links{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:30px}.family-link{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none}.family-link img{width:42px;height:42px;object-fit:contain;border-radius:10px}.family-link img.violeeter-mark{border-radius:0;object-fit:contain}.family-link strong{display:block}.family-link small{color:var(--muted)}.glabs-banner{margin-top:28px}.glabs-banner img{width:90px;height:90px;object-fit:contain;border-radius:0}.workflow-head{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:28px}.workflow-head p{color:var(--muted);max-width:560px}.workflow-note{color:var(--muted);font-size:.85rem;margin:34px 0 0}.workflow-note strong{color:var(--violet)}
+    .family-links{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:30px}.family-link{display:flex;align-items:center;gap:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--panel);text-decoration:none}.family-link img{width:42px;height:42px;object-fit:contain;border-radius:10px}.family-link strong{display:block}.family-link small{color:var(--muted)}.glabs-banner{margin-top:28px}.glabs-banner img{width:90px;height:90px;object-fit:contain;border-radius:0}.workflow-head{display:flex;justify-content:space-between;gap:30px;align-items:end;margin-bottom:28px}.workflow-head p{color:var(--muted);max-width:560px}.workflow-note{color:var(--muted);font-size:.85rem;margin:34px 0 0}.workflow-note strong{color:var(--violet)}
     :root{--h-claude:#D97757;--h-claude-fg:#E8A183;--h-cursor:#F7F7F4;--h-cursor-fg:#E4E2DC;--h-codex:#10A37F;--h-codex-fg:#3ECFA6}
     html[data-theme=light]{--h-claude:#C15F3C;--h-claude-fg:#96442A;--h-cursor:#26251E;--h-cursor-fg:#26251E;--h-codex:#10A37F;--h-codex-fg:#0A6B53}
     .badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:5px;font-size:.74rem;font-weight:600;letter-spacing:-.01em;line-height:1.45;white-space:nowrap;vertical-align:1px}
@@ -27,6 +27,7 @@
     .command-card.is-proposed{border-style:dashed}.command-card.is-standalone{border-color:color-mix(in srgb,var(--green),var(--line) 55%)}
     .flux-glyph{display:inline-block;width:17px;height:17px;vertical-align:-3px;margin-right:8px;background:url("dark-outline.svg") center/contain no-repeat}html[data-theme=light] .flux-glyph{background-image:url("light-outline.svg")}.footer-brand{display:inline-flex;align-items:center}
     .glabs-mark{display:block;width:90px;height:90px;background:url("glabs/dark-fill.svg") center/contain no-repeat}html[data-theme=light] .glabs-mark{background-image:url("glabs/light-fill.svg")}
+    .violeeter-mark{width:42px;height:42px;background:url("violeeter-dark.svg") center/contain no-repeat}html[data-theme=light] .violeeter-mark{background-image:url("violeeter-light.svg")}
     .flux-mark{background:url("dark-fill.svg") center/contain no-repeat;font-size:0;color:transparent}html[data-theme=light] .flux-mark{background-image:url("light-fill.svg")}
     .flow-source{margin-top:30px;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:16px 20px}.flow-source summary{cursor:pointer;color:var(--muted);font-size:.82rem}.flow-source pre{margin:14px 0 0;overflow:auto;color:var(--muted);font-size:.78rem;line-height:1.7}.harness-cta{border:1px solid var(--violet-strong);background:linear-gradient(120deg,var(--panel),color-mix(in srgb,var(--violet-strong),var(--panel) 88%));border-radius:16px;padding:38px;display:flex;justify-content:space-between;align-items:center;gap:30px}.harness-cta p{color:var(--muted);max-width:650px}.harness-cta ul{color:var(--muted);margin:14px 0 0;padding-left:18px}.harness-cta li::marker{color:var(--violet)}@media(max-width:800px){.workflow-head,.harness-cta{display:block}.flow-pair{grid-template-columns:1fr}.harness-cta .button{margin-top:18px}}@media(max-width:520px){.family-links{grid-template-columns:1fr}.flow-row{grid-template-columns:34px 1fr;gap:14px}.flow-dot{width:26px;height:26px;border-radius:9px;font-size:.6rem}.command-card{padding:18px}.command-meta{grid-template-columns:1fr;gap:2px}.command-meta dd{margin-bottom:8px}}
   </style>
@@ -39,8 +40,8 @@
       <a href="#contribute" data-i18n="navContribute">Contribute</a>
     </nav>
     <div class="header-actions">
-      <label class="sr-only" for="language">Language</label>
-      <select id="language" aria-label="Language">
+      <label class="sr-only" for="language" data-i18n="languageLabel">Language</label>
+      <select id="language">
         <option value="en">EN</option><option value="pt">PT</option><option value="es">ES</option><option value="de">DE</option>
       </select>
       <button id="theme" class="icon-button" type="button" aria-label="Toggle color theme">☼</button>
@@ -55,7 +56,7 @@
         <p class="lede" data-i18n="heroLede">Flux carries work from an idea to a shipped change, with the same contracts wherever you run it.</p>
         <div class="actions"><a class="button primary" href="#install" data-i18n="installCta">Install Flux</a><a class="button quiet" href="https://github.com/grippado/flux" data-i18n="githubCta">View on GitHub ↗</a></div>
       </div>
-      <div class="hero-art" aria-label="Flux cycle: idea, issue, build, review, iterate, land, reply">
+      <div class="hero-art" aria-hidden="true">
         <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
         <div class="cycle-center"><span class="flux-mark" aria-hidden="true"></span><strong>flux</strong><small>one shared core</small></div>
         <span class="node n1">idea</span><span class="node n2">issue</span><span class="node n3">build</span><span class="node n4">review</span><span class="node n5">iterate</span><span class="node n6">land</span><span class="node n7">reply</span>
@@ -130,9 +131,9 @@
     <section id="install" class="section wrap">
       <div class="section-intro"><p class="eyebrow">start here</p><h2 data-i18n="installTitle">Pick your native harness.</h2><p data-i18n="installLede">One source of truth, installed where you already work.</p></div>
       <div class="install-grid">
-        <article class="install-card"><div class="card-top"><span>01</span></div><h3><span class="badge badge-lg badge-claude">Claude Code</span></h3><code>/plugin marketplace add grippado/flux</code><code>/plugin install flux@flux</code><a href="https://github.com/grippado/flux#claude-code">Read the guide ↗</a></article>
-        <article class="install-card"><div class="card-top"><span>02</span></div><h3><span class="badge badge-lg badge-cursor">Cursor</span></h3><code>git clone github.com/grippado/flux</code><code>scripts/install-cursor.sh</code><a href="https://github.com/grippado/flux#cursor">Read the guide ↗</a></article>
-        <article class="install-card featured"><div class="card-top"><span>03</span></div><h3><span class="badge badge-lg badge-codex">Codex</span></h3><code>Plugin Directory → Flux</code><code>@Flux · native subagents</code><a href="https://github.com/grippado/flux#codex">Read the guide ↗</a></article>
+        <article class="install-card"><div class="card-top"><span>01</span></div><h3><span class="badge badge-lg badge-claude">Claude Code</span></h3><code>/plugin marketplace add grippado/flux</code><code>/plugin install flux@flux</code><a href="https://github.com/grippado/flux#claude-code">Read the guide<span class="sr-only"> — Claude Code</span> ↗</a></article>
+        <article class="install-card"><div class="card-top"><span>02</span></div><h3><span class="badge badge-lg badge-cursor">Cursor</span></h3><code>git clone github.com/grippado/flux</code><code>scripts/install-cursor.sh</code><a href="https://github.com/grippado/flux#cursor">Read the guide<span class="sr-only"> — Cursor</span> ↗</a></article>
+        <article class="install-card featured"><div class="card-top"><span>03</span></div><h3><span class="badge badge-lg badge-codex">Codex</span></h3><code>Plugin Directory → Flux</code><code>@Flux · native subagents</code><a href="https://github.com/grippado/flux#codex">Read the guide<span class="sr-only"> — Codex</span> ↗</a></article>
       </div>
     </section>
 
@@ -145,7 +146,7 @@
 
     <section id="new-harness" class="section wrap"><div class="harness-cta"><div><p class="eyebrow" data-i18n="harnessEyebrow">open invitation</p><h2 data-i18n="harnessTitle">A harness is next.</h2><p data-i18n="harnessLede">Bring Flux to another engine without forking the workflow. A good adapter should preserve the shared skills and contracts while translating resource resolution, delegation, and capability limits into its native runtime.</p><ul><li data-i18n="harnessPointOne">show a real user need and evidence</li><li data-i18n="harnessPointTwo">define the native delegation model</li><li data-i18n="harnessPointThree">document degraded capabilities and acceptance checks</li></ul></div><a class="button primary" href="https://github.com/grippado/flux/issues/new/choose" data-i18n="harnessCta">Choose a proposal type ↗</a></div></section>
 
-    <section class="section wrap umbrella"><div class="glabs-banner"><span class="glabs-mark" role="img" aria-label="[GLabs]"></span></div><div><p class="eyebrow" data-i18n="glabsEyebrow">the wider constellation</p><h2 data-i18n="glabsTitle">Held by <span>[GLabs]</span>.</h2><p data-i18n="glabsLede">[GLabs] is the umbrella that ties the family together in Violeeter’s visual language.</p><div class="family-links"><a class="family-link" href="https://github.com/grippado/violeet" aria-label="Violeet, the product"><img src="violeet-mark.svg" alt="Violeet logo"><span><strong>Violeet</strong><small data-i18n="violeetReference">the product · direct reference ↗</small></span></a><a class="family-link" href="https://github.com/grippado/violeeter" aria-label="Violeeter, the visual system"><img class="violeeter-mark" src="https://grippado.github.io/violeeter/violeeter-dark.svg" alt="Violeeter logo"><span><strong>Violeeter</strong><small data-i18n="violeeterReference">the visual system · direct reference ↗</small></span></a></div></div></section>
+    <section class="section wrap umbrella"><div class="glabs-banner"><span class="glabs-mark" role="img" aria-label="[GLabs]"></span></div><div><p class="eyebrow" data-i18n="glabsEyebrow">the wider constellation</p><h2 data-i18n="glabsTitle">Held by <span>[GLabs]</span>.</h2><p data-i18n="glabsLede">[GLabs] is the umbrella that ties the family together in Violeeter’s visual language.</p><div class="family-links"><a class="family-link" href="https://github.com/grippado/violeet" aria-label="Violeet, the product"><img src="violeet-mark.svg" alt="Violeet logo"><span><strong>Violeet</strong><small data-i18n="violeetReference">the product · direct reference ↗</small></span></a><a class="family-link" href="https://github.com/grippado/violeeter" aria-label="Violeeter, the visual system"><span class="violeeter-mark" role="img" aria-label="Violeeter"></span><span><strong>Violeeter</strong><small data-i18n="violeeterReference">the visual system · direct reference ↗</small></span></a></div></div></section>
   </main>
   <footer class="site-footer wrap"><span class="footer-brand"><span class="flux-glyph" aria-hidden="true"></span>© 2026 Flux · MIT</span><span>Made for the work between idea and merge.</span><a href="https://github.com/grippado/flux">GitHub ↗</a></footer>
   <script src="script.js"></script>

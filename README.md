@@ -257,7 +257,7 @@ O Flux é uma ferramenta irmã do ecossistema: **Violeet** é o produto, **Viole
 visual, e Flux reutiliza essa linguagem com símbolo e wordmark próprios. **[GLabs]** é o guarda-chuva
 que amarra esses produtos, usando a identidade visual compartilhada da família.
 
-Veja a [landing page](docs/index.html) para instalação, ciclo e contribuições.
+Veja a [landing page](https://grippado.github.io/flux/) para instalação, ciclo e contribuições.
 
 ## Contribuindo
 

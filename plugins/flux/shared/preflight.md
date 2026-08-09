@@ -33,7 +33,7 @@ ordem, parando no primeiro que existir:
 Se nenhum resolver, é `UNAVAILABLE`: abortar informando que a instalação da família não foi
 localizada.
 
-> **A família não sabe em qual harness roda, e não deve saber.** Os dois primeiros candidatos são a
+> **A família não sabe em qual harness roda, e não deve saber.** Os candidatos nomeados acima são a
 > única menção a harness específico em todo o flux. Tudo abaixo deste passo é escrito contra
 > `${FLUX_ROOT}` e `${FLUX_CMD}`, nunca contra o nome de um produto.
 

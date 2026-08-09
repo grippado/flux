@@ -20,8 +20,8 @@ quando puder rodar sem depender de outra, todas são despachadas em paralelo. N�
 tool, não executar investigação pesada na conversa principal e não pedir ao subagente para abrir
 um gate com o usuário.
 
-O retorno deve seguir o contrato de fan-out: prompt autocontido, resultado estruturado e curto,
-sem diff, log bruto ou transcrição. A conversa principal faz o fan-in, HITL e escrita serializada.
+O resto do protocolo não muda e não é repetido aqui: vale
+[`fanout-discipline.md`](fanout-discipline.md) como está escrito.
 
 ## Capacidades ausentes
 
