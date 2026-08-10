@@ -25,15 +25,19 @@ Se o repo já tem agents de review próprios, eles são **L3** e já entram na r
 
 O destino **não é decidido aqui**. Ele vem da cascata e passa pelas guardas de
 `${FLUX_ROOT}/shared/write-destination.md`, que é a fonte única de onde um artefato gerado pode
-nascer: `--dest` explícito → `specialists_root` → `kits_root` → **perguntar** → default da família
-(`~/.claude/flux-specialists/{repo}/`), com `realpath`, guarda de symlink, guarda de repo git, guarda
-de diretório de dotfiles e gate por arquivo existente antes de qualquer escrita.
+nascer: path ditado pelo usuário → `specialists_root` → `kits_root` → `write_destinations` já
+aprovado → **perguntar** → default da família (`~/.claude/flux-specialists/{repo}/`), com guarda de
+symlink antes do `realpath`, canonização, guarda de repo git, guarda de diretório de dotfiles e gate
+por arquivo existente antes de qualquer escrita.
 
-O que o Bootstrap acrescenta ao contrato é só o **nome do artefato**: o orquestrador nasce como
-`repo-owner.md` dentro do destino resolvido, ao lado do índice e dos specialists base.
+**O destino resolvido é um diretório** — nunca um arquivo, mesmo quando o valor que o produziu
+terminava em `.md` (o template de `specialists_root` termina, e o contrato toma o `dirname`). O que o
+Bootstrap acrescenta ao contrato é só o **nome dos artefatos** dentro desse diretório: o orquestrador
+nasce como `repo-owner.md`, ao lado do índice e dos specialists base.
 
-> **O default nunca é assumido em silêncio.** Sem `specialists_root` nem `kits_root`, o Bootstrap
-> **pergunta** (degrau 4 da cascata) com o default da família como recomendada — e é ao apresentar
+> **O default nunca é assumido em silêncio.** Sem `specialists_root`, sem `kits_root` e sem aprovação
+> já registrada, o Bootstrap **pergunta** (degrau 5 da cascata) com o default da família como
+> recomendada — e é ao apresentar
 > essa opção que ele diz que declarar `specialists_root` no manifesto é o que torna a suite
 > reutilizável entre máquinas. Avisar depois de escrever chega tarde: o arquivo já está no disco de
 > alguém, possivelmente através de um symlink, possivelmente dentro de um repositório git que não é o
@@ -77,9 +81,11 @@ ele, seguir o checklist mínimo:
 3. **Ler os agents de review que o repo já tem (L3), quando houver.** A suite local deve
    **complementar** o que o repo cobre, não repetir. Registrar no índice o que ficou por conta de L3.
 4. **Resolver o destino pelo contrato** (`${FLUX_ROOT}/shared/write-destination.md`): cascata,
-   canonização, as três guardas e a persistência da resposta. Tudo isso acontece **no contexto
-   principal, antes do despacho** — subagente não abre gate (`${FLUX_ROOT}/shared/hitl.md`), então um
-   destino resolvido lá dentro é um destino resolvido sem ninguém para perguntar.
+   normalização a diretório, as três guardas e a canonização, na ordem obrigatória de lá. Tudo isso
+   acontece **no contexto principal, antes do despacho** — subagente não abre gate
+   (`${FLUX_ROOT}/shared/hitl.md`), então um destino resolvido lá dentro é um destino resolvido sem
+   ninguém para perguntar. A persistência da aprovação no manifesto vem **depois da escrita** e tem
+   gate próprio, também na main: registrar é escrever num arquivo do usuário como qualquer outro.
 5. Delegar a autoria a um `general-purpose`, passando `SPECIALISTS_SPEC` quando houver e o **destino
    já aprovado** (path canônico, absoluto), instruindo a escrever ali e **em lugar nenhum além
    dali**: um **índice** (mapa dos módulos e grafo de deps), um **orquestrador** adaptado à estrutura

@@ -145,12 +145,14 @@ com o reviewer de outro time sem que nada acuse o problema.
   no banner de perfil.
 - `specialists_root` — template de path (com `{repo}`) para achar o orquestrador de specialists.
   Ver `${FLUX_ROOT}/shared/review-agents.md` passo 1. É também o **degrau 2** da cascata de destino de
-  escrita (`${FLUX_ROOT}/shared/write-destination.md`).
+  escrita (`${FLUX_ROOT}/shared/write-destination.md`) — e lá, como o destino de escrita é sempre um
+  **diretório**, um valor que termina em `.md` (o caso do exemplo acima) tem o `dirname` tomado.
 - `kits_root` — template de path (com `{repo}`, resolvido exatamente como `specialists_root`) da raiz
   onde os **kits** de uma máquina vivem. Hoje o campo tem um papel só, e deliberadamente estreito: é o
   **degrau 3** da cascata de destino de escrita. O formato de um kit e o verbo que o instala são
   especificados à parte; declará-los aqui antes da hora congelaria um formato que ainda não existe.
-  Ausente → a cascata segue para o degrau 4, que **pergunta**.
+  Ausente → a cascata segue para o degrau 4 (`write_destinations`) e, não achando nada, para o degrau
+  5, que **pergunta**.
 - `linear_ops` — path de um doc que descreve a **mecânica** de criação no Linear do time (cache de
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
@@ -185,10 +187,15 @@ com o reviewer de outro time sem que nada acuse o problema.
   conhecimento de quem o instalou, não da família, e assumir um faria o `build` invocar, na máquina
   de outra pessoa, algo de um marketplace ao qual ela pode nem ter acesso. Ausente → modo autônomo.
 - `no_emdash` — quando `true`, o output que pode ser postado no GitHub não usa travessão/en-dash.
-- `write_destinations` — **escrito pelos elos, não à mão**: mapa de destino canônico → aprovação
-  registrada no gate de destino de escrita, para a pergunta não voltar a cada execução. Formato,
-  semântica de caducidade e o que fazer sem manifesto estão em
-  `${FLUX_ROOT}/shared/write-destination.md`. Ausente = nada aprovado ainda.
+- `write_destinations` — **escrito pelos elos, não à mão**: mapa de **diretório canônico** → aprovação
+  registrada no gate de destino de escrita, para a pergunta não voltar a cada execução. Cada entrada
+  declara `repos` (os slugs para os quais aquele destino foi aprovado), `approved_at` e o estado das
+  guardas no momento da aprovação; sem o `repos`, a entrada não saberia de quem é e a descoberta teria
+  que adivinhar por substring do path. A chave é sempre um path já resolvido, **nunca** um template
+  com `{repo}` — isso é assunto de `specialists_root` e `kits_root`. É o **degrau 4** da cascata, e a
+  gravação aqui tem gate próprio e passa pelas próprias guardas: num setup de dotfiles este arquivo é
+  tipicamente um symlink para dentro de um repo git. Formato, semântica de caducidade e o que fazer
+  sem manifesto estão em `${FLUX_ROOT}/shared/write-destination.md`. Ausente = nada aprovado ainda.
 - `quality_gate` — bloco opcional para diagnóstico de gates de qualidade externos via API (todo
   o sub-bloco é opcional):
   - `provider`: `"sonarcloud"` ou `"sonarqube"`. **Ausente = sem consulta** (degradação declarada
