@@ -66,7 +66,7 @@ continua no perfil genérico.
 Depois de instalar, os verbos ficam disponíveis em qualquer repo Git. No Claude Code, a forma
 é `/flux:peek`; no Cursor, `/flux-peek`; no Codex, use o nome que o Plugin Directory registrar.
 
-**Uma ressalva honesta sobre o Codex:** são **sete** verbos ali, não oito. O `flux:land` é o único
+**Uma ressalva honesta sobre o Codex:** são **oito** verbos ali, não nove. O `flux:land` é o único
 elo que despacha um irmão, e para isso precisa resolver o prefixo de invocação da família — coisa
 que o Codex ainda não expõe de forma verificável. Ele aborta a fase de despacho em vez de degradar
 para uma iteração fora do contrato. Detalhe em
@@ -92,7 +92,15 @@ Dois princípios sustentam isso:
 ```
         ideia / thread / bug relatado
                     │
-                    ▼
+        ┌───────────┴───────────┐
+        │ (opcional)            │ (direto)
+        ▼                       │
+┌───────────────────────┐       │
+│   flux:refine         │       │  fast SDD numa rodada: PRD + TRD + plano
+│   mede o escopo antes │       │  escopo grande → recusa e propõe o corte
+└───────────┬───────────┘       │
+            └───────────┬───────┘
+                        ▼
         ┌───────────────────────┐
         │   flux:issue          │  fonte livre → issue embasada em código real
         └───────────┬───────────┘
@@ -123,6 +131,14 @@ Dois princípios sustentam isso:
 
 Nenhum elo é obrigatório e nenhum chama o próximo sozinho. Cada um termina apontando o elo seguinte e devolvendo o volante para você.
 
+O [`flux:refine`](plugins/flux/skills/refine/SKILL.md) é o **ramo opcional da entrada**, e por isso
+aparece pontilhado: o ciclo funciona inteiro sem ele. Ele existe para o pedido que chegou como ideia
+crua, sem ninguém ter escrito por que aquilo importa, onde encosta no código e por onde começar. Numa
+rodada ele produz PRD, TRD e plano de slices no **mesmo board** que o `flux:issue` consome depois,
+então a prospecção acontece uma vez só. E ele **mede o escopo antes de trabalhar**: pedido grande
+demais para uma rodada é recusado com o corte proposto, em vez de virar um refinamento raso com
+aparência de completo. O contrato do gate é o [`scope-gate.md`](plugins/flux/shared/scope-gate.md).
+
 Ao lado do ciclo, e fora dele, mora o [`flux:equip`](plugins/flux/skills/equip/SKILL.md): o verbo de **preparo**, que equipa um repo com o motor de execução e a suite de specialists que os elos consomem. Ele não trata de uma entrega, então não tem lugar no fluxo acima — entra quando falta alguma dessas duas camadas, e sai.
 
 `flux:iterate` fecha uma PR por execução. É eficiente rodar até três iterações independentes em
@@ -134,6 +150,7 @@ ponto para transformar um caso em comunicação embasada, não apenas depois do 
 
 | Comando | Entrada | Saída | Escreve? |
 |---------|---------|-------|----------|
+| [`flux:refine`](plugins/flux/skills/refine/SKILL.md) | ideia, thread do Slack, bug, ticket | PRD + TRD + plano de slices no board, embasados em código real | vault; **nunca** cria issue |
 | [`flux:issue`](plugins/flux/skills/issue/SKILL.md) | thread do Slack, texto livre, PR | issue de alta qualidade, embasada via specialists | rascunho no vault; cria no Linear só após aprovação |
 | [`flux:build`](plugins/flux/skills/build/SKILL.md) | ticket Linear ou descrição + repo | código + PR draft | sim, via motor do repo |
 | [`flux:peek`](plugins/flux/skills/peek/SKILL.md) | working tree, branch, range, PR, doc, path | parecer com badges no chat | não (exceto `--save`) |
@@ -154,6 +171,7 @@ falta, no fim do trabalho, oferecem o `equip`.
 - **`review` vs `iterate`** — `review` produz o parecer. `iterate` consome pareceres (inclusive de bots e humanos), verifica cada alegação **contra o código real**, aplica o que procede e defende o que não procede.
 - **`build` vs `/workflow` do repo** — `build` é o dispatcher: resolve repo e motor. O `/workflow` do repo é o motor: conhece os próprios testes, gates e padrão de PR. `build` nunca reimplementa motor.
 - **`iterate` vs `land`** — `iterate` fecha **uma** PR. `land` orquestra **N** PRs de uma entrega e delega o merge-ready de cada uma ao `iterate`.
+- **`refine` vs `issue`** — `refine` responde *por que isto importa, onde encosta e por onde começar*, e pode **recusar** o pedido por tamanho. `issue` escreve o corpo da issue e a cria no tracker. Rodando os dois, o board é um só e a prospecção não se repete; rodando só o `issue`, nada se perde além do PRD e do TRD.
 
 ## Arquitetura
 
@@ -174,6 +192,7 @@ flux/
     │   ├── pr-reviewer.md          o holístico genérico (default universal)
     │   └── issue-creator.md        redige e cria issues aprovadas no tracker (sonnet, fan-out)
     ├── skills/                     ← os verbos (globais, context-agnósticos)
+    │   ├── refine/                 opcional, antes do ciclo: fast SDD numa rodada
     │   ├── issue/  build/  peek/
     │   ├── review/  iterate/  land/  reply/
     │   └── equip/                  fora do ciclo: equipa o repo com motor (L0) e specialists (L2)
@@ -249,6 +268,7 @@ Quem instala a família já tem review holístico e execução funcionando em qu
 - **Badges canônicos** — todo finding usa o vocabulário de [`review-legend.md`](plugins/flux/shared/review-legend.md): `request-change`, `breaking-change`, `question`, `suggestion`, `praise`, `note`. Cada um ancorado em `arquivo:linha` (código) ou `§seção + trecho verbatim` (doc).
 - **Verificar antes de aceitar** — nenhuma alegação de review (de bot ou de humano) é aplicada sem ser conferida contra o código real. Defender uma decisão correta é resultado válido.
 - **Worktree sempre** — todo fluxo que escreve código opera em git worktree dedicado à branch, nunca na árvore principal. Ver [`worktree-discipline.md`](plugins/flux/shared/worktree-discipline.md).
+- **Escopo medido antes do trabalho** — elo que pode gastar minutos num pedido grande demais mede o tamanho dele antes, por sinais lidos do que já está em contexto e **sem chamar agente para medir**. Três faixas, e o gate **propõe o corte** em vez de só sinalizar. Ver [`scope-gate.md`](plugins/flux/shared/scope-gate.md).
 - **Destino de escrita verificado** — artefato gerado fora do repo alvo (uma suite de specialists, um motor, um kit — tipicamente escritos pelo `flux:equip`) só nasce num destino que passou pela cascata e pelas três guardas de [`write-destination.md`](plugins/flux/shared/write-destination.md): symlink, repositório git e diretório gerido por dotfiles. Sem destino declarado o elo **pergunta**, não assume; nada existente é sobrescrito em silêncio; e o que foi criado fica registrado, para haver rollback.
 - **Fan-out sempre** — o contexto principal de um elo **orquestra**; investigar código, tocar repo, aplicar correção ou rodar outro `flux:*` vai para subagente, e unidades independentes vão em paralelo num único bloco. Na main ficam só parse, metadados baratos, HITL, board e watch. Regra pétrea, par simétrico do worktree: ver [`fanout-discipline.md`](plugins/flux/shared/fanout-discipline.md).
 - **Humano no volante nas fronteiras externas** — nada é postado no GitHub, no Linear ou no Slack, nem mergeado, sem aprovação explícita.

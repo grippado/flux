@@ -5,13 +5,12 @@
 > veredito. **Não duplicar esta lógica** nos verbos: eles declaram o que fazem com a faixa, este
 > arquivo define como a faixa é apurada.
 >
-> **Consumidores previstos**, e o contrato nasce com os dois porque escrever um julgador de escopo
-> por verbo é garantir que os limiares divirjam:
-> - `flux:refine`, o verbo de refinamento numa rodada, que **recusa** o que não cabe;
-> - `${FLUX_ROOT}/skills/build/SKILL.md`, que passa a **oferecer o corte** antes de despachar.
->
-> Nenhum dos dois consome este arquivo ainda: ele entra primeiro, sozinho, para que a faixa seja
-> definida uma vez e não negociada duas.
+> **Dois consumidores**, e o contrato é um só porque escrever um julgador de escopo por verbo é
+> garantir que os limiares divirjam:
+> - `${FLUX_ROOT}/skills/refine/SKILL.md`, que **recusa** o que não cabe numa rodada;
+> - `${FLUX_ROOT}/skills/build/SKILL.md`, que passará a **oferecer o corte** antes de despachar.
+>   Ainda não o consome: o contrato entra primeiro para que a faixa seja definida uma vez, e não
+>   negociada duas.
 >
 > Não cobre decomposição em si. Como um pedido grande vira issues independentemente entregáveis é
 > `${FLUX_ROOT}/shared/issue-template.md`, seção **Decomposição (vertical slices)**, e este contrato
