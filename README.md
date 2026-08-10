@@ -178,6 +178,7 @@ flux/
     ├── issue-template.md          formato da issue do flux:issue
     ├── board-template.md          formato do board vivo (execução / iterate / delivery / conversa)
     ├── worktree-discipline.md     todo fluxo que escreve opera em worktree dedicado
+    ├── write-destination.md       onde artefato gerado pode nascer: cascata + guardas de symlink/git/dotfiles
     ├── fanout-discipline.md       todo trabalho pesado vai para subagente, em paralelo
     ├── context-budget.md          leitura sob demanda, um root por sessão, delegação
     └── quality-gate-api.md        diagnóstico de gates Sonar via API (consultar em vez de deduzir)
@@ -237,6 +238,7 @@ Quem instala a família já tem review holístico e execução funcionando em qu
 - **Badges canônicos** — todo finding usa o vocabulário de [`review-legend.md`](plugins/flux/shared/review-legend.md): `request-change`, `breaking-change`, `question`, `suggestion`, `praise`, `note`. Cada um ancorado em `arquivo:linha` (código) ou `§seção + trecho verbatim` (doc).
 - **Verificar antes de aceitar** — nenhuma alegação de review (de bot ou de humano) é aplicada sem ser conferida contra o código real. Defender uma decisão correta é resultado válido.
 - **Worktree sempre** — todo fluxo que escreve código opera em git worktree dedicado à branch, nunca na árvore principal. Ver [`worktree-discipline.md`](plugins/flux/shared/worktree-discipline.md).
+- **Destino de escrita verificado** — artefato gerado fora do repo alvo (uma suite de specialists, um kit) só nasce num destino que passou pela cascata e pelas três guardas de [`write-destination.md`](plugins/flux/shared/write-destination.md): symlink, repositório git e diretório gerido por dotfiles. Sem destino declarado o elo **pergunta**, não assume; nada existente é sobrescrito em silêncio; e o que foi criado fica registrado, para haver rollback.
 - **Fan-out sempre** — o contexto principal de um elo **orquestra**; investigar código, tocar repo, aplicar correção ou rodar outro `flux:*` vai para subagente, e unidades independentes vão em paralelo num único bloco. Na main ficam só parse, metadados baratos, HITL, board e watch. Regra pétrea, par simétrico do worktree: ver [`fanout-discipline.md`](plugins/flux/shared/fanout-discipline.md).
 - **Humano no volante nas fronteiras externas** — nada é postado no GitHub, no Linear ou no Slack, nem mergeado, sem aprovação explícita.
 - **pt-BR com acentuação correta** no output; EN no código.

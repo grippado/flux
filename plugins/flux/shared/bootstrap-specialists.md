@@ -6,8 +6,9 @@
 
 ## Regra pétrea: o Bootstrap cria **L2**, nunca L3
 
-A suite gerada vai para a **raiz de specialists locais do perfil** (`specialists_root`), **fora do
-repositório revisado**. O Bootstrap nunca escreve dentro do checkout do repo.
+A suite gerada vai para uma **raiz de specialists locais**, resolvida pela cascata de
+`${FLUX_ROOT}/shared/write-destination.md`, e sempre **fora do repositório revisado**. O Bootstrap
+nunca escreve dentro do checkout do repo.
 
 Três razões, e todas valem mesmo quando o repo é seu:
 
@@ -22,13 +23,21 @@ Se o repo já tem agents de review próprios, eles são **L3** e já entram na r
 
 ## Onde a suite é escrita
 
-| perfil | destino |
-|--------|---------|
-| declara `specialists_root` | o template resolvido para o repo-slug |
-| não declara | `~/.claude/flux-specialists/{repo}/repo-owner.md` (default da família) |
+O destino **não é decidido aqui**. Ele vem da cascata e passa pelas guardas de
+`${FLUX_ROOT}/shared/write-destination.md`, que é a fonte única de onde um artefato gerado pode
+nascer: `--dest` explícito → `specialists_root` → `kits_root` → **perguntar** → default da família
+(`~/.claude/flux-specialists/{repo}/`), com `realpath`, guarda de symlink, guarda de repo git, guarda
+de diretório de dotfiles e gate por arquivo existente antes de qualquer escrita.
 
-O default existe para que o Bootstrap funcione **sem manifesto nenhum**. Ao usá-lo, avisar no chat
-que declarar `specialists_root` no manifesto é o que torna a suite reutilizável entre máquinas.
+O que o Bootstrap acrescenta ao contrato é só o **nome do artefato**: o orquestrador nasce como
+`repo-owner.md` dentro do destino resolvido, ao lado do índice e dos specialists base.
+
+> **O default nunca é assumido em silêncio.** Sem `specialists_root` nem `kits_root`, o Bootstrap
+> **pergunta** (degrau 4 da cascata) com o default da família como recomendada — e é ao apresentar
+> essa opção que ele diz que declarar `specialists_root` no manifesto é o que torna a suite
+> reutilizável entre máquinas. Avisar depois de escrever chega tarde: o arquivo já está no disco de
+> alguém, possivelmente através de um symlink, possivelmente dentro de um repositório git que não é o
+> revisado.
 
 ## Quando oferecer
 
@@ -67,17 +76,30 @@ ele, seguir o checklist mínimo:
 2. Ler as instruções do repo (`AGENTS.md` e/ou `CLAUDE.md`) + detectar a stack (package.json / go.mod / Gemfile / pyproject / etc.).
 3. **Ler os agents de review que o repo já tem (L3), quando houver.** A suite local deve
    **complementar** o que o repo cobre, não repetir. Registrar no índice o que ficou por conta de L3.
-4. Delegar a autoria a um `general-purpose`, passando `SPECIALISTS_SPEC` quando houver, instruindo a
-   escrever no destino da tabela acima: um **índice** (mapa dos módulos e grafo de deps), um
-   **orquestrador** adaptado à estrutura real (**não** copiado verbatim de outro repo), e specialists
-   base conforme o tipo de repo (ler código real antes de cada specialist).
+4. **Resolver o destino pelo contrato** (`${FLUX_ROOT}/shared/write-destination.md`): cascata,
+   canonização, as três guardas e a persistência da resposta. Tudo isso acontece **no contexto
+   principal, antes do despacho** — subagente não abre gate (`${FLUX_ROOT}/shared/hitl.md`), então um
+   destino resolvido lá dentro é um destino resolvido sem ninguém para perguntar.
+5. Delegar a autoria a um `general-purpose`, passando `SPECIALISTS_SPEC` quando houver e o **destino
+   já aprovado** (path canônico, absoluto), instruindo a escrever ali e **em lugar nenhum além
+   dali**: um **índice** (mapa dos módulos e grafo de deps), um **orquestrador** adaptado à estrutura
+   real (**não** copiado verbatim de outro repo), e specialists base conforme o tipo de repo (ler
+   código real antes de cada specialist). O gate por arquivo existente (sobrescrever / renomear /
+   abortar) também é do contexto principal: o subagente reporta o que pretende escrever, não decide
+   sobre o que já está lá.
+6. Registrar os paths criados, renomeados e pulados, conforme o contrato. Sem essa lista não há
+   rollback da suite gerada.
 
 Fan-out obrigatório: detecção de stack, leitura de L3 e autoria vão em subagentes, em paralelo quando
 independentes. Ver `${FLUX_ROOT}/shared/fanout-discipline.md`.
 
 ## PR draft (só opção 1)
 
-Alvo é o `SPECIALISTS_REPO` do perfil, **nunca** o repo revisado:
+Alvo é o `SPECIALISTS_REPO` do perfil, **nunca** o repo revisado. Aqui a guarda F2 do contrato de
+destino (`${FLUX_ROOT}/shared/write-destination.md`) dispara **por construção** — o destino é um
+repositório git, e é isso que se quer. A confirmação continua obrigatória e continua tendo que nomear
+o repositório: escolher "abrir PR draft" autoriza commit num repo específico, e o usuário precisa ler
+o nome dele antes, não depois.
 
 ```bash
 cd <checkout de SPECIALISTS_REPO>
@@ -96,4 +118,5 @@ gh pr create --draft --repo <SPECIALISTS_REPO> --base <branch default do repo> \
 ```
 
 Corpo e título sem em-dashes quando `NO_EMDASH == true`. Registrar na resposta do chat o link da PR
-draft (ou o path dos arquivos gerados, na opção 2).
+draft **e** a lista de paths absolutos escritos, renomeados e pulados (na opção 2, só a lista) —
+conforme o registro exigido por `${FLUX_ROOT}/shared/write-destination.md`.

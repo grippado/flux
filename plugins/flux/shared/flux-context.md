@@ -111,6 +111,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   "specialists_root": "~/agents/acme/{repo}/repo-owner.md",
   "specialists_spec": "~/agents/acme/AGENT_SPEC.md",
   "specialists_repo": "acme/agent-suites",
+  "kits_root": "~/agents/acme/kits/{repo}",
   "vault_root": "~/notes",
   "vault_context": "acme",
   "workspace_root": "~/code/acme",
@@ -143,7 +144,13 @@ com o reviewer de outro time sem que nada acuse o problema.
   redigir a réplica). Opcionais; sem eles, o `flux:reply` cai em `general-purpose` e declara a perda
   no banner de perfil.
 - `specialists_root` — template de path (com `{repo}`) para achar o orquestrador de specialists.
-  Ver `${FLUX_ROOT}/shared/review-agents.md` passo 1.
+  Ver `${FLUX_ROOT}/shared/review-agents.md` passo 1. É também o **degrau 2** da cascata de destino de
+  escrita (`${FLUX_ROOT}/shared/write-destination.md`).
+- `kits_root` — template de path (com `{repo}`, resolvido exatamente como `specialists_root`) da raiz
+  onde os **kits** de uma máquina vivem. Hoje o campo tem um papel só, e deliberadamente estreito: é o
+  **degrau 3** da cascata de destino de escrita. O formato de um kit e o verbo que o instala são
+  especificados à parte; declará-los aqui antes da hora congelaria um formato que ainda não existe.
+  Ausente → a cascata segue para o degrau 4, que **pergunta**.
 - `linear_ops` — path de um doc que descreve a **mecânica** de criação no Linear do time (cache de
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
@@ -178,6 +185,10 @@ com o reviewer de outro time sem que nada acuse o problema.
   conhecimento de quem o instalou, não da família, e assumir um faria o `build` invocar, na máquina
   de outra pessoa, algo de um marketplace ao qual ela pode nem ter acesso. Ausente → modo autônomo.
 - `no_emdash` — quando `true`, o output que pode ser postado no GitHub não usa travessão/en-dash.
+- `write_destinations` — **escrito pelos elos, não à mão**: mapa de destino canônico → aprovação
+  registrada no gate de destino de escrita, para a pergunta não voltar a cada execução. Formato,
+  semântica de caducidade e o que fazer sem manifesto estão em
+  `${FLUX_ROOT}/shared/write-destination.md`. Ausente = nada aprovado ainda.
 - `quality_gate` — bloco opcional para diagnóstico de gates de qualidade externos via API (todo
   o sub-bloco é opcional):
   - `provider`: `"sonarcloud"` ou `"sonarqube"`. **Ausente = sem consulta** (degradação declarada
@@ -202,6 +213,9 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
 - `answerer` = o próprio `flux:iterate --dry` sem agente dedicado.
 - `specialists_root` = override local do repo: `<repo-checkout>/.claude/agents/reviewer.md` ou
   `<repo-checkout>/.claude/agents/review/*.md`. Sem isso → só holístico (fallback gracioso).
+- `kits_root` = ausente; a cascata de destino cai no degrau que pergunta.
+- `write_destinations` = sem manifesto não há onde persistir a aprovação: ela vale só para a execução
+  corrente, e o elo declara isso ao perguntar.
 - `vault_root` = não persiste por default (só imprime no chat); `flux:review` pode receber `--save <dir>`.
 - `workspace_root` = o próprio `cwd`; `repos` = subdiretórios com `.git`.
 - `exec_command` = `workflow`; `exec_fallback` = nenhum. Sem motor nativo e sem fallback declarado, o

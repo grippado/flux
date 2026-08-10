@@ -70,6 +70,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `VAULT_ROOT` = `vault_root`
    - `NO_EMDASH` = `no_emdash`
    - `SPECIALISTS_ROOT` = `specialists_root` (template de path com `{repo}`)
+   - `KITS_ROOT` = `kits_root` (template de path com `{repo}`; degrau 3 da cascata de destino, opcional)
    - `ANSWERER` = `answerer` (agente para rascunhar réplicas em `--dry`; se ausente, usar `<HOLISTIC>` com instrução de rascunhar)
 
 3. Se não encontrar (perfil genérico):

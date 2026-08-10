@@ -59,14 +59,20 @@ não cancela a outra.
 Resolver o caminho **nesta ordem**, parando no primeiro que existir:
 
 1. `<SPECIALISTS_ROOT>` do perfil, com `{repo}` substituído pelo `REPO_SLUG`.
-2. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o mesmo destino
-   que o Bootstrap usa quando não há manifesto (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
+2. `<KITS_ROOT>` do perfil, com `{repo}` substituído pelo `REPO_SLUG` — degrau 3 da cascata de
+   destino (`${FLUX_ROOT}/shared/write-destination.md`).
+3. Um destino aprovado e persistido em `write_destinations` para este repo, quando houver — é onde a
+   suite de fato nasceu se o usuário escolheu outro caminho no gate de destino.
+4. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o destino que o
+   Bootstrap propõe como recomendado quando não há manifesto
+   (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
 
 Achou → seguir para o passo 1a-bis. Não achou → **ausente**.
 
 > **Por que o nível 2 existe.** Sem ele, uma suite gerada pelo Bootstrap no perfil genérico seria
 > escrita em disco e **nunca carregada**: o elo ofereceria criá-la de novo a cada review, para um repo
-> que já tem uma. Descoberta e escrita têm que olhar para o mesmo lugar.
+> que já tem uma. Descoberta e escrita têm que olhar para o mesmo lugar — e é por isso que esta lista
+> é a cascata de destino lida de trás para frente, incluindo o que o gate aprovou.
 
 ### 1a-bis — O arquivo existir não é o mesmo que o agente ser invocável
 
