@@ -189,6 +189,7 @@ flux/
     ├── board-template.md          formato do board vivo (execução / iterate / delivery / conversa)
     ├── worktree-discipline.md     todo fluxo que escreve opera em worktree dedicado
     ├── write-destination.md       onde artefato gerado pode nascer: cascata + guardas de symlink/git/dotfiles
+    ├── scope-gate.md             medir o tamanho do pedido antes de gastar tempo com ele: sinais, faixas, corte proposto
     ├── fanout-discipline.md       todo trabalho pesado vai para subagente, em paralelo
     ├── context-budget.md          leitura sob demanda, um root por sessão, delegação
     └── quality-gate-api.md        diagnóstico de gates Sonar via API (consultar em vez de deduzir)
