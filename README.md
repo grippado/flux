@@ -57,8 +57,14 @@ continua no perfil genérico.
 
 ### Depois de instalar, nos três
 
-Depois de instalar, os sete verbos ficam disponíveis em qualquer repo Git. No Claude Code, a forma
+Depois de instalar, os verbos ficam disponíveis em qualquer repo Git. No Claude Code, a forma
 é `/flux:peek`; no Cursor, `/flux-peek`; no Codex, use o nome que o Plugin Directory registrar.
+
+**Uma ressalva honesta sobre o Codex:** são **seis** verbos ali, não sete. O `flux:land` é o único
+elo que despacha um irmão, e para isso precisa resolver o prefixo de invocação da família — coisa
+que o Codex ainda não expõe de forma verificável. Ele aborta a fase de despacho em vez de degradar
+para uma iteração fora do contrato. Detalhe em
+[`shared/codex-compat.md`](plugins/flux/shared/codex-compat.md).
 
 Requisitos reais: **`git`** (duro — sem ele o preflight aborta) e **`gh` autenticado** (mole, mas é o que separa "roda em PR" de "roda só na working tree"). Nada além disso. Sem manifesto, sem vault e sem specialists, a família roda no perfil genérico e [o banner do preflight](#convenções-transversais) declara o nível degradado em vez de fingir que está completo.
 

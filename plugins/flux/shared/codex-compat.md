@@ -35,6 +35,28 @@ declarar cada ausência como degradação: `reply` fica em modo rascunho sem Sla
 não persistem sem vault; `issue` não cria no Linear sem integração; e sem specialists só a lente
 holística é usada. Nenhuma dessas ausências autoriza inventar dados, endpoints ou agentes.
 
+### `land` degrada no Codex
+
+`${FLUX_CMD}` não resolve no Codex hoje. O Passo 1b do [`preflight.md`](preflight.md) verifica
+`/flux:`, `/flux-` e `/`, e nenhuma dessas formas corresponde ao modo como o Codex expõe a skill.
+Pela regra do próprio passo, `FLUX_CMD` fica `UNAVAILABLE`.
+
+Isso atinge **um** elo, e só um: o `flux:land`, que é o único que despacha um irmão (ele roda o
+`iterate` por PR dentro de subagente). Os outros seis não montam nome de comando e funcionam
+normalmente.
+
+O comportamento correto, e ele já está escrito no Passo 1b, é abortar a fase de despacho com a
+mensagem padrão — **nunca** degradar para uma iteração inline fora do contrato. Um `land` que
+"quase" roda é pior que um `land` que diz que não roda: ele produziria PRs iteradas sem worktree,
+sem verificação contra código real e sem disciplina de resposta.
+
+Enquanto isso valer, o Codex tem seis verbos, não sete, e o banner de perfil deve declarar a
+ausência. Quem precisa de entrega multi-PR no Codex usa o `iterate` PR a PR e coordena a ordem de
+merge à mão.
+
+Isto é **débito técnico registrado**, não desenho definitivo:
+[LAB-77](https://linear.app/g-lab-s/issue/LAB-77).
+
 ## Limites
 
 Worktrees, aprovação humana e verificação externa continuam obrigatórios. O Codex não deve usar
