@@ -59,8 +59,9 @@ Tudo o mais é fan-out.
 
 ### Lista fechada, não sugestão
 
-Os sete itens acima são **exaustivos**. Se uma ação não está em nenhum deles, ela **não roda na
-main**, e a pergunta certa não é "cabe aqui?" e sim "qual subagente faz isso?".
+Os sete itens acima são **exaustivos, com uma exceção nominada** — a do `flux:equip`, logo abaixo. Se
+uma ação não está em nenhum deles nem na exceção, ela **não roda na main**, e a pergunta certa não é
+"cabe aqui?" e sim "qual subagente faz isso?".
 
 Em particular, e são as violações mais comuns:
 
@@ -71,13 +72,53 @@ Em particular, e são as violações mais comuns:
 | abrir um segundo repo para comparar | "só uma olhada" | subagente por repo |
 | rodar `grep`/`find` amplo no checkout | "é barato" | subagente (`Explore`) |
 | reler o board para saber onde parou | "preciso do estado" | o board-keeper tem o estado |
-| chamar outro `flux:*` | "é da família" | subagente, sempre |
+| chamar outro `flux:*` | "é da família" | subagente, sempre — **exceto o `flux:equip` aceito numa oferta**, abaixo |
+
+### A exceção: `flux:equip` aceito numa oferta roda na main
+
+Quando `flux:review`, `flux:iterate`, `flux:land` ou `flux:build` oferecem o preparo que faltou
+(`${FLUX_ROOT}/shared/bootstrap-specialists.md`) e o usuário **aceita**, o `flux:equip` roda no
+contexto principal do elo que ofereceu, não em subagente. É a única exceção à linha "chamar outro
+`flux:*` → subagente, sempre", e ela está escrita aqui porque uma exceção que só existe no documento
+que a usa é uma exceção que ninguém encontra: um elo que consultasse só esta fonte concluiria, com
+razão, que violou a regra pétrea.
+
+**Não é relaxamento da regra: é consequência dela.** O item 5 da lista fechada diz que todo GATE
+acontece na main, porque subagente não tem canal com o usuário (`${FLUX_ROOT}/shared/hitl.md`). O
+`equip` é feito de gates — destino de escrita, arquivo existente, manifesto. Despachá-lo para
+subagente não moveria o custo de lugar: travaria o fluxo em silêncio no primeiro gate, ou o faria
+escrever no disco de alguém sem nunca ter perguntado. Entre as duas regras, a do HITL vence, e a
+razão é assimétrica — violar o fan-out custa contexto, violar o HITL custa escrita não autorizada na
+máquina do usuário.
+
+O que **não** muda: o trabalho pesado do `equip` continua indo para subagente, despachado por ele
+mesmo. Ler o repo, detectar a stack, autorar suite e motor — nada disso roda na main. O que fica é o
+que já ficaria de qualquer jeito: gates, resolução de destino e registro.
+
+**O custo de contexto é real, e a mitigação é o momento.** A main do elo que ofereceu carrega o
+`write-destination.md`, o `review-agents.md` e a leitura do repo alvo — um custo que este documento
+existe justamente para não pagar de graça. Ele é aceitável por uma razão de **ordem**: a oferta vem
+sempre **depois** do trabalho principal, quando a main já produziu o parecer, já gravou o artefato e
+já não vai fazer mais nada além de fechar. O lastro não contamina trabalho nenhum, porque não há
+trabalho depois dele. É por isso que a tabela "Quando oferecer" do `bootstrap-specialists.md` fixa o
+momento em todos os quatro elos, e é por isso que oferecer **antes** do trabalho seria violação de
+verdade, não exceção.
+
+Duas consequências práticas:
+
+- **Um `equip` por execução do elo que ofereceu.** Aceita a oferta, o elo equipa e fecha; ele não
+  volta ao trabalho principal depois, e não encadeia um segundo verbo.
+- **Num watch, a oferta não se repete a cada tick.** Ela é do fechamento, uma vez. Carregar o preparo
+  dentro de um loop é exatamente o acúmulo tick após tick contra o qual o princípio adverte.
 
 ### Auto-verificação (todo elo, antes de responder)
 
-Antes de emitir a resposta final, o elo confere e o veredito é binário:
+Antes de emitir a resposta final, o elo confere e o veredito é binário — com a exceção acima já
+descontada, e ela é a **única** que desconta:
 
-1. Todo trabalho que abriu repo, leu mais de 2 arquivos ou rodou outro `flux:*` foi para subagente?
+1. Todo trabalho que abriu repo, leu mais de 2 arquivos ou rodou outro `flux:*` foi para subagente,
+   **ressalvado o `flux:equip` aceito numa oferta de fechamento**, que roda na main por força do
+   item 5 (todo gate na main)?
 2. A main recebeu apenas retornos estruturados curtos, e não conteúdo bruto (diff, log de CI,
    arquivo inteiro)?
 3. A main escreveu só onde tem direito (board/artefato), e nenhum subagente escreveu no mesmo lugar?
@@ -98,7 +139,7 @@ Cada elo declara a sua, mas o padrão é este:
 | `flux:iterate` | **Verificação**: um agente por lente sobre o lote de threads. **Execução**: um agente para aplicar+quality gate no worktree | specialists / `general-purpose` |
 | `flux:land` | **Uma PR** — um subagente rodando `/flux:iterate --auto --once` por PR | `general-purpose` |
 | `flux:build` | O motor de execução do repo inteiro (a main mantém o board de execução) | `general-purpose` |
-| Bootstrap de specialists | Detecção de stack, leitura de L3 e autoria da suite, em paralelo quando independentes | `general-purpose` |
+| `flux:equip` | Detecção de stack, leitura de L3 e autoria (suite e motor), em paralelo quando independentes — a main fica com gates, destino e registro | `general-purpose` |
 | `flux:issue` (prospecção) | **Um repo** por prospector | specialists / `Explore` |
 | `flux:issue` (criação) | **Uma candidata** por agente, em levas de até 3, blockers primeiro | `issue-creator` (sonnet) |
 | `flux:reply` | **Um repo** por prospector + o answerer | `<SLACK_PROSPECTOR>` / `<SLACK_ANSWERER>` |
@@ -224,7 +265,9 @@ de uma seção, o caminho é **perguntar ao keeper** (que relê e responde), nun
 ## Anti-padrões (sintomas de violação)
 
 - Mais de **2 roots** de memória no rodapé dos tool results → já se abriu repo demais na main.
-- Mais de **1 skill `flux:`** em `Skills restored` → um orquestrador chamou outro inline.
+- Mais de **1 skill `flux:`** em `Skills restored` → um orquestrador chamou outro inline. A **única**
+  combinação legítima é um elo mais o `equip` aceito na oferta de fechamento (ver a exceção acima);
+  qualquer outro par é violação.
 - Aviso de autocompact **duas vezes** na mesma sessão.
 - Sequência de `Read` de arquivos de repo no contexto principal → é trabalho de subagente vazando.
 - Subagentes independentes despachados em **mensagens separadas** → perdeu o paralelismo à toa.

@@ -24,8 +24,8 @@
     .flow-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}.flow-split{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;margin:0 0 10px}
     .command-card{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:22px}.command-card h3{margin:0 0 8px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}.command-card h3 a{text-decoration:none}.command-card p{color:var(--muted);font-size:.9rem}.command-meta{display:grid;grid-template-columns:90px 1fr;gap:5px 12px;font-size:.78rem;border-top:1px solid var(--line);padding-top:14px}.command-meta dt{color:var(--violet);font-weight:700}.command-meta dd{margin:0;color:var(--muted)}
     .card-note{color:var(--muted);font-size:.72rem;line-height:1.5;margin:2px 0 0}
-    .tag{font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;font-weight:800;padding:3px 7px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}.tag.proposed{border-color:var(--violet);color:var(--violet)}.tag.standalone{border-color:color-mix(in srgb,var(--green),var(--line) 40%);color:var(--green)}
-    .command-card.is-proposed{border-style:dashed}.command-card.is-standalone{border-color:color-mix(in srgb,var(--green),var(--line) 55%)}
+    .tag{font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;font-weight:800;padding:3px 7px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}.tag.proposed{border-color:var(--violet);color:var(--violet)}.tag.standalone{border-color:color-mix(in srgb,var(--green),var(--line) 40%);color:var(--green)}.tag.setup{border-color:var(--violet);color:var(--violet)}
+    .command-card.is-proposed{border-style:dashed}.command-card.is-standalone{border-color:color-mix(in srgb,var(--green),var(--line) 55%)}.command-card.is-setup{border-color:color-mix(in srgb,var(--violet),var(--line) 55%)}
     .flux-glyph{display:inline-block;width:17px;height:17px;vertical-align:-3px;margin-right:8px;background:url("dark-outline.svg") center/contain no-repeat}html[data-theme=light] .flux-glyph{background-image:url("light-outline.svg")}.footer-brand{display:inline-flex;align-items:center}
     .glabs-mark{display:block;width:90px;height:90px;background:url("glabs/dark-fill.svg") center/contain no-repeat}html[data-theme=light] .glabs-mark{background-image:url("glabs/light-fill.svg")}
     .violeeter-mark{width:42px;height:42px;background:url("violeeter-dark.svg") center/contain no-repeat}html[data-theme=light] .violeeter-mark{background-image:url("violeeter-light.svg")}
@@ -69,7 +69,7 @@
       <div class="flow">
 
         <div class="flow-row"><div class="flow-rail"><span class="flow-dot">00</span></div><div class="flow-body">
-          <article class="command-card is-proposed"><h3><a href="https://github.com/grippado/flux/issues/new/choose">flux:equip ↗</a> <span class="tag proposed" data-i18n="tagProposed">proposed</span></h3><p data-i18n="equipDescription">Equips a repository with what it lacks: an execution motor and a local specialist suite. Runs once per repo, outside the cycle.</p><dl class="command-meta"><dt data-i18n="inputLabel">Input</dt><dd data-i18n="equipInput">a repository</dd><dt data-i18n="outputLabel">Output</dt><dd data-i18n="equipOutput">motor and specialists the repo was missing</dd><dt data-i18n="writesLabel">Writes</dt><dd data-i18n="equipWrites">only where you confirm; never inside the target repo</dd></dl></article>
+          <article class="command-card is-setup"><h3><a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/equip/SKILL.md">flux:equip ↗</a> <span class="tag setup" data-i18n="tagSetup">setup</span></h3><p data-i18n="equipDescription">Equips a repository with what it lacks: an execution motor and a local specialist suite. Runs once per repo, outside the cycle.</p><dl class="command-meta"><dt data-i18n="inputLabel">Input</dt><dd data-i18n="equipInput">a repository</dd><dt data-i18n="outputLabel">Output</dt><dd data-i18n="equipOutput">motor and specialists the repo was missing</dd><dt data-i18n="writesLabel">Writes</dt><dd data-i18n="equipWrites">only where you confirm; never inside the target repo</dd></dl></article>
         </div></div>
 
         <div class="flow-row is-node"><div class="flow-rail"><span class="flow-dot">IN</span></div><div class="flow-body">
@@ -115,7 +115,7 @@
       </div>
       <p class="workflow-note" data-i18n="workflowNote"><strong>Input:</strong> idea, thread, or bug. <strong>One PR:</strong> use `flux:iterate`; up to three can be iterated in parallel. <strong>More than three PRs:</strong> use `flux:land` to coordinate the delivery. <strong>Communication:</strong> `flux:reply` is standalone and can be called at any point.</p>
       <details class="flow-source"><summary data-i18n="sourceSummary">Same flow as a diagram source</summary><pre><code>flowchart TD
-  EQUIP["flux:equip · proposed"] -.once per repo.-> INPUT
+  EQUIP["flux:equip · setup"] -.once per repo.-> INPUT
   INPUT([Idea / thread / bug]) --> ISSUE["flux:issue"]
   ISSUE --> BUILD["flux:build"]
   BUILD --> PR([one or more PRs])

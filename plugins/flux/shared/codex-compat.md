@@ -42,15 +42,42 @@ holística é usada. Nenhuma dessas ausências autoriza inventar dados, endpoint
 Pela regra do próprio passo, `FLUX_CMD` fica `UNAVAILABLE`.
 
 Isso atinge **um** elo, e só um: o `flux:land`, que é o único que despacha um irmão (ele roda o
-`iterate` por PR dentro de subagente). Os outros seis não montam nome de comando e funcionam
-normalmente.
+`iterate` por PR dentro de subagente). Os outros sete funcionam normalmente.
+
+A oferta de Bootstrap de specialists (`review`, `iterate`, `land` e `build`) **não** entra nesta
+conta, e o motivo mudou: sem `FLUX_CMD`, a oferta **imprime a instrução e não executa**. Ela deixa de
+ser um gate com opções que escrevem e passa a ser uma linha honesta — qual camada falta, que o verbo
+de preparo é o `equip`, e que ele precisa ser invocado à mão pela forma que aquela sessão expõe.
+Invocado à mão, o `equip` funciona normalmente no Codex; o que não funciona é montar o nome dele
+dentro de outro elo.
+
+**Por que o modo degradado não é "o elo faz por si".** Uma versão anterior deste arquivo mandava o elo
+seguir o [`bootstrap-specialists.md`](bootstrap-specialists.md) direto, tratando a delegação por nome
+como comodidade de organização. Isso deixou de ser verdade em três frentes ao mesmo tempo, e nenhuma
+delas é cosmética:
+
+- Aquele documento passou a dizer, literalmente, que **um elo que ofereceu o Bootstrap não roda estes
+  passos: ele chama o verbo**. Seguir o procedimento por si contraria a fonte que se está citando.
+- A escrita de artefato gerado fora do repo e a escrita no manifesto estão atribuídas, em
+  [`hitl.md`](hitl.md), **ao `flux:equip`**. São ações com gate, e o dono do gate é o verbo.
+- `review`, `iterate` e `land` **não declaram** `write-destination.md` em `requires`. O preflight
+  deles nunca verificou o contrato de destino, então executá-lo seria escrever no disco de alguém a
+  partir de um elo que não tem o contrato em contexto — sem cascata, sem as três guardas, sem gate
+  por arquivo existente.
+
+Somadas, elas invertem o sinal do degradado: um elo que executa por si no Codex não é uma versão mais
+autônoma da oferta, é uma versão **mais perigosa** dela, porque escreve com menos verificação do que a
+execução normal. E este arquivo já tem o precedente certo, três parágrafos abaixo, no `land`: quando o
+despacho não é possível, o caminho é dizer que não é, nunca degradar para uma execução inline fora do
+contrato. Preparo não feito custa uma invocação manual; preparo feito errado custa um arquivo no disco
+de alguém, possivelmente através de um symlink, possivelmente dentro de um repositório git.
 
 O comportamento correto, e ele já está escrito no Passo 1b, é abortar a fase de despacho com a
 mensagem padrão — **nunca** degradar para uma iteração inline fora do contrato. Um `land` que
 "quase" roda é pior que um `land` que diz que não roda: ele produziria PRs iteradas sem worktree,
 sem verificação contra código real e sem disciplina de resposta.
 
-Enquanto isso valer, o Codex tem seis verbos, não sete, e o banner de perfil deve declarar a
+Enquanto isso valer, o Codex tem sete verbos, não oito, e o banner de perfil deve declarar a
 ausência. Quem precisa de entrega multi-PR no Codex usa o `iterate` PR a PR e coordena a ordem de
 merge à mão.
 

@@ -20,7 +20,8 @@ Toda review madura soma **três lentes**, e elas são cumulativas: nenhuma subst
 
 **L1 sempre roda.** Não é fallback de nada: é a lente de síntese, e sem ela uma review vira um
 apanhado de fatias sem visão de conjunto. Quando não há L2 nem L3, ele é tudo que se tem, e o elo
-oferece criar a suite local (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
+oferece criar a suite local — oferta cujo contrato é `${FLUX_ROOT}/shared/bootstrap-specialists.md`
+e cuja execução é do `${FLUX_CMD}equip <repo> --agents-only`.
 
 **União, nunca ou/ou.** Havendo L2 **e** L3, rodam as duas. Um repo pode ter suite curada por você e
 suite própria do time, e as duas veem coisas diferentes: descartar uma porque a outra existe é perda
@@ -31,8 +32,8 @@ por domínio e proveniência anotada. `--solo` desliga L2 e L3 e roda só o hol�
 
 **Degradação é normal, não é erro.** Um repo sem L2 e sem L3 roda com L1 sozinho e produz uma review
 válida. O que nunca acontece é degradar em silêncio: o banner de perfil (`preflight.md`, Passo 5)
-declara quais camadas rodaram e quais faltaram, e o comando oferece o Bootstrap para criar a que
-falta.
+declara quais camadas rodaram e quais faltaram, e o comando oferece o `${FLUX_CMD}equip` para criar
+a que falta.
 
 ## Resolução de contexto
 
@@ -67,7 +68,7 @@ Resolver o caminho **nesta ordem**, parando no primeiro que existir:
    reivindicando o mesmo slug → **ambíguo**, e ambíguo não se resolve por adivinhação: tratar como
    ausente e dizer no banner.
 4. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o destino que o
-   Bootstrap propõe como recomendado quando não há manifesto
+   `flux:equip` propõe como recomendado quando não há manifesto
    (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
 
 **Cada degrau resolve para um diretório, e o arquivo é anexado depois.** É a mesma normalização do
@@ -79,7 +80,7 @@ que é diretório (o caso de `kits_root` e o das entradas de `write_destinations
 
 Achou → seguir para o passo 1a-bis. Não achou → **ausente**.
 
-> **Por que os níveis 2, 3 e 4 existem.** Sem eles, uma suite gerada pelo Bootstrap fora de
+> **Por que os níveis 2, 3 e 4 existem.** Sem eles, uma suite gerada pelo `flux:equip` fora de
 > `specialists_root` seria escrita em disco e **nunca carregada**: o elo ofereceria criá-la de novo a
 > cada review, para um repo que já tem uma. Descoberta e escrita têm que olhar para o mesmo lugar — e
 > é por isso que esta lista é a cascata de destino na **mesma ordem** (`specialists_root` → `kits_root`
@@ -118,7 +119,8 @@ banner passaria a mentir de um jeito mais difícil de detectar. Registrar a degr
 que existe.
 
 **O que fazer com a informação, no fechamento do elo:** um `inalcançável` é acionável e um `ausente`
-não é. Ausente pede Bootstrap (criar a suite). Inalcançável pede **instalação**, porque a suite já
+não é. Ausente pede `${FLUX_CMD}equip --agents-only` (criar a suite). Inalcançável pede
+**instalação**, porque a suite já
 existe e o trabalho de escrevê-la já foi feito. Ofereça o caminho certo:
 
 - Suite sob um diretório que o harness varre (`~/.claude/agents/`, incluindo subdiretórios) → conferir
@@ -178,7 +180,7 @@ seguir. Nunca travar por ausência de specialists.
 | estado | significado | o que o banner diz | o que o elo oferece no fim |
 |---|---|---|---|
 | **disponível** | achado e invocável | `lentes: L2 <nome>` | nada |
-| **ausente** | não há suite para este repo | `L2 ausente` | Bootstrap (criar a suite) |
+| **ausente** | não há suite para este repo | `L2 ausente` | `${FLUX_CMD}equip --agents-only` (criar a suite) |
 | **inalcançável** | a suite existe e não é invocável | `L2 inalcancavel — <motivo>` | instalar/expor a suite que já existe |
 
 Colapsar `inalcançável` em `ausente` faz o elo oferecer **criar de novo** uma suite que já foi

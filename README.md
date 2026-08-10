@@ -66,7 +66,7 @@ continua no perfil genérico.
 Depois de instalar, os verbos ficam disponíveis em qualquer repo Git. No Claude Code, a forma
 é `/flux:peek`; no Cursor, `/flux-peek`; no Codex, use o nome que o Plugin Directory registrar.
 
-**Uma ressalva honesta sobre o Codex:** são **seis** verbos ali, não sete. O `flux:land` é o único
+**Uma ressalva honesta sobre o Codex:** são **sete** verbos ali, não oito. O `flux:land` é o único
 elo que despacha um irmão, e para isso precisa resolver o prefixo de invocação da família — coisa
 que o Codex ainda não expõe de forma verificável. Ele aborta a fase de despacho em vez de degradar
 para uma iteração fora do contrato. Detalhe em
@@ -123,6 +123,8 @@ Dois princípios sustentam isso:
 
 Nenhum elo é obrigatório e nenhum chama o próximo sozinho. Cada um termina apontando o elo seguinte e devolvendo o volante para você.
 
+Ao lado do ciclo, e fora dele, mora o [`flux:equip`](plugins/flux/skills/equip/SKILL.md): o verbo de **preparo**, que equipa um repo com o motor de execução e a suite de specialists que os elos consomem. Ele não trata de uma entrega, então não tem lugar no fluxo acima — entra quando falta alguma dessas duas camadas, e sai.
+
 `flux:iterate` fecha uma PR por execução. É eficiente rodar até três iterações independentes em
 paralelo; quando a entrega passa desse tamanho, `flux:land` coordena o lote de múltiplas PRs,
 ordena dependências e emite o go/no-go. `flux:reply` é standalone: pode ser chamado em qualquer
@@ -139,6 +141,13 @@ ponto para transformar um caso em comunicação embasada, não apenas depois do 
 | [`flux:iterate`](plugins/flux/skills/iterate/SKILL.md) | PR | correções aplicadas, réplicas postadas, threads resolvidas, CI vigiado | sim (`--dry` rascunha read-only) |
 | [`flux:land`](plugins/flux/skills/land/SKILL.md) | issue/feature multi-PR | ordem de merge, validação de regressão, go/no-go | mantém PRs merge-ready; **nunca mergeia** |
 | [`flux:reply`](plugins/flux/skills/reply/SKILL.md) | permalink de thread | rascunho Slack-safe + ata no vault | salva rascunho; **nunca posta sozinho** |
+| [`flux:equip`](plugins/flux/skills/equip/SKILL.md) | repo | motor de execução (L0) + suite de specialists local (L2) | sim, **fora do repo alvo**, pelo contrato de destino; manifesto só sob gate |
+
+`flux:equip` é o único verbo **fora do ciclo**: ele não trata de uma entrega, trata do repo. Os
+outros elos consomem duas coisas que não produzem — o motor que o `flux:build` despacha e os
+specialists que `review`/`iterate`/`land` reconciliam —, e é ele que as cria quando faltam. Por isso
+`review`, `iterate`, `land` e `build` não geram mais suite por conta própria: quando percebem a
+falta, no fim do trabalho, oferecem o `equip`.
 
 ### Pares que parecem iguais e não são
 
@@ -166,7 +175,8 @@ flux/
     │   └── issue-creator.md        redige e cria issues aprovadas no tracker (sonnet, fan-out)
     ├── skills/                     ← os verbos (globais, context-agnósticos)
     │   ├── issue/  build/  peek/
-    │   └── review/  iterate/  land/  reply/
+    │   ├── review/  iterate/  land/  reply/
+    │   └── equip/                  fora do ciclo: equipa o repo com motor (L0) e specialists (L2)
     └── shared/                     contratos compartilhados (fonte única, não duplicar nos verbos)
     ├── preflight.md               verificação de pré-requisitos, níveis de capacidade, banner
     ├── hitl.md                    quando o elo para e pergunta, e como pergunta sem o tool preferido
@@ -238,7 +248,7 @@ Quem instala a família já tem review holístico e execução funcionando em qu
 - **Badges canônicos** — todo finding usa o vocabulário de [`review-legend.md`](plugins/flux/shared/review-legend.md): `request-change`, `breaking-change`, `question`, `suggestion`, `praise`, `note`. Cada um ancorado em `arquivo:linha` (código) ou `§seção + trecho verbatim` (doc).
 - **Verificar antes de aceitar** — nenhuma alegação de review (de bot ou de humano) é aplicada sem ser conferida contra o código real. Defender uma decisão correta é resultado válido.
 - **Worktree sempre** — todo fluxo que escreve código opera em git worktree dedicado à branch, nunca na árvore principal. Ver [`worktree-discipline.md`](plugins/flux/shared/worktree-discipline.md).
-- **Destino de escrita verificado** — artefato gerado fora do repo alvo (uma suite de specialists, um kit) só nasce num destino que passou pela cascata e pelas três guardas de [`write-destination.md`](plugins/flux/shared/write-destination.md): symlink, repositório git e diretório gerido por dotfiles. Sem destino declarado o elo **pergunta**, não assume; nada existente é sobrescrito em silêncio; e o que foi criado fica registrado, para haver rollback.
+- **Destino de escrita verificado** — artefato gerado fora do repo alvo (uma suite de specialists, um motor, um kit — tipicamente escritos pelo `flux:equip`) só nasce num destino que passou pela cascata e pelas três guardas de [`write-destination.md`](plugins/flux/shared/write-destination.md): symlink, repositório git e diretório gerido por dotfiles. Sem destino declarado o elo **pergunta**, não assume; nada existente é sobrescrito em silêncio; e o que foi criado fica registrado, para haver rollback.
 - **Fan-out sempre** — o contexto principal de um elo **orquestra**; investigar código, tocar repo, aplicar correção ou rodar outro `flux:*` vai para subagente, e unidades independentes vão em paralelo num único bloco. Na main ficam só parse, metadados baratos, HITL, board e watch. Regra pétrea, par simétrico do worktree: ver [`fanout-discipline.md`](plugins/flux/shared/fanout-discipline.md).
 - **Humano no volante nas fronteiras externas** — nada é postado no GitHub, no Linear ou no Slack, nem mergeado, sem aprovação explícita.
 - **pt-BR com acentuação correta** no output; EN no código.

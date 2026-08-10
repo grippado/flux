@@ -23,12 +23,18 @@ acontece.
 | criar ou editar issue no tracker | `flux:issue` |
 | salvar rascunho ou reagir no Slack | `flux:reply` |
 | commitar, pushar ou alterar o working tree | `flux:review` (8c), `flux:iterate` |
-| abrir PR (mesmo draft) | `flux:build`, Bootstrap de specialists |
-| escrever artefato gerado fora do repo alvo e fora do vault, **e registrar a aprovação no manifesto** | Bootstrap de specialists, via `${FLUX_ROOT}/shared/write-destination.md` |
+| abrir PR (mesmo draft) | `flux:build`, `flux:equip` (PR da suite) |
+| escrever artefato gerado fora do repo alvo e fora do vault | `flux:equip`, via `${FLUX_ROOT}/shared/write-destination.md` |
+| **escrever no manifesto de contexto** (`flux-context.json`) | `flux:equip`: a aprovação de destino (passo 9 do `write-destination.md`) e o `exec_fallback` do repo (Step 6) |
 | escolher entre alvos ambíguos quando errar custa caro | `flux:issue` (qual board retomar), `flux-context.md` (qual perfil reivindica o slug) |
 
 A lista é de **categorias**, não de call sites: uma ação nova que se encaixe numa dessas linhas nasce
 com gate, sem precisar emendar esta tabela.
+
+> **A linha do manifesto é a mais recente, e a única que altera a configuração da família.** Até o
+> `flux:equip`, nenhum elo escrevia o `flux-context.json` — todos liam. Alterar o arquivo que governa
+> os outros sete elos, num arquivo que costuma ser versionado nos dotfiles de alguém, é ação com
+> gate, nunca consequência de ter equipado um repo.
 
 ### O que NÃO precisa de gate
 

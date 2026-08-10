@@ -422,6 +422,10 @@ No **go/no-go final**, para cada repo da entrega que estiver **sem L2**, oferece
 local seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md`. Uma oferta por repo no máximo, e
 sempre depois do veredito: a entrega é o produto, a suite é consequência.
 
+**Aceitar dispara `${FLUX_CMD}equip <repo> --agents-only`**, uma invocação por repo. O land não gera
+suite; ele descobre a falta e entrega a decisão ao verbo de preparo, que é onde os gates de escrita
+na máquina do usuário vivem.
+
 A suite gerada é **L2, fora do repositório** revisado.
 
 ## Notas finais

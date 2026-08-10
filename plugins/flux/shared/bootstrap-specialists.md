@@ -1,8 +1,16 @@
 # Bootstrap de specialists — criar a suite que falta
 
-> Fonte única de como um elo oferece criar a suite de specialists de um repo que não tem nenhuma.
-> Referenciada por `flux:review`, `flux:iterate`, `flux:land` e `flux:build`. **Não duplicar esta
-> lógica dentro dos elos** — apontar para cá e declarar só o gatilho (em que momento oferecer).
+> Fonte única de como a suite de specialists de um repo que não tem nenhuma é criada. **Quem executa
+> isto é o `flux:equip`** (`${FLUX_ROOT}/skills/equip/SKILL.md`), na metade L2 dele. Os elos
+> `flux:review`, `flux:iterate`, `flux:land` e `flux:build` continuam **oferecendo** a criação nos
+> mesmos momentos de sempre, mas a oferta é um atalho: aceitar dispara `${FLUX_CMD}equip <repo>
+> --agents-only`. **Não duplicar esta lógica dentro dos elos** — apontar para cá e declarar só o
+> gatilho (em que momento oferecer).
+>
+> **Por que a execução mudou de lugar.** Enquanto a oferta era a única forma de criar a suite, cada
+> elo carregava um pedaço do procedimento, e o motor de execução (a outra metade do preparo de um
+> repo) não tinha dono nenhum. Um verbo só de preparo resolve os dois: a lógica vive num lugar, e a
+> ausência de motor deixa de ser um buraco que só aparece quando o `flux:build` cai no modo autônomo.
 
 ## Regra pétrea: o Bootstrap cria **L2**, nunca L3
 
@@ -58,6 +66,10 @@ foi pedido: quem chamou `/flux:build` quer código, não uma entrevista sobre ag
 **Só oferecer quando L2 está ausente.** Havendo suite local para o repo, não perguntar nada.
 Havendo apenas L3, oferecer mesmo assim, dizendo o que a suite local somaria à do repo.
 
+**L2 `inalcançável` não pede Bootstrap.** A suite existe e não é invocável; o que falta é instalação,
+não geração (`${FLUX_ROOT}/shared/review-agents.md`, passo 1a-bis). Oferecer geração ali cria o
+segundo arquivo com o mesmo `name:`, que é o problema, não a solução.
+
 ## A oferta
 
 GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select:
@@ -71,7 +83,41 @@ GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select:
   2. `Só gerar localmente (sem PR)` — escreve os arquivos, sem branch/commit/PR.
   3. `Agora não` — não faz nada (fica registrado como sugestão no artefato do elo, quando houver).
 
+### Como a oferta vira execução
+
+As opções 1 e 2 **não geram nada dentro do elo que perguntou**: elas invocam
+`${FLUX_CMD}equip <slug> --agents-only`, que assume dali com os gates de destino e de manifesto no
+lugar certo. A opção 3 imprime esse mesmo comando, para quem quiser rodar depois.
+
+**Quando `FLUX_CMD` é `UNAVAILABLE`** (o Passo 1b do `${FLUX_ROOT}/shared/preflight.md` não achou
+forma verificável de invocar a família — hoje, o caso do Codex), a oferta **não aborta e não some**,
+mas deixa de escrever: ela vira **instrução impressa**, não gate. O elo diz qual camada falta, que o
+verbo de preparo é o `equip`, e que ele precisa ser invocado à mão pela forma que aquela sessão expõe
+— sem nomear uma forma que não pôde verificar. Não há opção 1 nem 2 nesse estado, porque as duas
+escrevem.
+
+**Por que o degradado não é o elo executar por si.** A tentação é óbvia — o procedimento está escrito
+logo abaixo, e o elo poderia segui-lo. Mas quem oferece não tem o que é preciso para escrever com
+segurança: `flux:review`, `flux:iterate` e `flux:land` **não declaram** `write-destination.md` em
+`requires`, então o preflight deles nunca verificou o contrato de destino. Executar ali seria escrever
+no disco do usuário sem cascata, sem as três guardas e sem gate por arquivo existente — com **menos**
+verificação do que a execução normal, não com mais autonomia. É o mesmo raciocínio que o
+[`codex-compat.md`](codex-compat.md) aplica ao `land`: quando o despacho não é possível, dizer que não
+é. Preparo não feito custa uma invocação manual; preparo feito errado custa um arquivo no disco de
+alguém, possivelmente através de um symlink, possivelmente dentro de um repositório git que não é o
+revisado.
+
+O `equip` roda **no contexto principal do elo que ofereceu**, e não dentro de subagente. Não é
+exceção à disciplina de fan-out: é consequência dela. O verbo abre gates (destino de escrita,
+manifesto), e subagente não tem canal com o usuário (`${FLUX_ROOT}/shared/hitl.md`). O trabalho
+pesado do verbo — ler o repo, detectar stack, autorar os arquivos — continua indo para subagente,
+despachado por ele. E a main do elo que ofereceu já terminou o trabalho dela quando a oferta aparece,
+que é justamente por que a oferta vem depois e não antes.
+
 ## Geração (opções 1 e 2)
+
+Este é o procedimento que o `flux:equip` executa no Step 4 dele. Um elo que ofereceu o Bootstrap não
+roda estes passos: ele chama o verbo.
 
 Quando o perfil declara `SPECIALISTS_SPEC`, esse arquivo é a espec e rege o formato da suite. Sem
 ele, seguir o checklist mínimo:

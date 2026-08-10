@@ -42,14 +42,15 @@ em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
 ````
 ```
 perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN}
-lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
+lentes: L1 n/a · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 motor: {nativo <cmd> | exec_fallback <cmd> | autonomo}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
 
 Este elo **não** resolve reviewer holístico — quem revisa é o motor do repo, depois, em outro
-elo. O campo `holistico:` **não entra no banner**; a linha `lentes` sai porque o build é
+elo. O campo `holistico:` **não entra no banner** e `L1` sai como `n/a`, porque anunciar uma lente
+holística que nunca foi resolvida é prometer cobertura inexistente; a linha `lentes` sai porque o build é
 frequentemente o primeiro elo a tocar um repo novo e é onde se descobre que ele está sem
 cobertura (ver `${FLUX_ROOT}/shared/preflight.md`, Passo 5).
 
@@ -113,11 +114,23 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o diretório pai do `.claude/` onde o manifesto foi achado)
    - `REPOS` = `repos` (lista de repos conhecidos, usada para validar e sugerir)
    - `EXEC_COMMAND` = `exec_command` se presente, senão `workflow` (nome do comando nativo de execução dos repos deste contexto)
-   - `EXEC_FALLBACK` = `exec_fallback` se presente; **sem default** (ausente = modo autônomo)
+   - `EXEC_FALLBACK` = `exec_fallback` se presente, escalar **ou** mapa por repo; **sem default**
+     (ausente = modo autônomo). A resolução está no Step 2, caminho B.
    - `LINEAR_ORG` = `linear_org` (para normalizar IDs de ticket em URL, quando útil)
    - `VAULT_ROOT` = `vault_root` / `VAULT_CTX` = `vault_context` (onde o board de execução é gravado)
    - `NO_EMDASH` = `no_emdash`
+   - `SPECIALISTS_ROOT` = `specialists_root` (template de path com `{repo}`; degrau 1 da descoberta de
+     L2 e degrau 2 da cascata de destino, opcional)
    - `KITS_ROOT` = `kits_root` (template de path com `{repo}`; degrau 3 da cascata de destino, opcional)
+   - `WRITE_DESTINATIONS` = `write_destinations` (destinos já aprovados, com o `repos` de cada um;
+     degrau 4 da cascata e degrau 3 da descoberta de L2, opcional)
+
+   > **Por que o build extrai a tripla de descoberta se não revisa nada.** Ele não usa as lentes para
+   > executar, mas o Passo 5 do `${FLUX_ROOT}/shared/preflight.md` **obriga** este elo a emitir a linha
+   > `lentes` com as três camadas, e o Step 4 decide entre `--agents-only` e `--engine-only` a partir do
+   > estado de L2. As duas coisas dependem do passo 1a do `${FLUX_ROOT}/shared/review-agents.md`, que lê
+   > `specialists_root`, `kits_root` e `write_destinations` **em cascata**. Extrair só um dos três faria
+   > o build declarar `L2 ausente` para um repo que tem suite, e oferecer criar de novo o que já existe.
 
 3. Se não encontrar (perfil genérico):
    - `WORKSPACE_ROOT` = o `cwd`
@@ -191,7 +204,21 @@ O repo declara o próprio pipeline: ele conhece escopo de testes, verificação 
 **B) Fallback declarado pelo perfil** (`EXEC_FALLBACK`), **só quando o manifesto declara**:
 
 Um time que já tem um comando de implementação próprio declara o nome dele em `exec_fallback`, e é
-esse que roda quando o repo não tem motor nativo. Confirme que o comando está disponível na sessão:
+esse que roda quando o repo não tem motor nativo.
+
+**`EXEC_FALLBACK` pode ser um escalar ou um mapa** (`${FLUX_ROOT}/shared/flux-context.md`), e a
+resolução é **repo → `default` → modo autônomo**, nesta ordem e sem pular degrau:
+
+1. É um mapa e tem a chave `$REPO` → esse é o motor. Um motor gravado sob o slug foi autorado
+   **para aquele repo**, lendo a stack e os scripts dele.
+2. É um mapa e tem `default` → esse é o motor.
+3. É um escalar → esse é o motor (equivale a um mapa só com `default`, que é o que mantém a forma
+   antiga funcionando sem alteração nenhuma no manifesto de quem já a usa).
+4. Nenhum dos anteriores → **caminho C**, modo autônomo. Um mapa que não nomeia este repo e não tem
+   `default` não autoriza usar o motor de outro repo: seria executar código com o pipeline errado, em
+   silêncio.
+
+Confirme que o comando resolvido está disponível na sessão:
 
 ```
 ENGINE="fallback"
@@ -334,10 +361,19 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 
 ## Step 4 — Fechar o board e fazer o handoff
 
-1. **Oferecer a suite local quando faltar.** Se o repo não tem L2 (suite de specialists local),
-   oferecer o Bootstrap agora, seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md`. **Aqui e não
-   antes**: quem pediu um build quer código, e uma entrevista sobre agents antes do trabalho é ruído.
-   Havendo L2, não perguntar nada.
+1. **Oferecer o preparo que faltou, quando faltou.** Duas ausências podem ter aparecido nesta
+   execução, e as duas se resolvem pelo mesmo verbo, `${FLUX_CMD}equip`:
+
+   - **Sem L2** (suite de specialists local) → oferecer o Bootstrap seguindo
+     `${FLUX_ROOT}/shared/bootstrap-specialists.md`; aceitar dispara
+     `${FLUX_CMD}equip <repo> --agents-only`. Havendo L2, não perguntar nada.
+   - **Rodou em modo autônomo** (caminho C do Step 2: nem motor nativo, nem `exec_fallback`) →
+     oferecer `${FLUX_CMD}equip <repo> --engine-only`, que autora um motor para este repo e o declara
+     no perfil. É a única forma de o próximo build não cair no mesmo lugar. Rodou por motor nativo ou
+     por fallback declarado, não perguntar nada.
+
+   **Aqui e não antes**: quem pediu um build quer código, e uma entrevista sobre ferramental antes do
+   trabalho é ruído. As duas ofertas cabem num gate só quando as duas faltas existirem.
 2. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.

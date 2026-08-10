@@ -775,8 +775,11 @@ Ao **assentar a PR** (fim do watch, ou fim da passada com `--once`), se o repo e
 oferecer a criação da suite local seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md`. Nunca
 antes: fechar a PR é a prioridade, e a oferta no meio do loop é ruído.
 
+**Aceitar dispara `${FLUX_CMD}equip <repo> --agents-only`**; o iterate oferece, não gera. Toda a
+mecânica de escrita (destino, guardas, manifesto) é do verbo de preparo.
+
 A suite gerada é **L2, fora do repositório**. Se o repo tem agents de review próprios, eles são L3,
-já entraram na verificação por descoberta, e o Bootstrap não os toca.
+já entraram na verificação por descoberta, e o `equip` não os toca.
 
 ## Notas finais
 
