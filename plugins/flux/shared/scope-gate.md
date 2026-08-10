@@ -8,9 +8,8 @@
 > **Dois consumidores**, e o contrato é um só porque escrever um julgador de escopo por verbo é
 > garantir que os limiares divirjam:
 > - `${FLUX_ROOT}/skills/refine/SKILL.md`, que **recusa** o que não cabe numa rodada;
-> - `${FLUX_ROOT}/skills/build/SKILL.md`, que passará a **oferecer o corte** antes de despachar.
->   Ainda não o consome: o contrato entra primeiro para que a faixa seja definida uma vez, e não
->   negociada duas.
+> - `${FLUX_ROOT}/skills/build/SKILL.md`, que **oferece o corte** antes de despachar, no
+>   Step 2-quater, e tem override (`--no-slice`).
 >
 > Não cobre decomposição em si. Como um pedido grande vira issues independentemente entregáveis é
 > `${FLUX_ROOT}/shared/issue-template.md`, seção **Decomposição (vertical slices)**, e este contrato

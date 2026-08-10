@@ -148,6 +148,8 @@ engine_kind: nativo                 # nativo | fallback | autonomo
 worktree: "<path do worktree dedicado>"
 branch: "<branch criada>"
 pr: <número|null>                   # null até o motor abrir a PR
+scope: cabe                          # cabe | cabe-raso | nao-cabe  (veredito do gate de escopo do
+                                     # Step 2-quater do flux:build, ver scope-gate.md)
 iterate_board: "<path do board do iterate, quando o handoff acontecer>"
 # single-PR (iterate):
 pr: <número>
@@ -411,7 +413,10 @@ cronológicas e nenhuma delas de status.
      perfil exploração acrescentam-se: `prospecção` (fan-out disparado / retorno de um repo),
      `candidata` (aberta, redefinida ou descartada), `linear` (issue criada, com o identificador) e
      `escopo` (veredito do gate de [`scope-gate.md`](scope-gate.md), e toda mudança de faixa entre
-     T0 e T1 — a linha diz **quais sinais** mudaram, não só a faixa nova).
+     T0 e T1 — a linha diz **quais sinais** mudaram, não só a faixa nova). No perfil execução
+     acrescenta-se `escopo` também, com o mesmo sentido: o veredito do passe único do `flux:build`
+     e, quando houver, a **dispensa do gate** (pela opção "despachar inteiro" ou por `--no-slice`),
+     com os sinais que tinham sido apurados. A escolha do usuário no gate é `decisão`, não `escopo`.
    - No perfil conversa a coluna final é **superfície**, não `PR(s)`. No perfil exploração é
      **candidata** (o `#` da linha do painel), também não `PR(s)`.
    - `pr-body` = reconciliação da descrição da PR (passo 8a do `/flux:iterate`). A linha diz **qual
