@@ -46,10 +46,16 @@ Em plano Teams/Enterprise dá para importar o repo em Dashboard → Plugins e di
 
 ### Codex
 
-Abra o Plugin Directory do Codex, encontre `Flux` e selecione **Install**. Para um checkout em
-desenvolvimento, valide `plugins/flux/.codex-plugin/plugin.json` e mantenha o plugin disponível no
-diretório de plugins do seu ambiente. A forma de invocar uma skill é a que o Codex registrar; use
-`@Flux` ou o nome exibido pela sessão, nunca presuma `/flux:`.
+> **O Flux ainda não está no Plugin Directory do Codex.** Enquanto a listagem não sai, a instalação
+> é por marketplace local, abaixo. Quando ela sair, o caminho passa a ser abrir o Plugin Directory,
+> encontrar `Flux` e selecionar **Install**.
+
+Registre o plugin numa entrada de marketplace local (por exemplo
+`~/.agents/plugins/marketplace.json`) apontando para `./plugins/flux` do seu checkout, e valide o
+manifesto `plugins/flux/.codex-plugin/plugin.json` antes de usar.
+
+A forma de invocar uma skill é a que o Codex registrar; use `@Flux` ou o nome exibido pela sessão,
+nunca presuma `/flux:`.
 
 O adaptador Codex usa a delegação nativa de subagentes para o fan-out. MCP, vault, Linear, Slack e
 specialists são capacidades opcionais: quando ausentes, o preflight declara a degradação e o Flux
