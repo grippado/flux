@@ -6,11 +6,16 @@ descobrir recursos, delegar trabalho e anunciar limitações.
 
 ## Recursos
 
-Resolver `${FLUX_ROOT}` pela raiz do plugin em que esta skill foi carregada. O manifesto Codex
-declara `skills: ./skills/`, portanto `shared/`, `agents/` e `assets/` são irmãos desse diretório.
-Não copiar nem duplicar os contratos compartilhados. Se o plugin estiver em uma instalação
-empacotada, usar a raiz fornecida pelo ambiente; se estiver em checkout, resolver a partir do
-caminho da skill.
+Resolver `${FLUX_ROOT}` pelos candidatos 3 e 4 do Passo 1a do
+[`preflight.md`](preflight.md), nesta ordem: `${CODEX_PLUGIN_ROOT}` quando a sessão o define e,
+não havendo, o primeiro diretório acima da skill que contenha `.codex-plugin/plugin.json`.
+
+O segundo é o caminho que de fato funciona hoje, e é por isso que ele existe: o Codex resolve
+plugin por caminho relativo ao marketplace e **não documenta uma variável de raiz de plugin** —
+`CODEX_HOME` aponta para as skills, não para cá. Achado o root, o manifesto declara
+`skills: ./skills/`, portanto `shared/`, `agents/` e `assets/` são irmãos desse diretório.
+
+Não copiar nem duplicar os contratos compartilhados.
 
 ## Delegação
 

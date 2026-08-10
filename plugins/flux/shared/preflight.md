@@ -24,17 +24,27 @@ ordem, parando no primeiro que existir:
 
 1. `${CLAUDE_PLUGIN_ROOT}` — instalado como plugin no Claude Code.
 2. `${CURSOR_PLUGIN_ROOT}` — instalado como plugin no Cursor.
-3. O diretório dois níveis acima do arquivo do verbo em execução (de `skills/<verbo>/SKILL.md`
+3. `${CODEX_PLUGIN_ROOT}` — instalado como plugin no Codex, **quando a sessão expõe a variável**.
+   Ela não é garantida: o Codex resolve plugin por caminho relativo ao marketplace, e a única
+   variável que ele documenta é `CODEX_HOME`, que aponta para as *skills* e não para a raiz de um
+   plugin. Por isso o candidato seguinte existe.
+4. **A raiz do plugin Codex por marcador de manifesto**: subindo a partir do arquivo do verbo em
+   execução, o primeiro diretório que contiver `.codex-plugin/plugin.json`. É determinístico e não
+   depende de variável nenhuma, que é o que torna o Codex resolvível hoje.
+5. O diretório dois níveis acima do arquivo do verbo em execução (de `skills/<verbo>/SKILL.md`
    sobe para a raiz da instalação). Se o arquivo foi carregado por symlink, resolver o alvo real
    antes de subir (`readlink -f`) — é o caminho da instalação local do Cursor, que é um symlink
    para o checkout.
-4. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável.
+6. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável.
 
 Se nenhum resolver, é `UNAVAILABLE`: abortar informando que a instalação da família não foi
 localizada.
 
 > **A família não sabe em qual harness roda, e não deve saber.** Os candidatos nomeados acima são a
-> única menção a harness específico em todo o flux. Tudo abaixo deste passo é escrito contra
+> única menção a harness específico em todo o flux. Nomear um harness aqui só é legítimo quando o
+> candidato é **verificável**: uma variável que a sessão de fato define, ou um marcador que existe
+> no disco. Um candidato que nomeia um produto sem ter como confirmar a raiz não resolve nada e
+> transforma este passo numa lista de boas intenções. Tudo abaixo deste passo é escrito contra
 > `${FLUX_ROOT}` e `${FLUX_CMD}`, nunca contra o nome de um produto.
 
 ### 1b — `FLUX_CMD`
