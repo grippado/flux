@@ -45,10 +45,32 @@ Isso atinge **um** elo, e só um: o `flux:land`, que é o único que despacha um
 `iterate` por PR dentro de subagente). Os outros sete funcionam normalmente.
 
 A oferta de Bootstrap de specialists (`review`, `iterate`, `land` e `build`) **não** entra nesta
-conta, embora ela nomeie o `flux:equip`. Sem `FLUX_CMD`, o elo segue
-[`bootstrap-specialists.md`](bootstrap-specialists.md) direto, que é a fonte única do procedimento —
-a delegação por nome é organização, não pré-requisito. O `equip` invocado à mão também funciona; o
-que não funciona no Codex é montar o nome dele dentro de outro elo.
+conta, e o motivo mudou: sem `FLUX_CMD`, a oferta **imprime a instrução e não executa**. Ela deixa de
+ser um gate com opções que escrevem e passa a ser uma linha honesta — qual camada falta, que o verbo
+de preparo é o `equip`, e que ele precisa ser invocado à mão pela forma que aquela sessão expõe.
+Invocado à mão, o `equip` funciona normalmente no Codex; o que não funciona é montar o nome dele
+dentro de outro elo.
+
+**Por que o modo degradado não é "o elo faz por si".** Uma versão anterior deste arquivo mandava o elo
+seguir o [`bootstrap-specialists.md`](bootstrap-specialists.md) direto, tratando a delegação por nome
+como comodidade de organização. Isso deixou de ser verdade em três frentes ao mesmo tempo, e nenhuma
+delas é cosmética:
+
+- Aquele documento passou a dizer, literalmente, que **um elo que ofereceu o Bootstrap não roda estes
+  passos: ele chama o verbo**. Seguir o procedimento por si contraria a fonte que se está citando.
+- A escrita de artefato gerado fora do repo e a escrita no manifesto estão atribuídas, em
+  [`hitl.md`](hitl.md), **ao `flux:equip`**. São ações com gate, e o dono do gate é o verbo.
+- `review`, `iterate` e `land` **não declaram** `write-destination.md` em `requires`. O preflight
+  deles nunca verificou o contrato de destino, então executá-lo seria escrever no disco de alguém a
+  partir de um elo que não tem o contrato em contexto — sem cascata, sem as três guardas, sem gate
+  por arquivo existente.
+
+Somadas, elas invertem o sinal do degradado: um elo que executa por si no Codex não é uma versão mais
+autônoma da oferta, é uma versão **mais perigosa** dela, porque escreve com menos verificação do que a
+execução normal. E este arquivo já tem o precedente certo, três parágrafos abaixo, no `land`: quando o
+despacho não é possível, o caminho é dizer que não é, nunca degradar para uma execução inline fora do
+contrato. Preparo não feito custa uma invocação manual; preparo feito errado custa um arquivo no disco
+de alguém, possivelmente através de um symlink, possivelmente dentro de um repositório git.
 
 O comportamento correto, e ele já está escrito no Passo 1b, é abortar a fase de despacho com a
 mensagem padrão — **nunca** degradar para uma iteração inline fora do contrato. Um `land` que

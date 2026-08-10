@@ -212,6 +212,31 @@ produto do diagnóstico (e onde o campo `holistico:` não entra, porque o verbo 
 **Camada ausente é
 declarada, nunca omitida**: é a diferença entre "o repo não tem specialists" e "eu não procurei".
 
+### Campos que não são de todos os elos
+
+O gabarito acima é o **mínimo comum**. Três campos existem só onde há o que declarar, e estão listados
+aqui para que nenhum elo os invente e nenhum elo com direito a eles os omita:
+
+| campo | quem emite | o que declara |
+|-------|-----------|---------------|
+| `holistico:` | todos, **menos** `flux:build` e `flux:equip` | o agente da lente L1, quando o elo resolve um |
+| `motor:` | `flux:build` e `flux:equip` | `{nativo <cmd> \| exec_fallback <cmd> \| autonomo \| ausente}` |
+| `destino:` | **só** `flux:equip` | `{path canonico aprovado \| nao resolvido}` |
+
+`motor:` existe nesses dois porque são os únicos que têm relação com o motor de execução: o `build` o
+**escolhe** (`${FLUX_ROOT}/skills/build/SKILL.md`, Step 2), o `equip` o **produz**. Nos dois casos,
+qual motor rodou (ou faltou) é a informação que muda como se lê o resultado — um build em modo
+autônomo rodou sem os gates do repo, e quem lê precisa saber disso de relance.
+
+`destino:` existe só no `equip` porque ele é o único verbo cujo entregável é **um caminho no disco de
+alguém**. Um elo que escreve fora do repo e não diz onde obriga o usuário a caçar o que apareceu;
+enquanto o gate de destino não tiver acontecido, o campo sai como `nao resolvido`, que é a verdade
+naquele instante e não uma omissão.
+
+A regra do parágrafo abaixo vale para estes campos com a mesma força: um elo que só referencia este
+arquivo inventa campos. Ao acrescentar, remover ou renomear qualquer um deles, propagar para **todos**
+os verbos que o emitem — e esta tabela é a lista de quem são.
+
 Exemplo em máquina sem configuração alguma:
 
 ```
@@ -227,8 +252,14 @@ Exemplo num repo que tem suite própria mas nenhuma suite curada:
 perfil: pessoal · nivel: REDUCED · holistico: pr-reviewer
 lentes: L1 pr-reviewer · L2 ausente (sem suite curada para 'aiterm') · L3 ausente (repo sem agents de review)
 degradacoes: sem specialists (scouters e auditors de dominio nao rodam; a review cobre o
-cross-cutting mas nao os padroes especificos do repo) — rode {FLUX_CMD}equip --agents-only
+cross-cutting mas nao os padroes especificos do repo) — rode /flux:equip --agents-only
 ```
+
+> **Os dois blocos acima são output renderizado, não gabarito.** Por isso o comando neles aparece
+> **já resolvido** (`/flux:equip --agents-only`), e não como `${FLUX_CMD}equip`: é exatamente o que o
+> usuário leria na tela daquela máquina. Um exemplo que mostrasse o placeholder ensinaria a emitir o
+> placeholder, que é o defeito que a "Regra de escrita" do Passo 1b existe para evitar. Nos gabaritos
+> — os blocos que se copiam verbatim —, `${FLUX_CMD}` continua sendo o certo.
 
 Quando o nível for `FULL` e não houver degradação, o banner ainda assim é impresso. A consistência é
 o que permite comparar execuções.

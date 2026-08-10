@@ -68,12 +68,17 @@ degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
 
-Duas particularidades deste elo, e as duas são deliberadas:
+Três particularidades deste elo, e as três são deliberadas. Elas estão declaradas também na tabela
+"Campos que não são de todos os elos" do Passo 5 do preflight, que é a lista de quem emite o quê — o
+gabarito aqui garante o template em contexto, aquela tabela garante que nenhum elo invente campo:
 
 - **`holistico:` não entra.** O `equip` não revisa nada, então resolver um reviewer aqui seria
   verificar um agente que não vai ser invocado. A linha `lentes` fica, porque o inventário das
   camadas **é o produto do diagnóstico**: é lendo `L2 ausente · motor ausente` que o usuário entende
   o que este verbo vai fazer com a máquina dele.
+- **`motor:` entra, e é compartilhada com o `flux:build`.** Lá o campo diz qual motor **foi
+  escolhido**; aqui, qual motor **existe ou vai passar a existir**. É a mesma informação vista dos dois
+  lados do preparo, e por isso o vocabulário é o mesmo (`nativo` / `exec_fallback` / `ausente`).
 - **`destino:` é uma linha própria, e só existe aqui.** O `equip` é o único verbo cujo entregável é
   um caminho no disco de alguém. Um elo que escreve fora do repo e não diz **onde** obriga o usuário
   a caçar o que apareceu; enquanto o gate de destino não tiver acontecido, a linha sai como
@@ -152,7 +157,8 @@ Do perfil, extrair:
   cascata de destino.
 - `SPECIALISTS_SPEC` / `SPECIALISTS_REPO` — espec que rege a autoria da suite e repo das suites
   versionadas.
-- `EXEC_COMMAND` (default `workflow`) / `EXEC_FALLBACK` (sem default) — o que o `flux:build` procura.
+- `EXEC_COMMAND` (default `workflow`) / `EXEC_FALLBACK` (sem default; escalar **ou** mapa por repo,
+  resolvido como `repo` → `default` → nenhum) — o que o `flux:build` procura.
 - `VAULT_ROOT` / `VAULT_CTX` — só para registrar o que foi escrito, quando houver board por perto.
 - `NO_EMDASH`.
 
@@ -174,11 +180,32 @@ diz isso em vez de deixar o usuário descobrir sozinho que o `build` não o acha
    repo que não se pode ler produziria arquivo genérico com nome específico, que é pior do que a
    ausência: ele passa a ser encontrado pela descoberta e a ocupar o lugar de uma suite real.
 
+   > **Por que `checkout_local` é `soft` no frontmatter e ainda assim o verbo para aqui.** Não é
+   > incoerência, e a distinção importa o bastante para estar escrita. A fronteira do
+   > `${FLUX_ROOT}/shared/preflight.md` é **binária de propósito** — hard ausente aborta, soft ausente
+   > segue e declara — e ela responde a uma pergunta só: *este elo consegue rodar de forma confiável?*
+   > A resposta aqui é **sim**: com `--from-kit`, o verbo faz trabalho real e completo sem nunca
+   > abrir o repo, porque instalar um kit já escrito não depende de ler a stack de ninguém. Um
+   > requisito `hard` mataria essa execução legítima antes do parse dos argumentos, e ensinar ao
+   > preflight uma categoria "hard condicional" cobraria de todos os elos o preço de um caso de um só.
+   >
+   > O que este passo responde é outra pergunta: *este trabalho específico pode ser feito?* Sem
+   > checkout e sem kit, não pode, e quem sabe disso é o verbo, no ponto do fluxo em que já conhece as
+   > flags. Por isso o preflight segue, o banner é emitido com a degradação declarada, e a parada
+   > acontece **aqui**, nomeando a causa.
+   >
+   > **A divergência com os outros elos é real e é deliberada.** Em `review`, `iterate` e `land`, sem
+   > checkout local significa degradar para `THIN`: eles ainda têm o diff, e um parecer mais cauteloso
+   > sobre menos contexto continua valendo alguma coisa. Aqui não existe versão fraca do entregável:
+   > uma suite autorada sem ler o repo não é uma suite pior, é uma suite **errada**, com nome
+   > específico e conteúdo genérico, que a descoberta vai encontrar e o próximo `review` vai invocar
+   > como se fosse real. Não há `THIN` para onde degradar, então o verbo para.
+
 3. Levantar o inventário das camadas. É este levantamento que vira o banner e o plano:
 
 | camada | como verificar | estado |
 |---|---|---|
-| **L0 motor** | `<repo>/.claude/commands/<EXEC_COMMAND>.md` existe? Senão, `EXEC_FALLBACK` declarado **e** invocável na sessão? | `nativo` / `exec_fallback` / `ausente` |
+| **L0 motor** | `<repo>/.claude/commands/<EXEC_COMMAND>.md` existe? Senão, o `EXEC_FALLBACK` que resolve **para este repo** (chave do slug, senão `default`) está declarado **e** invocável na sessão? | `nativo` / `exec_fallback` / `ausente` |
 | **L2 specialists locais** | cascata de descoberta do `${FLUX_ROOT}/shared/review-agents.md`, passo 1a, **incluindo o 1a-bis** | `disponivel` / `ausente` / `inalcancavel` |
 | **L3 specialists do repo** | varredura filtrada do `review-agents.md`, passo 1b | `disponivel` / `ausente` |
 
@@ -198,6 +225,20 @@ Três leituras deste inventário mudam o que o verbo faz, e nenhuma é óbvia:
 4. Com `--dry`, imprimir banner + inventário + plano de equipagem (o que seria escrito, onde, com que
    nome) e **parar**. Nenhum gate abre no `--dry`: uma pergunta feita numa execução que não escreve
    treina o usuário a responder no automático.
+
+   **O "onde" nem sempre existe ainda, e o dry diz isso em vez de inventar.** A cascata de destino
+   (`${FLUX_ROOT}/shared/write-destination.md`) resolve sozinha até o degrau 4; quando nenhum deles
+   produz valor — sem `specialists_root`, sem `kits_root`, sem entrada aprovada para este slug —, o
+   próximo degrau é **perguntar**, e a pergunta é justamente o que o `--dry` não faz. Esse é o perfil
+   genérico, que é quem mais roda `--dry`, então o caso é a regra e não a borda.
+
+   Nesse caso, o plano imprime o **default da família** (`~/.claude/flux-specialists/<slug>/`) como
+   candidato, marcado como **não confirmado** — e diz, na mesma linha, que numa execução real ele
+   seria a opção recomendada de um GATE, não um destino assumido. O motor tem a linha equivalente,
+   com o diretório de comandos resolvido pelo Step 3.2, ou `nao resolvido` quando nenhum existe.
+   Imprimir o default sem a marca faria o dry prometer um caminho que a execução real ainda pode não
+   tomar; omitir o "onde" faria o dry descumprir o que ele mesmo promete. A linha `destino:` do banner
+   continua saindo como `nao resolvido`, porque nenhum gate aconteceu, e essa é a verdade do instante.
 
 ---
 
@@ -225,30 +266,66 @@ escolher de novo o que já escolheu.
 
 ---
 
-## Step 3 — Resolver o destino (uma vez, para as duas camadas)
+## Step 3 — Resolver os destinos (um por camada, e são camadas diferentes)
 
 **Antes de qualquer `mkdir`, `touch` ou write**, seguir `${FLUX_ROOT}/shared/write-destination.md`
-na íntegra e na ordem que ele fixa: cascata (`--dest` → `specialists_root` → `kits_root` → perguntar
-→ default da família) → canonização por `realpath` → F1 symlink → F2 repo git → F3 diretório de
-dotfiles → gate por arquivo existente → escrita → registro.
+na íntegra e na ordem obrigatória que ele fixa (a lista de 10 passos do fim daquele documento):
+cascata → normalização a diretório → F1 symlink sobre o path **bruto** → canonização por `realpath` →
+F2 repo git → F3 diretório de dotfiles → gate por arquivo existente → escrita → persistência (com
+gate próprio) → registro.
 
-Três coisas que são **deste verbo** e não do contrato:
+### 3.1 — L2, a suite: o destino vem da cascata
 
-1. **O destino é resolvido uma vez e vale para as duas camadas.** Abrir o gate de destino duas vezes
-   na mesma execução (uma para o motor, outra para a suite) é transformar o preparo numa entrevista,
-   e nenhuma das duas respostas seria mais informada que a outra. Se o usuário escolher destinos
-   diferentes, ele o faz explicitamente, informando outro caminho na segunda camada — nunca por
-   default.
+A cascata do contrato (path ditado → `specialists_root` → `kits_root` → `write_destinations` →
+perguntar → default da família) resolve o destino **dos agents**, e é o único destino que passa por
+gate nesta execução no caso comum.
+
+### 3.2 — L0, o motor: destino próprio, porque invocabilidade depende de onde o arquivo mora
+
+**A cascata acima é orientada a agents, e um motor não é um agent.** Todos os cinco degraus dela
+apontam para raízes de specialists — e um comando escrito em `~/.claude/flux-specialists/payments/`
+não é comando nenhum: nenhum harness varre aquele diretório procurando comandos. Escrever o motor ali
+produziria exatamente o desfecho que o Step 1 rejeita, o de um `EXEC_FALLBACK` declarado e **não
+invocável**, com o agravante de o próprio verbo ter acabado de criá-lo.
+
+Um motor só é invocável se nascer num diretório que o harness varre **como comando**. Resolver o
+destino do motor nesta ordem, parando no primeiro que existir na instalação:
+
+1. `~/.claude/commands/` — diretório de comandos de usuário do Claude Code.
+2. `~/.cursor/commands/` — o equivalente no Cursor.
+3. Nenhum dos dois existe → **perguntar** ao usuário onde os comandos dele são varridos, com a mesma
+   mecânica do GATE de destino (opção "informar outro caminho"). Não inventar um diretório: um motor
+   num lugar que o harness não lê é trabalho jogado fora com aparência de trabalho feito.
+
+Achado mais de um, escrever **em um só** — o do harness em que a sessão roda, que é o único onde a
+invocabilidade pode ser conferida no Step 7. Escrever nos dois cria dois comandos com o mesmo nome e
+nenhuma precedência definida, que é o mesmo defeito do `name:` duplicado em L2.
+
+Este destino **não dispensa o contrato**: ele entra como path ditado (degrau 1 da cascata) e volta ao
+início, passando por normalização, F1, canonização, F2, F3 e gate por arquivo existente como qualquer
+outro. Ditar o destino escolhe o lugar, não dispensa a verificação — e aqui F2 dispara com frequência,
+porque `~/.claude/` costuma ser um symlink para dentro de um repositório de dotfiles.
+
+### 3.3 — O que é deste verbo e não do contrato
+
+1. **Um gate de destino por camada, no máximo, e só quando a camada for equipada.** O destino da
+   suite é perguntado uma vez e vale para tudo que a suite escreve; o do motor é resolvido pela lista
+   acima e só vira pergunta quando nenhum diretório de comandos existe. Abrir o gate de destino duas
+   vezes para a **mesma** camada é transformar o preparo numa entrevista, e a segunda resposta não
+   seria mais informada que a primeira.
 2. **Tudo acontece no contexto principal, antes do despacho.** Subagente não abre gate
    (`${FLUX_ROOT}/shared/hitl.md`), então um destino resolvido lá dentro é um destino resolvido sem
    ninguém para perguntar. Os autores recebem o path canônico **já aprovado** e a instrução de
    escrever ali e em lugar nenhum além dali.
 3. **O que o `equip` escreve é o que a descoberta tem que achar depois.** O passo 1a do
-   `review-agents.md` lê a cascata de trás para frente, incluindo os destinos aprovados em
-   `write_destinations`, justamente para que uma suite escrita fora do manifesto não fique órfã. Um
-   destino escolhido aqui que não apareça naquela cascata produz o pior desfecho possível: arquivo
-   escrito, trabalho feito, e o elo seguinte oferecendo criar a suite de novo. **Conferir a
-   coerência é parte do passo, não um detalhe de implementação.**
+   `review-agents.md` percorre a mesma cascata de destino, na mesma ordem, incluindo os destinos
+   aprovados em `write_destinations`, justamente para que uma suite escrita fora do manifesto não
+   fique órfã. Um destino escolhido aqui que não apareça naquela cascata produz o pior desfecho
+   possível: arquivo escrito, trabalho feito, e o elo seguinte oferecendo criar a suite de novo. A
+   simetria vale para as duas camadas, com o descobridor certo para cada uma: a suite é achada pela
+   cascata do `review-agents.md`, o motor é achado pelo Step 2 do `flux:build` (motor nativo →
+   `exec_fallback` do repo → `default` → autônomo). **Conferir a coerência é parte do passo, não um
+   detalhe de implementação**, e é o que o Step 7.3 vai reafirmar para as duas.
 
 ---
 
@@ -276,10 +353,15 @@ fan-out obrigatório, o PR draft opcional em `SPECIALISTS_REPO` — está em
 Roda quando o escopo aprovado inclui motor e o inventário disse `motor ausente`.
 
 **O que é equipar um motor, dado que não se escreve dentro do repo.** O `flux:build` procura, nesta
-ordem: motor nativo do repo → `exec_fallback` do perfil → modo autônomo. O primeiro degrau é do time
-que mantém o repo e está fora do nosso alcance. Então equipar L0 é preencher o **segundo**: autorar
-um comando de execução para este repo, no destino aprovado no Step 3, e (Step 6) declarar o nome dele
-em `exec_fallback` para que o `build` o encontre.
+ordem: motor nativo do repo → `exec_fallback` **do repo** → `exec_fallback.default` → modo autônomo. O
+primeiro degrau é do time que mantém o repo e está fora do nosso alcance. Então equipar L0 é preencher
+o **segundo**: autorar um comando de execução para este repo, no destino de comandos resolvido no
+Step 3.2, e (Step 6) declarar o nome dele em `exec_fallback` **sob a chave deste repo** para que o
+`build` o encontre.
+
+O nome do comando autorado é derivado do slug e nasce único (`flux-engine-<slug>`, ou o que o gate por
+arquivo existente permitir). Um motor por repo com nome por repo é o que torna possível equipar o
+segundo repo sem desequipar o primeiro.
 
 O motor autorado carrega a disciplina que um motor nativo daria de graça, e ela não é negociável
 porque é o que separa "executou" de "executou bem":
@@ -321,7 +403,7 @@ Duas coisas podem ser persistidas, e **cada uma é uma escolha separada**:
 
 | campo | o que grava | por que persistir |
 |---|---|---|
-| `exec_fallback` | o nome do motor autorado no Step 5 | sem ele, o `flux:build` não acha o motor e continua caindo no modo autônomo — o motor existe e não é usado |
+| `exec_fallback.<slug>` | o nome do motor autorado no Step 5, **sob a chave deste repo** | sem ele, o `flux:build` não acha o motor e continua caindo no modo autônomo — o motor existe e não é usado |
 | `write_destinations` | o destino canônico aprovado + o estado das guardas | sem ele, o gate de destino volta a cada execução, e o `review-agents.md` perde o degrau que encontra a suite fora do manifesto |
 
 GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select, aberto **depois** de os arquivos estarem
@@ -340,6 +422,19 @@ Regras da escrita, quando autorizada:
 - **Edição cirúrgica, nunca regeneração.** Acrescentar/atualizar as chaves aprovadas e mais nada. Um
   manifesto reescrito por nós perde comentários de quem o escreveu, ordem de campos e qualquer coisa
   que a família ainda não conheça.
+- **Nunca sobrescrever o motor de outro repo.** `exec_fallback` aceita escalar e mapa
+  (`${FLUX_ROOT}/shared/flux-context.md`), e este verbo grava **sempre** na chave do repo equipado:
+  - campo ausente → criar o mapa com uma chave só, a deste repo;
+  - já é um mapa → acrescentar/atualizar **apenas** `<slug>`, preservando `default` e as chaves dos
+    outros repos;
+  - já é um **escalar** → promovê-lo a mapa, movendo o valor existente para `default` e acrescentando
+    a chave deste repo. A promoção preserva o comportamento anterior para todos os repos que já
+    dependiam dele, e por isso não é uma quebra — mas é uma mudança de forma no arquivo do usuário, e
+    portanto **entra no diff mostrado no gate**, escrita por extenso, nunca como detalhe silencioso.
+
+  Gravar num escalar seria trocar o motor de todos os repos pelo motor deste, e um repo sem motor
+  próprio passaria a ser executado pelo pipeline de outro em vez de cair no modo autônomo: falha
+  silenciosa que produz código.
 - **O manifesto é o mesmo que foi resolvido no Step 0.** Não criar um novo, não escolher outro nível
   da árvore, não "promover" o manifesto para mais perto do repo.
 - **Sem manifesto, não há degrau.** No perfil genérico este gate **não abre**: não existe arquivo a
@@ -356,10 +451,24 @@ Regras da escrita, quando autorizada:
 2. **Reafirmar o inventário depois da equipagem**, com o mesmo vocabulário do banner. É o que permite
    ver, em uma linha, que `L2 ausente` virou `L2 <nome>` e que o motor saiu de `ausente` para
    `exec_fallback <cmd>`.
-3. **Conferir que o que foi escrito é encontrável.** Para a suite, o teste do `1a-bis` do
-   `review-agents.md`: o `name:` do frontmatter está registrado como `subagent_type` nesta
-   instalação? Não está → dizer isso **agora**, com os caminhos de instalação, em vez de deixar o
-   próximo `review` descobrir e declarar `L2 inalcancavel`.
+3. **Conferir que o que foi escrito é encontrável — nas duas camadas, com o mesmo rigor.** O arquivo
+   existir não é o mesmo que ele ser usável, e o verbo que acabou de escrevê-lo é quem tem a
+   informação para verificar isso barato. Deixar para o elo seguinte descobrir é entregar uma
+   falha silenciosa com aparência de sucesso.
+
+   - **L2, a suite** — o teste do `1a-bis` do `review-agents.md`: o `name:` do frontmatter está
+     registrado como `subagent_type` nesta instalação? Não está → dizer isso **agora**, com os
+     caminhos de instalação, em vez de deixar o próximo `review` declarar `L2 inalcancavel`.
+   - **L0, o motor** — o teste equivalente, e ele é o do **Step 1 deste próprio verbo**: o nome
+     gravado em `exec_fallback` está declarado **e invocável na sessão**? A pergunta é a mesma que o
+     inventário faz, e um motor recém-escrito que a reprova é o pior resultado possível — o
+     `flux:build` vai encontrar a declaração, tentar invocar e não achar comando nenhum, tarde demais,
+     no meio de uma implementação. Não está invocável → dizer **onde** o arquivo nasceu, **qual**
+     diretório o harness varre como comando (Step 3.2), e que enquanto isso o `build` continua caindo
+     no modo autônomo. **Nunca declarar sucesso de equipagem de L0 sem esta conferência.**
+
+   Uma camada que reprova o próprio teste sai do inventário do item 2 como `inalcancavel`, nunca como
+   equipada. O banner é o que impede uma equipagem degradada de se passar por completa.
 4. **Handoff.** O `equip` devolve o volante ao ciclo, escolhendo **um** próximo elo conforme o que se
    estava fazendo quando a falta apareceu:
 

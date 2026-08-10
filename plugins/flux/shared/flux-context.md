@@ -184,14 +184,38 @@ com o reviewer de outro time sem que nada acuse o problema.
 - `repos` — repos conhecidos do contexto (usado por `flux:land` pra resolver targets cross-repo).
 - `exec_command` — nome do comando **nativo de execução** dos repos deste contexto, usado pelo `flux:build`
   pra descobrir o motor (`<repo>/.claude/commands/<exec_command>.md`). Default: `workflow`.
-- `exec_fallback` — comando de implementação **do seu time**, usado pelo `flux:build` quando o repo
-  não tem motor nativo. **Sem default, deliberadamente**: um comando vindo de um plugin específico é
-  conhecimento de quem o instalou, não da família, e assumir um faria o `build` invocar, na máquina
-  de outra pessoa, algo de um marketplace ao qual ela pode nem ter acesso. Ausente → modo autônomo.
+- `exec_fallback` — comando de implementação usado pelo `flux:build` quando o repo não tem motor
+  nativo. **Sem default, deliberadamente**: um comando vindo de um plugin específico é conhecimento de
+  quem o instalou, não da família, e assumir um faria o `build` invocar, na máquina de outra pessoa,
+  algo de um marketplace ao qual ela pode nem ter acesso. Ausente → modo autônomo.
 
-  É um dos dois campos que o `flux:equip` pode **escrever** (Step 6 dele, sob gate explícito): quando
-  o verbo autora um motor para um repo sem motor nativo, é esta chave que faz o `flux:build`
-  encontrá-lo. Sem ela, o motor existe no disco e o build continua caindo no modo autônomo.
+  **Aceita duas formas, e as duas são válidas.** Um escalar é o fallback do **perfil inteiro**:
+
+  ```json
+  "exec_fallback": "core:implement-task"
+  ```
+
+  Um mapa dá ao campo **dimensão por repo**, com `default` para os repos não nomeados:
+
+  ```json
+  "exec_fallback": { "default": "core:implement-task", "payments": "payments:workflow" }
+  ```
+
+  O `flux:build` (Step 2) resolve na ordem **repo → `default` → modo autônomo**: procura a chave com o
+  slug do repo, cai no `default` quando ela não existe, e cai no modo autônomo quando nenhum dos dois
+  existe. Um escalar equivale a um mapa só com `default`, e é por isso que a forma antiga continua
+  valendo sem nenhuma alteração no manifesto de quem já a usa: **o campo ganhou dimensão, não trocou de
+  contrato.** Quebrar manifestos existentes para acomodar um verbo novo seria cobrar de todo mundo o
+  preço de um caso que nem todo mundo tem.
+
+  **Por que a dimensão precisou existir.** Este é um dos campos que o `flux:equip` pode **escrever**
+  (Step 6 dele, sob gate explícito): quando o verbo autora um motor para um repo sem motor nativo, é
+  esta chave que faz o `flux:build` encontrá-lo. Sem ela, o motor existe no disco e o build continua
+  caindo no modo autônomo. Só que o motor autorado é **daquele repo** — foi escrito lendo a stack, os
+  scripts e as convenções dele. Gravado num escalar, equipar o segundo repo sobrescreveria o motor do
+  primeiro, e um terceiro repo sem motor próprio deixaria de cair no modo autônomo para ser executado
+  pelo motor de um repo alheio: a pior falha possível aqui, porque ela é silenciosa e produz código.
+  Por isso o `equip` grava **na chave do repo**, nunca no `default` e nunca por cima da chave de outro.
 - `no_emdash` — quando `true`, o output que pode ser postado no GitHub não usa travessão/en-dash.
 - `write_destinations` — **escrito pelo `flux:equip`, não à mão**: mapa de **diretório canônico** → aprovação
   registrada no gate de destino de escrita, para a pergunta não voltar a cada execução. Cada entrada

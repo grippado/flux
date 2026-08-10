@@ -90,11 +90,22 @@ As opções 1 e 2 **não geram nada dentro do elo que perguntou**: elas invocam
 lugar certo. A opção 3 imprime esse mesmo comando, para quem quiser rodar depois.
 
 **Quando `FLUX_CMD` é `UNAVAILABLE`** (o Passo 1b do `${FLUX_ROOT}/shared/preflight.md` não achou
-forma verificável de invocar a família — hoje, o caso do Codex), a oferta **não aborta e não some**:
-o elo segue este documento direto, que continua sendo a fonte única do procedimento. A delegação por
-nome é uma comodidade de organização, não um pré-requisito da criação da suite. O que muda é que a
-opção 3 não tem comando para imprimir, e o elo diz isso em vez de escrever um nome que talvez não
-exista naquela sessão.
+forma verificável de invocar a família — hoje, o caso do Codex), a oferta **não aborta e não some**,
+mas deixa de escrever: ela vira **instrução impressa**, não gate. O elo diz qual camada falta, que o
+verbo de preparo é o `equip`, e que ele precisa ser invocado à mão pela forma que aquela sessão expõe
+— sem nomear uma forma que não pôde verificar. Não há opção 1 nem 2 nesse estado, porque as duas
+escrevem.
+
+**Por que o degradado não é o elo executar por si.** A tentação é óbvia — o procedimento está escrito
+logo abaixo, e o elo poderia segui-lo. Mas quem oferece não tem o que é preciso para escrever com
+segurança: `flux:review`, `flux:iterate` e `flux:land` **não declaram** `write-destination.md` em
+`requires`, então o preflight deles nunca verificou o contrato de destino. Executar ali seria escrever
+no disco do usuário sem cascata, sem as três guardas e sem gate por arquivo existente — com **menos**
+verificação do que a execução normal, não com mais autonomia. É o mesmo raciocínio que o
+[`codex-compat.md`](codex-compat.md) aplica ao `land`: quando o despacho não é possível, dizer que não
+é. Preparo não feito custa uma invocação manual; preparo feito errado custa um arquivo no disco de
+alguém, possivelmente através de um symlink, possivelmente dentro de um repositório git que não é o
+revisado.
 
 O `equip` roda **no contexto principal do elo que ofereceu**, e não dentro de subagente. Não é
 exceção à disciplina de fan-out: é consequência dela. O verbo abre gates (destino de escrita,
