@@ -1,7 +1,7 @@
 {
   "name": "flux",
-  "version": "1.14.0",
-  "description": "A complete, harness-neutral work cycle for Git repositories: issue, build, peek, review, iterate, land, and reply.",
+  "version": "1.15.0",
+  "description": "A complete, harness-neutral work cycle for Git repositories: issue, build, peek, review, iterate, land, and reply, plus equip, which prepares the repository.",
   "author": {
     "name": "Gabriel Gripp",
     "email": "550632+grippado@users.noreply.github.com",
@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "Flux",
     "shortDescription": "One workflow. Every harness.",
-    "longDescription": "Flux is a shared family of seven workflows that carries work from idea to issue, code, review, iteration, landing, and reply. Claude Code, Cursor, and Codex use the same skills, agents, and contracts through native harness adapters.",
+    "longDescription": "Flux is a shared family of eight workflows that carries work from idea to issue, code, review, iteration, landing, and reply. Claude Code, Cursor, and Codex use the same skills, agents, and contracts through native harness adapters.",
     "developerName": "Gabriel Gripp",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Read", "Write", "CodeReview", "MultiAgent"],

@@ -98,7 +98,7 @@ Cada elo declara a sua, mas o padrão é este:
 | `flux:iterate` | **Verificação**: um agente por lente sobre o lote de threads. **Execução**: um agente para aplicar+quality gate no worktree | specialists / `general-purpose` |
 | `flux:land` | **Uma PR** — um subagente rodando `/flux:iterate --auto --once` por PR | `general-purpose` |
 | `flux:build` | O motor de execução do repo inteiro (a main mantém o board de execução) | `general-purpose` |
-| Bootstrap de specialists | Detecção de stack, leitura de L3 e autoria da suite, em paralelo quando independentes | `general-purpose` |
+| `flux:equip` | Detecção de stack, leitura de L3 e autoria (suite e motor), em paralelo quando independentes — a main fica com gates, destino e registro | `general-purpose` |
 | `flux:issue` (prospecção) | **Um repo** por prospector | specialists / `Explore` |
 | `flux:issue` (criação) | **Uma candidata** por agente, em levas de até 3, blockers primeiro | `issue-creator` (sonnet) |
 | `flux:reply` | **Um repo** por prospector + o answerer | `<SLACK_PROSPECTOR>` / `<SLACK_ANSWERER>` |

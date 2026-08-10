@@ -42,15 +42,20 @@ holística é usada. Nenhuma dessas ausências autoriza inventar dados, endpoint
 Pela regra do próprio passo, `FLUX_CMD` fica `UNAVAILABLE`.
 
 Isso atinge **um** elo, e só um: o `flux:land`, que é o único que despacha um irmão (ele roda o
-`iterate` por PR dentro de subagente). Os outros seis não montam nome de comando e funcionam
-normalmente.
+`iterate` por PR dentro de subagente). Os outros sete funcionam normalmente.
+
+A oferta de Bootstrap de specialists (`review`, `iterate`, `land` e `build`) **não** entra nesta
+conta, embora ela nomeie o `flux:equip`. Sem `FLUX_CMD`, o elo segue
+[`bootstrap-specialists.md`](bootstrap-specialists.md) direto, que é a fonte única do procedimento —
+a delegação por nome é organização, não pré-requisito. O `equip` invocado à mão também funciona; o
+que não funciona no Codex é montar o nome dele dentro de outro elo.
 
 O comportamento correto, e ele já está escrito no Passo 1b, é abortar a fase de despacho com a
 mensagem padrão — **nunca** degradar para uma iteração inline fora do contrato. Um `land` que
 "quase" roda é pior que um `land` que diz que não roda: ele produziria PRs iteradas sem worktree,
 sem verificação contra código real e sem disciplina de resposta.
 
-Enquanto isso valer, o Codex tem seis verbos, não sete, e o banner de perfil deve declarar a
+Enquanto isso valer, o Codex tem sete verbos, não oito, e o banner de perfil deve declarar a
 ausência. Quem precisa de entrega multi-PR no Codex usa o `iterate` PR a PR e coordena a ordem de
 merge à mão.
 

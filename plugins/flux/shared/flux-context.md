@@ -149,10 +149,11 @@ com o reviewer de outro time sem que nada acuse o problema.
   **diretório**, um valor que termina em `.md` (o caso do exemplo acima) tem o `dirname` tomado.
 - `kits_root` — template de path (com `{repo}`, resolvido exatamente como `specialists_root`) da raiz
   onde os **kits** de uma máquina vivem. Hoje o campo tem um papel só, e deliberadamente estreito: é o
-  **degrau 3** da cascata de destino de escrita. O formato de um kit e o verbo que o instala são
-  especificados à parte; declará-los aqui antes da hora congelaria um formato que ainda não existe.
-  Ausente → a cascata segue para o degrau 4 (`write_destinations`) e, não achando nada, para o degrau
-  5, que **pergunta**.
+  **degrau 3** da cascata de destino de escrita. O verbo que instala um kit é o `flux:equip`
+  (`--from-kit <ref>`), e mesmo ele resolve a `<ref>` como **caminho**, sem presumir formato: o
+  formato de um kit é especificado à parte, e declará-lo aqui antes da hora congelaria algo que ainda
+  não existe. Ausente → a cascata segue para o degrau 4 (`write_destinations`) e, não achando nada,
+  para o degrau 5, que **pergunta**.
 - `linear_ops` — path de um doc que descreve a **mecânica** de criação no Linear do time (cache de
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
@@ -168,11 +169,12 @@ com o reviewer de outro time sem que nada acuse o problema.
   MCP é específico de como aquela máquina instalou o servidor, e hardcodar o da sua faz o elo
   abortar na máquina de qualquer outra pessoa.
 - `specialists_spec` — path da espec que rege a autoria de uma suite de specialists nova (formato dos
-  arquivos, o que cada specialist cobre). Consumido pelo Bootstrap de specialists (`flux:review`, `flux:iterate`, `flux:land` e `flux:build`).
-  Opcional: sem ele, o Bootstrap usa o checklist mínimo embutido no comando.
+  arquivos, o que cada specialist cobre). Consumido pelo `flux:equip`, que é quem executa o Bootstrap
+  de specialists (`flux:review`, `flux:iterate`, `flux:land` e `flux:build` **oferecem** e chamam o
+  verbo). Opcional: sem ele, a autoria usa o checklist mínimo do Bootstrap.
 - `specialists_repo` — repo (`owner/nome`) onde as suites versionadas vivem, e alvo do PR draft que o
-  Bootstrap de specialists abre. **Nunca é o repo revisado.** Opcional: sem ele, o Bootstrap só escreve local e não
-  oferece a opção de PR.
+  `flux:equip` abre ao gerar uma suite. **Nunca é o repo revisado.** Opcional: sem ele, o verbo só
+  escreve local e não oferece a opção de PR.
 - `vault_root` / `vault_context` — onde persistir o artefato e qual `context:` gravar no frontmatter.
 - `workspace_root` — raiz onde os checkouts dos repos vivem, usada por
   `flux:land` pra resolver checkouts cross-repo. Sem o campo, assume o diretório pai do `.claude/`
@@ -186,8 +188,12 @@ com o reviewer de outro time sem que nada acuse o problema.
   não tem motor nativo. **Sem default, deliberadamente**: um comando vindo de um plugin específico é
   conhecimento de quem o instalou, não da família, e assumir um faria o `build` invocar, na máquina
   de outra pessoa, algo de um marketplace ao qual ela pode nem ter acesso. Ausente → modo autônomo.
+
+  É um dos dois campos que o `flux:equip` pode **escrever** (Step 6 dele, sob gate explícito): quando
+  o verbo autora um motor para um repo sem motor nativo, é esta chave que faz o `flux:build`
+  encontrá-lo. Sem ela, o motor existe no disco e o build continua caindo no modo autônomo.
 - `no_emdash` — quando `true`, o output que pode ser postado no GitHub não usa travessão/en-dash.
-- `write_destinations` — **escrito pelos elos, não à mão**: mapa de **diretório canônico** → aprovação
+- `write_destinations` — **escrito pelo `flux:equip`, não à mão**: mapa de **diretório canônico** → aprovação
   registrada no gate de destino de escrita, para a pergunta não voltar a cada execução. Cada entrada
   declara `repos` (os slugs para os quais aquele destino foi aprovado), `approved_at` e o estado das
   guardas no momento da aprovação; sem o `repos`, a entrada não saberia de quem é e a descoberta teria
@@ -196,6 +202,12 @@ com o reviewer de outro time sem que nada acuse o problema.
   gravação aqui tem gate próprio e passa pelas próprias guardas: num setup de dotfiles este arquivo é
   tipicamente um symlink para dentro de um repo git. Formato, semântica de caducidade e o que fazer
   sem manifesto estão em `${FLUX_ROOT}/shared/write-destination.md`. Ausente = nada aprovado ainda.
+
+> **Só um elo escreve este arquivo, e só sob gate.** Os outros sete leem o manifesto e resolvem
+> contra ele; o `flux:equip` é o único que pode alterá-lo, e apenas nos dois campos acima
+> (`exec_fallback` e `write_destinations`), por edição cirúrgica, depois de mostrar o diff. Um
+> manifesto regenerado por nós perderia ordem de campos, comentários e qualquer chave que a família
+> ainda não conheça — e este é o arquivo que governa o comportamento de todos os elos.
 - `quality_gate` — bloco opcional para diagnóstico de gates de qualidade externos via API (todo
   o sub-bloco é opcional):
   - `provider`: `"sonarcloud"` ou `"sonarqube"`. **Ausente = sem consulta** (degradação declarada

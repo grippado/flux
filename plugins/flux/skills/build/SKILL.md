@@ -334,10 +334,19 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 
 ## Step 4 — Fechar o board e fazer o handoff
 
-1. **Oferecer a suite local quando faltar.** Se o repo não tem L2 (suite de specialists local),
-   oferecer o Bootstrap agora, seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md`. **Aqui e não
-   antes**: quem pediu um build quer código, e uma entrevista sobre agents antes do trabalho é ruído.
-   Havendo L2, não perguntar nada.
+1. **Oferecer o preparo que faltou, quando faltou.** Duas ausências podem ter aparecido nesta
+   execução, e as duas se resolvem pelo mesmo verbo, `${FLUX_CMD}equip`:
+
+   - **Sem L2** (suite de specialists local) → oferecer o Bootstrap seguindo
+     `${FLUX_ROOT}/shared/bootstrap-specialists.md`; aceitar dispara
+     `${FLUX_CMD}equip <repo> --agents-only`. Havendo L2, não perguntar nada.
+   - **Rodou em modo autônomo** (caminho C do Step 2: nem motor nativo, nem `exec_fallback`) →
+     oferecer `${FLUX_CMD}equip <repo> --engine-only`, que autora um motor para este repo e o declara
+     no perfil. É a única forma de o próximo build não cair no mesmo lugar. Rodou por motor nativo ou
+     por fallback declarado, não perguntar nada.
+
+   **Aqui e não antes**: quem pediu um build quer código, e uma entrevista sobre ferramental antes do
+   trabalho é ruído. As duas ofertas cabem num gate só quando as duas faltas existirem.
 2. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.

@@ -190,8 +190,8 @@ degradacoes: {lista dos soft ausentes e o que se perde com cada um | nenhuma}
 > rege as **regras** (quais campos, quando degradar, o que cada nível significa); o gabarito repetido
 > no elo é o que garante que o template esteja em contexto **na hora de emitir**. Um elo que só
 > referencia este arquivo improvisa: inventa campos, omite o `nivel`, e o banner deixa de cumprir a
-> função. Foi observado nos sete elos — o único que acertava era o único que carregava o gabarito.
-> Ao mudar o formato aqui, propagar para os sete.
+> função. Foi observado nos elos — o único que acertava era o único que carregava o gabarito.
+> Ao mudar o formato aqui, propagar para **todos** os verbos de `skills/`.
 
 > **Por que a cerca é obrigatória, e não estilo.** As três linhas são separadas por quebra simples.
 > Em markdown, quebra simples não quebra linha: as três viram um parágrafo corrido, `perfil` e
@@ -206,8 +206,10 @@ de Y", que sem isso é indistinguível de um bug.
 A linha `lentes` sai em todo elo que reconcilia review (`flux:review`, `flux:iterate`, `flux:land`)
 **e também no `flux:build`**, com as três camadas de `${FLUX_ROOT}/shared/review-agents.md`. O build
 não usa as lentes para executar, mas é frequentemente o primeiro elo a tocar um repo novo, e é onde
-se descobre que ele está sem cobertura: sem a linha, a oferta de Bootstrap no fim chegaria sem
-contexto nenhum. **Camada ausente é
+se descobre que ele está sem cobertura: sem a linha, a oferta de `${FLUX_CMD}equip` no fim chegaria
+sem contexto nenhum. Ela sai também no **`flux:equip`**, onde o inventário das camadas é o próprio
+produto do diagnóstico (e onde o campo `holistico:` não entra, porque o verbo não revisa).
+**Camada ausente é
 declarada, nunca omitida**: é a diferença entre "o repo não tem specialists" e "eu não procurei".
 
 Exemplo em máquina sem configuração alguma:
@@ -225,7 +227,7 @@ Exemplo num repo que tem suite própria mas nenhuma suite curada:
 perfil: pessoal · nivel: REDUCED · holistico: pr-reviewer
 lentes: L1 pr-reviewer · L2 ausente (sem suite curada para 'aiterm') · L3 ausente (repo sem agents de review)
 degradacoes: sem specialists (scouters e auditors de dominio nao rodam; a review cobre o
-cross-cutting mas nao os padroes especificos do repo) — rode o Bootstrap para criar a suite
+cross-cutting mas nao os padroes especificos do repo) — rode {FLUX_CMD}equip --agents-only
 ```
 
 Quando o nível for `FULL` e não houver degradação, o banner ainda assim é impresso. A consistência é

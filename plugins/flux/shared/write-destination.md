@@ -3,7 +3,9 @@
 > Fonte única de **onde** um elo `flux:` escreve artefato que ele mesmo gerou (suite de specialists,
 > kit, qualquer arquivo que não seja código da PR), e de **o que precisa ser verificado antes de a
 > primeira linha ser escrita**. Referenciada pelo Bootstrap de specialists
-> (`${FLUX_ROOT}/shared/bootstrap-specialists.md`) e por qualquer elo futuro que equipe uma máquina.
+> (`${FLUX_ROOT}/shared/bootstrap-specialists.md`) e pelo `flux:equip`
+> (`${FLUX_ROOT}/skills/equip/SKILL.md`), o verbo que equipa uma máquina para trabalhar num repo e
+> que passa por este contrato nas duas camadas que escreve (suite de specialists e motor).
 > **Não duplicar esta lógica** nos verbos: apontar para cá e declarar só o que é específico (que
 > artefato, com que nome, em que momento).
 >

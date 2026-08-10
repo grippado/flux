@@ -639,11 +639,15 @@ referenciado não tiver suite no ambiente.
 
 Acionada em **qualquer verbo**, depois de gravar o artefato, quando **L2 está ausente** para o repo.
 
-Contrato completo (onde escreve, quando oferecer, como gera, PR draft):
+Contrato completo (quando oferecer, como a oferta é redigida, o que a suite contém):
 `${FLUX_ROOT}/shared/bootstrap-specialists.md`. **Não duplicar a lógica aqui.**
 
+**Aceitar a oferta dispara `${FLUX_CMD}equip <repo> --agents-only`**, que é quem de fato gera: os
+gates de destino de escrita e de manifesto vivem lá, num verbo só, em vez de espalhados por quatro
+elos. O review oferece e sai da frente.
+
 Ponto que o review não pode esquecer: a suite gerada é **L2, fora do repositório**. Se o repo já tem
-agents de review próprios, eles são L3, já entraram na review por descoberta, e o Bootstrap não os
+agents de review próprios, eles são L3, já entraram na review por descoberta, e o `equip` não os
 toca.
 
 ## Notas finais
