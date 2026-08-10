@@ -8,11 +8,13 @@
   "specialists_root": "~/agents/acme/{repo}/repo-owner.md",
   "specialists_spec": "~/agents/acme/AGENT_SPEC.md",
   "specialists_repo": "acme/agent-suites",
+  "kits_root": "~/agents/acme/kits/{repo}",
   "vault_root": "~/notes",
   "vault_context": "acme",
   "workspace_root": "~/code/acme",
   "linear_org": "acme",
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
+  "scope_escalation": "SDD completo em ~/code/acme/technical-refining (rode /sdd por lá)",
   "repos": [
     "api-gateway",
     "web-monorepo",
@@ -20,6 +22,23 @@
     "payments"
   ],
   "exec_command": "workflow",
-  "exec_fallback": "meu-time:implement",
-  "no_emdash": true
+  "exec_fallback": {
+    "default": "meu-time:implement",
+    "payments": "acme:payments-implement"
+  },
+  "no_emdash": true,
+  "write_destinations": {
+    "~/agents/acme": {
+      "repos": [
+        "api-gateway",
+        "web-monorepo"
+      ],
+      "approved_at": "2026-08-10",
+      "guards": {
+        "symlink": "n/a",
+        "git_repo": "confirmado: acme/agent-suites",
+        "dotfiles_dir": "n/a"
+      }
+    }
+  }
 }
