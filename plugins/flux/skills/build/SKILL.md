@@ -117,6 +117,7 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `LINEAR_ORG` = `linear_org` (para normalizar IDs de ticket em URL, quando útil)
    - `VAULT_ROOT` = `vault_root` / `VAULT_CTX` = `vault_context` (onde o board de execução é gravado)
    - `NO_EMDASH` = `no_emdash`
+   - `KITS_ROOT` = `kits_root` (template de path com `{repo}`; degrau 3 da cascata de destino, opcional)
 
 3. Se não encontrar (perfil genérico):
    - `WORKSPACE_ROOT` = o `cwd`

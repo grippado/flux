@@ -24,6 +24,7 @@ acontece.
 | salvar rascunho ou reagir no Slack | `flux:reply` |
 | commitar, pushar ou alterar o working tree | `flux:review` (8c), `flux:iterate` |
 | abrir PR (mesmo draft) | `flux:build`, Bootstrap de specialists |
+| escrever artefato gerado fora do repo alvo e fora do vault, **e registrar a aprovação no manifesto** | Bootstrap de specialists, via `${FLUX_ROOT}/shared/write-destination.md` |
 | escolher entre alvos ambíguos quando errar custa caro | `flux:issue` (qual board retomar), `flux-context.md` (qual perfil reivindica o slug) |
 
 A lista é de **categorias**, não de call sites: uma ação nova que se encaixe numa dessas linhas nasce

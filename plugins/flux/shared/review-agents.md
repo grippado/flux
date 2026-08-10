@@ -59,14 +59,32 @@ não cancela a outra.
 Resolver o caminho **nesta ordem**, parando no primeiro que existir:
 
 1. `<SPECIALISTS_ROOT>` do perfil, com `{repo}` substituído pelo `REPO_SLUG`.
-2. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o mesmo destino
-   que o Bootstrap usa quando não há manifesto (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
+2. `<KITS_ROOT>` do perfil, com `{repo}` substituído pelo `REPO_SLUG` — degrau 3 da cascata de
+   destino (`${FLUX_ROOT}/shared/write-destination.md`).
+3. A entrada de `write_destinations` do manifesto **cujo `repos` contém o `REPO_SLUG`**, quando houver
+   — é onde a suite de fato nasceu se o usuário ditou outro caminho no gate de destino. A chave da
+   entrada é o diretório canônico; o `repos` é o que diz de quem ela é. Mais de uma entrada
+   reivindicando o mesmo slug → **ambíguo**, e ambíguo não se resolve por adivinhação: tratar como
+   ausente e dizer no banner.
+4. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o destino que o
+   Bootstrap propõe como recomendado quando não há manifesto
+   (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
+
+**Cada degrau resolve para um diretório, e o arquivo é anexado depois.** É a mesma normalização do
+contrato de destino, aplicada aqui: valor terminado em `.md` (o caso do template de
+`specialists_root`, e o do default acima) **já nomeia o orquestrador** e é usado tal como está; valor
+que é diretório (o caso de `kits_root` e o das entradas de `write_destinations`) recebe
+`/repo-owner.md`, que é o nome com que o Bootstrap escreve o orquestrador. Sem essa regra os degraus
+2 e 3 apontariam para um diretório e o passo 1a-bis mandaria ler o frontmatter dele.
 
 Achou → seguir para o passo 1a-bis. Não achou → **ausente**.
 
-> **Por que o nível 2 existe.** Sem ele, uma suite gerada pelo Bootstrap no perfil genérico seria
-> escrita em disco e **nunca carregada**: o elo ofereceria criá-la de novo a cada review, para um repo
-> que já tem uma. Descoberta e escrita têm que olhar para o mesmo lugar.
+> **Por que os níveis 2, 3 e 4 existem.** Sem eles, uma suite gerada pelo Bootstrap fora de
+> `specialists_root` seria escrita em disco e **nunca carregada**: o elo ofereceria criá-la de novo a
+> cada review, para um repo que já tem uma. Descoberta e escrita têm que olhar para o mesmo lugar — e
+> é por isso que esta lista é a cascata de destino na **mesma ordem** (`specialists_root` → `kits_root`
+> → o que o gate aprovou → default da família), com o degrau de perguntar omitido, porque descobrir
+> não pergunta nada.
 
 ### 1a-bis — O arquivo existir não é o mesmo que o agente ser invocável
 
@@ -164,7 +182,7 @@ seguir. Nunca travar por ausência de specialists.
 | **inalcançável** | a suite existe e não é invocável | `L2 inalcancavel — <motivo>` | instalar/expor a suite que já existe |
 
 Colapsar `inalcançável` em `ausente` faz o elo oferecer **criar de novo** uma suite que já foi
-escrita, que é o mesmo erro que o nível 2 do passo 1a existe para evitar, um degrau acima. Colapsar
+escrita, que é o mesmo erro que os níveis 2 a 4 do passo 1a existem para evitar, um degrau acima. Colapsar
 em `disponível` é pior: promete uma cobertura que não houve.
 
 Com `--solo`, pular este passo inteiro e o 2b, independentemente do que exista.
