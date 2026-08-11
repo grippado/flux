@@ -235,7 +235,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   tipicamente um symlink para dentro de um repo git. Formato, semântica de caducidade e o que fazer
   sem manifesto estão em `${FLUX_ROOT}/shared/write-destination.md`. Ausente = nada aprovado ainda.
 
-> **Só um elo escreve este arquivo, e só sob gate.** Os outros sete leem o manifesto e resolvem
+> **Só um elo escreve este arquivo, e só sob gate.** Os demais elos leem o manifesto e resolvem
 > contra ele; o `flux:equip` é o único que pode alterá-lo, e apenas nos dois campos acima
 > (`exec_fallback` e `write_destinations`), por edição cirúrgica, depois de mostrar o diff. Um
 > manifesto regenerado por nós perderia ordem de campos, comentários e qualquer chave que a família
