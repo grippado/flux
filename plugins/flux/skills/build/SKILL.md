@@ -28,6 +28,9 @@ Onde ele fica no ciclo:
 **Bootstrap de specialists:** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
 **Formato do board:** `${FLUX_ROOT}/shared/board-template.md`, **perfil execução** (`type: flux-build`). As seções, a legenda de ícones e a disciplina de carimbo de data vivem lá e não são repetidas aqui.
 **Orçamento de contexto (leitura sob demanda, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
+**Gate de escopo (o que decide se a task é despachada inteira):** `${FLUX_ROOT}/shared/scope-gate.md`
+**Gates com o usuário:** `${FLUX_ROOT}/shared/hitl.md`
+**Contrato de vertical slice (o que é uma fatia):** `${FLUX_ROOT}/shared/issue-template.md`, seção **Decomposição (vertical slices)**
 
 ## Banner de perfil — gabarito (copiar VERBATIM)
 
@@ -37,16 +40,26 @@ que só existe num shared não chega ao contexto na hora de emitir — e o que s
 improvisado, com campos inventados e sem o `nivel`.
 
 Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
-em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+em `${FLUX_ROOT}/shared/preflight.md`, Passo 5; a linha `escopo` é definida em
+`${FLUX_ROOT}/shared/scope-gate.md`, seção "Como o veredito é declarado".
 
 ````
 ```
 perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN}
+escopo: {🟢 cabe | 🟡 cabe raso | 🔴 nao cabe} ({sinais lidos})
 lentes: L1 n/a · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 motor: {nativo <cmd> | exec_fallback <cmd> | autonomo}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
+
+**A linha `escopo` sai uma vez só**, com o veredito do passe único do Step 2-quater, e não é
+reemitida — ao contrário do `flux:refine`, que tem T0 e T1 e corrige o número provisório. Aqui não há
+número provisório: o embasamento chega pronto no corpo da issue, então os dois insumos do gate
+chegam juntos (`${FLUX_ROOT}/shared/scope-gate.md`, "Dois tempos"). Com `--no-slice`, a linha continua
+saindo — o que a flag desliga é a **ação** do gate, nunca a medição, porque um despacho que ignora o
+tamanho sem nem tê-lo lido é o caso que este elo existe para não repetir. Rodando com `--no-slice`,
+acrescentar ` (dispensado por --no-slice)` ao fim da linha.
 
 Este elo **não** resolve reviewer holístico — quem revisa é o motor do repo, depois, em outro
 elo. O campo `holistico:` **não entra no banner** e `L1` sai como `n/a`, porque anunciar uma lente
@@ -77,6 +90,7 @@ Flags próprias do `flux:build` (consumidas aqui, **não** repassadas):
 |------|--------|
 | `--dry` | Resolve repo + motor, imprime o plano de despacho e **para**. Nada é executado. |
 | `--engine <cmd>` | Força o motor (ex.: `--engine meu-time:implement`), pulando a descoberta do Step 2. |
+| `--no-slice` | Desliga o **gate de escopo** do Step 2-quater: mede, declara a faixa no banner e no board, e **despacha inteiro sem abrir o gate**. Não desliga a medição, só a pergunta. A dispensa vira evento `escopo` no board, com os sinais apurados. |
 
 ### Exemplos
 
@@ -85,6 +99,7 @@ Flags próprias do `flux:build` (consumidas aqui, **não** repassadas):
 /flux:build notifications https://linear.app/{LINEAR_ORG}/issue/NOT-2693
 /flux:build web-monorepo "ajustar empty state do EventAnnouncement"
 /flux:build payments PAY-88 --dry
+/flux:build payments PAY-88 --no-slice  # eu já sei que é grande e quero inteiro assim mesmo
 /flux:build ENG-1234                    # dentro de <WORKSPACE_ROOT>/api-gateway
 ```
 
@@ -144,7 +159,7 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
 ## Step 1 — Resolver o repo-alvo
 
-1. Parse dos argumentos: retire primeiro as flags próprias (`--dry`, `--engine`). Do que restar, o **primeiro token** é candidato a `<repo>`; o resto é `$REST` (task + flags do motor), repassado inteiro e sem interpretação.
+1. Parse dos argumentos: retire primeiro as flags próprias (`--dry`, `--engine`, `--no-slice`). Do que restar, o **primeiro token** é candidato a `<repo>`; o resto é `$REST` (task + flags do motor), repassado inteiro e sem interpretação.
 
 2. Decidir entre workspace mode e repo mode:
 
@@ -315,6 +330,111 @@ de `${FLUX_ROOT}/shared/board-template.md` (`type: flux-build`).
 
 ---
 
+## Step 2-quater — Gate de escopo (medir antes de despachar)
+
+Aplicar `${FLUX_ROOT}/shared/scope-gate.md`, tempo **passe único**. Os sinais duros e moles, os
+limiares, a contagem termo a termo e as três faixas estão **lá**, e não são redefinidos aqui: este elo
+declara apenas o que é dele, que é o que fazer com a faixa. Redefinir um limiar neste arquivo é
+garantir que ele divirja do `flux:refine`, que lê o mesmo contrato.
+
+**Os insumos já estão em contexto, e nenhum deles custa uma chamada de agente:**
+
+- o **corpo da issue** — entregáveis enumerados, e se ele mistura produção, teste e hook/infra;
+- o **embasamento em código do Step 2-ter** — quantos arquivos, em quantos diretórios de topo, em
+  quantos repos com escrita prevista;
+- o **motor resolvido no Step 2** — `autonomo` é sinal mole, e é o único sinal do contrato que existe
+  **só neste elo**: sem os gates do repo, errar grande custa mais.
+
+> **Nenhum agente é chamado para medir.** É a invariante 1 do contrato, e aqui ela é mais que uma
+> preferência: medir por fan-out violaria a proibição do Step 2-ter ("Por que este elo não aciona
+> specialists"). O gate lê texto que já está na tela.
+
+> **Por que passe único, e não T0 e T1 como no `flux:refine`.** Este elo **recebe** o embasamento
+> pronto no corpo da issue; ele não o produz. Os dois insumos do gate chegam juntos, não há intervalo
+> entre eles, e um "T0" aqui seria a mesma leitura feita duas vezes. A justificativa é do contrato
+> (`${FLUX_ROOT}/shared/scope-gate.md`, "Dois tempos"), que também explica por que a lista de sinais é
+> a mesma nos dois casos.
+
+### Por que aqui, depois do board e antes do despacho
+
+O gate precisa de duas coisas para existir: o embasamento (Step 2-ter), que é o insumo, e um lugar
+onde a decisão fique registrada. O board nasce no Step 2-bis, e a invariante 3 do contrato exige que
+**toda decisão do gate deixe rastro** — inclusive a dispensa, porque é dela que se aprende que um
+limiar está errado. Rodar o gate antes do board obrigaria a gravar o veredito retroativamente, ou a
+perdê-lo inteiro quando o usuário escolhesse a saída inócua, que é justamente o caso em que o rastro
+mais importa.
+
+E o board é barato: ele nasce vazio, antes de qualquer minuto de motor. O que o gate barra é o
+**despacho** (Step 3), não a anotação.
+
+### O que cada faixa faz
+
+| faixa | ação |
+|---|---|
+| 🟢 **cabe** | despacha direto. Nenhum gate, nenhuma pergunta. |
+| 🟡 **cabe raso** | abre o gate oferecendo fatiar, **com o corte proposto** |
+| 🔴 **não cabe** | abre o gate com o corte proposto e a **fatia 1 recomendada** |
+
+> **O gate abre no 🟡 também, com 1 sinal mole.** A LAB-65 pedia disparo só com 2 sinais, mas o
+> contrato é a fonte única e ele dá ao 🟡 uma ação própria neste elo — e a assimetria de custo é a
+> mesma: barrar de graça custa uma pergunta, despachar grande custa a execução inteira. O que muda
+> entre 🟡 e 🔴 não é abrir ou não, é qual opção chega recomendada e quão nomeado é o corte.
+
+### O menu (single-select, `${FLUX_ROOT}/shared/hitl.md`)
+
+Antes de abrir, montar o **corte proposto**: quais frentes o pedido tem, quais entram na fatia 1,
+quais ficam, e — obrigatoriamente — **o que a fatia 1 entrega sozinha**. Cada fatia respeita o
+contrato de vertical slice do `${FLUX_ROOT}/shared/issue-template.md`, seção **Decomposição (vertical
+slices)**: independentemente entregável, atravessa as camadas necessárias, **1 repo**. Camada não é
+fatia: "o backend disto" e "o frontend disto" são **uma** fatia quando uma não serve sem a outra.
+Uma proposta que não diz o que a primeira fatia entrega sozinha não é proposta, é uma lista.
+
+> **Por que o build referencia esse contrato explicitamente.** A regra "um repo por invocação" deste
+> elo sempre foi consistente com o `issue-template.md`, mas por **convenção implícita**: nada aqui
+> apontava para lá. Um gate que corta trabalho sem dizer o que é uma fatia inventaria uma definição
+> concorrente na terceira invocação.
+
+Uma única question, opções nesta ordem:
+
+1. **Fatiar e despachar a fatia 1** *(Recomendado)* — despacha ao motor **só** a fatia 1, com o
+   embasamento restrito a ela. As demais fatias **não viram issue aqui** (este elo não cria issue):
+   ficam nomeadas no board e no handoff. Recomendada nas duas faixas, e mais ainda quando o motor é
+   `autonomo`.
+2. **Despachar inteiro** — despacha a task como veio, sem corte. O gate fica registrado como
+   dispensado no board, com os sinais apurados. Não cancela nada, não altera a task.
+3. **Só mostrar o plano** — imprime o veredito, os sinais lidos e o corte proposto, e **para**. Nada é
+   despachado, nada é escrito no repo. Saída inócua.
+
+Sem `AskUserQuestion` no harness, o gate não desaparece: vira menu numerado no chat, com a mesma
+ordem, e a degradação é declarada no banner (`${FLUX_ROOT}/shared/hitl.md`).
+
+**O gate roda na main, nunca dentro de subagente** — subagente não tem canal com o usuário. Quem
+despacha resolve o gate primeiro e passa a decisão já tomada.
+
+### `--no-slice` e `--dry`
+
+- **`--no-slice`** mede, declara e **não abre o gate**: despacha inteiro. É a única forma de renunciar
+  a este gate, e é do usuário, nunca do elo. O `flux:refine` não tem equivalente, e a assimetria está
+  explicada no contrato ("Vermelho no `flux:refine` não tem override"): lá, forçar produz um documento
+  raso com cara de completo, que circula como spec; aqui, produz uma execução que falha visivelmente,
+  em worktree, sem enganar ninguém depois. Não reescrever esse raciocínio, apontá-lo.
+- **`--dry`** não abre o gate tampouco, por outro motivo: ele não despacha, então não há o que barrar.
+  O veredito e o corte proposto entram no plano impresso no Step 3.
+
+### O que fica registrado
+
+Com board (sem `--dry`), sempre:
+
+1. **o veredito** — faixa e sinais lidos — como linha da Timeline de Eventos, tipo `escopo`, e
+   `scope:` no frontmatter;
+2. **a escolha do usuário** — como linha tipo `decisão`, dizendo qual opção e, se fatiou, o que ficou
+   de fora **por nome**;
+3. **a dispensa** — tanto a da opção 2 quanto a de `--no-slice` — como linha tipo `escopo`, com os
+   sinais que o gate tinha apurado. Dispensar é legítimo; dispensar sem rastro não é, porque é
+   exatamente o que impede corrigir os limiares com evidência em vez de opinião.
+
+---
+
 ## Step 3 — Anunciar e despachar
 
 1. Antes de disparar, informe ao usuário em **uma linha** (duas se houver ressalva):
@@ -330,7 +450,13 @@ ou, no fallback:
 
 > `<repo>` não tem motor nativo — despachando via `<EXEC_FALLBACK>` em worktree dedicado. Convenções vêm do `CLAUDE.md` do repo.
 
-2. Se `--dry`, **pare aqui**: imprima repo resolvido, checkout, motor escolhido, task e flags repassadas. Nada mais.
+2. Se `--dry`, **pare aqui**: imprima repo resolvido, checkout, motor escolhido, task, flags repassadas
+   e o **veredito de escopo** do Step 2-quater (faixa, sinais lidos e, fora do 🟢, o corte proposto).
+   Nada mais.
+
+2-bis. **Fatiou no Step 2-quater?** O que vai ao motor é a **fatia 1**, não a task inteira: a descrição
+   despachada é a da fatia, e o embasamento repassado é o subconjunto que encosta nela. Despachar o
+   corpo inteiro depois de cortar desfaz o corte em silêncio, que é o pior desfecho possível do gate.
 
 3. Disparar o motor. **Onde ele roda depende do modo de sessão** — a regra é a disciplina de fan-out
    (`${FLUX_ROOT}/shared/fanout-discipline.md`): o repo-alvo nunca pode ser um **segundo**
@@ -389,6 +515,12 @@ Ao final, o resultado é o do motor (tipicamente PR draft + CI monitorado). Fech
 - PR já com threads/CI vermelho → `${FLUX_CMD}iterate <pr>`.
 - Task era uma frente de entrega multi-PR → `${FLUX_CMD}land <issue>`.
 
+**Fatiou no Step 2-quater?** O handoff carrega, além do elo seguinte, as fatias que ficaram — nomeadas,
+na ordem proposta, com o que cada uma entrega. Elas viram issue pelo `${FLUX_CMD}issue`, ou entram
+direto numa nova invocação deste elo; **este comando não cria issue**. Uma fatia que só existe no
+histórico do chat é uma fatia perdida, e o corte vira o mesmo despacho parcial acidental que o gate
+existe para evitar.
+
 Montar com o `FLUX_CMD` resolvido no preflight, **nunca** com `/flux:` literal — o usuário vai digitar
 o que estiver escrito aqui.
 
@@ -403,4 +535,9 @@ Não rode o próximo elo automaticamente: informe e devolva o volante ao usuári
 - **Local apenas.** Sem CI, sem cloud, sem Forja.
 - **Um repo por invocação.**
 - **Fallback é degradação consciente, não silenciosa.** Sempre diga ao usuário que caiu no fallback e por quê.
+- **O escopo é medido sempre, e medido sem chamar agente.** `--no-slice` dispensa o gate, nunca a
+  medição, e a dispensa vira evento no board. Os limiares moram em
+  `${FLUX_ROOT}/shared/scope-gate.md`; este elo não tem limiar próprio.
+- **O gate mede tamanho, nunca valor.** Ele não diz que a task é ruim, diz que ela não cabe numa
+  execução, e mostra o que caberia.
 - Quando `NO_EMDASH` é `true`, nada que possa ir para o GitHub (título/corpo de PR, comentário) usa travessão ou en-dash.
