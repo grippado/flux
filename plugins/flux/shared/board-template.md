@@ -1,7 +1,7 @@
 # Template compartilhado de board (build + iterate + delivery + slack + issue)
 
 > Fonte única do formato de board vivo do vault, referenciada por `/flux:iterate`,
-> `/flux:land`, `/flux:reply` e `/flux:issue`. **Não duplicar este template dentro dos comandos** — cada comando
+> `/flux:land`, `/flux:reply`, `/flux:issue` e `/flux:refine`. **Não duplicar este template dentro dos comandos** — cada comando
 > aponta para cá e só declara os parâmetros específicos dele (naming, gatilho de criação, escopo do painel).
 > Editar o formato do board significa editar ESTE arquivo, e os comandos herdam a mudança.
 
@@ -19,7 +19,7 @@ texto postado no GitHub/Slack, via iterate).
 | **single-PR** | `/flux:iterate` | 1 linha (a PR única) | `flux-iterate` | `YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md` |
 | **multi-PR** | `/flux:land` | N linhas (todas as PRs da entrega) | `flux-land` | `YYYY-MM-DD-HHMM-flux-land-<slug>.md` |
 | **conversa** | `/flux:reply` | N linhas (pendências em aberto do caso) | `thread` | `YYYY-MM-DD-HHMM-flux-reply-<slug-do-caso>.md` |
-| **exploração** | `/flux:issue` | N linhas (as issues candidatas) | `flux-issue` | `linear/YYYY-MM-DD-flux-issue-<slug>.md` (única fora do `0-inbox/`; sem `HHMM`, por compatibilidade com os rascunhos já gravados) |
+| **exploração** | `/flux:issue` + `/flux:refine` | N linhas (as issues candidatas) | `flux-issue` | `linear/YYYY-MM-DD-flux-issue-<slug>.md` (única fora do `0-inbox/`; sem `HHMM`, por compatibilidade com os rascunhos já gravados) |
 
 > **O nome do arquivo carrega o nome do comando.** O infixo é sempre `flux-<verbo>`, igual ao comando que
 > gerou o board — quem lista o `0-inbox/` sabe de onde cada nota veio sem abrir nenhuma. Os infixos antigos
@@ -46,8 +46,8 @@ texto postado no GitHub/Slack, via iterate).
 
 As **seções, a ordem, a legenda de ícones e a disciplina de carimbo de data são idênticas** nos cinco
 perfis. O que muda é o que o painel lista, o bloco de proveniência (abaixo), as três seções extras do
-perfil conversa (7-ter, 7-quater, 7-quinquies), a seção extra do perfil exploração (7-sexies, que também
-herda a 7-quater) e a coluna de esforço do perfil execução.
+perfil conversa (7-ter, 7-quater, 7-quinquies), as duas seções extras do perfil exploração (7-sexies e
+7-septies, que também herda a 7-quater) e a coluna de esforço do perfil execução.
 
 ### O que o perfil execução herda e o que ele acrescenta
 
@@ -111,6 +111,13 @@ Ele acrescenta duas coisas ao trabalho que o comando já fazia:
   No board, ele fica — na 🔬 Achados de codebase (7-quater), a mesma seção do perfil conversa.
 - **As rodadas do gate deixam rastro.** Cada `Editar antes` versiona o rascunho (7-sexies) em vez de
   sobrescrevê-lo, então dá para saber qual versão foi rejeitada e por quê.
+
+**Dois verbos escrevem neste perfil, e o board é do pedido, não do verbo.** O `flux:issue` o abre
+quando vai direto ao corpo da issue; o `flux:refine` o abre antes, quando o pedido ainda precisa de
+PRD, TRD e plano, e acrescenta a 7-septies. Rodando os dois, o board é **um só**: o `flux:refine`
+deixa as candidatas em `🟡 RASCUNHADA` com o dossiê apurado, e o `flux:issue` as encontra pelo
+`source` (Step 1-bis), escreve os corpos e abre o gate de criação sem reprospectar nada. O nome do
+arquivo carrega `flux-issue` nos dois casos, porque é o pedido que ele endereça.
 
 **Por que este perfil mora em `linear/` e não em `0-inbox/`.** Nos outros quatro, o board é a memória de
 um trabalho cujo produto está fora dele (a PR, a mensagem do Slack). Aqui o produto — o corpo da issue —
@@ -176,6 +183,8 @@ linear_ids: []                       # preenchido após a criação; [] até lá
 execution_status: active             # active ao nascer · done ao criar no Linear
                                      # open se parou no rascunho · dropped se descartado
 origin_board: "<path do board de conversa que originou o pedido, ou omitido>"
+scope: cabe                          # cabe | cabe-raso | nao-cabe  (só quando o flux:refine rodou;
+                                     # veredito de T1, ver scope-gate.md — omitido se ele não rodou)
 # todos os perfis:
 tags: [board, <build|iterate|delivery|slack|issue-draft>, orchestration]
 ---
@@ -400,7 +409,9 @@ cronológicas e nenhuma delas de status.
      `descoberta`, `pr-body`. No perfil conversa acrescentam-se: `migração` (o caso mudou de
      superfície), `rascunho` (draft salvo/enviado/invalidado) e `pendência` (aberta ou fechada). No
      perfil exploração acrescentam-se: `prospecção` (fan-out disparado / retorno de um repo),
-     `candidata` (aberta, redefinida ou descartada) e `linear` (issue criada, com o identificador).
+     `candidata` (aberta, redefinida ou descartada), `linear` (issue criada, com o identificador) e
+     `escopo` (veredito do gate de [`scope-gate.md`](scope-gate.md), e toda mudança de faixa entre
+     T0 e T1 — a linha diz **quais sinais** mudaram, não só a faixa nova).
    - No perfil conversa a coluna final é **superfície**, não `PR(s)`. No perfil exploração é
      **candidata** (o `#` da linha do painel), também não `PR(s)`.
    - `pr-body` = reconciliação da descrição da PR (passo 8a do `/flux:iterate`). A linha diz **qual
@@ -492,6 +503,36 @@ cronológicas e nenhuma delas de status.
      apagado é trabalho refeito no próximo run.
    - Depois de criada no Linear, a subseção ganha o identificador linkado no cabeçalho — o corpo vira
      registro histórico do que **foi** criado, e a issue passa a ser a fonte da verdade viva.
+
+7-septies. **📐 Refinamento** *(perfil exploração, só quando o `flux:refine` rodou)* — o refinamento
+   que **antecede** o corpo da issue: por que o pedido existe, onde ele encosta no código e em que
+   ordem se entrega. Quatro blocos, sempre nesta ordem:
+
+   - **§1 PRD-fast** — problema, user story, regras de negócio, edge cases, fora de escopo.
+   - **§2 TRD-fast** — contrato efetivo (inline), pontos de toque com `arquivo:linha` linkado e o
+     veredito do achado que sustenta cada um, decisões de implementação, riscos. O que não foi
+     apurado aparece **declarado como não apurado**, nunca preenchido pelo que provavelmente existe.
+   - **§3 Plano** — as slices em ordem, com o grafo de bloqueio e a classificação AFK/HITL de cada
+     uma. Sem tabela de status: as slices já são as linhas do Painel (item 4), e a regra de ouro
+     proíbe uma segunda tabela das mesmas unidades. Aqui elas aparecem em prosa/lista.
+   - **§4 Veredito de escopo** — a faixa apurada, os sinais lidos e, em 🟡, a **lista nominal** do que
+     ficou raso. Contrato em [`scope-gate.md`](scope-gate.md).
+
+   **A ordem de produção é a inversa da ordem no arquivo**, e é de propósito: refina-se antes de
+   escrever o corpo, mas o refinamento fica **depois** do rascunho no documento. O produto do board
+   é o corpo da issue (7-sexies), e ele não pode ser empurrado para baixo por um insumo — quem abre
+   o board dias depois procura o que vai virar issue, não o caminho até ela.
+
+   > **Por que o refinamento não vira um board próprio.** O `flux:refine` e o `flux:issue` tratam do
+   > **mesmo pedido**, e o `source` é a chave de identidade deste perfil. Um board separado faria o
+   > Step 1-bis do `flux:issue` não encontrar nada e reprospectar o que já tinha sido apurado, que é
+   > exatamente o desperdício que a 🔬 Achados de codebase existe para evitar. Uma nota por pedido,
+   > não uma por verbo.
+
+   **Recusa por escopo** (🔴 no `flux:refine`) usa a mesma seção, com duas trocas: o §3 traz o **corte
+   proposto** no lugar do plano (as frentes, o blocker, a fatia que cabe), e o §4 explica a recusa e
+   o encaminhamento. O que foi apurado fica na 🔬 Achados — é o que torna a próxima tentativa, já
+   cortada, mais barata que a primeira.
 
 ## Disciplina de carimbo de data (vale para todos os perfis)
 

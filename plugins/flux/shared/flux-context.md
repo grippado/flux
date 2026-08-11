@@ -119,6 +119,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
   "repos": ["api-gateway", "web-monorepo", "notifications", "payments", "..."],
   "exec_command": "workflow",
+  "scope_escalation": "/sdd — hub de refinamento em ~/code/acme/technical-refining",
   "mcp": {
     "docs": "mcp__claude_ai_Google_Drive",
     "slack": "mcp__plugin_slack_slack"
@@ -154,6 +155,13 @@ com o reviewer de outro time sem que nada acuse o problema.
   formato de um kit é especificado à parte, e declará-lo aqui antes da hora congelaria algo que ainda
   não existe. Ausente → a cascata segue para o degrau 4 (`write_destinations`) e, não achando nada,
   para o degrau 5, que **pergunta**.
+- `scope_escalation` — para onde mandar um pedido que **não cabe** numa rodada, quando o gate de
+  escopo (`${FLUX_ROOT}/shared/scope-gate.md`) o classifica como 🔴. Texto livre, porque o destino
+  varia demais para ter forma: pode ser um comando (`/sdd`), um repo de refinamento, um processo
+  interno ou um nome de pessoa. O elo o repete **verbatim** no encaminhamento da recusa.
+  Ausente → a recusa recomenda genericamente um processo de refinamento completo e lista os
+  artefatos que faltam. **Nunca cite ferramenta que o manifesto não declarou**: recomendar um
+  processo que o time não tem é mandar a pessoa para lugar nenhum.
 - `linear_ops` — path de um doc que descreve a **mecânica** de criação no Linear do time (cache de
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
