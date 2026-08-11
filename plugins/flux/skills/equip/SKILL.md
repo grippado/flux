@@ -390,7 +390,7 @@ mesmo instante, não no fim.
 
 ## Step 6 — Persistir no manifesto (gate próprio, e este é novo)
 
-**Nenhum elo da família escreveu o `flux-context.json` até agora.** Todos os sete leem o manifesto e
+**Nenhum elo da família escreveu o `flux-context.json` até agora.** Todos os demais leem o manifesto e
 resolvem contra ele; nenhum o altera. Este verbo é o primeiro que precisa alterar, e por isso a
 escrita do manifesto é **ação com gate explícito**, nunca efeito colateral de ter equipado.
 
