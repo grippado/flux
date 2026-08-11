@@ -78,8 +78,8 @@ mensagem padrão — **nunca** degradar para uma iteração inline fora do contr
 sem verificação contra código real e sem disciplina de resposta.
 
 Enquanto isso valer, o `flux:land` é o único verbo da família indisponível no Codex, e o banner de
-perfil deve declarar a ausência. Quem precisa de entrega multi-PR no Codex usa o `iterate` PR a PR e coordena a ordem de
-merge à mão.
+perfil deve declarar a ausência. Quem precisa de entrega multi-PR no Codex usa o `iterate` PR a PR e
+coordena a ordem de merge à mão.
 
 Isto é **débito técnico registrado**, não desenho definitivo:
 [LAB-77](https://linear.app/g-lab-s/issue/LAB-77).
