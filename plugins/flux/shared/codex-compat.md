@@ -42,7 +42,7 @@ holística é usada. Nenhuma dessas ausências autoriza inventar dados, endpoint
 Pela regra do próprio passo, `FLUX_CMD` fica `UNAVAILABLE`.
 
 Isso atinge **um** elo, e só um: o `flux:land`, que é o único que despacha um irmão (ele roda o
-`iterate` por PR dentro de subagente). Os outros sete funcionam normalmente.
+`iterate` por PR dentro de subagente). Os demais verbos da família funcionam normalmente.
 
 A oferta de Bootstrap de specialists (`review`, `iterate`, `land` e `build`) **não** entra nesta
 conta, e o motivo mudou: sem `FLUX_CMD`, a oferta **imprime a instrução e não executa**. Ela deixa de
@@ -77,9 +77,9 @@ mensagem padrão — **nunca** degradar para uma iteração inline fora do contr
 "quase" roda é pior que um `land` que diz que não roda: ele produziria PRs iteradas sem worktree,
 sem verificação contra código real e sem disciplina de resposta.
 
-Enquanto isso valer, o Codex tem sete verbos, não oito, e o banner de perfil deve declarar a
-ausência. Quem precisa de entrega multi-PR no Codex usa o `iterate` PR a PR e coordena a ordem de
-merge à mão.
+Enquanto isso valer, o `flux:land` é o único verbo da família indisponível no Codex, e o banner de
+perfil deve declarar a ausência. Quem precisa de entrega multi-PR no Codex usa o `iterate` PR a PR e
+coordena a ordem de merge à mão.
 
 Isto é **débito técnico registrado**, não desenho definitivo:
 [LAB-77](https://linear.app/g-lab-s/issue/LAB-77).

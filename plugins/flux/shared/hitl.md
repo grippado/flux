@@ -33,7 +33,7 @@ com gate, sem precisar emendar esta tabela.
 
 > **A linha do manifesto é a mais recente, e a única que altera a configuração da família.** Até o
 > `flux:equip`, nenhum elo escrevia o `flux-context.json` — todos liam. Alterar o arquivo que governa
-> os outros sete elos, num arquivo que costuma ser versionado nos dotfiles de alguém, é ação com
+> os demais elos, num arquivo que costuma ser versionado nos dotfiles de alguém, é ação com
 > gate, nunca consequência de ter equipado um repo.
 
 ### O que NÃO precisa de gate
