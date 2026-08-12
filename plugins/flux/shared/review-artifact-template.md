@@ -59,7 +59,8 @@ Nada de citação nua. Se o texto aponta para código, PR, thread, ticket ou doc
 ---
 context: "{VAULT_CTX}"
 type: pr-review
-repo: "{owner/repo}"
+repo: "{repo-slug}"          # slug puro (web-monorepo), nunca acme/web-monorepo
+pending_organize: true       # a review nasce no 0-inbox/; context + repo é o que o /organize usa pra rotear
 pr: {number}
 pr_url: "{url da PR}"
 ticket: "{TICKET-XXX ou null}"

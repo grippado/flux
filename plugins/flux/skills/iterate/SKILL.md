@@ -68,7 +68,9 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
 2. Se encontrar (perfil declarado), extrair as variáveis de sessão:
    - `HOLISTIC` = `holistic_reviewer`
-   - `VAULT_ROOT` = `vault_root`
+   - `VAULT_ROOT` = `vault_root` (raiz compartilhada: é onde fica o `0-inbox/`, e toda escrita nova vai para lá)
+   - `VAULT_CTX` = `vault_context` (campo `context:` no frontmatter do que for gravado)
+   - `VAULT_CTX_ROOT` = `vault_context_root` (raiz do contexto, onde o eixo por tipo vive; só leitura. Ausente → `VAULT_ROOT`)
    - `NO_EMDASH` = `no_emdash`
    - `SPECIALISTS_ROOT` = `specialists_root` (template de path com `{repo}`)
    - `KITS_ROOT` = `kits_root` (template de path com `{repo}`; degrau 3 da cascata de destino, opcional)
@@ -77,6 +79,8 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 3. Se não encontrar (perfil genérico):
    - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3), nunca um nome fixo
    - `VAULT_ROOT` = não persiste por default; imprime no chat
+   - `VAULT_CTX` = `generic`
+   - `VAULT_CTX_ROOT` = nenhum (sem vault não há rodada anterior para procurar)
    - `NO_EMDASH` = `false`
    - `SPECIALISTS_ROOT` = `<repo-checkout>/.claude/agents/reviewer.md` ou `<repo-checkout>/.claude/agents/review/*.md`
    - `ANSWERER` = o próprio `<HOLISTIC>` com instrução de rascunhar réplicas (sem agente dedicado)
@@ -669,10 +673,10 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
    - Instrução: produzir rascunhos classificados em `accepts-suggestion / defends-decision / needs-discussion / needs-code-change` + os comandos `gh api` prontos para cada thread.
    - Se `ANSWERER` não estiver definido no perfil (genérico): usar `<HOLISTIC>` com instrução explícita de rascunhar réplicas seguindo o mesmo formato.
 5. Computar o **path do arquivo de saída**:
-   - Com `VAULT_ROOT`: `<VAULT_ROOT>/pr-reviews/YYYY-MM-DD-{repo-slug}-PR{n}-v{N}-answers.md`
-     - `{N}` = número de runs de `--dry` neste dia para esta PR (verificar arquivos existentes em `<VAULT_ROOT>/pr-reviews/` com o mesmo prefixo e incrementar).
+   - Com `VAULT_ROOT`: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-{repo-slug}-PR{n}-v{N}-answers.md` — nota nova nasce no inbox, como todas as outras.
+     - `{N}` = número de runs de `--dry` neste dia para esta PR. Contar os arquivos de mesmo prefixo nos **dois** lugares onde eles podem estar: `<VAULT_ROOT>/0-inbox/` (ainda não triados) e `<VAULT_CTX_ROOT>/pr-reviews/` (já promovidos pelo `/organize`). Contar só o inbox reinicia o `v` depois de cada triagem e sobrescreve rascunho anterior.
    - Sem `VAULT_ROOT` (perfil genérico): imprimir o resultado no chat em vez de salvar.
-6. **Salvar** o output do `<ANSWERER>` no arquivo calculado (Write tool). **Nunca** escrever no GitHub.
+6. **Salvar** o output do `<ANSWERER>` no arquivo calculado (Write tool), com frontmatter mínimo de roteamento (`type: pr-review`, `context: <VAULT_CTX>`, `repo: <repo-slug>`, `pr:`, `date:`, `pending_organize: true`) — sem esse sinal o `/organize` não sabe para qual contexto promover. **Nunca** escrever no GitHub.
 7. Anunciar no chat:
    ```
    Rascunhos salvos em {caminho-completo}.

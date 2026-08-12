@@ -1,6 +1,6 @@
 {
   "name": "flux",
-  "version": "1.19.0",
+  "version": "1.20.0",
   "description": "A complete, harness-neutral work cycle for Git repositories: refine, issue, build, peek, review, iterate, land, and reply, plus equip, which prepares the repository.",
   "author": {
     "name": "Gabriel Gripp",

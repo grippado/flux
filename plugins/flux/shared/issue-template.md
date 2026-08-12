@@ -111,7 +111,7 @@ lista numerada e aprovar em lote, nunca por issue.
 
 Este documento define **o corpo da issue**, e só isso. O corpo é escrito na seção
 **📝 Rascunho da issue** (7-sexies) do **board de exploração** do `flux:issue` — uma subseção por
-candidata do painel. O frontmatter, o caminho no vault (`<VAULT_ROOT>/linear/YYYY-MM-DD-flux-issue-<slug>.md`), o
+candidata do painel. O frontmatter, o caminho no vault (`<VAULT_ROOT>/0-inbox/YYYY-MM-DD-flux-issue-<slug>.md`), o
 versionamento entre rodadas do gate e o ciclo de vida da nota vivem em
 [`board-template.md`](board-template.md), **perfil exploração**. Não duplicar nada disso aqui: definir
 frontmatter em dois lugares é garantir que os dois divirjam.

@@ -114,6 +114,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   "kits_root": "~/agents/acme/kits/{repo}",
   "vault_root": "~/notes",
   "vault_context": "acme",
+  "vault_context_root": "~/notes/acme",
   "workspace_root": "~/code/acme",
   "linear_org": "acme",
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
@@ -188,6 +189,17 @@ com o reviewer de outro time sem que nada acuse o problema.
   `flux:equip` abre ao gerar uma suite. **Nunca é o repo revisado.** Opcional: sem ele, o verbo só
   escreve local e não oferece a opção de PR.
 - `vault_root` / `vault_context` — onde persistir o artefato e qual `context:` gravar no frontmatter.
+- `vault_context_root` — a raiz **do contexto** dentro do vault, quando o vault separa contextos por
+  pasta de primeiro nível. São duas raízes porque servem a coisas diferentes: `vault_root` guarda o que
+  é compartilhado entre contextos (o `0-inbox/`, o `.schema/`, o `.delivery/`, o `.slack-watch/`) e
+  `vault_context_root` guarda o eixo por tipo daquele contexto (`pr-reviews/`, `linear/`, `meetings/`),
+  que o elo **lê** para achar rodada anterior ou board já promovido. Escrita nova continua indo para
+  `<VAULT_ROOT>/0-inbox/`, sempre.
+
+  **Declare o caminho real, nunca o monte a partir de `vault_context`.** A pasta pode não ter o mesmo
+  nome do contexto (um contexto `pessoal` cuja pasta é `personal/` é o caso que quebra), e concatenar
+  `<vault_root>/<vault_context>` acerta por coincidência até o dia em que os dois divergem. Ausente →
+  o elo assume um vault sem separação por contexto e usa `vault_root` também como raiz de leitura.
 - `workspace_root` — raiz onde os checkouts dos repos vivem, usada por
   `flux:land` pra resolver checkouts cross-repo. Sem o campo, assume o diretório pai do `.claude/`
   onde o manifesto foi encontrado.
@@ -287,6 +299,7 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
 - `write_destinations` = sem manifesto não há onde persistir a aprovação: ela vale só para a execução
   corrente, e o elo declara isso ao perguntar.
 - `vault_root` = não persiste por default (só imprime no chat); `flux:review` pode receber `--save <dir>`.
+- `vault_context_root` = ausente; sem vault não há raiz de contexto para ler.
 - `workspace_root` = o próprio `cwd`; `repos` = subdiretórios com `.git`.
 - `exec_command` = `workflow`; `exec_fallback` = nenhum. Sem motor nativo e sem fallback declarado, o
   `flux:build` roda em **modo autônomo** (worktree + `CLAUDE.md` do repo + checks declarados + PR

@@ -54,7 +54,9 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:issue` 
 ## Step 0-context: resolver perfil
 
 Seguir `${FLUX_ROOT}/shared/flux-context.md`. Extrair: `HOLISTIC`, `SPECIALISTS_ROOT`,
-`REPOS`, `VAULT_ROOT`, `VAULT_CTX`, `NO_EMDASH`, `LINEAR_ORG` (org do Linear), `LINEAR_OPS` (path do
+`REPOS`, `VAULT_ROOT` (raiz compartilhada, onde fica o `0-inbox/`), `VAULT_CTX`,
+`VAULT_CTX_ROOT` (raiz do contexto, onde o eixo por tipo vive; só leitura, ausente → `VAULT_ROOT`),
+`NO_EMDASH`, `LINEAR_ORG` (org do Linear), `LINEAR_OPS` (path do
 doc de mecânica Linear do perfil; opcional) e os agentes de prospecção (`slack_prospector` quando a
 fonte é Slack). Sem manifesto: perfil genérico (holístico `pr-reviewer`, sem persistência automática,
 sem Linear).
@@ -79,8 +81,15 @@ Se nenhum repo for identificável, perguntar ao usuário qual repo é o alvo (n�
 **Sem `VAULT_ROOT`** (perfil genérico): não há onde procurar nem o que retomar — pular direto para o
 Step 1-ter, que trata a degradação.
 
-Com `VAULT_ROOT` resolvido, procurar em `<VAULT_ROOT>/linear/` um board `type: flux-issue` cujo campo
-`source:` case com o `SOURCE`. Casou → é **este** o board, atualiza. Não casou → board novo no Step 1-ter.
+Com `VAULT_ROOT` resolvido, procurar um board `type: flux-issue` cujo campo `source:` case com o
+`SOURCE`, nos **dois** lugares onde ele pode estar: `<VAULT_ROOT>/0-inbox/`, se ainda não foi triado, e
+`<VAULT_CTX_ROOT>/linear/`, se o `/organize` já o promoveu. Casou → é **este** o board, atualiza (mesmo
+estando na pasta promovida: atualizar nota que já existe é escrita legítima fora do inbox). Não casou →
+board novo no Step 1-ter.
+
+> Procurar só no inbox é como não procurar: board de pedido antigo já foi promovido, sairia da busca, e
+> o mesmo pedido ganharia um segundo rascunho concorrente — exatamente o que o Step 1-bis existe para
+> impedir.
 
 **Como casar, por tipo de fonte:**
 
@@ -118,7 +127,7 @@ nenhum; **retomar** o que ele achou, se achou — seguindo o **perfil exploraç�
 > primeira e única notícia. Se um prospector travar ou voltar vazio, um board que nascesse depois não
 > teria rastro de onde parou. Board que nasce depois do trabalho é ata, não board.
 
-1. **Caminho:** o board resolvido no Step 1-bis; ou, sendo novo, `<VAULT_ROOT>/linear/YYYY-MM-DD-flux-issue-<slug>.md`.
+1. **Caminho:** o board resolvido no Step 1-bis; ou, sendo novo, `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-flux-issue-<slug>.md`.
    Path já ocupado por um board de **outro** `source` (slugs diferentes que colidiram): sufixar `-2`,
    `-3`. Nunca sobrescrever board de outro pedido.
 2. **Nasce com:** frontmatter (`execution_status: active`, `source`, `repos`, `linear_ids: []`,
