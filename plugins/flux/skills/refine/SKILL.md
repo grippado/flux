@@ -135,8 +135,9 @@ pedido, e o corte já vem proposto na recusa.
 
 ## Step 0-context: resolver perfil de contexto
 
-Seguir `${FLUX_ROOT}/shared/flux-context.md`. Extrair: `SPECIALISTS_ROOT`, `REPOS`, `VAULT_ROOT`,
-`VAULT_CTX`, `NO_EMDASH`, `SCOPE_ESCALATION` (campo `scope_escalation`, o encaminhamento da recusa) e
+Seguir `${FLUX_ROOT}/shared/flux-context.md`. Extrair: `SPECIALISTS_ROOT`, `REPOS`, `VAULT_ROOT`
+(raiz compartilhada, onde fica o `0-inbox/`), `VAULT_CTX`, `VAULT_CTX_ROOT` (raiz do contexto, onde o
+eixo por tipo vive; só leitura, ausente → `VAULT_ROOT`), `NO_EMDASH`, `SCOPE_ESCALATION` (campo `scope_escalation`, o encaminhamento da recusa) e
 os agentes de prospecção (`slack_prospector`, quando a fonte é Slack).
 
 Sem manifesto: perfil genérico. Sem `VAULT_ROOT` o artefato sai no chat, e a perda é declarada no
@@ -173,9 +174,11 @@ Com `--dry`, parar aqui: imprimir o veredito, os sinais lidos e quais repos seri
 
 ## Step 3 — Abrir (ou retomar) o board, antes do fan-out
 
-Mesma disciplina do `flux:issue`, Steps 1-bis e 1-ter, e pelos mesmos motivos: procurar em
-`<VAULT_ROOT>/linear/` um board de exploração cujo `source` case com o `SOURCE`; casou, retoma;
-não casou, cria em `<VAULT_ROOT>/linear/YYYY-MM-DD-flux-issue-<slug>.md`. **Anunciar o path no chat.**
+Mesma disciplina do `flux:issue`, Steps 1-bis e 1-ter, e pelos mesmos motivos: procurar um board de
+exploração cujo `source` case com o `SOURCE` nos dois lugares onde ele pode estar
+(`<VAULT_ROOT>/0-inbox/`, ainda não triado, e `<VAULT_CTX_ROOT>/linear/`, já promovido pelo
+`/organize`); casou, retoma onde ele estiver; não casou, cria em
+`<VAULT_ROOT>/0-inbox/YYYY-MM-DD-flux-issue-<slug>.md`. **Anunciar o path no chat.**
 
 > **Por que antes do fan-out.** O mesmo motivo dos outros elos: a prospecção roda em N subagentes por
 > minutos, e um board que nascesse depois não teria rastro de onde o trabalho parou. Board que nasce

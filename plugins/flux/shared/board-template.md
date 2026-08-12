@@ -5,8 +5,8 @@
 > aponta para cá e só declara os parâmetros específicos dele (naming, gatilho de criação, escopo do painel).
 > Editar o formato do board significa editar ESTE arquivo, e os comandos herdam a mudança.
 
-O board é uma **nota viva** em `<VAULT_ROOT>/0-inbox/` (exceto o perfil exploração, que mora em
-`<VAULT_ROOT>/linear/` — ver abaixo). Nasce cedo (não no fim), tem o caminho anunciado
+O board é uma **nota viva** em `<VAULT_ROOT>/0-inbox/` — **todos** os perfis, sem exceção, inclusive o
+de exploração, que até 2026-08-12 nascia direto em `linear/`. Nasce cedo (não no fim), tem o caminho anunciado
 no chat na criação, e é atualizado a CADA passo relevante e a CADA tick do watch. Timeline em horário
 local. É doc interno do vault (travessão/en-dash liberados aqui; a proibição de travessão vale só para
 texto postado no GitHub/Slack, via iterate).
@@ -19,7 +19,7 @@ texto postado no GitHub/Slack, via iterate).
 | **single-PR** | `/flux:iterate` | 1 linha (a PR única) | `flux-iterate` | `YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md` |
 | **multi-PR** | `/flux:land` | N linhas (todas as PRs da entrega) | `flux-land` | `YYYY-MM-DD-HHMM-flux-land-<slug>.md` |
 | **conversa** | `/flux:reply` | N linhas (pendências em aberto do caso) | `thread` | `YYYY-MM-DD-HHMM-flux-reply-<slug-do-caso>.md` |
-| **exploração** | `/flux:issue` + `/flux:refine` | N linhas (as issues candidatas) | `flux-issue` | `linear/YYYY-MM-DD-flux-issue-<slug>.md` (única fora do `0-inbox/`; sem `HHMM`, por compatibilidade com os rascunhos já gravados) |
+| **exploração** | `/flux:issue` + `/flux:refine` | N linhas (as issues candidatas) | `flux-issue` | `YYYY-MM-DD-flux-issue-<slug>.md` (sem `HHMM`, por compatibilidade com os rascunhos já gravados) |
 
 > **O nome do arquivo carrega o nome do comando.** O infixo é sempre `flux-<verbo>`, igual ao comando que
 > gerou o board — quem lista o `0-inbox/` sabe de onde cada nota veio sem abrir nenhuma. Os infixos antigos
@@ -193,9 +193,11 @@ tags: [board, <build|iterate|delivery|slack|issue-draft>, orchestration]
 ```
 
 > **`source` é a chave de identidade do perfil exploração**, como `surfaces` é a do perfil conversa.
-> Antes de criar board novo, procurar em `<VAULT_ROOT>/linear/` um board cujo `source` case com o alvo.
-> Casou: atualiza aquele. Não casou: board novo. É o que impede o mesmo pedido, rodado duas vezes, virar
-> dois rascunhos concorrentes da mesma issue.
+> Antes de criar board novo, procurar um board cujo `source` case com o alvo em `<VAULT_ROOT>/0-inbox/`
+> **e** em `<VAULT_CTX_ROOT>/linear/`, porque o board de um pedido antigo pode já ter sido promovido
+> pelo `/organize` e some se a busca só olhar o inbox. Casou: atualiza aquele, onde ele estiver
+> (atualizar nota existente é escrita legítima fora do inbox). Não casou: board novo, no `0-inbox/`.
+> É o que impede o mesmo pedido, rodado duas vezes, virar dois rascunhos concorrentes da mesma issue.
 >
 > **O `source` é a identidade; o nome do arquivo é só endereço.** O naming não carrega `HHMM` (é o
 > formato dos rascunhos que já existem no vault), então dois pedidos **diferentes** do mesmo dia podem

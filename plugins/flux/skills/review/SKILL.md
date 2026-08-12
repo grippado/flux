@@ -73,8 +73,9 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `HOLISTIC` = `holistic_reviewer` (campo ausente → cascata genérica do preflight, Passo 3)
    - `DOC_REVIEWER` = `doc_reviewer` (campo ausente → mesma cascata, em modo doc)
    - `MCP_DOCS` = `mcp.docs` (prefixo do MCP de documentos; ausente → descoberta na sessão)
-   - `VAULT_ROOT` = `vault_root`
+   - `VAULT_ROOT` = `vault_root` (raiz compartilhada: é onde fica o `0-inbox/`, e toda escrita nova vai para lá)
    - `VAULT_CTX` = `vault_context`
+   - `VAULT_CTX_ROOT` = `vault_context_root` (raiz do contexto, onde o eixo por tipo vive; só leitura. Ausente → `VAULT_ROOT`)
    - `NO_EMDASH` = `no_emdash`
    - `REPOS` = `repos` (lista de repos conhecidos do contexto)
    - `SPECIALISTS_ROOT` = `specialists_root` (template de path com `{repo}`)
@@ -96,6 +97,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    > qualquer instalação.
    - `VAULT_ROOT` = não persiste por default; aceita `--save <dir>` para gravar
    - `VAULT_CTX` = `generic`
+   - `VAULT_CTX_ROOT` = nenhum (sem vault não há rodada anterior para procurar)
    - `NO_EMDASH` = `false`
    - `REPOS` = [] (detecção de stack dinâmica a partir do checkout local)
    - `SPECIALISTS_ROOT` = `<repo-checkout>/.claude/agents/reviewer.md` ou `<repo-checkout>/.claude/agents/review/*.md`
@@ -110,7 +112,7 @@ Após resolver o perfil, seguir para a resolução de verbo abaixo.
 
 | Verbo | Target | Reviewer | Saída no vault |
 |-------|--------|----------|----------------|
-| `pr` | PR number / URL de PR / branch atual | `<HOLISTIC>` + specialists reconciliados | `<VAULT_ROOT>/pr-reviews/` |
+| `pr` | PR number / URL de PR / branch atual | `<HOLISTIC>` + specialists reconciliados | `<VAULT_ROOT>/0-inbox/` |
 | `doc` | URL do Google Docs / Drive | `<DOC_REVIEWER>` + specialists reconciliados | `<VAULT_ROOT>/0-inbox/` |
 
 **Resolução de verbo (após Step 0-context, sempre antes de qualquer coleta):**
@@ -241,11 +243,18 @@ toda citação — montar e guardar:
 
 **Rodadas anteriores da mesma PR (vault):**
 
+Procurar nos **dois** lugares onde uma review pode estar: no `0-inbox/`, se ainda não foi triada, e no
+eixo por tipo do contexto, se o `/organize` já a promoveu.
+
 ```bash
-ls <VAULT_ROOT>/pr-reviews/ \
+ls <VAULT_ROOT>/0-inbox/ <VAULT_CTX_ROOT>/pr-reviews/ 2>/dev/null \
   | grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}-{repo-slug}-PR{number}(-v[0-9]+)?\.md$" \
   | sort
 ```
+
+> Só o `0-inbox/` não basta: a review da semana passada já foi promovida e sumiria da busca, e a rodada
+> nova nasceria como se fosse a primeira. Sem `VAULT_CTX_ROOT` (vault sem separação por contexto), fica
+> só o `0-inbox/`.
 
 Se houver arquivo(s), ler o mais recente e extrair apenas a seção `## Comentários de Review` + frontmatter (`status`, `date`). Guardar como `PREV_REVIEW_COMMENTS`. Se não houver, `PREV_REVIEW_COMMENTS = null`.
 
@@ -318,13 +327,22 @@ Convenção:
   - Exemplo: `2026-04-30-backoffice-bff-cma-2400-feature-x.md`
   - branch-slug = nome da branch em kebab-case, sem prefixos como `feat/`, `fix/`
 
-Path completo: `<VAULT_ROOT>/pr-reviews/{filename}`
+Path completo: `<VAULT_ROOT>/0-inbox/{filename}`
 
-> **Eixo achatado:** PR reviews vivem todas em `pr-reviews/` na raiz do vault — o repo está embutido no nome do arquivo (`{repo-slug}-PR{number}`). O contexto (`<VAULT_CTX>`) viaja no frontmatter (campo `context`), não como subpasta.
+> **A review nasce no inbox, como toda nota nova.** O contexto voltou a ser pasta: o eixo por tipo do
+> vault vive **dentro** de cada contexto (`<VAULT_CTX_ROOT>/pr-reviews/`), e não na raiz. Mas escolher a
+> pasta na hora da captura é justamente a decisão que este elo não tem como tomar bem, então ele não a
+> toma: grava no `0-inbox/` e deixa o `/organize` promover.
+>
+> O frontmatter não é mais o lugar onde o contexto mora **em vez** da pasta; é o **sinal de roteamento**
+> que diz ao `/organize` para qual contexto promover. Por isso `context: <VAULT_CTX>` continua obrigatório,
+> agora acompanhado de `repo:` (slug puro) e `pending_organize: true`. Review sem esses campos chega no
+> inbox sem endereço e vira triagem manual. O repo segue embutido no nome do arquivo
+> (`{repo-slug}-PR{number}`), que é o que faz a busca de rodada anterior funcionar dos dois lados.
 
 **Re-runs no mesmo dia:**
 
-- Se já existe o arquivo, sufixar com `-v2`, `-v3`, etc.
+- Se já existe o arquivo (em qualquer dos dois lugares varridos no passo 3b), sufixar com `-v2`, `-v3`, etc.
   - `2026-04-30-backoffice-bff-PR790-v2.md`
 
 ### 6. Renderizar template e gravar
