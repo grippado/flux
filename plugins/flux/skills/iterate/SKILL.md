@@ -28,6 +28,7 @@ Roda independente dos outros. Pensado para PRs com rodadas de bot reviewer, mas 
 **Gate de integração com a base (OBRIGATÓRIO — 1º gate, antes do CI):** `${FLUX_ROOT}/shared/merge-conflict-gate.md`
 **Diagnóstico de quality gates externos via API (consultar antes de classificar gate Sonar):** `${FLUX_ROOT}/shared/quality-gate-api.md`
 **Disciplina de fan-out (OBRIGATÓRIA — verificação e execução em subagente):** `${FLUX_ROOT}/shared/fanout-discipline.md`
+**Disciplina de comentários em código (OBRIGATÓRIA — não comentar sem pedido):** `${FLUX_ROOT}/shared/code-comment-discipline.md`
 **Orçamento de contexto (leitura sob demanda, um root por sessão, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
 
 ## Banner de perfil — gabarito (copiar VERBATIM)
@@ -397,6 +398,11 @@ Prompt do executor (auto-contido, ele não herda a conversa):
   run cheguem a caminhos diferentes.
 - A lista de correções decididas no passo 3, uma por thread que **procede**, com `arquivo:linha` e
   o que mudar. Threads que NÃO procedem não geram mudança de código — só réplica + reação no passo 7.
+- **A regra de comentários, verbatim** (`${FLUX_ROOT}/shared/code-comment-discipline.md`, seção "Como
+  propagar aos subagentes"). Ela **precisa ir no prompt**: o executor não herda a conversa nem os
+  `CLAUDE.md` da sessão, e este elo é o mais propenso ao defeito, porque o contexto que chega até ele é
+  justamente a discussão da review, a evidência e o veredito — material que pede para virar comentário
+  e não deve. Um despacho sem essa linha terceiriza a violação e volta pronto para commitar.
 - O quality gate do passo 5, para rodar antes de devolver.
 - Com `--auto`: o executor também **commita e pusha** (passo 8), num só despacho, e devolve o SHA.
   Sem `--auto`, ele para depois do gate — o commit fica para depois do gate humano do passo 6.
@@ -478,6 +484,8 @@ Top-level issue comments: responder = novo `gh api repos/$REPO_FULL/issues/$PR_N
 > atualizar a branch.
 
 Confirme que TODAS as threads endereçadas foram respondidas e resolvidas antes de pushar.
+
+**Antes de commitar, conferir os comentários que a rodada está introduzindo** (`${FLUX_ROOT}/shared/code-comment-discipline.md`, seção "Verificação antes de commitar"): `git diff --cached | grep -nE '^\+\s*(//|/\*|\*|\{/\*|#)'`. Linha de comentário adicionada que não seja diretiva de ferramenta nem o padrão de doc comment do repo **sai antes do commit**. É o único ponto do fluxo em que isso se pega sem depender do usuário revisar.
 
 **Com `--auto`, este passo já foi feito pelo executor do passo 4** (o SHA veio no retorno) — não
 refaça. Sem `--auto`, ele acontece agora, depois do gate humano: rode os comandos abaixo com
