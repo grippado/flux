@@ -125,6 +125,10 @@ com o reviewer de outro time sem que nada acuse o problema.
     "slack": "mcp__plugin_slack_slack"
   },
   "no_emdash": true,
+  "env_vault": {
+    "root": "~/.envault",
+    "base": "~/code"
+  },
   "quality_gate": {
     "provider": "sonarcloud",
     "host": "https://sonarcloud.io",
@@ -225,6 +229,21 @@ com o reviewer de outro time sem que nada acuse o problema.
   pelo motor de um repo alheio: a pior falha possível aqui, porque ela é silenciosa e produz código.
   Por isso o `equip` grava **na chave do repo**, nunca no `default` e nunca por cima da chave de outro.
 - `no_emdash` — quando `true`, o output que pode ser postado no GitHub não usa travessão/en-dash.
+- `env_vault` — bloco opcional que declara um **cofre de arquivos de ambiente** fora dos repos, para
+  que uma worktree recém-criada nasça executável em vez de nascer sem `.env`. Consumido pelo
+  provisionamento de `${FLUX_ROOT}/shared/worktree-discipline.md`:
+  - `root`: raiz do cofre (ex.: `~/.envault`).
+  - `base`: raiz a partir da qual o cofre espelha os caminhos dos repos. O cofre guarda
+    `<root>/<caminho do repo relativo a base>/<caminho do env dentro do repo>`, então um repo em
+    `<base>/team/api` tem seus envs em `<root>/team/api/`. **Não é o mesmo que `workspace_root`**: o
+    `base` costuma ser um nível acima, porque um cofre serve todos os contextos da máquina e o
+    `workspace_root` é de um contexto só. Declarar os dois separados é o que evita que o elo procure
+    `<root>/api` quando o cofre tem `<root>/team/api`.
+
+  Ausente → sem provisionamento: a worktree é criada e o elo **declara** que os envs não foram
+  providos, em vez de fingir que a worktree está pronta para rodar. Nunca inventar o caminho de um
+  cofre: um symlink apontando para lugar errado é pior que env ausente, porque o erro aparece em
+  runtime como config errada e não como arquivo faltando.
 - `write_destinations` — **escrito pelo `flux:equip`, não à mão**: mapa de **diretório canônico** → aprovação
   registrada no gate de destino de escrita, para a pergunta não voltar a cada execução. Cada entrada
   declara `repos` (os slugs para os quais aquele destino foi aprovado), `approved_at` e o estado das
@@ -273,6 +292,8 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
   `flux:build` roda em **modo autônomo** (worktree + `CLAUDE.md` do repo + checks declarados + PR
   draft) e diz no banner que rodou sem os gates do repo.
 - `no_emdash` = `false`.
+- `env_vault` = ausente; a worktree é criada sem provisionar env, e o elo declara que ela pode não
+  rodar por falta dos arquivos de ambiente (que são gitignored e por isso não vêm no checkout).
 - `mcp` = ausente; cada elo com integração externa descobre a capacidade na sessão e degrada
   declarando a perda quando não achar (o `flux:reply` sem canal Slack aborta; o modo doc do
   `flux:review`/`flux:peek` aborta só naquele alvo).

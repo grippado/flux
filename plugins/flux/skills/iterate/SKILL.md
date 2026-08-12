@@ -149,7 +149,11 @@ done
 
 **Localizar o repo (não a branch ainda).** Identifique o checkout local do repo alvo (`REPO_PATH`, ex. `<WORKSPACE_ROOT>/<repo>`). Se o repo **não tem checkout local**, aborte pedindo para cloná-lo (este comando precisa do working tree para aplicar correções e commitar). Em `--dry` não é necessário checkout (opera sobre o diff via `gh`).
 
-**Worktree resolvido no momento de escrever, não agora.** O `pwd` **não** precisa estar na branch da PR nesta etapa. A worktree dedicada à `headRefName` é resolvida (achada ou criada) via `${FLUX_ROOT}/shared/worktree-discipline.md` **logo antes de aplicar correções** (passo 4), de resolver um conflito com a base (passo 2b) ou de tentar um fix de CI (passo 2c), e é lá que o comando passa a operar. Não fazer `git checkout` na árvore principal para trocar de branch; adiar a criação da worktree evita criá-la à toa numa PR sem nada acionável. Fluxos read-only (`--dry`) não criam worktree.
+**Worktree resolvida agora, não na hora de escrever.** O `pwd` **não** precisa estar na branch da PR: a worktree dedicada à `headRefName` é resolvida (achada ou criada) via `${FLUX_ROOT}/shared/worktree-discipline.md` **nesta etapa**, incluindo o provisionamento dos arquivos de ambiente descrito naquele protocolo, e é nela que o comando passa a operar. Não fazer `git checkout` na árvore principal para trocar de branch.
+
+Ela é criada cedo por dois motivos que se somam. O primeiro é que a worktree não serve só para o elo escrever: ela é **onde o usuário vai olhar o resultado** da rodada, e um pedido de "quero ver isso rodando" no meio do run não deveria disparar clone de árvore e provisionamento de env do zero. O segundo é que as próprias lentes ficam melhores com ela: verificar uma alegação contra o código **da branch** é mais direto num checkout da branch do que via `git show <sha>:<path>` na árvore principal.
+
+O custo é real e assumido: uma PR sem nada acionável ganha uma worktree que ninguém usou. É barato (a worktree compartilha o object store) e reversível (`git worktree remove`), e perde para o custo de não ter a árvore quando ela é necessária. Fluxos read-only (`--dry`) seguem **sem** criar worktree, porque ali não há nem escrita nem push, e o modo existe justamente para não tocar o disco do usuário.
 
 Se `DRY == true`, ir direto para o **Modo `--dry`** após a coleta de metadados + threads (passo 2).
 
@@ -387,9 +391,10 @@ o pacote inteiro daquele root, permanentemente.
 
 Prompt do executor (auto-contido, ele não herda a conversa):
 
-- Repo + `headRefName` da PR + instrução de resolver a worktree por
-  `${FLUX_ROOT}/shared/worktree-discipline.md` (achar ou criar; nunca `git checkout` na
-  árvore principal; só criar quando há de fato o que escrever).
+- **O path da worktree já resolvida no passo 1** (com os envs já provisionados), e a instrução de
+  operar exclusivamente lá dentro: nunca `git checkout` na árvore principal, nunca criar outra
+  worktree. Passar o path pronto, e não a instrução de resolvê-lo, evita que dois despachos do mesmo
+  run cheguem a caminhos diferentes.
 - A lista de correções decididas no passo 3, uma por thread que **procede**, com `arquivo:linha` e
   o que mudar. Threads que NÃO procedem não geram mudança de código — só réplica + reação no passo 7.
 - O quality gate do passo 5, para rodar antes de devolver.
@@ -611,7 +616,9 @@ atualizada"). Emitir o evento Slack `descricao-reconciliada` se o feed estiver c
 
 ### 9. Resposta no chat
 
-Tabela curta: por thread `{path:line | veredito | sobreposição | 👍/👎}`, depois `{commit hash, range de push}`. Sinalize threads humanas deixadas abertas (`needs-discussion`) e quais foram marcadas como `duplicate`/`related-but-distinct` (com link da irmã). Não repita os bodies completos das réplicas.
+Tabela curta: por thread `{path:line | veredito | sobreposição | 👍/👎}`, depois `{commit hash, range de push}`.
+
+**Dizer onde ficou a worktree e em que estado ela está** (path, e quantos envs foram provisionados do cofre, ou por que não foram). É a informação que o usuário precisa para abrir a branch e olhar o resultado com os próprios olhos, e omiti-la obriga a perguntar. Quando o cofre não tinha entrada para o repo, ou o manifesto não declara `env_vault`, dizer isso explicitamente em vez de deixar a worktree parecer pronta para subir. Sinalize threads humanas deixadas abertas (`needs-discussion`) e quais foram marcadas como `duplicate`/`related-but-distinct` (com link da irmã). Não repita os bodies completos das réplicas.
 
 **Sempre reportar o estado de integração com a base**, mesmo quando ele estava limpo (é a informação que decide se a PR pode mergear). Quando este run foi despachado por um orquestrador (`--parent-board` presente, ou seja, rodando dentro do subagente de um `/flux:land`), o retorno inclui os campos estruturados `mergeable` e `conflito` do contrato da fase 4 do land, e não só a prosa: quem consome é máquina, e inferir conflito de texto livre é frágil no dado que decide o go/no-go. Se o gate do passo 2b agiu, dizer a estratégia (`rebase` ou `merge`), os arquivos resolvidos com a decisão de cada um, e o resultado dos gates. Se o gate ficou em **modo degradado**, dizer explicitamente o que **não** foi feito: `conflito semântico em <arquivos> — respondi as threads, não apliquei correção nem pushei`. Nunca fechar o relatório dando a PR por pronta quando ela segue conflitante.
 
