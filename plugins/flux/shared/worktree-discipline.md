@@ -51,6 +51,10 @@ grep -qxF '.worktrees/' "$REPO_PATH/.git/info/exclude" 2>/dev/null \
 #    Criar a worktree apontando para a branch EXISTENTE (sem -b: a branch da PR já existe):
 git -C "$REPO_PATH" worktree add ".worktrees/$BRANCH" "$BRANCH"
 cd "$REPO_PATH/.worktrees/$BRANCH"
+
+# 3. Provisionar os arquivos de ambiente (ver "Provisionar o ambiente da worktree" abaixo).
+#    Vale para worktree recém-criada E para worktree reusada de um tick anterior: o cofre pode
+#    ter ganhado um env novo desde então, e o passo é idempotente por nunca sobrescrever.
 ```
 
 - **Branch já existe** (caso normal de PR aberta): `git worktree add <path> <branch>` (checkout, **sem** `-b`).
@@ -61,6 +65,64 @@ cd "$REPO_PATH/.worktrees/$BRANCH"
 - **Sincronia obrigatória:** a branch local da worktree tem que casar com `headRefName` da PR. Se
   estiver atrás do remote, `git -C <path> pull --ff-only origin <BRANCH>` antes de escrever, para não
   commitar em cima de estado velho.
+
+## Provisionar o ambiente da worktree (envs)
+
+**Uma worktree recém-criada não roda.** O `git worktree add` traz o que o git rastreia, e arquivos de
+ambiente com segredo (`.env`, `.env.local`, `apps/*/.env`) são justamente os que o repo **ignora**.
+Então a worktree nasce com o código certo e sem configuração nenhuma: `pnpm dev` sobe apontando para
+lugar nenhum, o teste de integração falha por credencial ausente, e o sintoma não diz que o problema
+é env faltando.
+
+Isso importa para este protocolo porque a worktree deste elo não serve só para o elo escrever nela:
+ela é **onde o usuário vai olhar o resultado**. Entregar uma worktree que não sobe é entregar meio
+trabalho.
+
+**Fonte dos envs: o cofre declarado no manifesto.** Ver `env_vault` em
+`${FLUX_ROOT}/shared/flux-context.md`. O cofre existe porque um `.env` gitignored não tem backup
+nenhum: um `git clean -fdx` o evapora. Quem usa esse padrão mantém o cofre fora dos repos e o `.env`
+do checkout principal como **symlink** para lá, de modo que editar de qualquer lado edita o mesmo
+arquivo.
+
+```bash
+# ROOT e BASE vêm de env_vault do manifesto. Sem o bloco declarado, PULE este passo inteiro
+# e declare a omissão — não sair adivinhando onde os envs moram.
+REPO_REL="${REPO_PATH#"$ENV_VAULT_BASE"/}"        # ex.: team/api
+SRC="$ENV_VAULT_ROOT/$REPO_REL"                    # ex.: ~/.envault/team/api
+[ -d "$SRC" ] || echo "cofre sem entrada para $REPO_REL"
+
+find "$SRC" -type f 2>/dev/null | while IFS= read -r v; do
+  case "${v##*/}" in .DS_Store|.git) continue ;; esac   # ruído de filesystem, não é env
+  rel="${v#"$SRC"/}"
+  dest="$WORKTREE_PATH/$rel"
+  # NUNCA sobrescrever: se já existe algo ali, é decisão de quem pôs.
+  if [ -e "$dest" ] || [ -L "$dest" ]; then continue; fi
+  mkdir -p "$(dirname "$dest")"
+  ln -s "$v" "$dest"
+done
+```
+
+Regras que não se relaxam:
+
+- **Symlink para o cofre, nunca `cp`.** Copiar cria uma segunda verdade que dessincroniza em silêncio:
+  o usuário corrige uma credencial num lado e o outro segue com a antiga. O symlink é o que faz o
+  checkout principal e a worktree compartilharem o mesmo arquivo.
+- **Nunca sobrescrever env que já existe na worktree.** Existindo arquivo ou link no destino, pular e
+  registrar. Sobrescrever aqui apaga segredo local sem backup.
+- **Só o que o cofre tem.** Não gerar env a partir de `.env.example`, não inventar valor, não copiar
+  env de outro repo. Um env inventado transforma "não roda" em "roda errado", que é pior e mais caro
+  de diagnosticar.
+- **Nunca ler nem imprimir o conteúdo.** O provisionamento move referências, não valores: são
+  segredos. Reportar `<path> -> cofre`, nunca o que está dentro.
+- **Template versionado (`.env.example`, `.env.default`) não é assunto daqui**: vem no checkout porque
+  é rastreado.
+- **Declarar o resultado** no output do elo: quantos envs foram linkados, ou que o cofre não tem
+  entrada para o repo, ou que o manifesto não declara `env_vault`. Uma worktree que pode não subir e
+  não avisa é a mesma falha silenciosa que o banner de perfil existe para evitar.
+
+> **Um cofre que faz prune de `.worktrees/` não vê worktree nenhuma**, e é o caso comum (varrer
+> worktrees duplicaria cada env do repo no inventário). Por isso o provisionamento é deste protocolo,
+> e não algo que o comando do cofre resolva sozinho: quem cria a worktree é quem sabe que ela existe.
 
 ## Segurança
 
