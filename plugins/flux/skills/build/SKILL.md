@@ -25,6 +25,7 @@ Onde ele fica no ciclo:
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (escrever sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
 **Disciplina de fan-out (despachar, não executar na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`
+**Disciplina de comentários em código (não comentar sem pedido):** `${FLUX_ROOT}/shared/code-comment-discipline.md` — vale para o motor de execução também: quando o build despacha um executor (nativo, `exec_fallback` ou modo autônomo), a regra vai no prompt dele.
 **Bootstrap de specialists:** `${FLUX_ROOT}/shared/bootstrap-specialists.md`
 **Formato do board:** `${FLUX_ROOT}/shared/board-template.md`, **perfil execução** (`type: flux-build`). As seções, a legenda de ícones e a disciplina de carimbo de data vivem lá e não são repetidas aqui.
 **Orçamento de contexto (leitura sob demanda, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
