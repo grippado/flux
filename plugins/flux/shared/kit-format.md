@@ -21,12 +21,10 @@ Duas consequências, e as duas são o motivo de o formato ser tão magro:
 - **O que o flux resolve é o binding repo → kit.** Dado um repo, quais kits se aplicam, onde eles estão,
   e o que eles fornecem. Só isso.
 
-> **Um kit não é uma raiz da família.** A cascata de `${FLUX_ROOT}` (`${FLUX_ROOT}/shared/preflight.md`,
-> Passo 1a) continua parando na primeira raiz que existir, e continua sendo a raiz **do flux**. Um kit
-> tem raiz própria (`KIT_ROOT`), e nenhum arquivo dele é endereçável como `${FLUX_ROOT}/...`. Kit não
-> sobrescreve `shared/`, não acrescenta verbo e não entra na resolução de `FLUX_ROOT` — se entrasse, um
-> kit instalado passaria a poder redefinir o contrato da família inteira, calado, e o `${FLUX_ROOT}` de
-> cada elo passaria a depender de qual plugin foi instalado por último.
+> **Um kit não é uma raiz da família.** Um kit tem raiz própria (`KIT_ROOT`), e nenhum arquivo dele é
+> endereçável como `${FLUX_ROOT}/...`: kit não sobrescreve `shared/` e não acrescenta verbo. Por que ele
+> fica fora da cascata de `${FLUX_ROOT}` está no Passo 1a de `${FLUX_ROOT}/shared/preflight.md`, que é
+> quem rege a cascata.
 
 ## O arquivo
 
@@ -60,13 +58,13 @@ absoluto, `~` ou `..` em qualquer campo invalida o kit (ver "Kit inválido").
 | campo | obrigatório | tipo | o que é |
 |---|---|---|---|
 | `schema` | não (default `1`) | inteiro | versão do formato. Desconhecido → o kit é **ignorado** e a ausência é declarada, nunca adivinhada |
-| `kit` | **sim** | string | identificador estável do kit. É o nome pelo qual `--from-kit <ref>` o encontra e o nome que aparece no banner |
+| `kit` | **sim** | string | identificador estável do kit: é o nome que aparece no banner, nos gates e em qualquer lugar onde o kit é referido. **Não é um endereço** — resolver uma `<ref>` por este nome não está especificado, e hoje `<ref>` é sempre um caminho (`${FLUX_ROOT}/skills/equip/SKILL.md`) |
 | `version` | **sim** | string | versão do kit. **Opaca para a família**: nunca é comparada por ordem, só exibida e comparada por igualdade |
 | `provides` | **sim** | array não vazio | o que o kit fornece. Enum fechado: `engine`, `specialists` |
 | `engine` | sim se `provides` contém `engine` | string | path relativo do arquivo do motor de execução |
 | `specialists` | sim se `provides` contém `specialists` | string | path relativo do **diretório** da suite |
 | `matches` | não | objeto | o matcher. **Ausente → o kit nunca casa sozinho** (ver abaixo) |
-| `manifest_fragment` | não | objeto | fatia de manifesto **sugerida**, nunca aplicada por conta própria |
+| `manifest_fragment` | não | objeto | fatia de manifesto **sugerida**, nunca aplicada por conta própria. Chaves de uma allowlist fechada (ver abaixo) |
 | `verified_against` | não | objeto | contra o que este kit foi verificado, e quando |
 
 **`kit` e `version` são os dois únicos obrigatórios incondicionais**, mais `provides`. Um kit sem
@@ -79,6 +77,20 @@ manifesto também é escrita"), e um kit que declarasse `manifest` em `provides`
 instalar um plugin alterasse a configuração global de quem instalou. Por isso o campo separado e o nome
 diferente: `manifest_fragment` é uma **sugestão inerte**, que o verbo de instalação pode oferecer sob o
 gate que ele já tem, e que nenhum elo aplica sozinho.
+
+**E a fatia é fechada por allowlist, como todo o resto do formato.** "Inerte" resolve **quando** a fatia
+é aplicada, não **o que** ela pode conter, e um gate que apresenta um blob de configuração global
+desconhecida é um gate que as pessoas aceitam sem ler. As chaves que um kit tem legitimidade para
+sugerir são as que descrevem **o que o próprio kit trouxe**:
+
+| chave | por que um kit pode sugeri-la |
+|---|---|
+| `exec_fallback` | o kit trouxe o motor; sem esta linha o `flux:build` não o despacha |
+| `kits` | a raiz local onde este kit foi instalado, para a descoberta achá-lo depois sem depender de layout de disco |
+
+Chave fora da lista → o `manifest_fragment` inteiro é descartado e a perda é declarada; **o kit
+continua válido**, porque o defeito é da sugestão e não do que ele fornece. A lista cresce por decisão
+explícita neste arquivo, nunca por um kit inaugurar uma chave.
 
 **`specialists` é um diretório e o orquestrador dele chama-se `repo-owner.md`**, o mesmo nome com que o
 Bootstrap escreve orquestrador (`${FLUX_ROOT}/shared/bootstrap-specialists.md`). É a convenção que
@@ -112,6 +124,15 @@ arquivo que alguém escreveu de propósito e que não vale nada precisa dizer po
 
 Nunca "consertar" um kit inválido, nunca completar campo faltando por inferência, nunca instalar
 parcialmente o que sobrou de um kit quebrado.
+
+**Quem valida, e quando.** Esta seção é a **fonte única** do que invalida um kit, e a validação roda
+**no consumidor**, sobre os candidatos que ele foi olhar: o degrau 4 da cascata de L2
+(`${FLUX_ROOT}/shared/review-agents.md`) na leitura, e o verbo de preparo
+(`${FLUX_ROOT}/skills/equip/SKILL.md`) na escrita. Não roda no Passo 1d do preflight, que é localização
+e não leitura — validar lá cobraria o parse de todo `flux-kit.json` da máquina no Step 0 de todo elo,
+inclusive dos que nunca resolvem kit, e transformaria num passo que degrada aquele que declara
+explicitamente que `KIT_ROOTS` vazio não é degradação. Quem valida é quem já ia abrir o arquivo de
+qualquer jeito.
 
 ## O matcher
 
@@ -152,10 +173,22 @@ degradação, não um kit ausente.
 | **1 kit** | é o candidato; segue para a descoberta | é o candidato; segue para o gate de destino |
 | **N kits** | **ambíguo**: nenhum é escolhido, a lente é tratada como ausente e o banner declara `kit ambiguo` com a lista | **ambíguo**: abre GATE (`${FLUX_ROOT}/shared/hitl.md`) listando os candidatos com `kit`, `version` e path |
 
+**N é contado depois de filtrar por `provides`, não antes.** Quem conta está sempre atrás de uma coisa
+específica — a L2 quer `specialists`, o `flux:build` quer `engine` —, e dois kits casando com o mesmo
+repo dos quais só um declara o que se procura não são ambíguos para aquele efeito: há exatamente um
+candidato. Filtrar antes de contar resolve boa parte dos N sem nenhuma heurística de desempate, que é
+justamente o que o parágrafo abaixo recusa.
+
 **Os dois lados divergem de propósito.** Descoberta é leitura, roda dentro de um elo que foi chamado
 para outra coisa e **não pode parar para perguntar** — um review que abre um menu no meio da resolução
 de lentes trocou um parecer por uma entrevista. Instalação é o oposto: o usuário pediu para equipar, o
 gate é o produto, e adivinhar qual dos N kits ele quis é a única resposta pior que perguntar.
+
+> **A coluna da escrita está especificada e ainda não implementada.** O verbo de preparo resolve `<ref>`
+> como caminho, e quem passa um caminho já escolheu um kit — o GATE de N só passa a ser alcançável
+> quando `<ref>` puder ser o **nome** do kit, resolvido contra as `KIT_ROOTS`. A coluna fica aqui porque
+> ela é o contrato que essa resolução vai consumir, e não o contrário; o estado atual está declarado em
+> `${FLUX_ROOT}/skills/equip/SKILL.md`.
 
 **Não existe desempate automático, e a tentação é escrever um.** "O kit mais específico vence" não é
 computável: especificidade de glob não é ordenável de forma confiável, e um kit que casa por `repos`
@@ -173,14 +206,9 @@ suite. Um plugin irmão do flux, com um `flux-kit.json` na raiz, não era alcan�
 consultadas, a união é deduplicada por path canônico, e nenhuma delas cancela a seguinte. A resolução é
 do Passo 1d de `${FLUX_ROOT}/shared/preflight.md`; o que este contrato fixa é o que se faz com ela.
 
-Em cada raiz, um kit é **um diretório que contém `flux-kit.json`**. A varredura é por esse arquivo, com
-profundidade máxima de 2 níveis, e nada mais é lido até um candidato existir.
-
-> **Por que a busca é pelo arquivo e não por uma lista de diretórios de plugin.** Enumerar os diretórios
-> de plugin de cada harness congelaria a família em dois produtos, exatamente como a raiz de agents de
-> `${FLUX_ROOT}/shared/agents-index.md` não é enumerada. O `flux-kit.json` é um marcador em disco: é
-> determinístico, não depende de variável de ambiente nenhuma, e por isso funciona no harness que ainda
-> não existe.
+Em cada raiz, um kit é **um diretório que contém `flux-kit.json`** — é essa a única coisa que este
+contrato fixa sobre a busca. Como uma raiz é varrida (com que profundidade, e o que é lido enquanto se
+varre) é do Passo 1d do preflight, e o número mora lá.
 
 ### O kit e a L2
 
@@ -189,17 +217,10 @@ suite que você cura, pela mesma razão: ela vive fora do repo, evolui no seu ri
 projeto. Isso é semântica, e sempre foi; o que faltava era a mecânica.
 
 A mecânica está no passo 1a de `${FLUX_ROOT}/shared/review-agents.md`, como um degrau próprio da cascata
-de L2, **abaixo** de tudo que o usuário declarou ou aprovou para aquele repo e **acima** do default da
-família. A ordem não é arbitrária: um `specialists_root` apontado à mão, um `kits_root` resolvido e um
-destino já aprovado no gate são todos declarações sobre **este** repo; um kit é um artefato genérico que
-casou com ele. Declaração vence casamento.
-
-E o gate do 1a-bis vale integralmente: achar o arquivo do orquestrador do kit **não** é o mesmo que o
-agente ser invocável. Um kit instalado como plugin tem seus agents registrados pelo harness, tipicamente
-**com o prefixo do plugin** — e é por isso que a resolução do nome, lá, tenta as formas prefixadas antes
-de desistir. Um kit que é só um diretório copiado, fora de qualquer raiz varrida, tem os arquivos e não
-tem os agentes: o estado é `inalcançável`, nunca `ausente`, e a remediação é instalá-lo como plugin ou
-instalá-lo com o verbo de preparo para um destino que o harness varra.
+de L2 — inclusive a posição dele na ordem e por que ela é essa. É lá também que vale o gate do 1a-bis:
+achar o arquivo do orquestrador do kit **não** é o mesmo que o agente ser invocável, e um kit instalado
+como plugin tem seus agents registrados pelo harness tipicamente **com o prefixo do plugin**, o que é a
+razão de a resolução de nome tentar as formas prefixadas antes de desistir.
 
 ## Degradação
 
@@ -209,10 +230,14 @@ se comporta exatamente como se comportava antes de kits existirem.
 
 Só três estados são declarados, porque só três são acionáveis:
 
-| estado | quando | onde aparece |
+| estado | quando | quem emite |
 |---|---|---|
-| `kit ambiguo` | N kits casaram com o mesmo repo | `degradacoes:` do banner, com a lista |
-| `kit invalido` | há `flux-kit.json` e ele não vale | `degradacoes:` do banner, com path e motivo |
-| `kit nao avaliado` | há kit com matcher por arquivo e não há checkout local | `degradacoes:` do banner |
+| `kit ambiguo` | N kits, já filtrados por `provides`, casaram com o mesmo repo | o elo que resolveu os kits, em `degradacoes:` com a lista |
+| `kit invalido` | há `flux-kit.json` e ele não vale por "Kit inválido" acima | idem, com o path e o motivo |
+| `kit nao avaliado` | há kit com matcher por arquivo (`files`/`any_of`) e não há checkout local | idem, com o path |
+
+**Os três saem de quem consome `KIT_ROOTS`, nunca do Passo 1d** — que localiza e não lê (ver "Kit
+inválido"). Na prática: o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`) na leitura,
+e o verbo de preparo na escrita. Um estado que só existisse aqui não seria emitido por ninguém.
 
 Os tokens são os do Passo 5 de `${FLUX_ROOT}/shared/preflight.md`, e a grafia é a de lá.

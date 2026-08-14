@@ -68,12 +68,20 @@ Resolver o caminho **nesta ordem**, parando no primeiro que existir:
    reivindicando o mesmo slug → **ambíguo**, e ambíguo não se resolve por adivinhação: tratar como
    ausente e dizer no banner.
 4. **O kit aplicável**, quando há exatamente um: o `specialists` do `flux-kit.json` dele, resolvido
-   contra a raiz daquele kit (`${FLUX_ROOT}/shared/kit-format.md`). Os kits são procurados nas
-   `KIT_ROOTS` do preflight (Passo 1d) e filtrados pelo matcher contra o `REPO_SLUG` e o checkout.
-   **Zero kits → o degrau simplesmente não produz valor**, em silêncio. **N kits → ambíguo**, e
-   ambíguo aqui não se resolve por adivinhação nem perguntando: descoberta é leitura, roda no meio de
-   um elo chamado para outra coisa, e não pode parar para abrir menu. Tratar como ausente e declarar
-   `kit ambiguo` no banner, com a lista.
+   contra a raiz daquele kit (`${FLUX_ROOT}/shared/kit-format.md`). Este degrau é o **primeiro ponto do
+   corpo que abre um `flux-kit.json`** — o Passo 1d do preflight só localizou os candidatos —, e por
+   isso é aqui que os três tokens de kit do Passo 5 do preflight são emitidos. Na ordem:
+
+   1. **Ler e validar** cada candidato das `KIT_ROOTS` contra a seção "Kit inválido" do `kit-format.md`.
+      Reprovado sai da lista e vira `kit invalido` em `degradacoes:`, com o path e o motivo.
+   2. **Filtrar por `provides`**: só seguem os que declaram `specialists`, que é o que esta lente
+      procura. É esse o conjunto que vai ser contado.
+   3. **Casar pelo matcher** contra o `REPO_SLUG` e o checkout. Sem checkout local, um kit cujo
+      `matches` só tem `files`/`any_of` **não é avaliado** — não é "não casou" — e vira
+      `kit nao avaliado` em `degradacoes:`, com o path.
+   4. **Contar.** Zero → o degrau simplesmente não produz valor, em silêncio. Um → é o candidato.
+      N → **ambíguo**: tratar como ausente e declarar `kit ambiguo` no banner, com a lista. Por que
+      ambíguo aqui não abre menu, e abre no verbo de preparo, está no `kit-format.md` ("Zero, um, N").
 5. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o destino que o
    `flux:equip` propõe como recomendado quando não há manifesto
    (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).

@@ -152,11 +152,23 @@ kit, e um kit pode existir numa e não na outra:
    local: a raiz de um kit, ou um diretório de kits.
 2. O **prefixo invariante** de `kits_root` — o trecho antes do primeiro `{repo}`. O campo é um template
    por repo, e o que interessa aqui é a raiz onde os kits daquela máquina vivem.
-3. Os **irmãos de `${FLUX_ROOT}`**: o diretório pai da raiz da família. Instalado como plugin, o flux é
-   vizinho dos outros plugins, e é este degrau que enxerga um kit instalado do jeito recomendado.
+3. Os **irmãos de `${FLUX_ROOT}`**: o diretório pai da raiz da família — **só quando `FLUX_ROOT` veio
+   dos candidatos 1 a 4 do Passo 1a**. Instalado como plugin, o flux é vizinho dos outros plugins, e é
+   este degrau que enxerga um kit instalado do jeito recomendado.
+
+   > **A guarda não é detalhe.** O degrau presume que o pai de `${FLUX_ROOT}` é um diretório de plugins,
+   > e só os candidatos 1 a 4 garantem isso. No candidato 5 (checkout local) o pai é o `plugins/` do
+   > próprio repo do flux, onde irmão não é plugin de ninguém; no 6 (`${FLUX_HOME}`) o pai é arbitrário,
+   > e um `FLUX_HOME=~/flux` transformaria esta origem numa varredura de dois níveis do home inteiro, no
+   > Step 0 de **todo** elo. O custo de errar não é só tempo: candidato que ninguém instalou vira
+   > `kit ambiguo` no banner, ou seja, ruído vindo de layout de disco.
 
 Em cada raiz, procurar `flux-kit.json` com profundidade máxima de 2 níveis. Nada além do nome do arquivo
-é lido nesta fase.
+é lido nesta fase, e este passo **localiza, não valida**: quem abre o `flux-kit.json` é quem vai usá-lo,
+e é lá que os três tokens de kit da tabela do Passo 5 são emitidos (`${FLUX_ROOT}/shared/kit-format.md`,
+"Kit inválido" e "Degradação"). O motivo de não validar aqui é que este passo roda no Step 0 de todo elo,
+inclusive dos que nunca resolvem kit, e que o matcher precisa do `REPO_SLUG` e do checkout, que ainda
+não existem nesta fase.
 
 Nenhuma origem produziu raiz, ou nenhuma raiz tem kit: `KIT_ROOTS` é **vazio**. Isso **não é
 degradação e não vai ao banner** — é o caso comum, e uma máquina sem kit se comporta como se comportava
@@ -310,19 +322,20 @@ que o banner precisa ser.
 | `L3 stale` | a lente L3 roda por espelho (degrau 1 da escada) e a origem mudou desde `synced_from_sha256` | o elo que resolveu as lentes |
 | `indice ausente` | não há `flux-agents.json` na raiz de agents | idem |
 | `indice stale` | há índice, e ele não passou o teste de frescor | idem |
-| `kit ambiguo` | N kits casaram com o mesmo repo, e ambiguidade não se resolve por adivinhação (`${FLUX_ROOT}/shared/kit-format.md`) — sai com a lista dos candidatos | o elo que resolveu os kits |
-| `kit invalido` | há `flux-kit.json` e ele não vale (não parseia, falta campo obrigatório, `schema` desconhecido, path declarado que não existe) — sai com o path e o motivo | idem |
+| `kit ambiguo` | N kits casaram com o mesmo repo, e ambiguidade não se resolve por adivinhação (`${FLUX_ROOT}/shared/kit-format.md`) — sai com a lista dos candidatos | o elo que **consome** `KIT_ROOTS`: o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`) na leitura, o verbo de preparo na escrita |
+| `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | idem |
 | `kit nao avaliado` | o kit casa por arquivo (`files`/`any_of`) e não há checkout local para testar | idem |
 
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
-encheria de ruído o banner de toda máquina que não usa kit. Só os três estados acima são acionáveis, e
-só o que é acionável se declara.
+encheria de ruído o banner de toda máquina que não usa kit. Só os três estados de kit acima são
+acionáveis, e só o que é acionável se declara.
 
-Os três primeiros acompanham a oferta correspondente (`${FLUX_CMD}equip <repo> --expose-l3`,
-`${FLUX_CMD}map`) e **nenhum deles aborta**: os elos caem para a varredura direta, que é o
-comportamento que existia antes do índice.
+Os três tokens de índice (`L3 stale`, `indice ausente`, `indice stale`) acompanham a oferta
+correspondente (`${FLUX_CMD}equip <repo> --expose-l3`, `${FLUX_CMD}map`) e **nenhum deles aborta**: os
+elos caem para a varredura direta, que é o comportamento que existia antes do índice. Os três de kit não
+acompanham oferta e também não abortam.
 
-> **Um estado que só existe no shared não é emitido.** Estes três nasceram descritos em
+> **Um estado que só existe no shared não é emitido.** Os três tokens de índice nasceram descritos em
 > `${FLUX_ROOT}/shared/agents-index.md` e em `${FLUX_ROOT}/shared/review-agents.md`, e sem esta tabela
 > nenhum elo teria de onde copiá-los na hora de emitir — o mesmo motivo pelo qual o gabarito do banner
 > é repetido no corpo de cada verbo.

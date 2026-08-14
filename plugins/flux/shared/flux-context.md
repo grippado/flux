@@ -194,9 +194,9 @@ com o reviewer de outro time sem que nada acuse o problema.
   (`write_destinations`) e, não achando nada, para o degrau 5, que **pergunta**; e a descoberta de kits
   segue pelas outras origens.
 - `kits` — lista de **caminhos locais** onde kits deste perfil vivem, e a origem de maior confiança de
-  `KIT_ROOTS`. Cada entrada é resolvida assim, nesta ordem: contendo um `flux-kit.json`, a própria
-  entrada **é** a raiz de um kit; não contendo, ela é tratada como **diretório de kits** e os filhos
-  dela são varridos. O formato do `flux-kit.json` é `${FLUX_ROOT}/shared/kit-format.md`.
+  `KIT_ROOTS`. Cada entrada é a raiz de um kit ou um diretório de kits — **como uma raiz é varrida, e
+  com que profundidade, é do Passo 1d** de `${FLUX_ROOT}/shared/preflight.md`, e o número mora só lá. O
+  formato do `flux-kit.json` é `${FLUX_ROOT}/shared/kit-format.md`.
 
   **Nunca é URL, nunca é `owner/repo`, nunca é um nome de marketplace.** A família não baixa nada:
   distribuição de kit é git e o marketplace do harness, e o que este campo declara é onde os kits **já
