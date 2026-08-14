@@ -46,12 +46,13 @@ há nada a fazer além de declará-la.
 
 O `flux-agents.json` ([`agents-index.md`](agents-index.md)) nasce **na raiz de agents que o harness
 declara**, e por isso não é lista de produto: onde o Codex declarar a sua, o índice mora lá. Não
-havendo raiz declarada, `--index` não tem destino, e o verbo diz isso em vez de escolher um path por
+havendo raiz declarada, o `flux:map` não tem destino, e o verbo diz isso em vez de escolher um path por
 analogia com outro harness — os elos que consomem o índice já o declaram `soft` e caem para a varredura
 direta com `indice ausente` no banner.
 
-As duas ofertas novas do `equip` (`--expose-l3`, `--index`) são ofertas de **verbo irmão** e caem na
-mesma carve-out da seção seguinte: sem `FLUX_CMD`, imprimem a instrução em vez de executar.
+As ofertas novas (`equip --expose-l3`, `map`) são ofertas de **verbo irmão** e caem na mesma carve-out
+da seção seguinte: sem `FLUX_CMD`, imprimem a instrução em vez de executar. O `flux:map` em si roda
+normalmente quando invocado à mão; o que não funciona é montar o nome dele dentro de outro elo.
 
 ### `land` degrada no Codex
 

@@ -93,7 +93,6 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 ```
 /flux:equip <repo> [--engine-only] [--agents-only] [--expose-l3] [--from-kit <ref>] [--dry]
 /flux:equip                                   # repo mode: infere o repo do cwd
-/flux:equip --index                           # escopo máquina: (re)constrói o índice de agents
 ```
 
 | Argumento | Descrição |
@@ -105,7 +104,6 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 | `--engine-only` | Equipa **só L0** (o motor). Não toca em specialists, não oferece o Bootstrap. |
 | `--agents-only` | Equipa **só L2** (a suite de specialists). Não toca em motor nem em `exec_fallback`. |
 | `--expose-l3` | Torna a **L3 do repo alcançável** de qualquer sessão, pelo degrau 1 da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis): espelho namespaceado, `name:` prefixado com o slug do repo. Ver "Step 4b". |
-| `--index` | **Escopo máquina, sem repo alvo.** Varre raízes de agents, manifestos e repos conhecidos e grava o `flux-agents.json` (`${FLUX_ROOT}/shared/agents-index.md`). Incompatível com as demais flags. |
 | `--from-kit <ref>` | Em vez de autorar do zero, instala a partir de um kit já pronto. Ver "Kits", abaixo. |
 | `--dry` | Faz o diagnóstico completo, imprime o plano de equipagem e **para**. Nada é escrito, nenhum gate abre. |
 
@@ -125,7 +123,6 @@ diga isso ao usuário em uma linha, porque quem escreveu os dois provavelmente e
 /flux:equip web-monorepo --dry                # diagnóstico + plano, sem escrever
 /flux:equip notifications --from-kit node-fastify
 /flux:equip payments --expose-l3              # L3 do repo alcançável fora dele
-/flux:equip --index                           # mapeia a máquina inteira
 /flux:equip                                   # dentro de <WORKSPACE_ROOT>/api-gateway
 ```
 
@@ -389,21 +386,21 @@ degrau 0 no lugar quando ele for aplicável (condições no 1b-bis), porque lá 
 
 ---
 
-## Step 4c — Índice da máquina (`--index`)
+## Step 4c — Atualizar a entrada do repo no índice
 
-Escopo máquina, sem repo alvo. Constrói ou refresca o `flux-agents.json` conforme
-`${FLUX_ROOT}/shared/agents-index.md`: raízes de agents varridas pelo harness, manifestos de contexto
-encontrados, e por repo conhecido o inventário L1/L2/L3 com hashes, mais o mapa de colisões de `name:`.
+Ao equipar um repo (Steps 4, 4b e 5), **atualizar a entrada dele** no `flux-agents.json` e recomputar
+`collisions`. Um índice que descreve a máquina de antes da equipagem faz o próximo elo oferecer o que
+acabou de ser feito.
 
-- **É o único momento caro da família, e é explícito.** Nenhum outro elo varre a máquina inteira;
-  todos leem o índice e validam só o repo que vão usar.
+O escopo aqui é **um repo**, e só ele: o levantamento da máquina inteira é do `${FLUX_CMD}map`, que é
+o verbo de sanidade da família. Esta é a divisão inteira entre os dois — o `map` **levanta**, o `equip`
+**equipa e carimba o que equipou**.
+
 - **Quando o índice pode ser escrito, e por quem, é do `agents-index.md`** (seção "Quem escreve"). Este
   Step **executa** aquele contrato; não o reenuncia.
-- `--index` combinado com `<repo>` ou com as demais flags é erro de invocação: diga qual das duas
-  coisas o usuário quis e pare.
-
-Ao equipar um repo (Steps 4, 4b, 5), **atualizar a entrada dele no índice** e recomputar `collisions`.
-Um índice que descreve a máquina de antes da equipagem faz o próximo elo oferecer o que já foi feito.
+- Não havendo índice na máquina, **não criar um** a partir de um repo só: um índice parcial seria
+  indistinguível de um índice completo e faria os outros elos confiarem num mapa com um repo. Relatar
+  a ausência e oferecer o `${FLUX_CMD}map`.
 
 ---
 

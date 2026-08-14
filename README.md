@@ -90,6 +90,15 @@ Dois princípios sustentam isso:
 ## O ciclo
 
 ```
+  ┌ fora do ciclo, uma vez por máquina / por repo ──────────────────┐
+  │  ┌───────────────────────┐      ┌───────────────────────┐       │
+  │  │   flux:map            │─────▶│   flux:equip          │       │
+  │  │   levanta a instalação│      │   L0 motor · L2 suite │       │
+  │  │   e diz o que falta   │      │   expõe a L3          │       │
+  │  └───────────────────────┘      └───────────────────────┘       │
+  └──────────────────────────┬──────────────────────────────────────┘
+                             ┆ sugeridos antes, exigidos por nada
+                             ▼
         ideia / thread / bug relatado
                     │
         ┌───────────┴───────────┐
@@ -139,7 +148,14 @@ então a prospecção acontece uma vez só. E ele **mede o escopo antes de traba
 demais para uma rodada é recusado com o corte proposto, em vez de virar um refinamento raso com
 aparência de completo. O contrato do gate é o [`scope-gate.md`](plugins/flux/shared/scope-gate.md).
 
-Ao lado do ciclo, e fora dele, mora o [`flux:equip`](plugins/flux/skills/equip/SKILL.md): o verbo de **preparo**, que equipa um repo com o motor de execução e a suite de specialists que os elos consomem. Ele não trata de uma entrega, então não tem lugar no fluxo acima — entra quando falta alguma dessas duas camadas, e sai.
+Acima do ciclo, e fora dele, moram dois verbos que não tratam de uma entrega:
+
+- [`flux:map`](plugins/flux/skills/map/SKILL.md) — o verbo de **sanidade**. Levanta a instalação inteira nesta máquina (raízes de agents, manifestos, repos, as três lentes de cada um, colisões de nome), grava o índice que os demais elos consomem, e relata o que está torto com a remediação de cada caso. Executando de novo, mostra o **delta**: agents novos, repos novos, suites que quebraram. É o candidato natural a primeiro comando numa máquina nova.
+- [`flux:equip`](plugins/flux/skills/equip/SKILL.md) — o verbo de **preparo**. Equipa um repo com o motor de execução e a suite de specialists que os elos consomem, e expõe a L3 do repo quando ela existe e não está alcançável. Entra quando falta alguma dessas camadas, e sai.
+
+A divisão entre os dois é limpa: **`map` levanta e oferece; `equip` repara.** Um verbo de diagnóstico que também conserta deixa de poder ser rodado sem medo, que é a única coisa que ele precisa ser.
+
+**Nenhum dos dois é pré-requisito de nada.** Sem eles, todo elo cai na varredura direta e declara a degradação no banner — o comportamento que a família sempre teve. Eles melhoram o resultado; não o habilitam. Uma família que exige comando de preparo para funcionar deixou de funcionar na máquina de quem acabou de instalá-la.
 
 `flux:iterate` fecha uma PR por execução. É eficiente rodar até três iterações independentes em
 paralelo; quando a entrega passa desse tamanho, `flux:land` coordena o lote de múltiplas PRs,
@@ -158,13 +174,19 @@ ponto para transformar um caso em comunicação embasada, não apenas depois do 
 | [`flux:iterate`](plugins/flux/skills/iterate/SKILL.md) | PR | correções aplicadas, réplicas postadas, threads resolvidas, CI vigiado | sim (`--dry` rascunha read-only) |
 | [`flux:land`](plugins/flux/skills/land/SKILL.md) | issue/feature multi-PR | ordem de merge, validação de regressão, go/no-go | mantém PRs merge-ready; **nunca mergeia** |
 | [`flux:reply`](plugins/flux/skills/reply/SKILL.md) | permalink de thread | rascunho Slack-safe + ata no vault | salva rascunho; **nunca posta sozinho** |
-| [`flux:equip`](plugins/flux/skills/equip/SKILL.md) | repo | motor de execução (L0) + suite de specialists local (L2) | sim, **fora do repo alvo**, pelo contrato de destino; manifesto só sob gate |
+| [`flux:equip`](plugins/flux/skills/equip/SKILL.md) | repo | motor de execução (L0) + suite de specialists local (L2) + L3 exposta | sim, **fora do repo alvo**, pelo contrato de destino; manifesto só sob gate |
+| [`flux:map`](plugins/flux/skills/map/SKILL.md) | nada (a máquina) | inventário das lentes, delta desde a última execução, relatório de integridade | o índice `flux-agents.json`, após gate; **nunca conserta nada** |
 
-`flux:equip` é o único verbo **fora do ciclo**: ele não trata de uma entrega, trata do repo. Os
-outros elos consomem duas coisas que não produzem — o motor que o `flux:build` despacha e os
-specialists que `review`/`iterate`/`land` reconciliam —, e é ele que as cria quando faltam. Por isso
+`flux:equip` e `flux:map` são os dois verbos **fora do ciclo**: nenhum trata de uma entrega. Os
+demais elos consomem coisas que não produzem — o motor que o `flux:build` despacha e os specialists
+que `review`/`iterate`/`land` reconciliam —, e é o `equip` que as cria quando faltam. Por isso
 `review`, `iterate`, `land` e `build` não geram mais suite por conta própria: quando percebem a
 falta, no fim do trabalho, oferecem o `equip`.
+
+O `flux:map` é o que enxerga o conjunto. Todo elo verifica, no preflight, o que **ele** precisa para
+**aquele** trabalho; ninguém olha a instalação inteira. Sem isso, uma suite quebrada, um manifesto
+renomeado ou uma colisão de `name:` só aparece no meio de uma entrega, um elo por vez, sempre como
+degradação e nunca como diagnóstico.
 
 ### Pares que parecem iguais e não são
 
@@ -195,7 +217,8 @@ flux/
     │   ├── refine/                 opcional, antes do ciclo: fast SDD numa rodada
     │   ├── issue/  build/  peek/
     │   ├── review/  iterate/  land/  reply/
-    │   └── equip/                  fora do ciclo: motor (L0), specialists (L2), expõe L3, índice da máquina
+    │   ├── equip/                  fora do ciclo: motor (L0), specialists (L2), expõe L3
+    │   └── map/                    fora do ciclo: levanta a instalação e grava o índice
     └── shared/                     contratos compartilhados (fonte única, não duplicar nos verbos)
     ├── preflight.md               verificação de pré-requisitos, níveis de capacidade, banner
     ├── hitl.md                    quando o elo para e pergunta, e como pergunta sem o tool preferido

@@ -425,7 +425,7 @@ por repo no máximo, e sempre depois do veredito: a entrega é o produto, a suit
 |---|---|
 | **sem L2** (`ausente`) | criar a suite: `${FLUX_CMD}equip <repo> --agents-only`, seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md` |
 | **L3 inalcançável por âncora** | o degrau aplicável da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) — o degrau, não um comando escolhido aqui: as condições são de lá |
-| **`indice ausente` / `indice stale`** (`${FLUX_ROOT}/shared/agents-index.md`) | `${FLUX_CMD}equip --index`, uma vez por máquina |
+| **`indice ausente` / `indice stale`** (`${FLUX_ROOT}/shared/agents-index.md`) | `${FLUX_CMD}map`, uma vez por máquina |
 
 O land não gera suite nem escreve espelho; ele descobre a falta e entrega a decisão ao verbo de
 preparo, que é onde os gates de escrita na máquina do usuário vivem.

@@ -1,7 +1,8 @@
 # Índice de agents da máquina — o mapa que a família não tinha
 
-> Fonte única do formato, do ciclo de vida e dos limites do `flux-agents.json`. Quem **escreve** o
-> índice é o `${FLUX_ROOT}/skills/equip/SKILL.md`; quem **lê** são o
+> Fonte única do formato, do ciclo de vida e dos limites do `flux-agents.json`. Quem **constrói** o
+> índice é o `${FLUX_ROOT}/skills/map/SKILL.md`; o `${FLUX_ROOT}/skills/equip/SKILL.md` atualiza a
+> entrada do repo que acabou de equipar. Quem **lê** são o
 > `${FLUX_ROOT}/shared/review-agents.md` (resolução das três lentes) e o
 > `${FLUX_ROOT}/shared/flux-context.md` (descoberta de manifestos).
 
@@ -145,7 +146,7 @@ O índice é validado, não confiado. Na leitura, conferir:
 Divergiu, ou o índice não existe:
 
 - O elo **não aborta**. Segue com a varredura direta daquele repo, como fazia antes, e declara
-  `indice stale` (ou `indice ausente`) nas degradações do banner, oferecendo `${FLUX_CMD}equip --index`.
+  `indice stale` (ou `indice ausente`) nas degradações do banner, oferecendo `${FLUX_CMD}map`.
 - Nunca refrescar o índice inteiro no meio de outro elo: escrever na máquina do usuário é ação com
   gate próprio (`${FLUX_ROOT}/shared/write-destination.md`), e um elo de review que reescreve
   configuração global de passagem é exatamente o efeito colateral que a família não pode ter.
@@ -160,13 +161,18 @@ numa PR de um repo confere um `dir_sha256`, não vinte.
 
 ## Quem escreve
 
-Só o `${FLUX_CMD}equip`, e só sob invocação explícita:
+Dois verbos, com escopos que não se sobrepõem, e só sob invocação explícita:
 
 | invocação | efeito no índice |
 |---|---|
-| `${FLUX_CMD}equip --index` | escopo máquina: varre raízes, manifestos e repos; grava o índice inteiro |
-| `${FLUX_CMD}equip <repo>` | atualiza **a entrada daquele repo** (L1/L2/L3, hashes) e recomputa `collisions` |
-| `${FLUX_CMD}equip <repo> --expose-l3` | o acima, mais o bloco `mirror` com `synced_from_sha256` |
+| `${FLUX_CMD}map` | escopo máquina: varre raízes, manifestos e repos; **constrói** o índice |
+| `${FLUX_CMD}map --repo <slug>` | releva só aquela entrada, mantendo o resto |
+| `${FLUX_CMD}equip <slug>` | atualiza **a entrada daquele repo** (L1/L2/L3, hashes) e recomputa `collisions` |
+| `${FLUX_CMD}equip <slug> --expose-l3` | o acima, mais o bloco `mirror` com `synced_from_sha256` |
+
+**O `equip` nunca cria o índice do zero.** Ele carimba o que equipou num índice que já existe; não
+havendo, relata e oferece o `${FLUX_CMD}map`. Um índice nascido de um repo só seria indistinguível de
+um índice completo, e os elos que o consomem passariam a confiar num mapa com um repo.
 
 **Nunca na instalação do plugin, nunca como efeito colateral de outro elo.** Um plugin que escreve
 numa raiz de agents ao ser instalado passa por cima do contrato de destino e surpreende o usuário no

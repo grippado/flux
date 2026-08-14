@@ -251,7 +251,7 @@ que o banner precisa ser.
 | `indice stale` | há índice, e ele não passou o teste de frescor | idem |
 
 Os três acompanham a oferta correspondente (`${FLUX_CMD}equip <repo> --expose-l3`,
-`${FLUX_CMD}equip --index`) e **nenhum deles aborta**: os elos caem para a varredura direta, que é o
+`${FLUX_CMD}map`) e **nenhum deles aborta**: os elos caem para a varredura direta, que é o
 comportamento que existia antes do índice.
 
 > **Um estado que só existe no shared não é emitido.** Estes três nasceram descritos em
