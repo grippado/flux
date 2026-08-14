@@ -148,14 +148,63 @@ da **causa**, e são três, com remediações que não se substituem:
 | causa | como se reconhece | o que oferecer |
 |---|---|---|
 | **fora de diretório varrido** | o arquivo não está sob `~/.claude/agents/` (subdiretórios incluídos) nem sob `<repo>/.claude/agents/` — vive num repositório de dotfiles, por exemplo | expor, tipicamente por symlink, com **nome único entre todas as suites** |
-| **âncora fora do repo** | o arquivo está no lugar canônico `<repo>/.claude/agents/`, e a sessão subiu num diretório **acima** do repo, que é o que um harness não varre | reinvocar o elo com a sessão ancorada no repo. **Nada a mexer em disco** |
+| **âncora fora do repo** | o arquivo está no lugar canônico `<repo>/.claude/agents/`, e a sessão subiu **fora dele** — num diretório acima (repo aninhado) ou numa árvore paralela (árvore irmã); os dois arranjos estão no 1b-bis, e o harness não varre nenhum dos dois | a **escada de alcance** (1b-bis). Nunca degradar direto |
 | **colisão de `name:`** | o nome está registrado, e o que ele descreve é outro escopo (bloco anterior) | renomear com prefixo do repo, **do lado da suite que você cura** |
 
-**Symlink não é remédio universal, e oferecê-lo como tal causa dano.** Na segunda linha da tabela o
-arquivo está exatamente onde deveria estar: o que falta é a sessão, não a instalação. Symlinkar os
-agents de um repositório para `~/.claude/agents/` promove nomes genéricos como `reviewer`,
-`patterns`, `structural` ou `test-coverage` a nomes globais, e **fabrica a terceira causa da tabela**
-em todos os outros repos da máquina — trocando uma degradação declarada por um falso positivo mudo.
+**Symlink cru não é remédio universal, e oferecê-lo como tal causa dano.** Symlinkar os agents de um
+repositório para `~/.claude/agents/` promove nomes genéricos como `reviewer`, `patterns`,
+`structural` ou `test-coverage` a nomes globais, e **fabrica a terceira causa da tabela** em todos os
+outros repos da máquina — trocando uma degradação declarada por um falso positivo mudo. É por isso
+que o degrau 1 da escada abaixo espelha **com prefixo**, e não por symlink direto do diretório.
+
+### 1b-bis — A escada de alcance da L3
+
+A segunda causa da tabela é a mais comum de todas, e por muito tempo esteve escrita aqui como se
+fosse estado normal: quem trabalha a partir de um diretório de workspace (ou do `$HOME`) com os repos
+aninhados embaixo perdia a L3 em **toda** invocação. Chamar isso de normal era normalizar a perda.
+Uma lente que existe em disco e não foi invocada é **dívida acionável**, não fato da vida.
+
+**A causa cobre dois arranjos, não um.** Escrevê-la como "sessão acima do repo" a deixa estreita
+demais, e foi assim que o degrau 0 nasceu inalcançável para a própria causa que ele serve:
+
+- **repo aninhado**: a sessão subiu num diretório **acima** do repo (workspace, ou o `$HOME`);
+- **árvore irmã**: a sessão subiu numa árvore **paralela** à do repo alvo — trabalhar num workspace e
+  a entrega tocar um repo de outro.
+
+A distinção importa porque o degrau 0 só existe no segundo arranjo. Dois fatos medidos:
+
+- **Estar dentro do `cwd` não carrega nada.** O harness varre o `.claude/agents/` do **projeto** e o do
+  usuário; os de repos aninhados não são varridos por estarem embaixo.
+- **A capacidade de acrescentar diretório recusa o que já está dentro da árvore do `cwd`.** No arranjo
+  aninhado, portanto, o pior dos dois mundos: não carrega, e ainda bloqueia o remédio sem cópia.
+
+Daí a escada. Percorrer de cima para baixo, parando no primeiro degrau aplicável:
+
+| degrau | condição | o que oferecer | custo |
+|---|---|---|---|
+| **0. acrescentar o diretório à sessão** | `ADDDIR_CMD != UNAVAILABLE` (preflight, 1c) **e** o checkout está **fora** da árvore do `cwd` **e** nenhum `name:` dele colide com o registry da sessão | `${ADDDIR_CMD} <checkout>` | zero cópia, zero drift: os agents vivos do repo |
+| **1. espelho namespaceado** | qualquer outro caso — que é a regra no arranjo aninhado | `${FLUX_CMD}equip <slug> --expose-l3`: espelho em `<raiz de agents>/<ctx>/<slug>-l3/` com `name:` reescrito para `<slug>-<name>` | cópia, com `sha256` de proveniência no índice |
+| **2. degradar** | o usuário recusou o degrau aplicável | declarar `L3 inalcancavel` no banner, com a causa e a oferta recusada | a lente não roda |
+
+O degrau 0 é preferível **onde couber**, porque não cria cópia e portanto não pode envelhecer. Ele
+cabe menos do que parece, e as três condições são conjuntivas por motivos diferentes: a capacidade não
+existe em todo harness (por isso o 1c do preflight a resolve e declara ausência), o arranjo aninhado
+a inviabiliza, e a colisão de `name:` a torna perigosa.
+
+**A colisão é o motivo de o degrau 1 reescrever o `name:`.** Ela é aferida contra o registry inteiro
+da sessão, e nomes de agent de repo são genéricos por natureza — numa máquina real, o mesmo nome é
+declarado por vários repos ao mesmo tempo. Havendo colisão, o harness carrega **um** deles por ordem
+de leitura de filesystem, sem precedência documentada: roda o agent do repo errado contra o diff
+certo, com o banner declarando cobertura. É a terceira causa da tabela do 1a-bis, fabricada de
+propósito.
+
+`name_collision` e o `checkout` saem do índice (`${FLUX_ROOT}/shared/agents-index.md`); `under_cwd`
+é computado em runtime, porque depende da sessão. Sem índice, apurar por varredura e declarar
+`indice ausente`.
+
+**A oferta é do fechamento do elo, nunca do meio.** Escrever espelho é mexer na configuração global
+do usuário, e passa pelo gate de destino (`${FLUX_ROOT}/shared/write-destination.md`) dentro do
+`equip` — nenhum elo de review escreve em `~/.claude/agents/` de passagem.
 
 > **Isto não é hipotético.** Um perfil com `specialists_root` apontando para uma suite de 9 agentes,
 > todos em disco e nenhum registrado, produziu por semanas banners dizendo `L2 disponível` e reviews
@@ -204,9 +253,12 @@ de fora; o resto simplesmente não é candidato.
 **O mesmo gate do 1a-bis vale aqui**, e a probabilidade de L3 ficar inalcançável **depende inteiramente
 de onde a sessão subiu**. Ancorada no repo, agents de projeto são carregados pelo harness e L3
 raramente falha. Ancorada acima dele — o caso de quem trabalha num diretório de workspace com vários
-repos dentro —, o `.claude/` do repo alvo **não é carregado**, e aí L3 não é raramente inalcançável:
-é sempre. É a segunda linha da tabela de causas, e é o estado normal de um elo rodando em modo
-workspace, não uma anomalia de instalação.
+repos dentro —, o `.claude/` do repo alvo **não é carregado**, e aí L3 é inalcançável sempre.
+
+Isso torna a segunda causa da tabela a mais frequente de todas, e é exatamente por ser frequente que
+ela **não** pode ser tratada como estado normal: ela é a que tem escada de remediação própria
+(1b-bis), e um elo que a encontra e degrada sem percorrer a escada está deixando de usar a suite do
+repo por preguiça de configuração, não por ausência dela.
 
 Ainda assim, um arquivo sem `name:` no frontmatter não é invocável, e entra na lista dos excluídos
 com esse motivo, não como "não passou no filtro de intenção" — desde que seja um agent candidato, e
@@ -231,7 +283,7 @@ seguir. Nunca travar por ausência de specialists.
 |---|---|---|---|
 | **disponível** | achado e invocável | `lentes: L2 <nome>` | nada |
 | **ausente** | não há suite para este repo | `L2 ausente` | `${FLUX_CMD}equip --agents-only` (criar a suite) |
-| **inalcançável** | a suite existe e não é invocável | `L2 inalcancavel — <motivo>` | o que a **causa** pedir (tabela do 1a-bis): expor, reancorar a sessão, ou desfazer colisão de nome |
+| **inalcançável** | a suite existe e não é invocável | `L2 inalcancavel — <motivo>` | o que a **causa** pedir (tabela do 1a-bis): expor, percorrer a escada de alcance (1b-bis), ou desfazer colisão de nome |
 
 Colapsar `inalcançável` em `ausente` faz o elo oferecer **criar de novo** uma suite que já foi
 escrita, que é o mesmo erro que os níveis 2 a 4 do passo 1a existem para evitar, um degrau acima. Colapsar

@@ -35,14 +35,43 @@ declarar cada ausência como degradação: `reply` fica em modo rascunho sem Sla
 não persistem sem vault; `issue` não cria no Linear sem integração; e sem specialists só a lente
 holística é usada. Nenhuma dessas ausências autoriza inventar dados, endpoints ou agentes.
 
+### Alcance da L3 e índice de agents
+
+O degrau 0 da escada de alcance ([`review-agents.md`](review-agents.md), 1b-bis) depende de
+`ADDDIR_CMD`, resolvido no Passo 1c do [`preflight.md`](preflight.md). Onde o Codex não expuser a
+capacidade de acrescentar um diretório à sessão, `ADDDIR_CMD` fica `UNAVAILABLE` e **o degrau 0 sai da
+escada**: o alcance da L3 passa pelo degrau 1 (espelho namespaceado via `equip --expose-l3`), que não
+depende de capacidade nenhuma do harness. A escada foi escrita para sobreviver a essa ausência, e não
+há nada a fazer além de declará-la.
+
+O `flux-agents.json` ([`agents-index.md`](agents-index.md)) nasce **na raiz de agents que o harness
+declara**, e por isso não é lista de produto: onde o Codex declarar a sua, o índice mora lá. Não
+havendo raiz declarada, o `flux:map` não tem destino, e o verbo diz isso em vez de escolher um path por
+analogia com outro harness — os elos que consomem o índice já o declaram `soft` e caem para a varredura
+direta com `indice ausente` no banner.
+
+As ofertas novas (`equip --expose-l3`, `map`) são ofertas de **verbo irmão** e caem na mesma carve-out
+da seção seguinte: sem `FLUX_CMD`, imprimem a instrução em vez de executar. Vale nos dois sentidos —
+o `flux:map` é oferecido por outros elos e ele próprio oferece o `equip`, e nenhuma das duas pontas
+executa sem `FLUX_CMD`.
+
 ### `land` degrada no Codex
 
 `${FLUX_CMD}` não resolve no Codex hoje. O Passo 1b do [`preflight.md`](preflight.md) verifica
 `/flux:`, `/flux-` e `/`, e nenhuma dessas formas corresponde ao modo como o Codex expõe a skill.
 Pela regra do próprio passo, `FLUX_CMD` fica `UNAVAILABLE`.
 
-Isso atinge **um** elo, e só um: o `flux:land`, que é o único que despacha um irmão (ele roda o
-`iterate` por PR dentro de subagente). Os demais verbos da família funcionam normalmente.
+Isso atinge os elos que **despacham um irmão**, e são dois — mas eles reagem de formas diferentes, e a
+diferença é o que importa aqui:
+
+- **`flux:land`** roda o `iterate` por PR dentro de subagente, e sem esse despacho não há entrega
+  multi-PR: a fase **aborta**, e com ela o verbo. É o único indisponível no Codex.
+- **`flux:map`** despacha o `equip` por repo na fase de conserto, que é a segunda metade do verbo. Sem
+  `FLUX_CMD` ele **degrada**: o levantamento, o delta, a integridade e o índice saem inteiros, e as
+  remediações são impressas para o usuário rodar à mão. Continua sendo um verbo útil, com uma metade a
+  menos e a perda declarada no banner.
+
+Os demais funcionam normalmente.
 
 A oferta de Bootstrap de specialists (`review`, `iterate`, `land` e `build`) **não** entra nesta
 conta, e o motivo mudou: sem `FLUX_CMD`, a oferta **imprime a instrução e não executa**. Ela deixa de

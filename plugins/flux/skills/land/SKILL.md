@@ -1,6 +1,6 @@
 ---
 name: land
-description: "Orquestrador `flux:land` — orquestra a entrega multi-PR de uma issue/feature (descobre, ordena, valida regressão com specialists por default via review-agents.md, mantém merge-ready delegando ao `flux:iterate`, emite go/no-go). Global, resolve contexto via flux-context.json. NÃO mergeia. Complementa o mutirao/convocar (que criam PRs); este orquestra PRs já existentes até o merge. Workspace mode."
+description: "Orquestrador `flux:land` — orquestra a entrega multi-PR de uma issue/feature (descobre, ordena, valida regressão com specialists por default via review-agents.md, mantém merge-ready delegando ao `flux:iterate`, emite go/no-go). Global, resolve contexto via flux-context.json. NÃO mergeia. Complementa os comandos que criam PRs; este orquestra PRs já existentes até o merge. Workspace mode."
 user-invocable: true
 ---
 
@@ -14,7 +14,7 @@ Comando orquestrador de **entrega**: enxerga o conjunto de PRs de uma feature es
 - `/flux:iterate` — fecha o loop de UMA PR (aplica + posta + resolve + commita + pusha + watch).
 - `/flux:land` — orquestra VÁRIAS PRs de uma entrega: descobre, ordena, valida regressão, mantém merge-ready (delegando ao iterate), e emite go/no-go. **Este.**
 
-Não confundir com `mutirao`/`/convocar`: aqueles planejam e CRIAM PRs a partir de tasks; este assume PRs que **já existem** e cuida do caminho até produção.
+Não confundir com os comandos que **planejam e criam** PRs a partir de tasks: este assume PRs que **já existem** e cuida do caminho até produção.
 
 **Legenda canônica de badges (findings):** `${FLUX_ROOT}/shared/review-legend.md`
 **Contrato de agentes (specialists + reconciliação):** `${FLUX_ROOT}/shared/review-agents.md`
@@ -79,7 +79,7 @@ As flags podem aparecer em qualquer posição e combinadas.
 
 - **Não mergeia** (`gh pr merge`), não aprova nem usa `REQUEST_CHANGES`. O go/no-go é recomendação; o merge é do humano.
 - Não pusha `main`, não troca de branch sozinho.
-- Não cria PRs nem implementa features novas (isso é `mutirao`/`/convocar`).
+- Não cria PRs nem implementa features novas — para isso, o elo é o `${FLUX_CMD}build`.
 - Não resolve thread humana em `needs-discussion` (herda o guardrail do iterate).
 - Não roda escrita em repo sem checkout local: registra o bloqueio e segue.
 - **Não roda o `/flux:iterate` inline** no contexto principal (fase 4): sempre via subagente. Ver `${FLUX_ROOT}/shared/context-budget.md`.
@@ -190,7 +190,7 @@ Se nenhuma PR acionável, avise e termine.
 ### 2. Grafo de ordem + locks
 
 - Classifique cada PR por **camada** (backend/api, bff, frontend, infra) e por issue.
-- Detecte dependências de deploy (quem consome contrato de quem) e monte a **ordem de merge** por toposort cross-repo (mesma lógica de camadas/`blocked_by` do `mutirao-planner`, `${FLUX_ROOT}/agents/mutirao-planner.md`).
+- Detecte dependências de deploy (quem consome contrato de quem) e monte a **ordem de merge** por toposort cross-repo: ordene por camada (produtor de contrato antes de consumidor) e, dentro da camada, respeite as arestas de bloqueio que a **issue do tracker** declarar (no Linear, as relações `blocks` / `blockedBy` que o `get_issue` devolve em `relations`; em outros trackers, a relação equivalente). Não havendo relação declarada, o grafo é só o de camadas — nunca inventar aresta a partir de prosa da descrição. Ciclo detectado não se desempata por adivinhação — reporte as PRs envolvidas e peça a ordem ao usuário.
 - Fontes de **lock**:
   - **base branch empilhado**: `baseRefName != main` → a PR base entra antes (garantido pelo próprio base).
   - **acoplamento de contrato**: descoberto na fase 3 (ex.: backend gatilho por último).
@@ -418,18 +418,27 @@ Em qualquer saída, **relatório final** no chat: ordem de merge recomendada, ve
 
 ## Bootstrap de specialists (repos sem suite local)
 
-No **go/no-go final**, para cada repo da entrega que estiver **sem L2**, oferecer a criação da suite
-local seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md`. Uma oferta por repo no máximo, e
-sempre depois do veredito: a entrega é o produto, a suite é consequência.
+No **go/no-go final**, para cada repo da entrega, oferecer o que a lente faltante pedir. Uma oferta
+por repo no máximo, e sempre depois do veredito: a entrega é o produto, a suite é consequência.
 
-**Aceitar dispara `${FLUX_CMD}equip <repo> --agents-only`**, uma invocação por repo. O land não gera
-suite; ele descobre a falta e entrega a decisão ao verbo de preparo, que é onde os gates de escrita
-na máquina do usuário vivem.
+| estado do repo | oferta |
+|---|---|
+| **sem L2** (`ausente`) | criar a suite: `${FLUX_CMD}equip <repo> --agents-only`, seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md` |
+| **L3 inalcançável por âncora** | o degrau aplicável da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) — o degrau, não um comando escolhido aqui: as condições são de lá |
+| **`indice ausente` / `indice stale`** (`${FLUX_ROOT}/shared/agents-index.md`) | `${FLUX_CMD}map` |
+
+O land não gera suite nem escreve espelho; ele descobre a falta e entrega a decisão ao verbo de
+preparo, que é onde os gates de escrita na máquina do usuário vivem.
+
+> **A oferta de L3 não é opcional quando a causa é a âncora.** Delivery é o elo que mais roda em modo
+> workspace — é multi-repo por definição —, então é o que mais encontra L3 em disco e não invocável.
+> Emitir go/no-go tendo revisado regressão sem a suite do repo, e sem sequer oferecer o conserto, é
+> entregar um veredito mais fraco do que a máquina permitia.
 
 A suite gerada é **L2, fora do repositório** revisado.
 
 ## Notas finais
 
 - **Não mergeia**: o comando entrega tudo pronto e recomenda a ordem; o merge (e o deploy em prod) é decisão humana.
-- Reuso: `/flux:iterate` (por PR, `--auto --once`, **sempre dentro de subagente** — ver fase 4 e `${FLUX_ROOT}/shared/context-budget.md`), specialists via `review-agents.md`, lógica de toposort do `mutirao-planner`, padrão de board do template compartilhado.
+- Reuso: `/flux:iterate` (por PR, `--auto --once`, **sempre dentro de subagente** — ver fase 4 e `${FLUX_ROOT}/shared/context-budget.md`), specialists via `review-agents.md`, padrão de board do template compartilhado.
 - Se `gh` não estiver autenticado, pedir `gh auth login` e abortar.

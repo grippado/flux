@@ -83,9 +83,25 @@ Então:
 
 - O gate vive no **contexto principal**, antes de despachar ou depois de colher o retorno.
 - Quem despacha resolve o gate primeiro e passa a decisão já tomada ao subagente.
-- Elos que rodam dentro de subagente recebem `--auto`, que **pula os gates porque a decisão já foi
-  tomada por quem despachou** — não porque gates sejam opcionais. É o caso do `flux:iterate` quando
-  o `flux:land` o roda por PR.
+- Elos que rodam dentro de subagente recebem uma flag de procuração, que **pula os gates porque a
+  decisão já foi tomada por quem despachou** — não porque gates sejam opcionais. São duas hoje, e a
+  diferença entre elas não é cosmética:
+
+| flag | quem despacha | o que a procuração cobre | o que ela **não** cobre |
+|---|---|---|---|
+| `--auto` | `flux:land` → `flux:iterate`, por PR | autonomia de iteração sobre uma PR que a main já escolheu | nada fora daquela PR |
+| `--from-map` | `flux:map` → `flux:equip`, por repo | escopo do conserto e destino de escrita, ambos aceitos no gate da main | **arquivo existente** e **manifesto**: o filho para e devolve, e a main abre o gate |
+
+**A segunda linha é a categoria mais forte que a família delega, e por isso ela vem com limite
+explícito.** `--from-map` transfere consentimento de **escrita no disco do usuário, fora do repo
+alvo** — a mesma categoria que a lista acima atribui nominalmente ao `flux:equip`. Ela só é legítima
+sob as três garantias da Forma 2 do `${FLUX_ROOT}/shared/fanout-discipline.md`, e a terceira delas
+existe justamente porque **consentimento dado antes não cobre fato surgido depois**: no instante do
+gate, o arquivo que o filho encontrou não existia.
+
+Uma procuração nova é **categoria**, não call site: ela nasce aqui, com a linha na tabela e o limite
+declarado, antes de existir no corpo de qualquer verbo. Uma flag com semântica de gate que o contrato
+de gates não conhece é um gate invisível.
 
 `--auto` fora de subagente, pedido pelo usuário na linha de comando, é o usuário abrindo mão do gate
 para aquela execução. Legítimo, e a única forma de renunciar: nenhum elo decide sozinho rodar em

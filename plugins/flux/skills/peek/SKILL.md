@@ -11,6 +11,7 @@ requires:
   soft:
     - bin: gh
     - checkout_local
+    - index
 ---
 
 # /flux:peek

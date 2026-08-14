@@ -47,7 +47,9 @@ for base in "$(pwd)" "$WORKSPACE_ROOT_DO_CWD"; do
 done
 ```
 
-Não resolveu, e **só então**, descobrir os manifestos existentes na máquina e perguntar a eles:
+Não resolveu, e **só então**, descobrir os manifestos existentes na máquina e perguntar a eles. A
+fonte barata é o índice, quando ele existe e está fresco (`${FLUX_ROOT}/shared/agents-index.md`, campo
+`manifests`); sem índice, a varredura:
 
 ```bash
 find "$HOME" -maxdepth 4 -type f \
@@ -63,6 +65,30 @@ Um manifesto **reivindica** o slug quando ele aparece no campo `repos`, ou quand
   rodar no contexto errado escreve no vault errado, invoca os reviewers errados e aponta para a org
   de tracker errada.
 - **nenhum** reivindica → seguir para o passo 3.
+
+**2-bis. O alvo, quando ele é um ticket.** URL ou identificador de issue do tracker
+(`https://linear.app/<org>/issue/ENG-123/...`, `ENG-123`, `#4485` de um repo já nomeado). Este é o
+caso mais comum de invocação de `flux:land`, `flux:build`, `flux:issue` e `flux:refine`, e é o único
+alvo que **não carrega path nenhum** — por isso precisa de um passo próprio, e por isso ele foi o
+último a ganhar um.
+
+Resolver o ticket e derivar o repo, nesta ordem, parando no primeiro que produzir um slug:
+
+1. **PRs já ligadas à issue** (anexos/links da integração do tracker com o GitHub): o repo da PR é o
+   repo do trabalho. É a fonte mais confiável quando existe.
+2. **`gitBranchName`** que o tracker sugere para a issue, quando ele carrega o slug do repo.
+3. **Projeto ou time da issue**, quando o manifesto declara o mapeamento no campo `tracker_repo_map`
+   (ver "Campos"). Sem o campo, esta fonte não existe — nunca inferir repo a partir de nome de time.
+
+Com o slug em mãos, **entrar no passo 2** com ele, e seguir dali (checkout local → manifestos que o
+reivindicam). Nenhum slug derivável → passo 3.
+
+> **Por que este passo não é opcional.** Sem ele, `${FLUX_CMD}land <url-do-tracker>` cai direto no
+> `cwd`, e quem trabalha a partir de um diretório de workspace (ou do `$HOME`) recebe **perfil
+> genérico com um manifesto válido a um passo de distância**: vault não resolvido, holístico da
+> cascata em vez do declarado, specialists inalcançáveis, e nada no output indicando que o perfil
+> certo existia. Já aconteceu, com as duas issues de uma entrega e um manifesto que declarava o repo
+> pelo nome.
 
 **3. O `cwd`.** O comportamento clássico, e o único caminho quando não há alvo (`/flux:peek` sem
 argumento lê a working tree do `cwd`, e aí o `cwd` **é** o alvo).
@@ -91,6 +117,11 @@ com o reviewer de outro time sem que nada acuse o problema.
   de um time e reviewers de outro.
 - **O passo 2 é o único que toca o disco fora do alvo**, e só quando o slug não resolveu pelos
   caminhos baratos. Não faça a varredura quando os passos 1 ou 2-rápido já resolveram.
+- **O passo 2-bis é o único que faz chamada de rede na resolução de âncora** (o tracker). Ele roda
+  uma vez, e o que ele leu da issue é reaproveitado pelo elo — nada de consultar a mesma issue de novo
+  na fase de descoberta. Tracker indisponível não aborta: cai para o passo 3 e **declara a queda em
+  `degradacoes:`** (`${FLUX_ROOT}/shared/preflight.md`, Passo 5), porque perfil genérico obtido por
+  falha de rede é indistinguível de perfil genérico legítimo.
 - **Declarar a âncora no banner** quando ela **não** for o `cwd`, para que a origem do perfil seja
   auditável:
 
@@ -117,6 +148,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   "vault_context_root": "~/notes/acme",
   "workspace_root": "~/code/acme",
   "linear_org": "acme",
+  "tracker_repo_map": { "Payments": "payments", "Platform": "api-gateway" },
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
   "repos": ["api-gateway", "web-monorepo", "notifications", "payments", "..."],
   "exec_command": "workflow",
@@ -205,6 +237,10 @@ com o reviewer de outro time sem que nada acuse o problema.
   onde o manifesto foi encontrado.
 - `linear_org` — org do Linear, usada por `flux:issue` pra montar URLs de ticket
   (`https://linear.app/{linear_org}/issue/...`) e pelo doc apontado em `linear_ops` no roteamento de team.
+- `tracker_repo_map` — opcional. Mapa `{ "<projeto ou time do tracker>": "<slug de repo>" }`, terceira e
+  última fonte do passo 2-bis da âncora, quando a issue não tem PR ligada nem `gitBranchName` com o
+  slug. **Sem o campo a fonte simplesmente não existe**: adivinhar repo a partir de nome de time é
+  como o elo acaba rodando no contexto errado com aparência de acerto.
 - `repos` — repos conhecidos do contexto (usado por `flux:land` pra resolver targets cross-repo).
 - `exec_command` — nome do comando **nativo de execução** dos repos deste contexto, usado pelo `flux:build`
   pra descobrir o motor (`<repo>/.claude/commands/<exec_command>.md`). Default: `workflow`.

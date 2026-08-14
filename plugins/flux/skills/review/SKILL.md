@@ -13,6 +13,7 @@ requires:
     - bin: gh
     - file: shared/review-body-template.md
     - vault
+    - index
 ---
 
 # /flux:review

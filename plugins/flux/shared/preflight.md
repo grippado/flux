@@ -80,6 +80,38 @@ referência entre shareds).
 > que não existe na máquina dele, e o erro chega no formato mais confuso possível — o elo funcionou
 > perfeitamente e ainda assim entregou uma instrução quebrada.
 
+### 1c — `ADDDIR_CMD`
+
+O degrau 0 da escada de alcance da L3 (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) depende de uma
+capacidade que **nem todo harness tem**: acrescentar um diretório ao escopo da sessão, fazendo o
+`.claude/agents/` dele ser varrido junto. Onde ela existe, é o único caminho que alcança a suite do
+repo **sem criar cópia**, e por isso ela é o primeiro degrau.
+
+Vale aqui o mesmo rigor dos Passos 1b e 3, e pela mesma razão: **resolver não é verificar**. Um
+contrato que imprime o comando sem confirmar que a sessão o expõe manda o usuário digitar algo que
+não existe na máquina dele — a falha que o Passo 1b nomeia, com um comando de harness no lugar do
+verbo irmão.
+
+Resolver `ADDDIR_CMD` **verificando qual forma a sessão de fato expõe**, parando na primeira:
+
+1. `/add-dir` — comando de sessão.
+2. A flag equivalente de invocação do harness, quando ele documenta uma.
+
+**Com o que se verifica.** Vale o 3-bis abaixo, pela mesma razão: não há `command -v` para comando de
+sessão. A fonte é o que a sessão expõe a este processo — a lista de comandos disponíveis —, e por isso
+esta resolução é **introspecção, e privilégio da main**, feita uma vez e descida como fato dado a
+quem precisar. Ler a documentação de um harness **não é** verificar: uma flag documentada e ausente
+nesta sessão resolve para `UNAVAILABLE` como qualquer outra.
+
+Nenhuma forma resolveu → `ADDDIR_CMD` é `UNAVAILABLE`. Isso **não** derruba elo nenhum: o degrau 0
+simplesmente sai da escada, que segue para o degrau 1 (espelho namespaceado), e a ausência é
+declarada como qualquer outra degradação.
+
+> **Por que isto não é hardcode de produto.** A regra do Passo 1a é que nomear um harness só é
+> legítimo quando o candidato é **verificável** e tem caminho de ausência. `ADDDIR_CMD` tem os dois,
+> e é por tê-los que ele pode existir; a versão anterior deste contrato imprimia `/add-dir` cru, sem
+> teste e sem ausência, e isso era hardcode.
+
 ## Passo 2 — Verificar os requisitos declarados
 
 Cada elo declara no frontmatter:
@@ -105,6 +137,7 @@ Tipos de requisito:
 | `agent: <nome>` | ver Passo 3 |
 | `checkout_local` | o alvo tem checkout local acessível para leitura de contexto |
 | `vault` | `VAULT_ROOT` resolvido e o diretório existe |
+| `index` | o `flux-agents.json` existe e o `generated_by` é compatível. **Só isso**: o teste de frescor por repo é do elo, no momento em que ele sabe quais repos vai usar, e está em `${FLUX_ROOT}/shared/agents-index.md`. **Sempre `soft`, em elo nenhum `hard`** — nem nos que o escrevem, que abortariam na máquina onde são indispensáveis |
 | `mcp: <prefixo>` | as tools daquele prefixo estão disponíveis na sessão |
 
 **Regra de fronteira:**
@@ -159,6 +192,12 @@ lente listada no banner e nunca executada.
 diferente de agentes registrados, então uma verificação feita lá dentro não é comparável com a feita
 aqui — e nada no output denuncia a divergência.
 
+**O índice não substitui esta introspecção, e não pode ser lido como se substituísse.** O
+`flux-agents.json` (`${FLUX_ROOT}/shared/agents-index.md`) diz o que existe em disco e onde — é com
+ele que se decide **o que oferecer** quando falta lente. Quem decide **o que rodou** continua sendo a
+lista da sessão. Inverter os dois troca uma degradação declarada por um arquivo com cara de
+autoridade afirmando cobertura que não houve.
+
 Por isso a verificação é **privilégio da main e acontece uma vez**. A main resolve o holístico,
 resolve as lentes, registra as degradações e **desce o resultado já resolvido** dentro do prompt de
 cada subagente que despacha, como fato dado. Nenhum subagente re-resolve lente, reconfere registro,
@@ -204,6 +243,28 @@ degradacoes: {lista dos soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
 
+### Tokens canônicos de `degradacoes:`
+
+A linha `lentes:` tem enum fechado (`{lista|ausente|inalcancavel}`). Tudo que qualifica uma lente sem
+ser um desses três estados vai para `degradacoes:`, e **com a grafia desta tabela** — um token de
+banner escrito de três jeitos em quatro arquivos deixa de ser legível de relance, que é a única coisa
+que o banner precisa ser.
+
+| token | quando | quem emite |
+|-------|--------|-----------|
+| `L3 stale` | a lente L3 roda por espelho (degrau 1 da escada) e a origem mudou desde `synced_from_sha256` | o elo que resolveu as lentes |
+| `indice ausente` | não há `flux-agents.json` na raiz de agents | idem |
+| `indice stale` | há índice, e ele não passou o teste de frescor | idem |
+
+Os três acompanham a oferta correspondente (`${FLUX_CMD}equip <repo> --expose-l3`,
+`${FLUX_CMD}map`) e **nenhum deles aborta**: os elos caem para a varredura direta, que é o
+comportamento que existia antes do índice.
+
+> **Um estado que só existe no shared não é emitido.** Estes três nasceram descritos em
+> `${FLUX_ROOT}/shared/agents-index.md` e em `${FLUX_ROOT}/shared/review-agents.md`, e sem esta tabela
+> nenhum elo teria de onde copiá-los na hora de emitir — o mesmo motivo pelo qual o gabarito do banner
+> é repetido no corpo de cada verbo.
+
 > **`ausente` e `inalcancavel` não são sinônimos**, e a distinção está no contrato de
 > `${FLUX_ROOT}/shared/review-agents.md` (passo 1a-bis). `ausente` é não existir suite para o repo.
 > `inalcancavel` é a suite existir em disco e não ser invocável, tipicamente porque o `name:` do
@@ -245,17 +306,17 @@ aqui para que nenhum elo os invente e nenhum elo com direito a eles os omita:
 
 | campo | quem emite | o que declara |
 |-------|-----------|---------------|
-| `holistico:` | todos, **menos** `flux:build` e `flux:equip` | o agente da lente L1, quando o elo resolve um |
+| `holistico:` | todos, **menos** `flux:build`, `flux:equip`, `flux:map`, `flux:refine` e `flux:reply` | o agente da lente L1, quando o elo resolve um |
 | `motor:` | `flux:build` e `flux:equip` | `{nativo <cmd> \| exec_fallback <cmd> \| autonomo \| ausente}` |
-| `destino:` | **só** `flux:equip` | `{path canonico aprovado \| nao resolvido}` |
+| `destino:` | `flux:equip` e `flux:map` | `{path canonico aprovado \| nao resolvido}` |
 
 `motor:` existe nesses dois porque são os únicos que têm relação com o motor de execução: o `build` o
 **escolhe** (`${FLUX_ROOT}/skills/build/SKILL.md`, Step 2), o `equip` o **produz**. Nos dois casos,
 qual motor rodou (ou faltou) é a informação que muda como se lê o resultado — um build em modo
 autônomo rodou sem os gates do repo, e quem lê precisa saber disso de relance.
 
-`destino:` existe só no `equip` porque ele é o único verbo cujo entregável é **um caminho no disco de
-alguém**. Um elo que escreve fora do repo e não diz onde obriga o usuário a caçar o que apareceu;
+`destino:` existe nesses dois porque são os únicos cujo entregável é **um caminho no disco de alguém**
+— a suite ou o motor, no `equip`; o índice, no `map`. Um elo que escreve fora do repo e não diz onde obriga o usuário a caçar o que apareceu;
 enquanto o gate de destino não tiver acontecido, o campo sai como `nao resolvido`, que é a verdade
 naquele instante e não uma omissão.
 

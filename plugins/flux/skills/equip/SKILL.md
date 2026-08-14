@@ -6,6 +6,7 @@ requires:
   hard:
     - file: shared/write-destination.md
     - file: shared/bootstrap-specialists.md
+    - file: shared/agents-index.md
     - file: shared/flux-context.md
     - bin: git
   soft:
@@ -90,7 +91,7 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 ## Uso
 
 ```
-/flux:equip <repo> [--engine-only] [--agents-only] [--from-kit <ref>] [--dry]
+/flux:equip <repo> [--engine-only] [--agents-only] [--expose-l3] [--from-kit <ref>] [--dry]
 /flux:equip                                   # repo mode: infere o repo do cwd
 ```
 
@@ -102,7 +103,9 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 |------|--------|
 | `--engine-only` | Equipa **só L0** (o motor). Não toca em specialists, não oferece o Bootstrap. |
 | `--agents-only` | Equipa **só L2** (a suite de specialists). Não toca em motor nem em `exec_fallback`. |
+| `--expose-l3` | Torna a **L3 do repo alcançável** de qualquer sessão, pelo degrau 1 da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis): espelho namespaceado, `name:` prefixado com o slug do repo. Ver "Step 4b". |
 | `--from-kit <ref>` | Em vez de autorar do zero, instala a partir de um kit já pronto. Ver "Kits", abaixo. |
+| `--from-map` | **Uso interno: despachado pelo `${FLUX_CMD}map`**, sob as três garantias da Forma 2 do `${FLUX_ROOT}/shared/fanout-discipline.md`: escopo e destino já consentidos no gate da main dele (nenhum gate abre aqui, porque não sobrou gate); índice carimbado pelo chamador; e **arquivo existente e manifesto não são deste processo** — encontrados, o verbo para, não escreve, e devolve no retorno. Ver "Step 4c" e "Step 6". |
 | `--dry` | Faz o diagnóstico completo, imprime o plano de equipagem e **para**. Nada é escrito, nenhum gate abre. |
 
 Sem `--engine-only` nem `--agents-only`, o verbo cuida das duas camadas — mas **só do que falta**.
@@ -120,6 +123,7 @@ diga isso ao usuário em uma linha, porque quem escreveu os dois provavelmente e
 /flux:equip payments --engine-only            # só o motor (o repo já tem suite)
 /flux:equip web-monorepo --dry                # diagnóstico + plano, sem escrever
 /flux:equip notifications --from-kit node-fastify
+/flux:equip payments --expose-l3              # L3 do repo alcançável fora dele
 /flux:equip                                   # dentro de <WORKSPACE_ROOT>/api-gateway
 ```
 
@@ -342,9 +346,83 @@ fan-out obrigatório, o PR draft opcional em `SPECIALISTS_REPO` — está em
 - **Autoria vai para subagente, sempre.** Detecção de stack, leitura dos agents L3 e escrita dos
   arquivos são unidades independentes e vão em paralelo num único bloco
   (`${FLUX_ROOT}/shared/fanout-discipline.md`). A main fica com gates, destino e registro.
-- **L2 `inalcancavel` não passa por aqui.** Vai para o Step 7 como oferta de instalação, com os dois
-  caminhos do `review-agents.md` (mover para um diretório varrido pelo harness, ou expor por symlink
-  garantindo `name:` único entre todas as suites).
+- **L2 `inalcancavel` não passa por aqui.** Vai para o Step 7 como oferta de instalação, com a
+  remediação que a **causa** pedir na tabela do `review-agents.md` (1a-bis) — mover para um diretório
+  varrido pelo harness, percorrer a escada de alcance, ou desfazer colisão de `name:` —, nunca
+  "symlink" como resposta única.
+
+---
+
+## Step 4b — Expor a L3 (`--expose-l3`)
+
+Roda quando a invocação pediu `--expose-l3`, ou quando o usuário aceitou a oferta do degrau 1 da
+escada de alcance (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) no fechamento de outro elo.
+
+**O que é.** Um espelho dos agents de review de `<repo>/.claude/agents/` dentro de uma raiz que o
+harness varre, com o `name:` de cada arquivo reescrito para `<slug>-<name>`. Isso é o que torna a
+suite do repo invocável de uma sessão ancorada acima dele, que é o modo normal de trabalho de quem
+tem vários repos sob um diretório de workspace.
+
+**Por que espelho com prefixo, e não symlink do diretório:** o argumento de colisão de `name:` está
+no 1b-bis, e é lá que ele se mantém. Não repetir aqui.
+
+**Regras:**
+
+- **Só agents que passam o filtro de intenção de review do 1b.** Agent de execução
+  (`implementation`, `test-runner`, `backend-dev`, `db-migrations`) **não** é espelhado: promovê-lo a
+  global é criar efeito colateral em repo alheio a um `Task` de distância. Os excluídos são listados
+  no relatório.
+- **Destino pela cascata do Step 3.1**, sob `<raiz de agents>/<ctx>/<slug>-l3/`. Nunca dentro do
+  checkout do repo alvo — a regra do "Out of scope" vale aqui inteira.
+- **Nada além do `name:` é reescrito.** O corpo do agent é do time que o mantém; reescrever conteúdo
+  transformaria um espelho em fork, e o próximo `--expose-l3` teria que decidir entre duas verdades.
+- **Proveniência obrigatória.** Gravar no índice o `sha256` do conjunto de origem
+  (`l3.mirror.synced_from_sha256`). É o que permite a um elo declarar a degradação `L3 stale`
+  (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) em vez de rodar uma cópia velha em silêncio.
+- **Re-executar é idempotente**: origem inalterada ⇒ nada a escrever, e diga isso em uma linha.
+
+**A pergunta que o usuário precisa responder antes**, porque a resposta muda o que fica na máquina
+dele: espelho é cópia, e cópia envelhece. Abrir o gate de destino declarando isso, e oferecendo o
+degrau 0 no lugar quando ele for aplicável (condições no 1b-bis), porque lá não há cópia nenhuma.
+
+---
+
+## Step 4c — Atualizar a entrada do repo no índice
+
+**Com `--from-map`, este Step não roda, e o `collisions` em especial fica interditado:** ele muda com
+espelho novo e cada filho só enxerga a própria parte, então recomputá-lo aqui produziria um mapa de
+colisões cego para os outros repos da mesma execução. O `map` despacha vários `equip` em paralelo, e
+há **um** `flux-agents.json` por raiz de agents: N filhos carimbando o mesmo arquivo é race no único recurso
+que o fan-out compartilha, e o índice sairia descrevendo um subconjunto arbitrário do que aconteceu.
+Nesse modo, devolver os fatos no contrato de retorno e deixar a reconciliação com a main do `map`
+(um escritor por execução, a mesma disciplina do board-keeper do `flux:land`). O resto do verbo roda
+igual, com o contrato de destino inteiro valendo.
+
+Invocado direto, sem `--from-map`: ao equipar um repo (Steps 4, 4b e 5), **atualizar a entrada dele**
+no `flux-agents.json` e recomputar `collisions`.
+
+### Arquivo existente sob `--from-map`
+
+O gate por arquivo existente do `${FLUX_ROOT}/shared/write-destination.md` é **posterior ao
+levantamento por natureza**: o arquivo pode ter nascido entre o gate da main e o despacho. Encontrando
+um, este processo **não escreve, não sobrescreve, não faz backup e não decide** — devolve o caminho em
+`recusado:` e segue para os demais arquivos. A main do `map` abre o gate que falta.
+
+A invariante do contrato de destino ("nenhum arquivo existente é sobrescrito em silêncio") não é
+relaxada pelo `--from-map`; ela é **adiada** para quem tem canal com o usuário. Não existe caminho em
+que um filho decida sobrescrever, e "o consentimento já foi dado" **não** cobre este caso, porque no
+instante do consentimento o arquivo não existia. Um índice que descreve a máquina de antes da equipagem faz o próximo elo oferecer o que
+acabou de ser feito.
+
+O escopo aqui é **um repo**, e só ele: o levantamento da máquina inteira é do `${FLUX_CMD}map`, que é
+o verbo de sanidade da família. Esta é a divisão inteira entre os dois — o `map` **levanta**, o `equip`
+**equipa e carimba o que equipou**.
+
+- **Quando o índice pode ser escrito, e por quem, é do `agents-index.md`** (seção "Quem escreve"). Este
+  Step **executa** aquele contrato; não o reenuncia.
+- Não havendo índice na máquina, **não criar um** a partir de um repo só: um índice parcial seria
+  indistinguível de um índice completo e faria os outros elos confiarem num mapa com um repo. Relatar
+  a ausência e oferecer o `${FLUX_CMD}map`.
 
 ---
 
@@ -389,6 +467,14 @@ mesmo instante, não no fim.
 ---
 
 ## Step 6 — Persistir no manifesto (gate próprio, e este é novo)
+
+**Com `--from-map`, este Step não escreve.** Ele apura o que persistiria e devolve no campo
+`manifesto_pendente:` do contrato de retorno; quem grava é a main do `map`, com o gate, na
+reconciliação. Duas razões, e as duas são das mesmas famílias que já governam este verbo: escrever no
+manifesto é categoria de gate **sempre** (`${FLUX_ROOT}/shared/hitl.md`), e um subagente não tem canal
+para abri-lo; e há **um** `flux-context.json` por perfil, então N filhos gravando nele é a mesma
+corrida do índice, agravada porque a escrita aqui é merge preservando campos desconhecidos, não
+substituição.
 
 **Nenhum elo da família escreveu o `flux-context.json` até agora.** Todos os demais leem o manifesto e
 resolvem contra ele; nenhum o altera. Este verbo é o primeiro que precisa alterar, e por isso a
