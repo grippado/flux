@@ -12,6 +12,14 @@
 # marketplace do Claude compararia claude com claude e passaria verde exatamente
 # no cenário dos incidentes conhecidos (e47f167, 7b115b4).
 #
+# Como reproduzir e47f167: naquele commit só existiam DOIS dos cinco manifests
+# (.cursor-plugin/ e .codex-plugin/ ainda não existiam), então restaurá-lo tal e
+# qual faz o script falhar majoritariamente por `manifesto ausente`, e não pela
+# divergência 1.6.0 versus 1.5.0. Para exercitar a divergência histórica, restaure
+# os dois arquivos do commit e sincronize os outros três em 1.6.0: aí o script
+# falha nomeando plugins/flux/.claude-plugin/plugin.json, o divergente real do
+# incidente. O 7b115b4 já tinha os cinco e reproduz o caso completo direto.
+#
 # Compara `version` e `name` por string exata, tomando o primeiro arquivo como
 # referência. NÃO compara `description` (o manifesto do Codex é intencionalmente
 # em inglês), `keywords` (o Codex tem `codex` a mais) nem o bloco `interface`
