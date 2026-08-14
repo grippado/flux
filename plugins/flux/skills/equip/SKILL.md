@@ -8,6 +8,7 @@ requires:
     - file: shared/bootstrap-specialists.md
     - file: shared/agents-index.md
     - file: shared/flux-context.md
+    - file: shared/kit-format.md
     - bin: git
   soft:
     - bin: gh
@@ -571,21 +572,27 @@ Não rode o próximo elo automaticamente.
 ## Kits (`--from-kit <ref>`)
 
 Um kit é um conjunto de artefatos **já escritos** que se instala em vez de autorar do zero. O formato
-de kit ainda não está especificado, e este verbo **não o especifica**: alargar `kits_root` para
-carregar semântica que ninguém definiu congelaria um formato antes de existir um caso de uso real.
+dele é `${FLUX_ROOT}/shared/kit-format.md` — o que um kit é, o shape do `flux-kit.json`, o que invalida
+um kit e como um repo resolve para zero, um ou N kits. Este verbo **não reenuncia** nada disso: aponta
+para lá e declara só o que é específico da instalação.
 
 O que vale hoje, e só isto:
 
 - `<ref>` resolve como **caminho**: literal (absoluto ou relativo ao `cwd`) ou, quando o perfil
   declara `kits_root`, o template resolvido com `{repo}` — o mesmo mecanismo de `specialists_root`.
-- Resolveu para um diretório existente → o conteúdo dele é instalado no destino aprovado, passando
-  **integralmente** pelo contrato de destino, arquivo por arquivo, incluindo o gate por arquivo
-  existente.
+- Resolveu para um diretório existente → **validar o `flux-kit.json` dele** pela seção "Kit inválido"
+  do `kit-format.md` antes de qualquer escrita. Inválido → abortar com o path e o motivo; nunca
+  instalar parcialmente o que sobrou de um kit quebrado.
+- Válido → o conteúdo é instalado no destino aprovado, passando **integralmente** pelo contrato de
+  destino, arquivo por arquivo, incluindo o gate por arquivo existente. O `manifest_fragment`, quando
+  há, é **oferecido** no gate de manifesto que este verbo já tem, nunca aplicado por consequência.
 - Não resolveu → **abortar**. Não cair na autoria do zero silenciosamente: quem passou `--from-kit`
   pediu um kit específico, e entregar outra coisa com o mesmo nome é a pior resposta possível.
 
-Quando o formato de kit for especificado, ele entra aqui e no degrau 3 da cascata sem reescrever nem
-este verbo nem o contrato de destino. Foi para isso que os dois ficaram estreitos.
+**O que ainda não é feito aqui**, e é da issue seguinte da cadeia: resolver `<ref>` pelo **nome** do
+kit (o campo `kit`) contra as `KIT_ROOTS` do preflight — hoje `<ref>` é sempre caminho —, e o GATE de
+desambiguação com N kits que o `kit-format.md` prescreve para o lado da escrita. Enquanto isso não
+existe, N kits não é um estado que este verbo alcança: quem passou um caminho já escolheu um.
 
 ---
 
