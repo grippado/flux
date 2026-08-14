@@ -72,6 +72,24 @@ Se **nenhuma** forma resolver, `FLUX_CMD` é `UNAVAILABLE`. Isso não derruba os
 despacham irmãos; derruba só a fase que depende de despacho, e ela aborta com a mensagem do formato
 padrão em vez de degradar para inline.
 
+**E o texto que não é despacho?** A regra acima cobre a fase que despacha. Depois que a "Regra de
+escrita" abaixo passou a valer também para mensagem de abortagem, sugestão de verbo e linha de board,
+existe uma segunda pergunta que o contrato não respondia: o que sai impresso quando `FLUX_CMD` é
+`UNAVAILABLE` e o texto não despacha nada?
+
+Não é o placeholder cru, e não é o literal de um harness. Os dois são piores que o problema: o
+primeiro imprime `${FLUX_CMD}review 790`, que não é comando em lugar nenhum; o segundo manda digitar
+uma forma que naquela máquina não existe, que é exatamente o defeito que esta regra veio corrigir.
+
+**Nomear o verbo, não a invocação.** Sem `FLUX_CMD`, o texto cita o elo pelo nome (`o verbo `review`
+da família`) e, quando útil, diz que ele é invocado pela forma que aquela sessão expõe. É a mesma
+disciplina de `${FLUX_ROOT}/shared/bootstrap-specialists.md`, que já manda oferecer o preparo sem
+nomear uma forma que não pôde verificar.
+
+Isso vale inclusive para o gabarito de abortagem do "Formato da mensagem de abortagem", onde a
+circularidade é mais aguda: a mensagem que existe para dizer o que falta não pode depender da
+resolução que faltou.
+
 **Regra de escrita:** toda menção a um verbo irmão que sai **impressa para o usuário** — linha de
 fechamento, sugestão de próximo elo, texto ao lado de um menu — usa `${FLUX_CMD}`. O `/flux:` literal
 só é aceitável em prosa interna que o usuário nunca lê (comentário de arquitetura, tabela de
