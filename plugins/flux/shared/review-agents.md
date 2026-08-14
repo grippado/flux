@@ -109,6 +109,28 @@ degradacoes: L2 inalcancavel — <path> existe e declara `name: <nome>`, mas <no
              ~/.claude/agents/ nem sob <repo>/.claude/agents/)
 ```
 
+A primitiva com que se confere isso, e quem na família tem direito de conferir, estão em
+`${FLUX_ROOT}/shared/preflight.md`, Passo 3-bis. Em resumo: não existe `command -v` para agente, a
+fonte é a lista de agentes da sessão, e quem verifica é a main, uma vez só.
+
+**Registrado com este nome não é o mesmo que registrado a partir deste arquivo.** O gate acima
+compara uma string; a pergunta é de identidade. Dois arquivos podem declarar o mesmo `name:`, e nesse
+caso o harness carrega um só, sem precedência definida — então o nome aparecer na lista **não prova**
+que o agente por trás dele é o que você achou em disco.
+
+Este falso positivo é mais caro que o falso negativo que a seção documenta acima. O agente errado é
+invocado, devolve findings plausíveis, e o banner registra uma verdade formal (`rodou <nome>`) sobre
+um parecer que leu o repo com o conhecimento de outro. Nada no output denuncia.
+
+Antes de declarar disponível, confrontar o que o registro descreve com o frontmatter do arquivo
+achado — `description` e escopo declarado. Bate → disponível. Não bate, ou não há como saber →
+**inalcançável por colisão de nome**, nunca disponível.
+
+> **Também não é hipotético.** Um `<repo>/.claude/agents/module-boundary-auditor.md` e um
+> `module-boundary-auditor` registrado vindo da suite curada de **outro** repo satisfazem os dois o
+> gate de string. O que roda contra o diff é o auditor do repo errado, e o rodapé de cobertura
+> declara a lente como coberta.
+
 **Nunca declarar `lentes: L2 <nome>` para um agente que não se conseguiu invocar.** O banner existe
 para impedir que uma execução degradada se passe por completa, e uma lente listada e não executada é
 exatamente isso.
@@ -119,16 +141,21 @@ banner passaria a mentir de um jeito mais difícil de detectar. Registrar a degr
 que existe.
 
 **O que fazer com a informação, no fechamento do elo:** um `inalcançável` é acionável e um `ausente`
-não é. Ausente pede `${FLUX_CMD}equip --agents-only` (criar a suite). Inalcançável pede
-**instalação**, porque a suite já
-existe e o trabalho de escrevê-la já foi feito. Ofereça o caminho certo:
+não é. Ausente pede `${FLUX_CMD}equip --agents-only` (criar a suite). Inalcançável **não pede criar
+nada**, porque a suite já existe e o trabalho de escrevê-la já foi feito — mas o que ele pede depende
+da **causa**, e são três, com remediações que não se substituem:
 
-- Suite sob um diretório que o harness varre (`~/.claude/agents/`, incluindo subdiretórios) → conferir
-  se o `name:` está lá e se não colide com outro agente de mesmo nome.
-- Suite fora desses diretórios (num repositório de dotfiles, por exemplo) → ela precisa ser exposta,
-  tipicamente por symlink, e **o nome precisa ser único entre todas as suites**, porque a identidade é
-  o `name:` e não o caminho: dois arquivos com o mesmo `name` fazem o harness carregar só um, sem
-  precedência definida.
+| causa | como se reconhece | o que oferecer |
+|---|---|---|
+| **fora de diretório varrido** | o arquivo não está sob `~/.claude/agents/` (subdiretórios incluídos) nem sob `<repo>/.claude/agents/` — vive num repositório de dotfiles, por exemplo | expor, tipicamente por symlink, com **nome único entre todas as suites** |
+| **âncora fora do repo** | o arquivo está no lugar canônico `<repo>/.claude/agents/`, e a sessão subiu num diretório **acima** do repo, que é o que um harness não varre | reinvocar o elo com a sessão ancorada no repo. **Nada a mexer em disco** |
+| **colisão de `name:`** | o nome está registrado, e o que ele descreve é outro escopo (bloco anterior) | renomear com prefixo do repo, **do lado da suite que você cura** |
+
+**Symlink não é remédio universal, e oferecê-lo como tal causa dano.** Na segunda linha da tabela o
+arquivo está exatamente onde deveria estar: o que falta é a sessão, não a instalação. Symlinkar os
+agents de um repositório para `~/.claude/agents/` promove nomes genéricos como `reviewer`,
+`patterns`, `structural` ou `test-coverage` a nomes globais, e **fabrica a terceira causa da tabela**
+em todos os outros repos da máquina — trocando uma degradação declarada por um falso positivo mudo.
 
 > **Isto não é hipotético.** Um perfil com `specialists_root` apontando para uma suite de 9 agentes,
 > todos em disco e nenhum registrado, produziu por semanas banners dizendo `L2 disponível` e reviews
@@ -141,7 +168,9 @@ Varrer `<repo-checkout>/.claude/agents/**.md` e **filtrar por intenção de revi
 L3 quando satisfaz **qualquer** critério:
 
 - está em `<repo-checkout>/.claude/agents/review/`;
-- o nome do arquivo casa `reviewer`, `review`, `audit`, `auditor`, `scout`, `scouter`, `critic`;
+- o nome do arquivo casa `reviewer`, `review`, `audit`, `auditor`, `scout`, `scouter`, `critic`,
+  `repo-owner` — o último porque orquestrador de suite é o alvo **preferencial** desta lente e era o
+  único que escapava do critério mais barato, entrando só pela leitura de frontmatter;
 - a `description` do frontmatter declara análise **read-only** de código (revisar, auditar, inspecionar,
   diagnosticar) sem escrever;
 - as `tools` do frontmatter não incluem `Edit`/`Write`/`NotebookEdit` **e** a descrição é de análise.
@@ -151,16 +180,37 @@ L3 quando satisfaz **qualquer** critério:
 > `backend-dev.md`). Invocar um agent de execução dentro de um review não produz uma review ruim:
 > produz efeito colateral no repo. **Na dúvida, ficar de fora.**
 
-Se o repo tem um orquestrador único (`reviewer.md` na raiz de `agents/`), preferi-lo e deixar que ele
-resolva os próprios subordinados, em vez de invocar os agents individualmente.
+Se o repo tem um orquestrador único, preferi-lo e deixar que ele resolva os próprios subordinados, em
+vez de invocar os agents individualmente. **Havendo mais de um candidato a orquestrador** — o caso
+comum é `repo-owner.md` e `reviewer.md` coexistindo na raiz de `agents/` —, desempatar assim:
+
+1. O que a `description` declarar como orquestrador (despacha specialists, sintetiza um relatório
+   único) vence o que se descreve como reviewer de diff.
+2. Persistindo o empate, `repo-owner.md` vence: é o nome com que a família escreve orquestrador
+   (`${FLUX_ROOT}/shared/bootstrap-specialists.md`), e `reviewer.md` é também o nome do **override do
+   holístico** do Passo 3 do preflight, então pode já estar rodando como L1.
+3. Continuando ambíguo, **não escolher**: invocar os specialists individualmente e registrar a
+   ambiguidade no banner. Errar o orquestrador roda a suite inteira pela cabeça errada.
 
 **Registrar os excluídos.** Guardar a lista dos agents que existiam e não passaram no filtro, para o
 banner. O usuário precisa poder discordar do filtro sem ter que ler o diretório na mão.
 
-**O mesmo gate do 1a-bis vale aqui**, com uma diferença de probabilidade: agents versionados no
-próprio repositório costumam ser registrados pelo harness por serem agents de projeto, então L3
-raramente fica inalcançável. Ainda assim, um arquivo sem `name:` no frontmatter não é invocável, e
-entra na lista dos excluídos com esse motivo, não como "não passou no filtro de intenção".
+**O que não é agent não entra na lista de excluídos.** A varredura é `**.md`, então ela pega também
+os arquivos que o diretório usa para outra coisa — `AGENT.md`, `README.md`, `CLAUDE.md`, um índice da
+suite. Eles não têm `name:` porque não pretendem ser invocáveis, e listá-los como "excluídos" enche o
+banner de ruído justamente onde ele precisa ser lido de relance. Excluído é agent candidato que ficou
+de fora; o resto simplesmente não é candidato.
+
+**O mesmo gate do 1a-bis vale aqui**, e a probabilidade de L3 ficar inalcançável **depende inteiramente
+de onde a sessão subiu**. Ancorada no repo, agents de projeto são carregados pelo harness e L3
+raramente falha. Ancorada acima dele — o caso de quem trabalha num diretório de workspace com vários
+repos dentro —, o `.claude/` do repo alvo **não é carregado**, e aí L3 não é raramente inalcançável:
+é sempre. É a segunda linha da tabela de causas, e é o estado normal de um elo rodando em modo
+workspace, não uma anomalia de instalação.
+
+Ainda assim, um arquivo sem `name:` no frontmatter não é invocável, e entra na lista dos excluídos
+com esse motivo, não como "não passou no filtro de intenção" — desde que seja um agent candidato, e
+não um dos arquivos-que-não-são-agent do parágrafo acima.
 
 ### 1c — Consolidar
 
@@ -181,7 +231,7 @@ seguir. Nunca travar por ausência de specialists.
 |---|---|---|---|
 | **disponível** | achado e invocável | `lentes: L2 <nome>` | nada |
 | **ausente** | não há suite para este repo | `L2 ausente` | `${FLUX_CMD}equip --agents-only` (criar a suite) |
-| **inalcançável** | a suite existe e não é invocável | `L2 inalcancavel — <motivo>` | instalar/expor a suite que já existe |
+| **inalcançável** | a suite existe e não é invocável | `L2 inalcancavel — <motivo>` | o que a **causa** pedir (tabela do 1a-bis): expor, reancorar a sessão, ou desfazer colisão de nome |
 
 Colapsar `inalcançável` em `ausente` faz o elo oferecer **criar de novo** uma suite que já foi
 escrita, que é o mesmo erro que os níveis 2 a 4 do passo 1a existem para evitar, um degrau acima. Colapsar
@@ -203,7 +253,8 @@ Com `--solo`, pular este passo inteiro e o 2b, independentemente do que exista.
 
 **Todas as Tasks do passo 2 vão num único bloco, concorrentes** (regra pétrea de
 `${FLUX_ROOT}/shared/fanout-discipline.md`). Esperar todas antes de reconciliar. Uma lente que falha
-não derruba as outras: registrar a falha no banner e reconciliar o que voltou.
+não derruba as outras: reconciliar o que voltou e registrar a falha **no rodapé de cobertura** do
+Passo 4, que é onde ela cabe. O banner de abertura já foi impresso quando esta falha acontece.
 
 ## Passo 3 — Reconciliar (substitui o benchmark)
 
@@ -250,18 +301,37 @@ badge: é imagem `[![...]...]`, nunca link de texto `[...]()`, senão sai sem co
 
 ## Passo 4 — Cobertura (substitui a seção Benchmark)
 
-Opcionalmente, o comando anexa ao artefato um rodapé de proveniência (não um comparativo):
+O comando anexa ao artefato um rodapé de proveniência (não um comparativo):
 
 ```markdown
 ## Cobertura
 
-- **L1 holístico:** <HOLISTIC>
-- **L2 specialists locais:** <lista dos que rodaram, ou "ausente — repo sem suite curada">
-- **L3 specialists do repo:** <lista dos que rodaram, ou "ausente — repo sem agents de review">
+| lente | resolvida | invocada | devolveu findings |
+|---|---|---|---|
+| **L1 holístico** | <HOLISTIC> | sim/não | sim/não/vazio |
+| **L2 specialists locais** | <nome, ou "ausente — repo sem suite curada", ou "inalcancavel — <causa>"> | | |
+| **L3 specialists do repo** | <lista, ou "ausente — repo sem agents de review", ou "inalcancavel — <causa>"> | | |
+
 - **Fora do filtro (L3):** <agents do repo excluídos por serem de execução, ou "nenhum">
 ```
 
-O rodapé é **obrigatório quando alguma camada faltou**. Uma review que rodou com uma lente a menos e
-não diz isso é pior do que uma review que não rodou: ela parece completa.
+**O rodapé é obrigatório sempre**, e não só quando faltou camada. Ele é a **verdade final** da
+execução, enquanto o banner de abertura é a **intenção**: o banner sai antes do Passo 2, então ele
+não pode saber o que aconteceu depois dele. Uma lente que foi resolvida e invocada e cujo agent
+estourou, voltou vazio ou não devolveu findings **não aparece em lugar nenhum** se a única declaração
+for a de abertura — e o `Passo 2` manda registrar essa falha justamente num banner que já foi
+impresso.
+
+Por isso as três colunas são distintas e nenhuma implica a seguinte. **Resolvida** é ter nome e
+caminho. **Invocada** é a Task ter sido despachada e retornado. **Devolveu findings** distingue o
+specialist que analisou e não achou nada (resultado legítimo) do que falhou em silêncio (resultado
+nenhum) — os dois produzem zero findings no `FINAL_REPORT` e significam coisas opostas.
+
+Quando o rodapé contradisser o banner de abertura, **o rodapé vence**, e a contradição é declarada
+ali mesmo em vez de reescrever o banner: o que aconteceu entre um e outro é informação, não erro de
+digitação.
+
+Uma review que rodou com uma lente a menos e não diz isso é pior do que uma review que não rodou:
+ela parece completa.
 
 Sem `## Benchmark`, sem tabela "só_agents / só_baseline / ambos". A reconciliação já é o produto.

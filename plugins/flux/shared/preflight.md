@@ -143,6 +143,32 @@ Depois de resolver, **verificar que o agente existe** antes de invocar.
 > **Nunca improvisar um reviewer inline.** Um parecer produzido fora do contrato de saída não é
 > comparável com os demais e contamina qualquer métrica de qualidade agregada sobre os artefatos.
 
+### 3-bis — Com o que se verifica, e quem tem direito de verificar
+
+Este passo e o `1a-bis` de `${FLUX_ROOT}/shared/review-agents.md` mandam "verificar que o agente
+existe" sem nunca dizer com o quê. A omissão não é inocente: **não há primitiva de shell que responda
+se um `subagent_type` está registrado**. Não existe `command -v` para agente. A única fonte é a lista
+de agentes que o harness injeta no contexto da sessão, o que faz desta verificação uma
+**introspecção**, não uma medição. Duas consequências, e todo o resto do contrato depende das duas.
+
+**Achar o arquivo responde outra pergunta.** Um `ls` em `.claude/agents/` diz que alguém escreveu um
+agente, não que este processo consegue invocá-lo. Quem confunde as duas produz a falha do `1a-bis`:
+lente listada no banner e nunca executada.
+
+**A lista é da sessão, e a sessão do subagente não é a sua.** Um subagente pode receber um conjunto
+diferente de agentes registrados, então uma verificação feita lá dentro não é comparável com a feita
+aqui — e nada no output denuncia a divergência.
+
+Por isso a verificação é **privilégio da main e acontece uma vez**. A main resolve o holístico,
+resolve as lentes, registra as degradações e **desce o resultado já resolvido** dentro do prompt de
+cada subagente que despacha, como fato dado. Nenhum subagente re-resolve lente, reconfere registro,
+nem decide por conta própria que uma camada está ausente. Um fan-out em que cada braço chega à sua
+própria conclusão sobre quais lentes existem emite um banner que não corresponde a execução nenhuma:
+nem à da main, nem à de qualquer um dos braços.
+
+Vale para todo despacho da família, inclusive os do
+`${FLUX_ROOT}/shared/fanout-discipline.md` que não são de review.
+
 > **Caminhos canônicos do override local:** `<repo-checkout>/.claude/agents/reviewer.md` e
 > `<repo-checkout>/.cursor/agents/reviewer.md`, nessa ordem. São os únicos procurados; qualquer outro
 > nome de arquivo é ignorado. `.claude/agents/` continua sendo o preferido por ser lido pelos dois

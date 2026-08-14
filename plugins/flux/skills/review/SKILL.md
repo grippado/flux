@@ -40,7 +40,7 @@ em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
 ````
 ```
 perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
-lentes: L1 {agente} · L2 {lista|ausente} · L3 {lista|ausente}
+lentes: L1 {agente} · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
