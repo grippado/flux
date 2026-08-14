@@ -5,12 +5,12 @@
     "published_at": "2026-08-14T12:58:53Z",
     "html_url": "https://github.com/grippado/flux/releases/tag/v1.21.0",
     "summary": {
-      "en": "Merge pull request #19 from grippado/gripp-w-claude/landing-releases",
-      "pt": "Merge pull request #19 from grippado/gripp-w-claude/landing-releases",
-      "es": "Merge pull request #19 from grippado/gripp-w-claude/landing-releases",
-      "de": "Merge pull request #19 from grippado/gripp-w-claude/landing-releases"
+      "en": "Review lenses now verify agent identity rather than a name string, and the landing page shows what each version changed.",
+      "pt": "As lentes de review passam a verificar a identidade do agente, e não só o nome, e a landing mostra o que cada versão mudou.",
+      "es": "Las lentes de review ahora verifican la identidad del agente, no solo el nombre, y la landing muestra qué cambió cada versión.",
+      "de": "Die Review-Linsen prüfen nun die Identität des Agenten statt nur den Namen, und die Landingpage zeigt, was jede Version geändert hat."
     },
-    "changelog_source": "commit_subject"
+    "changelog_source": "tag_message"
   },
   "previous": {
     "version": "1.20.0",
