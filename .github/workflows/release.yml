@@ -1,0 +1,166 @@
+# Publica uma release quando uma tag de versão é pushada.
+#
+# O flux não compila nada: uma release aqui é o changelog da tag virando página
+# pública, mais o docs/latest-release.json que a landing lê. Por isso o job é um
+# só e roda em minutos, ao contrário do release do violeet, de onde este veio.
+#
+# A fonte do changelog é a mensagem da tag anotada, resolvida por
+# scripts/release-meta.sh — o mesmo script que escreve o JSON, para que corpo da
+# release e página nunca contem versões diferentes da mesma tag.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão a publicar (sem o v inicial)"
+        required: true
+
+permissions:
+  # Criar a release e commitar o docs/latest-release.json de volta na main.
+  contents: write
+
+# Duas tags pushadas em sequência disputariam o push da main. Enfileirado e nunca
+# cancelado: uma release cancelada no meio é uma release publicada cuja página
+# ficou descrevendo a versão anterior.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Publicar release e atualizar a landing
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          # O corpo da release é a mensagem da própria tag, que vive no objeto da
+          # tag e não em commit nenhum. Sem isto a anotação pode não estar no
+          # runner e o changelog degrada em silêncio para o fallback.
+          fetch-tags: true
+
+      - name: Resolve version
+        id: version
+        run: |
+          set -euo pipefail
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          # Uma versão que não é semver produziria uma tag `v` sozinha lá na
+          # frente, e o erro só apareceria na página. Falha aqui.
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "versão inválida: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # A cadeia de fallback do changelog vive no script porque o
+      # docs/latest-release.json abaixo resolve a mesma coisa para duas tags, e
+      # duas cópias de uma cadeia de fallback divergem na primeira correção.
+      - name: Resolve changelog
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          scripts/release-meta.sh changelog "v${VERSION}" > "$RUNNER_TEMP/changelog.md"
+          cat "$RUNNER_TEMP/changelog.md"
+
+      - name: Write release notes
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          {
+            echo "## flux ${VERSION}"
+            echo
+            cat "$RUNNER_TEMP/changelog.md"
+            echo
+            echo "---"
+            echo
+            echo "Instalação no Claude Code:"
+            echo
+            echo '```'
+            echo "/plugin marketplace add grippado/flux"
+            echo "/plugin install flux@flux"
+            echo '```'
+            echo
+            echo "Cursor e Codex: ver o [README](https://github.com/grippado/flux#instalação)."
+          } > notes.md
+          cat notes.md
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: flux ${{ steps.version.outputs.version }}
+          body_path: notes.md
+          # Uma tag com cara de prerelease é publicada como tal, para que uma
+          # `v1.22.0-rc1` nunca vire a versão que a página anuncia como atual.
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+
+      # Depois da release e nunca antes: o arquivo nomeia um published_at e uma
+      # html_url, e nenhum dos dois existe antes do passo acima ter rodado.
+      #
+      # Prerelease é pulada pelo mesmo motivo que não vira a versão anunciada na
+      # capa: ela não pode passar a ser o que a página chama de versão atual.
+      - name: Update docs/latest-release.json
+        if: ${{ !contains(steps.version.outputs.version, '-') }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          # Um dispatch pode nomear qualquer tag, e reconstruir uma antiga é uma
+          # coisa comum de se querer. Escrever o arquivo a partir dela anunciaria
+          # uma versão superada como a atual, então o passo pula e passa.
+          highest=""
+          while read -r tag; do
+            [[ -z "$tag" || "$tag" == *-* ]] && continue
+            highest="$tag"
+            break
+          done < <(git tag --list 'v[0-9]*' --sort=-v:refname)
+          if [[ "$highest" != "v${VERSION}" ]]; then
+            echo "v${VERSION} não é a versão mais alta lançada (${highest:-nenhuma});" \
+              "deixando docs/latest-release.json intocado"
+            exit 0
+          fi
+
+          # O checkout abaixo troca a árvore inteira pela da main, então um script
+          # rodado depois dele é o script da main, não o da tag. O corpo da release
+          # acima foi escrito pelo da tag, e os dois têm que vir da mesma fonte.
+          install -m 755 scripts/release-meta.sh "$RUNNER_TEMP/release-meta.sh"
+
+          # O job está com checkout na tag, que é um HEAD destacado: um commit
+          # feito aqui não pertenceria a branch nenhuma e o push não teria onde
+          # aterrissar. O arquivo é da main, então é a main que entra.
+          git fetch --no-tags origin main
+          git checkout -B main FETCH_HEAD
+
+          "$RUNNER_TEMP/release-meta.sh" json "v${VERSION}" > docs/latest-release.json
+          cat docs/latest-release.json
+
+          if git diff --quiet -- docs/latest-release.json; then
+            echo "docs/latest-release.json já descreve esta release"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/latest-release.json
+          git commit -m "🤖 chore(release): docs/latest-release.json em v${VERSION}"
+
+          # Nenhum `|| true` acima, de propósito. Uma release que o site não
+          # conhece é pior que um job vermelho: o job vermelho é a única coisa que
+          # avisa alguém de que os dois saíram de sincronia. O retry abaixo faz
+          # rebase no que aterrissou nesse meio tempo e pusha de novo; se isso
+          # também falhar, o passo falha.
+          git push origin main || {
+            git fetch --no-tags origin main
+            git rebase FETCH_HEAD
+            git push origin main
+          }

@@ -24,6 +24,7 @@
     .flow-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px}.flow-split{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.14em;margin:0 0 10px}
     .command-card{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:22px}.command-card h3{margin:0 0 8px;display:flex;align-items:center;gap:9px;flex-wrap:wrap}.command-card h3 a{text-decoration:none}.command-card p{color:var(--muted);font-size:.9rem}.command-meta{display:grid;grid-template-columns:90px 1fr;gap:5px 12px;font-size:.78rem;border-top:1px solid var(--line);padding-top:14px}.command-meta dt{color:var(--violet);font-weight:700}.command-meta dd{margin:0;color:var(--muted)}
     .card-note{color:var(--muted);font-size:.72rem;line-height:1.5;margin:2px 0 0}
+    .releases{margin-top:38px;border-top:1px solid var(--line);padding-top:28px}.releases .eyebrow{margin:0 0 14px}.release-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.release{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:16px 18px}.release-label{margin:0;color:var(--muted);font-size:.66rem;text-transform:uppercase;letter-spacing:.12em;font-weight:800}.release-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:9px 0 7px}.release-num{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:1rem;font-weight:700;letter-spacing:-.02em}.release-date{color:var(--muted);font-size:.72rem}.release-summary{margin:0;color:var(--muted);font-size:.83rem;line-height:1.55}.release-all{margin:16px 0 0;font-size:.78rem}@media(max-width:640px){.release-grid{grid-template-columns:1fr}}
     .tag{font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;font-weight:800;padding:3px 7px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}.tag.proposed{border-color:var(--violet);color:var(--violet)}.tag.standalone{border-color:color-mix(in srgb,var(--green),var(--line) 40%);color:var(--green)}.tag.setup{border-color:var(--violet);color:var(--violet)}
     .command-card.is-proposed{border-style:dashed}.command-card.is-standalone{border-color:color-mix(in srgb,var(--green),var(--line) 55%)}.command-card.is-setup{border-color:color-mix(in srgb,var(--violet),var(--line) 55%)}.command-card.is-optional{border-style:dashed;border-color:color-mix(in srgb,var(--violet),var(--line) 65%);background:color-mix(in srgb,var(--panel),transparent 25%)}.tag.optional{border-style:dashed;border-color:color-mix(in srgb,var(--violet),var(--line) 35%);color:var(--violet)}.flow-dot.is-optional{background:var(--panel-2);border-style:dashed;border-color:color-mix(in srgb,var(--violet),var(--line) 35%);color:var(--violet)}.flow-row.is-optional .flow-rail::before{background:repeating-linear-gradient(to bottom,var(--line) 0 6px,transparent 6px 12px)}
     .flux-glyph{display:inline-block;width:17px;height:17px;vertical-align:-3px;margin-right:8px;background:url("dark-outline.svg") center/contain no-repeat}html[data-theme=light] .flux-glyph{background-image:url("light-outline.svg")}.footer-brand{display:inline-flex;align-items:center}
@@ -139,6 +140,22 @@
         <article class="install-card"><div class="card-top"><span>01</span></div><h3><span class="badge badge-lg badge-claude">Claude Code</span></h3><code>/plugin marketplace add grippado/flux</code><code>/plugin install flux@flux</code><a href="https://github.com/grippado/flux#claude-code">Read the guide<span class="sr-only"> — Claude Code</span> ↗</a></article>
         <article class="install-card"><div class="card-top"><span>02</span></div><h3><span class="badge badge-lg badge-cursor">Cursor</span></h3><code>git clone github.com/grippado/flux</code><code>scripts/install-cursor.sh</code><a href="https://github.com/grippado/flux#cursor">Read the guide<span class="sr-only"> — Cursor</span> ↗</a></article>
         <article class="install-card featured"><div class="card-top"><span>03</span></div><h3><span class="badge badge-lg badge-codex">Codex</span> <span class="tag proposed" data-i18n="tagProposed">proposed</span></h3><code>local marketplace → ./plugins/flux</code><code>@Flux · native subagents</code><p class="card-note" data-i18n="codexNote">Not in the Plugin Directory yet. Install it from a local marketplace entry until the listing lands.</p><a href="https://github.com/grippado/flux#codex">Read the guide<span class="sr-only"> — Codex</span> ↗</a></article>
+      </div>
+      <div class="releases" id="releases" hidden>
+        <p class="eyebrow" data-i18n="releasesEyebrow">recent releases</p>
+        <div class="release-grid">
+          <div class="release" id="release-latest">
+            <p class="release-label" data-i18n="releasesLatest">latest version</p>
+            <p class="release-head"><a class="release-num" href="https://github.com/grippado/flux/releases"></a><span class="release-date"></span></p>
+            <p class="release-summary"></p>
+          </div>
+          <div class="release" id="release-previous">
+            <p class="release-label" data-i18n="releasesPrevious">previous version</p>
+            <p class="release-head"><a class="release-num" href="https://github.com/grippado/flux/releases"></a><span class="release-date"></span></p>
+            <p class="release-summary"></p>
+          </div>
+        </div>
+        <p class="release-all"><a id="release-all-link" href="https://github.com/grippado/flux/tags" data-i18n="releasesAll">see all versions ↗</a></p>
       </div>
     </section>
 
