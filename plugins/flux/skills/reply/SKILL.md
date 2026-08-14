@@ -100,7 +100,7 @@ done
 TARGET="${TARGETS[-1]}"                      # a superfície ATUAL é sempre a última informada
 ```
 
-- Se não há permalink Slack válido em `TARGETS`, **abortar** com mensagem pedindo o link (`/flux:reply responder <permalink>`).
+- Se não há permalink Slack válido em `TARGETS`, **abortar** com mensagem pedindo o link (`${FLUX_CMD}reply responder <permalink>`).
 - **A superfície atual é a ÚLTIMA da lista.** Quando o usuário passa dois links ("era nessa thread, agora o papo tá aqui"), o primeiro é histórico e o último é onde a conversa está viva agora.
 - `--board <path>` assume um board existente em vez de procurar/criar. Atalho para quando o usuário já sabe qual é.
 - **Watch é DEFAULT-ON**: depois da 1ª passada, o comando fica vigiando o caso até assentar. `--once` (alias `--no-watch`) faz uma passada só.
@@ -325,7 +325,8 @@ Dentro de qualquer bloco de rascunho: nada de headers `#` nem tabelas markdown. 
 
 ## Modo watch (default-on)
 
-- **Ferramenta**: `ScheduleWakeup` (não `Monitor`, não `Bash sleep`). Cada wake processa **um tick**; ao fim, agenda o próximo reentrando com `/flux:reply acompanhar <permalink-da-superfície-atual>`. Omite o `ScheduleWakeup` só nas condições de saída.
+- **Ferramenta**: `ScheduleWakeup` (não `Monitor`, não `Bash sleep`). Cada wake processa **um tick**; ao fim, agenda o próximo reentrando com `${FLUX_CMD}reply acompanhar <permalink-da-superfície-atual>`. Omite o `ScheduleWakeup` só nas condições de saída.
+  (montar com o `FLUX_CMD` resolvido no preflight, nunca com `/flux:` literal: o prompt do wake é reinvocação de máquina, e um comando que não existe naquele harness faz o watch morrer em silêncio)
 - **O watch é do CASO, não de uma thread.** Cada tick varre **todas as superfícies com `status: ativa`** do board (tipicamente uma, às vezes duas durante uma migração). Uma superfície `migrada` sai da varredura; uma `parada` continua sendo checada de vez em quando, porque pendência aberta lá pode ser respondida a qualquer momento.
 - **Estado por caso** (sidecar, fora do git): `<VAULT_ROOT>/.slack-watch/<slug-do-caso>.json`:
   ```json

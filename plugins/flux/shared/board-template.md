@@ -72,7 +72,7 @@ Links obrigatórios neste perfil, assim que cada um existir (ver Disciplina de l
 - a **PR de origem**, quando a task é reversão/continuação de outra.
 
 O board do build **morre quando a PR nasce**: o `🎯 Próximo Movimento` final aponta para o
-`/flux:iterate` da PR criada, e o board do iterate assume dali (cross-link bidirecional, ver bloco de
+`${FLUX_CMD}iterate` da PR criada, e o board do iterate assume dali (cross-link bidirecional, ver bloco de
 proveniência). Não é um board que vive por dias, é um board que cobre uma execução longa.
 
 > **Por que `build` precisou entrar no enum do schema.** Nenhum type canônico existente descrevia
@@ -230,7 +230,7 @@ poupar.
 | **Worktree / path local** | `` `código inline` ``, sem link (não é clicável e não deve fingir que é) |
 
 **A primeira linha do `🎯 Próximo Movimento` tem que conter o link do alvo da ação.** Se o próximo
-passo é "rodar `/flux:iterate` na PR", o número da PR ali é um link. É a linha que você lê primeiro
+passo é "rodar `${FLUX_CMD}iterate` na PR", o número da PR ali é um link. É a linha que você lê primeiro
 ao reabrir o board, e é o lugar onde a falta de link mais custa.
 
 **Nunca inventar link.** Entidade que ainda não existe (PR não aberta, board filho não criado) fica
@@ -264,7 +264,7 @@ foi criado.** Se um lado ainda não existe, marcar `n/d` até existir.
 
 - **Board de exploração** (`/flux:issue`): o vínculo é **para trás** pelo `origin_board:` (o board de
   conversa de onde o pedido veio, quando veio de um), e **para frente** pelo `linear_ids:` — a issue
-  criada é o próximo elo, e o `🎯 Próximo Movimento` final aponta para o `/flux:build` dela. Não há board
+  criada é o próximo elo, e o `🎯 Próximo Movimento` final aponta para o `${FLUX_CMD}build` dela. Não há board
   filho a linkar: o board de execução do build nasce do ticket, não deste arquivo.
 
 O link forward (delivery → iterate) e o reverse (iterate → delivery) apontam um para o outro pelo path
