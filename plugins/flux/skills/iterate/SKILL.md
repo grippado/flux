@@ -780,7 +780,8 @@ Use `ScheduleWakeup` ao fim de cada tick para reabrir a sessão. A escolha do in
 - **Conflito com a base aguardando decisão humana** (modo degradado): **1200s**, ou encerrar se não houver mais nada a fazer (ver condições de saída). Não ficar acordando de 270s em 270s para reencontrar o mesmo conflito.
 - Nunca 300s (pior dos dois mundos). O `reason` do wake deve ser específico: `"watch PR #962: CI rodando pós-push, re-checo em 270s"`.
 
-Passar o **mesmo input** (`/flux:iterate <pr>`, que já reentra no watch por ser o default) de volta no `prompt` do `ScheduleWakeup`, para o próximo firing reentrar no watch. Omitir o `ScheduleWakeup` apenas nas condições de saída.
+Passar o **mesmo input** (`${FLUX_CMD}iterate <pr>`, que já reentra no watch por ser o default) de volta no `prompt` do `ScheduleWakeup`, para o próximo firing reentrar no watch. Omitir o `ScheduleWakeup` apenas nas condições de saída.
+(montar com o `FLUX_CMD` resolvido no preflight, nunca com `/flux:` literal: o prompt do wake é reinvocação de máquina, e um comando que não existe naquele harness faz o watch morrer em silêncio)
 
 ### Hook Slack (feed de status, opcional)
 
