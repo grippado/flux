@@ -73,6 +73,40 @@ jobs:
           git fetch --force origin "refs/tags/v${VERSION}:refs/tags/v${VERSION}"
           test "$(git cat-file -t "v${VERSION}")" = "tag"
 
+      # Quem é a versão corrente do repo é uma pergunta só, e ela decide duas
+      # coisas: o selo Latest da página de releases e o docs/latest-release.json
+      # que a landing lê. Resolver aqui, uma vez, é o que impede as duas de
+      # discordarem — antes, só o JSON tinha a guarda, e a release saía marcada
+      # como Latest mesmo quando publicava uma versão antiga.
+      - name: Resolve latest
+        id: latest
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          # Prerelease nunca é a corrente, e a API recusa marcá-la como tal.
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "v${VERSION} é prerelease; não entra como corrente"
+            exit 0
+          fi
+
+          highest=""
+          while read -r tag; do
+            [[ -z "$tag" || "$tag" == *-* ]] && continue
+            highest="$tag"
+            break
+          done < <(git tag --list 'v[0-9]*' --sort=-v:refname)
+
+          if [[ "$highest" == "v${VERSION}" ]]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+            echo "v${VERSION} é a maior versão lançada"
+          else
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "v${VERSION} não é a maior versão lançada (${highest:-nenhuma})"
+          fi
+
       # A cadeia de fallback do changelog vive no script porque o
       # docs/latest-release.json abaixo resolve a mesma coisa para duas tags, e
       # duas cópias de uma cadeia de fallback divergem na primeira correção.
@@ -119,34 +153,29 @@ jobs:
           # Uma tag com cara de prerelease é publicada como tal, para que uma
           # `v1.22.0-rc1` nunca vire a versão que a página anuncia como atual.
           prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          # Sem este campo vale o default da API, que é `true`: publicar uma tag
+          # retroativa marcaria a página de releases com uma versão superada como
+          # a corrente. É a mesma pergunta que o passo do JSON já respondia, agora
+          # respondida antes de publicar em vez de depois.
+          make_latest: ${{ steps.latest.outputs.is_latest }}
 
       # Depois da release e nunca antes: o arquivo nomeia um published_at e uma
       # html_url, e nenhum dos dois existe antes do passo acima ter rodado.
       #
       # Prerelease é pulada pelo mesmo motivo que não vira a versão anunciada na
       # capa: ela não pode passar a ser o que a página chama de versão atual.
+      #
+      # Um dispatch pode nomear qualquer tag, e reconstruir uma antiga é uma coisa
+      # comum de se querer: escrever o arquivo a partir dela anunciaria uma versão
+      # superada como a atual. A guarda é o `is_latest` do passo Resolve latest,
+      # que é a mesma resposta usada no `make_latest` da release acima.
       - name: Update docs/latest-release.json
-        if: ${{ !contains(steps.version.outputs.version, '-') }}
+        if: ${{ steps.latest.outputs.is_latest == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-
-          # Um dispatch pode nomear qualquer tag, e reconstruir uma antiga é uma
-          # coisa comum de se querer. Escrever o arquivo a partir dela anunciaria
-          # uma versão superada como a atual, então o passo pula e passa.
-          highest=""
-          while read -r tag; do
-            [[ -z "$tag" || "$tag" == *-* ]] && continue
-            highest="$tag"
-            break
-          done < <(git tag --list 'v[0-9]*' --sort=-v:refname)
-          if [[ "$highest" != "v${VERSION}" ]]; then
-            echo "v${VERSION} não é a versão mais alta lançada (${highest:-nenhuma});" \
-              "deixando docs/latest-release.json intocado"
-            exit 0
-          fi
 
           # O checkout abaixo troca a árvore inteira pela da main, então um script
           # rodado depois dele é o script da main, não o da tag. O corpo da release
