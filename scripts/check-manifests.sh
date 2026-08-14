@@ -53,7 +53,7 @@ for rel in "${MANIFESTS[@]}"; do
     fi
 
     if ! parsed="$(jq -er '(if has("plugins") then .plugins[0] else . end)
-                           | [(.name // "«sem name»"), (.version // "«sem version»")]
+                           | [((.name | strings) // ""), ((.version | strings) // "")]
                            | @tsv' "$abs" 2> /dev/null)"; then
         errors+=("JSON inválido ou sem entrada de plugin: $rel")
         names+=("-")
@@ -61,8 +61,24 @@ for rel in "${MANIFESTS[@]}"; do
         continue
     fi
 
-    names+=("$(printf '%s' "$parsed" | cut -f1)")
-    versions+=("$(printf '%s' "$parsed" | cut -f2)")
+    name="$(printf '%s' "$parsed" | cut -f1)"
+    version="$(printf '%s' "$parsed" | cut -f2)"
+
+    if [[ -z "$name" || -z "$version" ]]; then
+        if [[ -z "$name" && -z "$version" ]]; then
+            errors+=("name e version ausentes: $rel")
+        elif [[ -z "$name" ]]; then
+            errors+=("name ausente: $rel")
+        else
+            errors+=("version ausente: $rel")
+        fi
+        names+=("-")
+        versions+=("-")
+        continue
+    fi
+
+    names+=("$name")
+    versions+=("$version")
 done
 
 divergent=()
@@ -75,7 +91,7 @@ for i in "${!MANIFESTS[@]}"; do
 done
 
 if [[ $ref_index -lt 0 ]]; then
-    echo "check-manifests: nenhum dos 5 manifests pôde ser lido." >&2
+    echo "check-manifests: nenhum dos 5 manifests forneceu name e version." >&2
     for e in "${errors[@]}"; do
         echo "  erro: $e" >&2
     done
