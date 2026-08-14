@@ -67,25 +67,41 @@ Resolver o caminho **nesta ordem**, parando no primeiro que existir:
    entrada é o diretório canônico; o `repos` é o que diz de quem ela é. Mais de uma entrada
    reivindicando o mesmo slug → **ambíguo**, e ambíguo não se resolve por adivinhação: tratar como
    ausente e dizer no banner.
-4. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o destino que o
+4. **O kit aplicável**, quando há exatamente um: o `specialists` do `flux-kit.json` dele, resolvido
+   contra a raiz daquele kit (`${FLUX_ROOT}/shared/kit-format.md`). Os kits são procurados nas
+   `KIT_ROOTS` do preflight (Passo 1d) e filtrados pelo matcher contra o `REPO_SLUG` e o checkout.
+   **Zero kits → o degrau simplesmente não produz valor**, em silêncio. **N kits → ambíguo**, e
+   ambíguo aqui não se resolve por adivinhação nem perguntando: descoberta é leitura, roda no meio de
+   um elo chamado para outra coisa, e não pode parar para abrir menu. Tratar como ausente e declarar
+   `kit ambiguo` no banner, com a lista.
+5. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o destino que o
    `flux:equip` propõe como recomendado quando não há manifesto
    (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
 
 **Cada degrau resolve para um diretório, e o arquivo é anexado depois.** É a mesma normalização do
 contrato de destino, aplicada aqui: valor terminado em `.md` (o caso do template de
 `specialists_root`, e o do default acima) **já nomeia o orquestrador** e é usado tal como está; valor
-que é diretório (o caso de `kits_root` e o das entradas de `write_destinations`) recebe
-`/repo-owner.md`, que é o nome com que o Bootstrap escreve o orquestrador. Sem essa regra os degraus
-2 e 3 apontariam para um diretório e o passo 1a-bis mandaria ler o frontmatter dele.
+que é diretório (o caso de `kits_root`, o das entradas de `write_destinations` e o do `specialists` de
+um kit) recebe `/repo-owner.md`, que é o nome com que o Bootstrap escreve o orquestrador — e é por isso
+que um kit que fornece suite chama o orquestrador dela pelo mesmo nome. Sem essa regra os degraus
+2, 3 e 4 apontariam para um diretório e o passo 1a-bis mandaria ler o frontmatter dele.
 
 Achou → seguir para o passo 1a-bis. Não achou → **ausente**.
 
-> **Por que os níveis 2, 3 e 4 existem.** Sem eles, uma suite gerada pelo `flux:equip` fora de
+> **Por que o kit fica abaixo dos três primeiros.** `specialists_root`, `kits_root` e uma entrada de
+> `write_destinations` são todas declarações sobre **este** repo — alguém apontou o caminho à mão ou
+> aprovou um destino num gate. Um kit é um artefato genérico que **casou** com o repo. Declaração vence
+> casamento, sempre: inverter a ordem faria um kit instalado na máquina passar por cima da suite que o
+> usuário curou para aquele repo específico, calado, e o banner declararia cobertura pelo nome errado.
+
+> **Por que os níveis 2, 3, 4 e 5 existem.** Sem eles, uma suite gerada pelo `flux:equip` fora de
 > `specialists_root` seria escrita em disco e **nunca carregada**: o elo ofereceria criá-la de novo a
 > cada review, para um repo que já tem uma. Descoberta e escrita têm que olhar para o mesmo lugar — e
 > é por isso que esta lista é a cascata de destino na **mesma ordem** (`specialists_root` → `kits_root`
 > → o que o gate aprovou → default da família), com o degrau de perguntar omitido, porque descobrir
-> não pergunta nada.
+> não pergunta nada. O degrau do kit é o único que **não** vem da cascata de destino, e não vem porque
+> ele não é um lugar onde a família escreve: é um artefato que alguém instalou pronto, e por isso ele
+> entra depois de tudo que a cascata de destino conhece.
 
 ### 1a-bis — O arquivo existir não é o mesmo que o agente ser invocável
 
@@ -98,6 +114,21 @@ Resolver o nome, nesta ordem:
 1. O campo `name:` do frontmatter do arquivo achado. **É ele a identidade**, não o nome do arquivo:
    os dois podem divergir, e quando divergem quem vale é o `name:`.
 2. Sem `name:` no frontmatter, o agente **não é invocável**. Não inventar um nome a partir do path.
+
+**Vindo de um kit, o `name:` pode estar registrado com prefixo.** Um kit é um plugin
+(`${FLUX_ROOT}/shared/kit-format.md`), e um harness que instala plugin registra os agents dele **com o
+prefixo do plugin**. Tentar as formas nesta ordem, parando na primeira registrada: `<kit>:<name>`,
+`<kit>-<name>`, `<name>`. É a mesma disciplina do genérico da família no Passo 3 do
+`${FLUX_ROOT}/shared/preflight.md`, e pela mesma razão: todas as instalações são legítimas, e resolver
+só a forma sem prefixo faria a lente do kit ficar inalcançável em toda instalação por plugin, que é o
+caminho recomendado de distribuição de kit.
+
+Nenhuma das três registrada → o estado é **`inalcançável`**, e a causa é a primeira da tabela abaixo
+(fora de diretório varrido): tipicamente um kit que foi copiado como diretório em vez de instalado como
+plugin. A remediação é instalá-lo como plugin, ou instalá-lo pelo verbo de preparo para um destino que o
+harness varra — nunca symlinkar os agents dele soltos, pelo motivo do bloco "Symlink cru não é remédio
+universal" abaixo, que num kit é ainda mais agudo: os nomes de um kit são genéricos por vocação, já que
+ele foi escrito para servir a N repos.
 
 Com o nome em mãos, **conferir que ele está registrado na sessão** antes de declarar a lente
 disponível. Não está → o estado não é `ausente`, é **`inalcançável`**, e os dois são coisas

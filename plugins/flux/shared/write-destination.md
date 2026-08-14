@@ -69,9 +69,12 @@ O destino é decidido pela **primeira linha que produzir um valor**, nesta ordem
 | 6 | default aceito no degrau 5 | `~/.claude/flux-specialists/{repo}/` |
 
 Os degraus 2 e 3 usam o mesmo mecanismo de template de `specialists_root`: `{repo}` é substituído
-pelo slug do repo. O degrau 3 existe para o elo que equipa uma máquina com um kit; enquanto o formato
-de kit não estiver especificado, `kits_root` participa **apenas** como degrau da cascata, e quem o
-especificar depois preenche o resto sem reescrever este contrato.
+pelo slug do repo. O degrau 3 existe para o elo que equipa uma máquina com um kit, e o formato do kit
+está em `${FLUX_ROOT}/shared/kit-format.md`. **Este contrato não mudou por causa dele, e não devia
+mudar:** `kits_root` continua participando aqui como um degrau de destino e nada mais — o que o
+kit-format acrescentou foi de que **raízes** um kit é descoberto e o que há dentro dele, duas perguntas
+que não são desta cascata. Um kit instalado como plugin tem raiz própria e **não** é destino de escrita
+de ninguém.
 
 O degrau 4 é o que fecha o ciclo com a persistência: um destino que o usuário já aprovou para este
 repo é um destino declarado, e reabrir o GATE sobre ele transformaria a memória da decisão em ruído

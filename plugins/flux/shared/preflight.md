@@ -47,6 +47,12 @@ localizada.
 > transforma este passo numa lista de boas intenções. Tudo abaixo deste passo é escrito contra
 > `${FLUX_ROOT}` e `${FLUX_CMD}`, nunca contra o nome de um produto.
 
+> **Um kit não entra nesta cascata.** Um kit é um plugin com raiz própria
+> (`${FLUX_ROOT}/shared/kit-format.md`), e a raiz dele é resolvida à parte, no Passo 1d. Acrescentá-lo
+> aqui faria um plugin instalado poder virar a raiz da família e redefinir `shared/` calado — e faria o
+> `${FLUX_ROOT}` de cada elo depender de qual plugin foi instalado por último. `FLUX_ROOT` continua
+> sendo uma raiz só, a do flux, e parando na primeira que existir.
+
 ### 1b — `FLUX_CMD`
 
 Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR dentro de subagente;
@@ -131,6 +137,35 @@ declarada como qualquer outra degradação.
 > legítimo quando o candidato é **verificável** e tem caminho de ausência. `ADDDIR_CMD` tem os dois,
 > e é por tê-los que ele pode existir; a versão anterior deste contrato imprimia `/add-dir` cru, sem
 > teste e sem ausência, e isso era hardcode.
+
+### 1d — `KIT_ROOTS`
+
+Um **kit** é um plugin com um `flux-kit.json` na raiz, e o contrato dele é
+`${FLUX_ROOT}/shared/kit-format.md`. Este passo resolve **onde procurá-los**, e só isso: o que se faz
+com o que for achado é de lá.
+
+`KIT_ROOTS` é um **conjunto, não uma cascata**. Todas as origens abaixo são consultadas, a união é
+deduplicada por path canônico, e nenhuma cancela a seguinte — duas origens podem apontar para o mesmo
+kit, e um kit pode existir numa e não na outra:
+
+1. `kits` do manifesto, quando há (`${FLUX_ROOT}/shared/flux-context.md`). Cada entrada é um caminho
+   local: a raiz de um kit, ou um diretório de kits.
+2. O **prefixo invariante** de `kits_root` — o trecho antes do primeiro `{repo}`. O campo é um template
+   por repo, e o que interessa aqui é a raiz onde os kits daquela máquina vivem.
+3. Os **irmãos de `${FLUX_ROOT}`**: o diretório pai da raiz da família. Instalado como plugin, o flux é
+   vizinho dos outros plugins, e é este degrau que enxerga um kit instalado do jeito recomendado.
+
+Em cada raiz, procurar `flux-kit.json` com profundidade máxima de 2 níveis. Nada além do nome do arquivo
+é lido nesta fase.
+
+Nenhuma origem produziu raiz, ou nenhuma raiz tem kit: `KIT_ROOTS` é **vazio**. Isso **não é
+degradação e não vai ao banner** — é o caso comum, e uma máquina sem kit se comporta como se comportava
+antes de kits existirem. Só os três estados acionáveis da tabela de tokens abaixo são declarados.
+
+> **Por que a busca é por marcador em disco.** Vale aqui o mesmo rigor do Passo 1a: enumerar os
+> diretórios de plugin de cada harness nomearia produtos sem poder confirmar nada. O `flux-kit.json` é
+> verificável — ou o arquivo está lá, ou não está —, e por isso este passo funciona no harness que ainda
+> não existe.
 
 ## Passo 2 — Verificar os requisitos declarados
 
@@ -275,8 +310,15 @@ que o banner precisa ser.
 | `L3 stale` | a lente L3 roda por espelho (degrau 1 da escada) e a origem mudou desde `synced_from_sha256` | o elo que resolveu as lentes |
 | `indice ausente` | não há `flux-agents.json` na raiz de agents | idem |
 | `indice stale` | há índice, e ele não passou o teste de frescor | idem |
+| `kit ambiguo` | N kits casaram com o mesmo repo, e ambiguidade não se resolve por adivinhação (`${FLUX_ROOT}/shared/kit-format.md`) — sai com a lista dos candidatos | o elo que resolveu os kits |
+| `kit invalido` | há `flux-kit.json` e ele não vale (não parseia, falta campo obrigatório, `schema` desconhecido, path declarado que não existe) — sai com o path e o motivo | idem |
+| `kit nao avaliado` | o kit casa por arquivo (`files`/`any_of`) e não há checkout local para testar | idem |
 
-Os três acompanham a oferta correspondente (`${FLUX_CMD}equip <repo> --expose-l3`,
+**Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
+encheria de ruído o banner de toda máquina que não usa kit. Só os três estados acima são acionáveis, e
+só o que é acionável se declara.
+
+Os três primeiros acompanham a oferta correspondente (`${FLUX_CMD}equip <repo> --expose-l3`,
 `${FLUX_CMD}map`) e **nenhum deles aborta**: os elos caem para a varredura direta, que é o
 comportamento que existia antes do índice.
 

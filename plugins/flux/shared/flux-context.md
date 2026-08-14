@@ -143,6 +143,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   "specialists_spec": "~/agents/acme/AGENT_SPEC.md",
   "specialists_repo": "acme/agent-suites",
   "kits_root": "~/agents/acme/kits/{repo}",
+  "kits": ["~/agents/acme/kits/node-service", "~/kits"],
   "vault_root": "~/notes",
   "vault_context": "acme",
   "vault_context_root": "~/notes/acme",
@@ -186,12 +187,24 @@ com o reviewer de outro time sem que nada acuse o problema.
   escrita (`${FLUX_ROOT}/shared/write-destination.md`) — e lá, como o destino de escrita é sempre um
   **diretório**, um valor que termina em `.md` (o caso do exemplo acima) tem o `dirname` tomado.
 - `kits_root` — template de path (com `{repo}`, resolvido exatamente como `specialists_root`) da raiz
-  onde os **kits** de uma máquina vivem. Hoje o campo tem um papel só, e deliberadamente estreito: é o
-  **degrau 3** da cascata de destino de escrita. O verbo que instala um kit é o `flux:equip`
-  (`--from-kit <ref>`), e mesmo ele resolve a `<ref>` como **caminho**, sem presumir formato: o
-  formato de um kit é especificado à parte, e declará-lo aqui antes da hora congelaria algo que ainda
-  não existe. Ausente → a cascata segue para o degrau 4 (`write_destinations`) e, não achando nada,
-  para o degrau 5, que **pergunta**.
+  onde os **kits** de uma máquina vivem. O campo tem dois papéis, e o segundo é derivado do primeiro:
+  é o **degrau 3** da cascata de destino de escrita, e o **prefixo invariante** dele (o trecho antes do
+  primeiro `{repo}`) é uma das origens de `KIT_ROOTS`, o conjunto de raízes onde a descoberta procura
+  kits (`${FLUX_ROOT}/shared/preflight.md`, Passo 1d). Ausente → a cascata segue para o degrau 4
+  (`write_destinations`) e, não achando nada, para o degrau 5, que **pergunta**; e a descoberta de kits
+  segue pelas outras origens.
+- `kits` — lista de **caminhos locais** onde kits deste perfil vivem, e a origem de maior confiança de
+  `KIT_ROOTS`. Cada entrada é resolvida assim, nesta ordem: contendo um `flux-kit.json`, a própria
+  entrada **é** a raiz de um kit; não contendo, ela é tratada como **diretório de kits** e os filhos
+  dela são varridos. O formato do `flux-kit.json` é `${FLUX_ROOT}/shared/kit-format.md`.
+
+  **Nunca é URL, nunca é `owner/repo`, nunca é um nome de marketplace.** A família não baixa nada:
+  distribuição de kit é git e o marketplace do harness, e o que este campo declara é onde os kits **já
+  instalados** estão. Um campo que aceitasse ref remota transformaria a resolução de contexto — que roda
+  no Step 0 de todo elo — em chamada de rede.
+
+  Ausente → a descoberta de kits usa as outras origens do Passo 1d (o prefixo de `kits_root` e os
+  irmãos de `${FLUX_ROOT}`), e nenhuma delas achando kit, não há kit: silêncio, não degradação.
 - `scope_escalation` — para onde mandar um pedido que **não cabe** numa rodada, quando o gate de
   escopo (`${FLUX_ROOT}/shared/scope-gate.md`) o classifica como 🔴. Texto livre, porque o destino
   varia demais para ter forma: pode ser um comando (`/sdd`), um repo de refinamento, um processo
@@ -332,6 +345,9 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
 - `specialists_root` = override local do repo: `<repo-checkout>/.claude/agents/reviewer.md` ou
   `<repo-checkout>/.claude/agents/review/*.md`. Sem isso → só holístico (fallback gracioso).
 - `kits_root` = ausente; a cascata de destino cai no degrau que pergunta.
+- `kits` = ausente; a descoberta de kits sobra com os irmãos de `${FLUX_ROOT}` (Passo 1d do preflight),
+  que é justamente o caminho de quem instalou um kit como plugin sem declarar manifesto nenhum. Não
+  achando kit ali, não há kit, e isso é silêncio e não degradação.
 - `write_destinations` = sem manifesto não há onde persistir a aprovação: ela vale só para a execução
   corrente, e o elo declara isso ao perguntar.
 - `vault_root` = não persiste por default (só imprime no chat); `flux:review` pode receber `--save <dir>`.
