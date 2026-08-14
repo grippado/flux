@@ -109,6 +109,11 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          # Explícito porque um workflow_dispatch roda com o ref `main`, e sem
+          # este campo a action não tem tag nenhuma para publicar. O caminho de
+          # dispatch é exatamente o de reparar uma release já cortada, que é
+          # quando isso mais importa.
+          tag_name: v${{ steps.version.outputs.version }}
           name: flux ${{ steps.version.outputs.version }}
           body_path: notes.md
           # Uma tag com cara de prerelease é publicada como tal, para que uma
