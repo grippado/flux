@@ -6,9 +6,7 @@
     "html_url": "https://github.com/grippado/flux/releases/tag/v1.21.0",
     "summary": {
       "en": "Review lenses now verify agent identity rather than a name string, and the landing page shows what each version changed.",
-      "pt": "As lentes de review passam a verificar a identidade do agente, e não só o nome, e a landing mostra o que cada versão mudou.",
-      "es": "Las lentes de review ahora verifican la identidad del agente, no solo el nombre, y la landing muestra qué cambió cada versión.",
-      "de": "Die Review-Linsen prüfen nun die Identität des Agenten statt nur den Namen, und die Landingpage zeigt, was jede Version geändert hat."
+      "pt": "As lentes de review passam a verificar a identidade do agente, e não só o nome, e a landing mostra o que cada versão mudou."
     },
     "changelog_source": "tag_message"
   },
@@ -19,9 +17,7 @@
     "html_url": "https://github.com/grippado/flux/releases/tag/v1.20.0",
     "summary": {
       "en": "The manifest now declares two vault roots, and every new write goes to the shared inbox.",
-      "pt": "O manifesto passa a declarar duas raízes de vault, e toda escrita nova vai para o inbox compartilhado.",
-      "es": "El manifiesto ahora declara dos raíces de vault, y toda escritura nueva va al inbox compartido.",
-      "de": "Das Manifest deklariert nun zwei Vault-Wurzeln, und jeder neue Schreibvorgang geht in die gemeinsame Inbox."
+      "pt": "O manifesto passa a declarar duas raízes de vault, e toda escrita nova vai para o inbox compartilhado."
     },
     "changelog_source": "tag_message"
   },
