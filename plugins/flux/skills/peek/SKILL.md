@@ -113,7 +113,7 @@ degradacoes: {soft ausentes e o que se perde | nenhuma}
 {COMENTARIOS do LOOK_REPORT — cada finding com o corpo abrindo pelo banner-imagem do badge
 (conforme `review-legend.md`), título em **negrito**, `code inline` nos identificadores e bloco
 ```ts/```diff pra separar o trecho de código. Sem painel, sem permalink no head_sha, sem âncoras: o
-look é o relance rápido; o formato completo (painel, permalinks, ação) é do `/flux:review`.}
+look é o relance rápido; o formato completo (painel, permalinks, ação) é do `${FLUX_CMD}review`.}
 ```
 
 - Badges conforme `review-legend.md` (sem emojis).

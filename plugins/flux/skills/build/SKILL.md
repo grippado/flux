@@ -505,7 +505,7 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.
 3. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
-   vai para `done` quando a PR nasce, e o board do `/flux:iterate` assume dali. Gravar
+   vai para `done` quando a PR nasce, e o board do `${FLUX_CMD}iterate` assume dali. Gravar
    `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
 4. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
    válido e é o que torna a falha investigável depois. Não apagar o board.
