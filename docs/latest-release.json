@@ -1,0 +1,29 @@
+{
+  "latest": {
+    "version": "1.20.0",
+    "tag": "v1.20.0",
+    "published_at": "2026-08-14T12:31:43Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.20.0",
+    "summary": {
+      "en": "The manifest now declares two vault roots, and every new write goes to the shared inbox.",
+      "pt": "O manifesto passa a declarar duas raízes de vault, e toda escrita nova vai para o inbox compartilhado.",
+      "es": "El manifiesto ahora declara dos raíces de vault, y toda escritura nueva va al inbox compartido.",
+      "de": "Das Manifest deklariert nun zwei Vault-Wurzeln, und jeder neue Schreibvorgang geht in die gemeinsame Inbox."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
+    "version": "1.19.0",
+    "tag": "v1.19.0",
+    "published_at": "2026-08-14T12:31:42Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.19.0",
+    "summary": {
+      "en": "Code written by the commands no longer carries explanatory comments: the rationale goes to the commit and the pull request.",
+      "pt": "Código escrito pelos elos não recebe mais comentário explicativo: a justificativa vai para o commit e para a PR.",
+      "es": "El código que escriben los comandos ya no lleva comentarios explicativos: la justificación va al commit y al PR.",
+      "de": "Von den Befehlen geschriebener Code trägt keine erklärenden Kommentare mehr: die Begründung steht im Commit und im PR."
+    },
+    "changelog_source": "tag_message"
+  },
+  "all_tags_url": "https://github.com/grippado/flux/tags"
+}
