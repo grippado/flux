@@ -117,7 +117,9 @@ if [[ ${#divergent[@]} -gt 0 ]]; then
         echo "    - $d" >&2
     done
     echo >&2
-    echo "  A tabela acima lista os cinco: bumpe a minoria até os cinco baterem." >&2
+    echo "  A tabela acima lista os cinco: leve os que estão atrás até a versão mais" >&2
+    echo "  recente entre elas. Cardinalidade não é o critério: quem está atrás sobe," >&2
+    echo "  mesmo que os atrasados sejam a maioria. Nunca regrida uma versão já publicada." >&2
 fi
 
 exit 1
