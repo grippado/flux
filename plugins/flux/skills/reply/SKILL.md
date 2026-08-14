@@ -100,7 +100,7 @@ done
 TARGET="${TARGETS[-1]}"                      # a superfície ATUAL é sempre a última informada
 ```
 
-- Se não há permalink Slack válido em `TARGETS`, **abortar** com mensagem pedindo o link (`/flux:reply responder <permalink>`).
+- Se não há permalink Slack válido em `TARGETS`, **abortar** com mensagem pedindo o link (`${FLUX_CMD}reply responder <permalink>`).
 - **A superfície atual é a ÚLTIMA da lista.** Quando o usuário passa dois links ("era nessa thread, agora o papo tá aqui"), o primeiro é histórico e o último é onde a conversa está viva agora.
 - `--board <path>` assume um board existente em vez de procurar/criar. Atalho para quando o usuário já sabe qual é.
 - **Watch é DEFAULT-ON**: depois da 1ª passada, o comando fica vigiando o caso até assentar. `--once` (alias `--no-watch`) faz uma passada só.

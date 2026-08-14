@@ -122,7 +122,7 @@ Após resolver o perfil, seguir para a resolução de verbo abaixo.
 2. Sem verbo explícito → **inferir** (backward-compat, não quebra o uso antigo):
    - vazio / numérico / URL `github.com/.../pull/...` → `pr`
    - URL `docs.google.com` ou `drive.google.com` → `doc`
-   - qualquer outra coisa → propor ao usuário qual verbo usar, ou sugerir `/flux:peek` para relance rápido sem cerimônia.
+   - qualquer outra coisa → propor ao usuário qual verbo usar, ou sugerir `${FLUX_CMD}peek` para relance rápido sem cerimônia.
 3. A flag `--solo` pode aparecer em qualquer posição: desliga os specialists e roda só `<HOLISTIC>`.
 
 Depois de resolver o verbo, saltar para o pipeline correspondente:
@@ -181,7 +181,7 @@ Se o `pwd` é o checkout do repo alvo (ou não há arg), trabalhe direto. Se for
 
 1. Tente buscar diff via `gh pr diff <n> --repo {owner}/{repo}` — se funcionar, segue só com diff
 2. Se falhar (auth, repo privado sem acesso), **aborte** com mensagem:
-   > `Não consegui acessar o diff de {owner}/{repo}#{n} a partir daqui. Faça \`cd\` no checkout local de {repo} e rode /flux:review {n} novamente.`
+   > `Não consegui acessar o diff de {owner}/{repo}#{n} a partir daqui. Faça \`cd\` no checkout local de {repo} e rode ${FLUX_CMD}review {n} novamente.`
 3. Não tente trocar de pwd automaticamente
 
 ### 3. Coletar contexto

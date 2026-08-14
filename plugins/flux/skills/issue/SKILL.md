@@ -424,7 +424,7 @@ criação **não é declarada completa** até ser corrigida.
   no `note-schema.json`), o mesmo que os boards de `/flux:reply`, `/flux:build` e `/flux:review` já
   usam. Aqui ele fecha exatamente no gatilho que o schema declara para o `issue-draft`:
   `done_when: "issue criada no Linear a partir do rascunho"`.
-- **Handoff forward:** o 🎯 Próximo Movimento final aponta para `/flux:build <repo> <TICKET>`, com o
+- **Handoff forward:** o 🎯 Próximo Movimento final aponta para `${FLUX_CMD}build <repo> <TICKET>`, com o
   ticket linkado. É o elo seguinte da família: `issue` abre o trabalho, `build` executa,
   `review`/`iterate`/`land` fecham.
 - **Criação falhou** (sem MCP, sem permissão): board intacto, `execution_status` segue `active`, as
