@@ -105,6 +105,7 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 | `--agents-only` | Equipa **só L2** (a suite de specialists). Não toca em motor nem em `exec_fallback`. |
 | `--expose-l3` | Torna a **L3 do repo alcançável** de qualquer sessão, pelo degrau 1 da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis): espelho namespaceado, `name:` prefixado com o slug do repo. Ver "Step 4b". |
 | `--from-kit <ref>` | Em vez de autorar do zero, instala a partir de um kit já pronto. Ver "Kits", abaixo. |
+| `--from-map` | **Uso interno: despachado pelo `${FLUX_CMD}map`.** O consentimento já foi dado no gate da main dele, então nenhum gate abre aqui; e o carimbo no índice é do chamador, então este verbo **não escreve** o `flux-agents.json`. Ver "Step 4c". |
 | `--dry` | Faz o diagnóstico completo, imprime o plano de equipagem e **para**. Nada é escrito, nenhum gate abre. |
 
 Sem `--engine-only` nem `--agents-only`, o verbo cuida das duas camadas — mas **só do que falta**.
@@ -388,8 +389,15 @@ degrau 0 no lugar quando ele for aplicável (condições no 1b-bis), porque lá 
 
 ## Step 4c — Atualizar a entrada do repo no índice
 
-Ao equipar um repo (Steps 4, 4b e 5), **atualizar a entrada dele** no `flux-agents.json` e recomputar
-`collisions`. Um índice que descreve a máquina de antes da equipagem faz o próximo elo oferecer o que
+**Com `--from-map`, este Step não roda.** O `map` despacha vários `equip` em paralelo, e há **um**
+`flux-agents.json` por raiz de agents: N filhos carimbando o mesmo arquivo é race no único recurso
+que o fan-out compartilha, e o índice sairia descrevendo um subconjunto arbitrário do que aconteceu.
+Nesse modo, devolver os fatos no contrato de retorno e deixar a reconciliação com a main do `map`
+(um escritor por execução, a mesma disciplina do board-keeper do `flux:land`). O resto do verbo roda
+igual, com o contrato de destino inteiro valendo.
+
+Invocado direto, sem `--from-map`: ao equipar um repo (Steps 4, 4b e 5), **atualizar a entrada dele**
+no `flux-agents.json` e recomputar `collisions`. Um índice que descreve a máquina de antes da equipagem faz o próximo elo oferecer o que
 acabou de ser feito.
 
 O escopo aqui é **um repo**, e só ele: o levantamento da máquina inteira é do `${FLUX_CMD}map`, que é

@@ -169,6 +169,14 @@ Dois verbos, com escopos que não se sobrepõem, e só sob invocação explícit
 | `${FLUX_CMD}map --repo <slug>` | releva só aquela entrada, mantendo o resto |
 | `${FLUX_CMD}equip <slug>` | atualiza **a entrada daquele repo** (L1/L2/L3, hashes) e recomputa `collisions` |
 | `${FLUX_CMD}equip <slug> --expose-l3` | o acima, mais o bloco `mirror` com `synced_from_sha256` |
+| `${FLUX_CMD}equip <slug> --from-map` | **nada** — devolve os fatos, e quem carimba é a main do `map` |
+
+**Um escritor por execução.** Quando o `map` despacha vários `equip` em paralelo, os destinos deles são
+disjuntos (`<raiz>/<ctx>/<slug>/`), mas o índice **não é**: há um por raiz de agents. N filhos
+carimbando o mesmo arquivo é race no único recurso compartilhado do fan-out, e o resultado seria um
+índice descrevendo um subconjunto arbitrário do que acabou de acontecer. Por isso `--from-map` desliga
+a escrita no filho e a reconciliação acontece na main, de uma vez — inclusive o `collisions`, que muda
+com espelho novo e **não pode** ser recomputado por filho, porque cada um só enxerga a própria parte.
 
 **O `equip` nunca cria o índice do zero.** Ele carimba o que equipou num índice que já existe; não
 havendo, relata e oferece o `${FLUX_CMD}map`. Um índice nascido de um repo só seria indistinguível de

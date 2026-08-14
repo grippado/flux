@@ -150,10 +150,10 @@ aparência de completo. O contrato do gate é o [`scope-gate.md`](plugins/flux/s
 
 Acima do ciclo, e fora dele, moram dois verbos que não tratam de uma entrega:
 
-- [`flux:map`](plugins/flux/skills/map/SKILL.md) — o verbo de **sanidade**. Levanta a instalação inteira nesta máquina (raízes de agents, manifestos, repos, as três lentes de cada um, colisões de nome), grava o índice que os demais elos consomem, e relata o que está torto com a remediação de cada caso. Executando de novo, mostra o **delta**: agents novos, repos novos, suites que quebraram. É o candidato natural a primeiro comando numa máquina nova.
+- [`flux:map`](plugins/flux/skills/map/SKILL.md) — o verbo de **sanidade**. Levanta a instalação inteira nesta máquina (raízes de agents, manifestos, repos, as três lentes de cada um, colisões de nome), grava o índice que os demais elos consomem, e relata o que está torto com a remediação de cada caso. Executando de novo, mostra o **delta**: agents novos, repos novos, suites que quebraram. E não para no diagnóstico: item a item, ele **despacha** o `flux:equip` para consertar o que você aceitar, vários repos em paralelo, reconciliando o índice no fim. É o candidato natural a primeiro comando numa máquina nova.
 - [`flux:equip`](plugins/flux/skills/equip/SKILL.md) — o verbo de **preparo**. Equipa um repo com o motor de execução e a suite de specialists que os elos consomem, e expõe a L3 do repo quando ela existe e não está alcançável. Entra quando falta alguma dessas camadas, e sai.
 
-A divisão entre os dois é limpa: **`map` levanta e oferece; `equip` repara.** Um verbo de diagnóstico que também conserta deixa de poder ser rodado sem medo, que é a única coisa que ele precisa ser.
+A divisão entre os dois é limpa: **`map` levanta, propõe e despacha; `equip` é quem escreve o reparo.** Nenhum conserto acontece fora do verbo que é dono do gate daquela escrita, e recusar tudo no gate deixa o `map` sendo o que ele era, um levantamento — a propriedade que faz dele um comando que se roda sem medo.
 
 **Nenhum dos dois é pré-requisito de nada.** Sem eles, todo elo cai na varredura direta e declara a degradação no banner — o comportamento que a família sempre teve. Eles melhoram o resultado; não o habilitam. Uma família que exige comando de preparo para funcionar deixou de funcionar na máquina de quem acabou de instalá-la.
 
@@ -175,7 +175,7 @@ ponto para transformar um caso em comunicação embasada, não apenas depois do 
 | [`flux:land`](plugins/flux/skills/land/SKILL.md) | issue/feature multi-PR | ordem de merge, validação de regressão, go/no-go | mantém PRs merge-ready; **nunca mergeia** |
 | [`flux:reply`](plugins/flux/skills/reply/SKILL.md) | permalink de thread | rascunho Slack-safe + ata no vault | salva rascunho; **nunca posta sozinho** |
 | [`flux:equip`](plugins/flux/skills/equip/SKILL.md) | repo | motor de execução (L0) + suite de specialists local (L2) + L3 exposta | sim, **fora do repo alvo**, pelo contrato de destino; manifesto só sob gate |
-| [`flux:map`](plugins/flux/skills/map/SKILL.md) | nada (a máquina) | inventário das lentes, delta desde a última execução, relatório de integridade | o índice `flux-agents.json`, após gate; **nunca conserta nada** |
+| [`flux:map`](plugins/flux/skills/map/SKILL.md) | nada (a máquina) | inventário das lentes, delta desde a última execução, relatório de integridade | o índice `flux-agents.json`; os consertos **despacha ao `equip`**, nunca escreve por conta |
 
 `flux:equip` e `flux:map` são os dois verbos **fora do ciclo**: nenhum trata de uma entrega. Os
 demais elos consomem coisas que não produzem — o motor que o `flux:build` despacha e os specialists
