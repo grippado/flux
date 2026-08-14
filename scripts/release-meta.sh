@@ -40,9 +40,19 @@ NO_CHANGELOG="Sem changelog registrado para esta tag."
 #   Summary-en: The contract now verifies identity, not a name string.
 #   Summary-pt: O contrato passa a verificar identidade, não uma string de nome.
 #
-# Uma tag sem trailers não quebra nada: os quatro idiomas caem na primeira linha,
-# que é o comportamento que toda tag anterior a esta convenção já tinha.
-SUMMARY_LANGS=(en pt es de)
+# Uma tag sem trailers não quebra nada: os idiomas caem na primeira linha, que é
+# o comportamento que toda tag anterior a esta convenção já tinha.
+#
+# Só entra nesta lista idioma cujo texto passou por revisão de quem fala a
+# língua. As tags declaram também `Summary-es` e `Summary-de`, e eles ficam de
+# fora de propósito: foram escritos por quem não fala nenhum dos dois, e uma
+# frase errada publicada com cara de oficial é pior que a página mostrar inglês.
+# Uma releitura já pegou um `sich auflöst` que dizia "se dissolve" onde devia
+# dizer "resolve", o que é o argumento de que pode haver outro.
+#
+# A página cai no inglês sozinha para todo idioma ausente daqui. Revisado um
+# deles, basta acrescentá-lo nesta linha: o texto já está na tag.
+SUMMARY_LANGS=(en pt)
 
 CHANGELOG=""
 CHANGELOG_SOURCE="none"
