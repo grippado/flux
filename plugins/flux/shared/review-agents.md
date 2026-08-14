@@ -164,29 +164,39 @@ fosse estado normal: quem trabalha a partir de um diretório de workspace (ou do
 aninhados embaixo perdia a L3 em **toda** invocação. Chamar isso de normal era normalizar a perda.
 Uma lente que existe em disco e não foi invocada é **dívida acionável**, não fato da vida.
 
-Dois fatos medidos delimitam o que é possível:
+**A causa cobre dois arranjos, não um.** Escrevê-la como "sessão acima do repo" a deixa estreita
+demais, e foi assim que o degrau 0 nasceu inalcançável para a própria causa que ele serve:
 
-- **`--add-dir` recusa diretório que já está dentro da árvore do `cwd`** ("is already accessible
-  within the current working directory"). Numa sessão ancorada acima dos repos, ele nunca ajuda.
+- **repo aninhado**: a sessão subiu num diretório **acima** do repo (workspace, ou o `$HOME`);
+- **árvore irmã**: a sessão subiu numa árvore **paralela** à do repo alvo — trabalhar num workspace e
+  a entrega tocar um repo de outro.
+
+A distinção importa porque o degrau 0 só existe no segundo arranjo. Dois fatos medidos:
+
 - **Estar dentro do `cwd` não carrega nada.** O harness varre o `.claude/agents/` do **projeto** e o do
-  usuário; os `.claude/agents/` de repos aninhados não são varridos por estarem embaixo. O pior dos
-  dois mundos: não carrega, e ainda bloqueia o remédio nativo.
+  usuário; os de repos aninhados não são varridos por estarem embaixo.
+- **A capacidade de acrescentar diretório recusa o que já está dentro da árvore do `cwd`.** No arranjo
+  aninhado, portanto, o pior dos dois mundos: não carrega, e ainda bloqueia o remédio sem cópia.
 
 Daí a escada. Percorrer de cima para baixo, parando no primeiro degrau aplicável:
 
 | degrau | condição | o que oferecer | custo |
 |---|---|---|---|
-| **0. `--add-dir`** | o checkout do repo está **fora** da árvore do `cwd` **e** nenhum `name:` dele colide com o registry da sessão | `/add-dir <checkout>` (ou relançar a sessão com a flag) | zero cópia, zero drift: os agents vivos do repo |
-| **1. espelho namespaceado** | qualquer outro caso — que é a regra em modo workspace | `${FLUX_CMD}equip <repo> --expose-l3`: espelho em `<raiz de agents>/<ctx>/<repo>-l3/` com `name:` reescrito para `<repo>-<name>` | cópia, com `sha256` de proveniência no índice |
+| **0. acrescentar o diretório à sessão** | `ADDDIR_CMD != UNAVAILABLE` (preflight, 1c) **e** o checkout está **fora** da árvore do `cwd` **e** nenhum `name:` dele colide com o registry da sessão | `${ADDDIR_CMD} <checkout>` | zero cópia, zero drift: os agents vivos do repo |
+| **1. espelho namespaceado** | qualquer outro caso — que é a regra no arranjo aninhado | `${FLUX_CMD}equip <slug> --expose-l3`: espelho em `<raiz de agents>/<ctx>/<slug>-l3/` com `name:` reescrito para `<slug>-<name>` | cópia, com `sha256` de proveniência no índice |
 | **2. degradar** | o usuário recusou o degrau aplicável | declarar `L3 inalcancavel` no banner, com a causa e a oferta recusada | a lente não roda |
 
 O degrau 0 é preferível **onde couber**, porque não cria cópia e portanto não pode envelhecer. Ele
-cabe menos do que parece: a condição de colisão é aferida contra o registry inteiro da sessão, e
-nomes como `self-reviewer`, `implementation`, `pattern-finder`, `test-runner`, `reviewer` e
-`repo-owner` são declarados por vários repos ao mesmo tempo numa máquina real. Com colisão, o harness
-carrega **um** deles por ordem de leitura de filesystem, sem precedência documentada — e o que roda
-contra o diff é o agent do repo errado, com o banner declarando cobertura. Por isso a condição do
-degrau 0 é conjuntiva, e por isso o degrau 1 reescreve o `name:`.
+cabe menos do que parece, e as três condições são conjuntivas por motivos diferentes: a capacidade não
+existe em todo harness (por isso o 1c do preflight a resolve e declara ausência), o arranjo aninhado
+a inviabiliza, e a colisão de `name:` a torna perigosa.
+
+**A colisão é o motivo de o degrau 1 reescrever o `name:`.** Ela é aferida contra o registry inteiro
+da sessão, e nomes de agent de repo são genéricos por natureza — numa máquina real, o mesmo nome é
+declarado por vários repos ao mesmo tempo. Havendo colisão, o harness carrega **um** deles por ordem
+de leitura de filesystem, sem precedência documentada: roda o agent do repo errado contra o diff
+certo, com o banner declarando cobertura. É a terceira causa da tabela do 1a-bis, fabricada de
+propósito.
 
 `name_collision` e o `checkout` saem do índice (`${FLUX_ROOT}/shared/agents-index.md`); `under_cwd`
 é computado em runtime, porque depende da sessão. Sem índice, apurar por varredura e declarar

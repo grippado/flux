@@ -41,17 +41,18 @@ máquina nenhuma mapeada.
 
 ## Onde ele mora
 
-Um índice **por raiz de agents que o harness varre**, no mesmo formato de path que o manifesto de
-contexto já usa:
+Um índice chamado `flux-agents.json`, **um por raiz de agents que o harness varre**. Quais são essas
+raízes não é lista deste contrato: elas são **descobertas** — cada harness declara onde procura
+agents, e é ali que o índice daquele harness nasce. Enumerá-las aqui congelaria a família em dois
+produtos e deixaria os demais sem destino.
 
-```
-~/.claude/agents/flux-agents.json
-~/.cursor/agents/flux-agents.json
-```
+O destino concreto de cada gravação passa pela cascata de `${FLUX_ROOT}/shared/write-destination.md`,
+como qualquer arquivo que nasce na máquina do usuário; o que este contrato fixa é o **nome** e a
+**relação** (um índice por raiz), não o path.
 
 Não um arquivo único de máquina num dotdir próprio. O motivo é o de sempre nesta família: um
-`~/.flux/` nomearia um produto onde o contrato precisa ser neutro, e a raiz de agents é uma convenção
-que o **próprio harness** define, então é descoberta sem configuração. Duplicar entre raízes é barato
+`~/.flux/` nomearia um produto onde o contrato precisa ser neutro, enquanto a raiz de agents é
+convenção do próprio harness e portanto descoberta sem configuração. Duplicar entre raízes é barato
 porque o arquivo é inteiramente regenerável.
 
 O `.json` é inerte para o harness: a varredura de agents é por `**.md`, então um índice na raiz não
@@ -64,39 +65,39 @@ vira agente candidato nem entra em contagem nenhuma.
   "schema": 1,
   "generated_at": "<ISO>",
   "generated_by": "flux@<versao>",
-  "root": "~/.claude/agents",
+  "root": "<raiz de agents do harness>",
 
   "manifests": [
-    { "path": "~/cangaco/.ai/contexts/personal/.claude/flux-context.json",
-      "name": "pessoal",
-      "workspace_root": "~/www/personal",
-      "repos": ["violeet", "violeeter", "guia-cumuru"] }
+    { "path": "~/code/acme/.claude/flux-context.json",
+      "name": "acme",
+      "workspace_root": "~/code/acme",
+      "repos": ["api-gateway", "payments", "web-monorepo"] }
   ],
 
-  "registered_here": [
-    { "name": "violeet-repo-owner", "file": "personal/violeet/repo-owner.md", "sha256": "<sha>" }
+  "present_here": [
+    { "name": "acme-api-gateway-repo-owner", "file": "acme/api-gateway/repo-owner.md", "sha256": "<sha>" }
   ],
 
   "repos": {
-    "guia-cumuru": {
-      "checkout": "~/www/personal/guia-cumuru",
-      "manifest": "pessoal",
+    "api-gateway": {
+      "checkout": "~/code/acme/api-gateway",
+      "manifest": "acme",
       "l1": { "holistic": "flux:pr-reviewer", "source": "cascata generica" },
       "l2": {
         "state": "ausente",
-        "expected_path": "~/cangaco/.ai/claude/agents/personal/guia-cumuru/repo-owner.md"
+        "expected_path": "~/agents/acme/api-gateway/repo-owner.md"
       },
       "l3": {
         "state": "presente",
-        "dir": "~/www/personal/guia-cumuru/.claude/agents",
+        "dir": "~/code/acme/api-gateway/.claude/agents",
         "dir_sha256": "<sha do conjunto>",
         "agents": [
-          { "name": "backend-dev", "file": "backend-dev.md", "sha256": "<sha>" }
+          { "name": "self-reviewer", "file": "self-reviewer.md", "sha256": "<sha>" }
         ],
         "name_collision": false,
         "mirror": {
-          "path": "~/.claude/agents/personal/guia-cumuru-l3",
-          "prefix": "guia-cumuru-",
+          "path": "<raiz de agents>/acme/api-gateway-l3",
+          "prefix": "api-gateway-",
           "synced_from_sha256": "<dir_sha256 da vez em que espelhou>"
         }
       }
@@ -105,27 +106,28 @@ vira agente candidato nem entra em contagem nenhuma.
 
   "collisions": [
     { "name": "self-reviewer",
-      "claimed_by": ["backoffice", "backoffice-bff", "communication-api", "e2e-tests"] }
+      "claimed_by": ["api-gateway", "payments", "web-monorepo", "notifications"] }
   ]
 }
 ```
 
 ### Por que é indexado por repo, e não um catálogo plano de nomes
 
-Um catálogo plano de "agents conhecidos" é justamente o que **não** distingue os oito `self-reviewer`
-de repos diferentes. O nome sozinho não identifica nada nesta família — a identidade é o par
+Um catálogo plano de "agents conhecidos" é justamente o que **não** distingue um `self-reviewer` de
+uma dúzia de repos diferentes. O nome sozinho não identifica nada nesta família — a identidade é o par
 (nome, procedência), e o custo de errar é invocar o auditor do repo errado contra o diff certo.
 Indexar por repo, com `sha256` por arquivo, é o que torna a procedência verificável.
 
 ### O que o índice NÃO guarda
 
-- **`reachable_via` estático.** Um dos degraus da escada (`--add-dir`) depende do `cwd` da sessão, que
-  muda a cada invocação. Congelar a decisão no arquivo produziria uma recomendação errada sempre que a
+- **`reachable_via` estático.** Um dos degraus da escada depende do `cwd` da sessão, que muda a cada
+  invocação. Congelar a decisão no arquivo produziria uma recomendação errada sempre que a
   sessão subisse de outro lugar. O índice guarda **fatos** (`checkout`, `name_collision`, existência do
   espelho); a **decisão** é computada em runtime pela escada do
   `${FLUX_ROOT}/shared/review-agents.md`.
-- **Estado de registro na sessão.** Pela regra acima. `registered_here` descreve o que existe **em
-  disco** naquela raiz, não o que a sessão carregou.
+- **Estado de registro na sessão.** Pela regra acima. `present_here` descreve o que existe **em disco**
+  naquela raiz. O nome do campo é deliberado: `registered` convidaria exatamente à inversão que a
+  regra acima existe para impedir.
 
 ## Frescor
 
@@ -135,6 +137,10 @@ O índice é validado, não confiado. Na leitura, conferir:
    ausente, não adivinhar).
 2. Para cada repo que o elo vai de fato usar — **e só para esses** —, comparar `dir_sha256` com o
    estado atual do diretório de agents daquele repo.
+3. **Quando o índice for usado para resolver âncora** (`${FLUX_ROOT}/shared/flux-context.md`, passo 2),
+   conferir que cada `path` de `manifests` ainda existe. Um manifesto removido ou renomeado passa
+   incólume pelos dois testes acima e faz o elo resolver o **contexto errado** — a mesma classe de
+   falha silenciosa que o passo 2-bis foi escrito para matar, entrando pela porta do cache.
 
 Divergiu, ou o índice não existe:
 
@@ -143,6 +149,11 @@ Divergiu, ou o índice não existe:
 - Nunca refrescar o índice inteiro no meio de outro elo: escrever na máquina do usuário é ação com
   gate próprio (`${FLUX_ROOT}/shared/write-destination.md`), e um elo de review que reescreve
   configuração global de passagem é exatamente o efeito colateral que a família não pode ter.
+
+**O índice é `soft` em todo elo que o consome, sem exceção.** Ele acelera e desambigua; não habilita
+nada que a varredura direta não fizesse antes. Declarar `hard` num elo de review faria a família parar
+de rodar numa máquina que nunca invocou o `equip`, que é o oposto do que este contrato existe para
+fazer. O único `hard` legítimo é no próprio `equip`, que o escreve.
 
 A validação é por repo-que-será-usado justamente para que o custo seja proporcional: um `flux:peek`
 numa PR de um repo confere um `dir_sha256`, não vinte.
@@ -157,6 +168,6 @@ Só o `${FLUX_CMD}equip`, e só sob invocação explícita:
 | `${FLUX_CMD}equip <repo>` | atualiza **a entrada daquele repo** (L1/L2/L3, hashes) e recomputa `collisions` |
 | `${FLUX_CMD}equip <repo> --expose-l3` | o acima, mais o bloco `mirror` com `synced_from_sha256` |
 
-**Nunca na instalação do plugin, nunca como efeito colateral de outro elo.** Um plugin que escreve em
-`~/.claude/agents/` ao ser instalado passa por cima do contrato de destino e surpreende o usuário no
+**Nunca na instalação do plugin, nunca como efeito colateral de outro elo.** Um plugin que escreve
+numa raiz de agents ao ser instalado passa por cima do contrato de destino e surpreende o usuário no
 pior lugar possível, que é a configuração global dele.

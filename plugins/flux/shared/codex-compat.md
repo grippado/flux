@@ -35,6 +35,24 @@ declarar cada ausência como degradação: `reply` fica em modo rascunho sem Sla
 não persistem sem vault; `issue` não cria no Linear sem integração; e sem specialists só a lente
 holística é usada. Nenhuma dessas ausências autoriza inventar dados, endpoints ou agentes.
 
+### Alcance da L3 e índice de agents
+
+O degrau 0 da escada de alcance ([`review-agents.md`](review-agents.md), 1b-bis) depende de
+`ADDDIR_CMD`, resolvido no Passo 1c do [`preflight.md`](preflight.md). Onde o Codex não expuser a
+capacidade de acrescentar um diretório à sessão, `ADDDIR_CMD` fica `UNAVAILABLE` e **o degrau 0 sai da
+escada**: o alcance da L3 passa pelo degrau 1 (espelho namespaceado via `equip --expose-l3`), que não
+depende de capacidade nenhuma do harness. A escada foi escrita para sobreviver a essa ausência, e não
+há nada a fazer além de declará-la.
+
+O `flux-agents.json` ([`agents-index.md`](agents-index.md)) nasce **na raiz de agents que o harness
+declara**, e por isso não é lista de produto: onde o Codex declarar a sua, o índice mora lá. Não
+havendo raiz declarada, `--index` não tem destino, e o verbo diz isso em vez de escolher um path por
+analogia com outro harness — os elos que consomem o índice já o declaram `soft` e caem para a varredura
+direta com `indice ausente` no banner.
+
+As duas ofertas novas do `equip` (`--expose-l3`, `--index`) são ofertas de **verbo irmão** e caem na
+mesma carve-out da seção seguinte: sem `FLUX_CMD`, imprimem a instrução em vez de executar.
+
 ### `land` degrada no Codex
 
 `${FLUX_CMD}` não resolve no Codex hoje. O Passo 1b do [`preflight.md`](preflight.md) verifica

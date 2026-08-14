@@ -124,7 +124,7 @@ diga isso ao usuário em uma linha, porque quem escreveu os dois provavelmente e
 /flux:equip payments --engine-only            # só o motor (o repo já tem suite)
 /flux:equip web-monorepo --dry                # diagnóstico + plano, sem escrever
 /flux:equip notifications --from-kit node-fastify
-/flux:equip guia-cumuru --expose-l3           # L3 do repo alcançável fora dele
+/flux:equip payments --expose-l3              # L3 do repo alcançável fora dele
 /flux:equip --index                           # mapeia a máquina inteira
 /flux:equip                                   # dentro de <WORKSPACE_ROOT>/api-gateway
 ```
@@ -365,11 +365,8 @@ harness varre, com o `name:` de cada arquivo reescrito para `<slug>-<name>`. Iss
 suite do repo invocável de uma sessão ancorada acima dele, que é o modo normal de trabalho de quem
 tem vários repos sob um diretório de workspace.
 
-**Por que espelho, e não symlink do diretório.** O symlink preserva o `name:` original, e nomes de
-agent de repo são genéricos por natureza (`self-reviewer`, `implementation`, `pattern-finder`,
-`reviewer`, `repo-owner` aparecem em vários repos da mesma máquina). Exposto sem prefixo, o harness
-carrega **um** deles por ordem de leitura de filesystem, sem precedência documentada: roda o agent do
-repo errado contra o diff certo, e o banner declara cobertura. O prefixo é o que compra a unicidade.
+**Por que espelho com prefixo, e não symlink do diretório:** o argumento de colisão de `name:` está
+no 1b-bis, e é lá que ele se mantém. Não repetir aqui.
 
 **Regras:**
 
@@ -382,14 +379,13 @@ repo errado contra o diff certo, e o banner declara cobertura. O prefixo é o qu
 - **Nada além do `name:` é reescrito.** O corpo do agent é do time que o mantém; reescrever conteúdo
   transformaria um espelho em fork, e o próximo `--expose-l3` teria que decidir entre duas verdades.
 - **Proveniência obrigatória.** Gravar no índice o `sha256` do conjunto de origem
-  (`l3.mirror.synced_from_sha256`). É o que permite ao preflight dizer `L3 stale` em vez de rodar uma
-  cópia velha em silêncio.
+  (`l3.mirror.synced_from_sha256`). É o que permite a um elo declarar a degradação `L3 stale`
+  (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) em vez de rodar uma cópia velha em silêncio.
 - **Re-executar é idempotente**: origem inalterada ⇒ nada a escrever, e diga isso em uma linha.
 
 **A pergunta que o usuário precisa responder antes**, porque a resposta muda o que fica na máquina
 dele: espelho é cópia, e cópia envelhece. Abrir o gate de destino declarando isso, e oferecendo o
-degrau 0 (`--add-dir`) quando ele for aplicável — repo fora da árvore do `cwd` e sem colisão —, porque
-lá não há cópia nenhuma.
+degrau 0 no lugar quando ele for aplicável (condições no 1b-bis), porque lá não há cópia nenhuma.
 
 ---
 
@@ -401,10 +397,8 @@ encontrados, e por repo conhecido o inventário L1/L2/L3 com hashes, mais o mapa
 
 - **É o único momento caro da família, e é explícito.** Nenhum outro elo varre a máquina inteira;
   todos leem o índice e validam só o repo que vão usar.
-- **Escrita passa pelo gate de destino** (`${FLUX_ROOT}/shared/write-destination.md`), como qualquer
-  arquivo que nasce na máquina do usuário.
-- **Nunca na instalação do plugin.** Um plugin que escreve em `~/.claude/agents/` ao ser instalado
-  surpreende o usuário na configuração global dele.
+- **Quando o índice pode ser escrito, e por quem, é do `agents-index.md`** (seção "Quem escreve"). Este
+  Step **executa** aquele contrato; não o reenuncia.
 - `--index` combinado com `<repo>` ou com as demais flags é erro de invocação: diga qual das duas
   coisas o usuário quis e pare.
 

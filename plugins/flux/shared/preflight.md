@@ -80,6 +80,32 @@ referência entre shareds).
 > que não existe na máquina dele, e o erro chega no formato mais confuso possível — o elo funcionou
 > perfeitamente e ainda assim entregou uma instrução quebrada.
 
+### 1c — `ADDDIR_CMD`
+
+O degrau 0 da escada de alcance da L3 (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) depende de uma
+capacidade que **nem todo harness tem**: acrescentar um diretório ao escopo da sessão, fazendo o
+`.claude/agents/` dele ser varrido junto. Onde ela existe, é o único caminho que alcança a suite do
+repo **sem criar cópia**, e por isso ela é o primeiro degrau.
+
+Vale aqui o mesmo rigor dos Passos 1b e 3, e pela mesma razão: **resolver não é verificar**. Um
+contrato que imprime o comando sem confirmar que a sessão o expõe manda o usuário digitar algo que
+não existe na máquina dele — a falha que o Passo 1b nomeia, com um comando de harness no lugar do
+verbo irmão.
+
+Resolver `ADDDIR_CMD` **verificando qual forma a sessão de fato expõe**, parando na primeira:
+
+1. `/add-dir` — comando de sessão.
+2. A flag equivalente de invocação do harness, quando ele documenta uma.
+
+Nenhuma forma resolveu → `ADDDIR_CMD` é `UNAVAILABLE`. Isso **não** derruba elo nenhum: o degrau 0
+simplesmente sai da escada, que segue para o degrau 1 (espelho namespaceado), e a ausência é
+declarada como qualquer outra degradação.
+
+> **Por que isto não é hardcode de produto.** A regra do Passo 1a é que nomear um harness só é
+> legítimo quando o candidato é **verificável** e tem caminho de ausência. `ADDDIR_CMD` tem os dois,
+> e é por tê-los que ele pode existir; a versão anterior deste contrato imprimia `/add-dir` cru, sem
+> teste e sem ausência, e isso era hardcode.
+
 ## Passo 2 — Verificar os requisitos declarados
 
 Cada elo declara no frontmatter:
@@ -105,6 +131,7 @@ Tipos de requisito:
 | `agent: <nome>` | ver Passo 3 |
 | `checkout_local` | o alvo tem checkout local acessível para leitura de contexto |
 | `vault` | `VAULT_ROOT` resolvido e o diretório existe |
+| `index` | o `flux-agents.json` existe e passou o teste de frescor (`${FLUX_ROOT}/shared/agents-index.md`) |
 | `mcp: <prefixo>` | as tools daquele prefixo estão disponíveis na sessão |
 
 **Regra de fronteira:**
@@ -209,6 +236,28 @@ lentes: L1 {agente} · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inal
 degradacoes: {lista dos soft ausentes e o que se perde com cada um | nenhuma}
 ```
 ````
+
+### Tokens canônicos de `degradacoes:`
+
+A linha `lentes:` tem enum fechado (`{lista|ausente|inalcancavel}`). Tudo que qualifica uma lente sem
+ser um desses três estados vai para `degradacoes:`, e **com a grafia desta tabela** — um token de
+banner escrito de três jeitos em quatro arquivos deixa de ser legível de relance, que é a única coisa
+que o banner precisa ser.
+
+| token | quando | quem emite |
+|-------|--------|-----------|
+| `L3 stale` | a lente L3 roda por espelho (degrau 1 da escada) e a origem mudou desde `synced_from_sha256` | o elo que resolveu as lentes |
+| `indice ausente` | não há `flux-agents.json` na raiz de agents | idem |
+| `indice stale` | há índice, e ele não passou o teste de frescor | idem |
+
+Os três acompanham a oferta correspondente (`${FLUX_CMD}equip <repo> --expose-l3`,
+`${FLUX_CMD}equip --index`) e **nenhum deles aborta**: os elos caem para a varredura direta, que é o
+comportamento que existia antes do índice.
+
+> **Um estado que só existe no shared não é emitido.** Estes três nasceram descritos em
+> `${FLUX_ROOT}/shared/agents-index.md` e em `${FLUX_ROOT}/shared/review-agents.md`, e sem esta tabela
+> nenhum elo teria de onde copiá-los na hora de emitir — o mesmo motivo pelo qual o gabarito do banner
+> é repetido no corpo de cada verbo.
 
 > **`ausente` e `inalcancavel` não são sinônimos**, e a distinção está no contrato de
 > `${FLUX_ROOT}/shared/review-agents.md` (passo 1a-bis). `ausente` é não existir suite para o repo.

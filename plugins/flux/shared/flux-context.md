@@ -77,7 +77,8 @@ Resolver o ticket e derivar o repo, nesta ordem, parando no primeiro que produzi
 1. **PRs já ligadas à issue** (anexos/links da integração do tracker com o GitHub): o repo da PR é o
    repo do trabalho. É a fonte mais confiável quando existe.
 2. **`gitBranchName`** que o tracker sugere para a issue, quando ele carrega o slug do repo.
-3. **Projeto ou time da issue**, quando um manifesto declara o mapeamento.
+3. **Projeto ou time da issue**, quando o manifesto declara o mapeamento no campo `tracker_repo_map`
+   (ver "Campos"). Sem o campo, esta fonte não existe — nunca inferir repo a partir de nome de time.
 
 Com o slug em mãos, **entrar no passo 2** com ele, e seguir dali (checkout local → manifestos que o
 reivindicam). Nenhum slug derivável → passo 3.
@@ -118,8 +119,9 @@ com o reviewer de outro time sem que nada acuse o problema.
   caminhos baratos. Não faça a varredura quando os passos 1 ou 2-rápido já resolveram.
 - **O passo 2-bis é o único que faz chamada de rede na resolução de âncora** (o tracker). Ele roda
   uma vez, e o que ele leu da issue é reaproveitado pelo elo — nada de consultar a mesma issue de novo
-  na fase de descoberta. Tracker indisponível não aborta: cai para o passo 3 e **declara a queda**,
-  porque perfil genérico obtido por falha de rede é indistinguível de perfil genérico legítimo.
+  na fase de descoberta. Tracker indisponível não aborta: cai para o passo 3 e **declara a queda em
+  `degradacoes:`** (`${FLUX_ROOT}/shared/preflight.md`, Passo 5), porque perfil genérico obtido por
+  falha de rede é indistinguível de perfil genérico legítimo.
 - **Declarar a âncora no banner** quando ela **não** for o `cwd`, para que a origem do perfil seja
   auditável:
 
@@ -146,6 +148,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   "vault_context_root": "~/notes/acme",
   "workspace_root": "~/code/acme",
   "linear_org": "acme",
+  "tracker_repo_map": { "Payments": "payments", "Platform": "api-gateway" },
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
   "repos": ["api-gateway", "web-monorepo", "notifications", "payments", "..."],
   "exec_command": "workflow",
@@ -234,6 +237,10 @@ com o reviewer de outro time sem que nada acuse o problema.
   onde o manifesto foi encontrado.
 - `linear_org` — org do Linear, usada por `flux:issue` pra montar URLs de ticket
   (`https://linear.app/{linear_org}/issue/...`) e pelo doc apontado em `linear_ops` no roteamento de team.
+- `tracker_repo_map` — opcional. Mapa `{ "<projeto ou time do tracker>": "<slug de repo>" }`, terceira e
+  última fonte do passo 2-bis da âncora, quando a issue não tem PR ligada nem `gitBranchName` com o
+  slug. **Sem o campo a fonte simplesmente não existe**: adivinhar repo a partir de nome de time é
+  como o elo acaba rodando no contexto errado com aparência de acerto.
 - `repos` — repos conhecidos do contexto (usado por `flux:land` pra resolver targets cross-repo).
 - `exec_command` — nome do comando **nativo de execução** dos repos deste contexto, usado pelo `flux:build`
   pra descobrir o motor (`<repo>/.claude/commands/<exec_command>.md`). Default: `workflow`.
