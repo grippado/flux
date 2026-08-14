@@ -9,10 +9,12 @@
 # Uso:
 #   scripts/release-meta.sh changelog <tag>   o changelog da tag, como publicado
 #   scripts/release-meta.sh json <tag>        o conteúdo de docs/latest-release.json
+#   scripts/release-meta.sh latest <tag>      a versão corrente do repo, publicando <tag>
 #
-# O `json` lê metadados de release com o `gh`, então precisa de GH_TOKEN (ou de um
-# gh logado) para preencher published_at e html_url. Sem release para a tag, esses
-# dois degradam para null e para a página da tag, nunca para uma data inventada.
+# O `json` e o `latest` leem metadados de release com o `gh`, então precisam de
+# GH_TOKEN (ou de um gh logado). No `json`, sem release para a tag, published_at e
+# html_url degradam para null e para a página da tag, nunca para uma data
+# inventada.
 
 set -euo pipefail
 
@@ -217,6 +219,28 @@ previous_tag() {
     fi
 }
 
+# Qual versão é a corrente do repo, dado que <current> está sendo publicada agora.
+#
+# O universo aqui é o das releases publicadas, não o das tags: o selo Latest é
+# propriedade de release, e uma tag sem release não tem como herdá-lo — se ela
+# disputasse a resposta, um dispatch de reparo na release corrente a demotaria e
+# ninguém assumiria o selo. A ordenação segue a do git, e por isso a varredura
+# continua sendo sobre as tags: o que muda é o filtro, que descarta toda tag sem
+# release, exceto a que este job está publicando.
+current_tag() {
+    local current="$1"
+    local published tag
+
+    published="$(gh release list --limit 200 --json tagName --jq '.[].tagName')"
+
+    while read -r tag; do
+        [[ -z "$tag" || "$tag" == *-* ]] && continue
+        [[ "$tag" != "$current" ]] && ! grep -qxF "$tag" <<< "$published" && continue
+        printf '%s' "$tag"
+        return
+    done < <(git tag --list 'v[0-9]*' --sort=-v:refname)
+}
+
 entry_json() {
     local tag="$1"
     local fallback published_at html_url meta lang value summary
@@ -283,7 +307,7 @@ main() {
     local tag="${2:-}"
 
     if [[ -z "$command" || -z "$tag" ]]; then
-        echo "uso: scripts/release-meta.sh {changelog|json} <tag>" >&2
+        echo "uso: scripts/release-meta.sh {changelog|json|latest} <tag>" >&2
         exit 2
     fi
 
@@ -294,6 +318,9 @@ main() {
             ;;
         json)
             release_json "$tag"
+            ;;
+        latest)
+            current_tag "$tag"
             ;;
         *)
             echo "comando desconhecido: $command" >&2

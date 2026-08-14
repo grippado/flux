@@ -73,38 +73,41 @@ jobs:
           git fetch --force origin "refs/tags/v${VERSION}:refs/tags/v${VERSION}"
           test "$(git cat-file -t "v${VERSION}")" = "tag"
 
-      # Quem é a versão corrente do repo é uma pergunta só, e ela decide duas
-      # coisas: o selo Latest da página de releases e o docs/latest-release.json
-      # que a landing lê. Resolver aqui, uma vez, é o que impede as duas de
-      # discordarem — antes, só o JSON tinha a guarda, e a release saía marcada
-      # como Latest mesmo quando publicava uma versão antiga.
+      # Quem é a versão corrente do repo é uma pergunta só, e ela decide três
+      # coisas: o selo Latest da página de releases, o campo prerelease e o
+      # docs/latest-release.json que a landing lê. Resolver aqui, uma vez, é o que
+      # impede as três de discordarem — antes, só o JSON tinha a guarda, e a
+      # release saía marcada como Latest mesmo quando publicava uma versão antiga.
+      #
+      # A resposta sai do release-meta.sh, e não de um laço local, porque a
+      # varredura por ordem semver já mora lá (previous_tag) e duas cópias de uma
+      # varredura divergem na primeira correção — ainda mais agora, que os dois
+      # filtros são deliberadamente diferentes.
       - name: Resolve latest
         id: latest
         env:
+          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
 
           # Prerelease nunca é a corrente, e a API recusa marcá-la como tal.
           if [[ "$VERSION" == *-* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
             echo "is_latest=false" >> "$GITHUB_OUTPUT"
             echo "v${VERSION} é prerelease; não entra como corrente"
             exit 0
           fi
+          echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
 
-          highest=""
-          while read -r tag; do
-            [[ -z "$tag" || "$tag" == *-* ]] && continue
-            highest="$tag"
-            break
-          done < <(git tag --list 'v[0-9]*' --sort=-v:refname)
+          current="$(scripts/release-meta.sh latest "v${VERSION}")"
 
-          if [[ "$highest" == "v${VERSION}" ]]; then
+          if [[ "$current" == "v${VERSION}" ]]; then
             echo "is_latest=true" >> "$GITHUB_OUTPUT"
-            echo "v${VERSION} é a maior versão lançada"
+            echo "v${VERSION} é a versão corrente entre as releases publicadas"
           else
             echo "is_latest=false" >> "$GITHUB_OUTPUT"
-            echo "v${VERSION} não é a maior versão lançada (${highest:-nenhuma})"
+            echo "v${VERSION} não é a versão corrente (${current:-nenhuma})"
           fi
 
       # A cadeia de fallback do changelog vive no script porque o
@@ -151,12 +154,16 @@ jobs:
           name: flux ${{ steps.version.outputs.version }}
           body_path: notes.md
           # Uma tag com cara de prerelease é publicada como tal, para que uma
-          # `v1.22.0-rc1` nunca vire a versão que a página anuncia como atual.
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          # `v1.22.0-rc1` nunca vire a versão que a página anuncia como atual. Vem
+          # do mesmo passo que o make_latest abaixo: é a resposta de onde o
+          # is_latest já saía, e duas cópias dela divergiriam.
+          prerelease: ${{ steps.latest.outputs.is_prerelease }}
           # Sem este campo vale o default da API, que é `true`: publicar uma tag
           # retroativa marcaria a página de releases com uma versão superada como
-          # a corrente. É a mesma pergunta que o passo do JSON já respondia, agora
-          # respondida antes de publicar em vez de depois.
+          # a corrente. E como a action manda este campo também no update, sem a
+          # resposta vinda das releases um dispatch de reparo chegaria a desmarcar
+          # o Latest de quem o carrega. É a mesma pergunta que o passo do JSON já
+          # respondia, agora respondida antes de publicar em vez de depois.
           make_latest: ${{ steps.latest.outputs.is_latest }}
 
       # Depois da release e nunca antes: o arquivo nomeia um published_at e uma
