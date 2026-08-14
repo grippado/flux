@@ -418,13 +418,22 @@ Em qualquer saída, **relatório final** no chat: ordem de merge recomendada, ve
 
 ## Bootstrap de specialists (repos sem suite local)
 
-No **go/no-go final**, para cada repo da entrega que estiver **sem L2**, oferecer a criação da suite
-local seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md`. Uma oferta por repo no máximo, e
-sempre depois do veredito: a entrega é o produto, a suite é consequência.
+No **go/no-go final**, para cada repo da entrega, oferecer o que a lente faltante pedir. Uma oferta
+por repo no máximo, e sempre depois do veredito: a entrega é o produto, a suite é consequência.
 
-**Aceitar dispara `${FLUX_CMD}equip <repo> --agents-only`**, uma invocação por repo. O land não gera
-suite; ele descobre a falta e entrega a decisão ao verbo de preparo, que é onde os gates de escrita
-na máquina do usuário vivem.
+| estado do repo | oferta |
+|---|---|
+| **sem L2** (`ausente`) | criar a suite: `${FLUX_CMD}equip <repo> --agents-only`, seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md` |
+| **L3 inalcançável por âncora** | o degrau aplicável da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis): `/add-dir <checkout>` quando couber, senão `${FLUX_CMD}equip <repo> --expose-l3` |
+| **índice ausente ou stale** | `${FLUX_CMD}equip --index`, uma vez por máquina |
+
+O land não gera suite nem escreve espelho; ele descobre a falta e entrega a decisão ao verbo de
+preparo, que é onde os gates de escrita na máquina do usuário vivem.
+
+> **A oferta de L3 não é opcional quando a causa é a âncora.** Delivery é o elo que mais roda em modo
+> workspace — é multi-repo por definição —, então é o que mais encontra L3 em disco e não invocável.
+> Emitir go/no-go tendo revisado regressão sem a suite do repo, e sem sequer oferecer o conserto, é
+> entregar um veredito mais fraco do que a máquina permitia.
 
 A suite gerada é **L2, fora do repositório** revisado.
 

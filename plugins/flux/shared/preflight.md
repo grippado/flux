@@ -159,6 +159,12 @@ lente listada no banner e nunca executada.
 diferente de agentes registrados, então uma verificação feita lá dentro não é comparável com a feita
 aqui — e nada no output denuncia a divergência.
 
+**O índice não substitui esta introspecção, e não pode ser lido como se substituísse.** O
+`flux-agents.json` (`${FLUX_ROOT}/shared/agents-index.md`) diz o que existe em disco e onde — é com
+ele que se decide **o que oferecer** quando falta lente. Quem decide **o que rodou** continua sendo a
+lista da sessão. Inverter os dois troca uma degradação declarada por um arquivo com cara de
+autoridade afirmando cobertura que não houve.
+
 Por isso a verificação é **privilégio da main e acontece uma vez**. A main resolve o holístico,
 resolve as lentes, registra as degradações e **desce o resultado já resolvido** dentro do prompt de
 cada subagente que despacha, como fato dado. Nenhum subagente re-resolve lente, reconfere registro,

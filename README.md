@@ -195,11 +195,12 @@ flux/
     │   ├── refine/                 opcional, antes do ciclo: fast SDD numa rodada
     │   ├── issue/  build/  peek/
     │   ├── review/  iterate/  land/  reply/
-    │   └── equip/                  fora do ciclo: equipa o repo com motor (L0) e specialists (L2)
+    │   └── equip/                  fora do ciclo: motor (L0), specialists (L2), expõe L3, índice da máquina
     └── shared/                     contratos compartilhados (fonte única, não duplicar nos verbos)
     ├── preflight.md               verificação de pré-requisitos, níveis de capacidade, banner
     ├── hitl.md                    quando o elo para e pergunta, e como pergunta sem o tool preferido
     ├── flux-context.md            resolução de contexto via manifesto
+    ├── agents-index.md            mapa das lentes na máquina (o que existe e onde, nunca o que rodou)
     ├── review-agents.md           descoberta + reconciliação de specialists
     ├── review-legend.md           badges canônicos dos findings
     ├── review-artifact-template.md formato do artefato de review no vault
@@ -270,6 +271,7 @@ Quem instala a família já tem review holístico e execução funcionando em qu
 - **Worktree sempre** — todo fluxo que escreve código opera em git worktree dedicado à branch, nunca na árvore principal. Ver [`worktree-discipline.md`](plugins/flux/shared/worktree-discipline.md).
 - **Escopo medido antes do trabalho** — elo que pode gastar minutos num pedido grande demais mede o tamanho dele antes, por sinais lidos do que já está em contexto e **sem chamar agente para medir**. Três faixas, e o gate **propõe o corte** em vez de só sinalizar. Ver [`scope-gate.md`](plugins/flux/shared/scope-gate.md).
 - **Destino de escrita verificado** — artefato gerado fora do repo alvo (uma suite de specialists, um motor, um kit — tipicamente escritos pelo `flux:equip`) só nasce num destino que passou pela cascata e pelas três guardas de [`write-destination.md`](plugins/flux/shared/write-destination.md): symlink, repositório git e diretório gerido por dotfiles. Sem destino declarado o elo **pergunta**, não assume; nada existente é sobrescrito em silêncio; e o que foi criado fica registrado, para haver rollback.
+- **Lente que existe é lente que roda** — uma suite de specialists em disco e não invocável é dívida acionável, não estado normal. Quando a causa é a âncora (sessão aberta acima do repo, que é o modo de quem trabalha num workspace com vários repos), o elo percorre a [escada de alcance](plugins/flux/shared/review-agents.md) antes de degradar: `--add-dir` onde couber, senão espelho namespeaceado via `${FLUX_CMD}equip <repo> --expose-l3`. O mapa do que existe na máquina vem do [`agents-index.md`](plugins/flux/shared/agents-index.md) — que diz o que **oferecer**, nunca o que rodou: disponibilidade continua vindo só da lista de agentes da sessão.
 - **Fan-out sempre** — o contexto principal de um elo **orquestra**; investigar código, tocar repo, aplicar correção ou rodar outro `flux:*` vai para subagente, e unidades independentes vão em paralelo num único bloco. Na main ficam só parse, metadados baratos, HITL, board e watch. Regra pétrea, par simétrico do worktree: ver [`fanout-discipline.md`](plugins/flux/shared/fanout-discipline.md).
 - **Humano no volante nas fronteiras externas** — nada é postado no GitHub, no Linear ou no Slack, nem mergeado, sem aprovação explícita.
 - **pt-BR com acentuação correta** no output; EN no código.

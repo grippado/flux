@@ -6,6 +6,7 @@ requires:
   hard:
     - file: shared/write-destination.md
     - file: shared/bootstrap-specialists.md
+    - file: shared/agents-index.md
     - file: shared/flux-context.md
     - bin: git
   soft:
@@ -90,8 +91,9 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 ## Uso
 
 ```
-/flux:equip <repo> [--engine-only] [--agents-only] [--from-kit <ref>] [--dry]
+/flux:equip <repo> [--engine-only] [--agents-only] [--expose-l3] [--from-kit <ref>] [--dry]
 /flux:equip                                   # repo mode: infere o repo do cwd
+/flux:equip --index                           # escopo máquina: (re)constrói o índice de agents
 ```
 
 | Argumento | Descrição |
@@ -102,6 +104,8 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 |------|--------|
 | `--engine-only` | Equipa **só L0** (o motor). Não toca em specialists, não oferece o Bootstrap. |
 | `--agents-only` | Equipa **só L2** (a suite de specialists). Não toca em motor nem em `exec_fallback`. |
+| `--expose-l3` | Torna a **L3 do repo alcançável** de qualquer sessão, pelo degrau 1 da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis): espelho namespaceado, `name:` prefixado com o slug do repo. Ver "Step 4b". |
+| `--index` | **Escopo máquina, sem repo alvo.** Varre raízes de agents, manifestos e repos conhecidos e grava o `flux-agents.json` (`${FLUX_ROOT}/shared/agents-index.md`). Incompatível com as demais flags. |
 | `--from-kit <ref>` | Em vez de autorar do zero, instala a partir de um kit já pronto. Ver "Kits", abaixo. |
 | `--dry` | Faz o diagnóstico completo, imprime o plano de equipagem e **para**. Nada é escrito, nenhum gate abre. |
 
@@ -120,6 +124,8 @@ diga isso ao usuário em uma linha, porque quem escreveu os dois provavelmente e
 /flux:equip payments --engine-only            # só o motor (o repo já tem suite)
 /flux:equip web-monorepo --dry                # diagnóstico + plano, sem escrever
 /flux:equip notifications --from-kit node-fastify
+/flux:equip guia-cumuru --expose-l3           # L3 do repo alcançável fora dele
+/flux:equip --index                           # mapeia a máquina inteira
 /flux:equip                                   # dentro de <WORKSPACE_ROOT>/api-gateway
 ```
 
@@ -342,9 +348,68 @@ fan-out obrigatório, o PR draft opcional em `SPECIALISTS_REPO` — está em
 - **Autoria vai para subagente, sempre.** Detecção de stack, leitura dos agents L3 e escrita dos
   arquivos são unidades independentes e vão em paralelo num único bloco
   (`${FLUX_ROOT}/shared/fanout-discipline.md`). A main fica com gates, destino e registro.
-- **L2 `inalcancavel` não passa por aqui.** Vai para o Step 7 como oferta de instalação, com os dois
-  caminhos do `review-agents.md` (mover para um diretório varrido pelo harness, ou expor por symlink
-  garantindo `name:` único entre todas as suites).
+- **L2 `inalcancavel` não passa por aqui.** Vai para o Step 7 como oferta de instalação, com a
+  remediação que a **causa** pedir na tabela do `review-agents.md` (1a-bis) — mover para um diretório
+  varrido pelo harness, percorrer a escada de alcance, ou desfazer colisão de `name:` —, nunca
+  "symlink" como resposta única.
+
+---
+
+## Step 4b — Expor a L3 (`--expose-l3`)
+
+Roda quando a invocação pediu `--expose-l3`, ou quando o usuário aceitou a oferta do degrau 1 da
+escada de alcance (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) no fechamento de outro elo.
+
+**O que é.** Um espelho dos agents de review de `<repo>/.claude/agents/` dentro de uma raiz que o
+harness varre, com o `name:` de cada arquivo reescrito para `<slug>-<name>`. Isso é o que torna a
+suite do repo invocável de uma sessão ancorada acima dele, que é o modo normal de trabalho de quem
+tem vários repos sob um diretório de workspace.
+
+**Por que espelho, e não symlink do diretório.** O symlink preserva o `name:` original, e nomes de
+agent de repo são genéricos por natureza (`self-reviewer`, `implementation`, `pattern-finder`,
+`reviewer`, `repo-owner` aparecem em vários repos da mesma máquina). Exposto sem prefixo, o harness
+carrega **um** deles por ordem de leitura de filesystem, sem precedência documentada: roda o agent do
+repo errado contra o diff certo, e o banner declara cobertura. O prefixo é o que compra a unicidade.
+
+**Regras:**
+
+- **Só agents que passam o filtro de intenção de review do 1b.** Agent de execução
+  (`implementation`, `test-runner`, `backend-dev`, `db-migrations`) **não** é espelhado: promovê-lo a
+  global é criar efeito colateral em repo alheio a um `Task` de distância. Os excluídos são listados
+  no relatório.
+- **Destino pela cascata do Step 3.1**, sob `<raiz de agents>/<ctx>/<slug>-l3/`. Nunca dentro do
+  checkout do repo alvo — a regra do "Out of scope" vale aqui inteira.
+- **Nada além do `name:` é reescrito.** O corpo do agent é do time que o mantém; reescrever conteúdo
+  transformaria um espelho em fork, e o próximo `--expose-l3` teria que decidir entre duas verdades.
+- **Proveniência obrigatória.** Gravar no índice o `sha256` do conjunto de origem
+  (`l3.mirror.synced_from_sha256`). É o que permite ao preflight dizer `L3 stale` em vez de rodar uma
+  cópia velha em silêncio.
+- **Re-executar é idempotente**: origem inalterada ⇒ nada a escrever, e diga isso em uma linha.
+
+**A pergunta que o usuário precisa responder antes**, porque a resposta muda o que fica na máquina
+dele: espelho é cópia, e cópia envelhece. Abrir o gate de destino declarando isso, e oferecendo o
+degrau 0 (`--add-dir`) quando ele for aplicável — repo fora da árvore do `cwd` e sem colisão —, porque
+lá não há cópia nenhuma.
+
+---
+
+## Step 4c — Índice da máquina (`--index`)
+
+Escopo máquina, sem repo alvo. Constrói ou refresca o `flux-agents.json` conforme
+`${FLUX_ROOT}/shared/agents-index.md`: raízes de agents varridas pelo harness, manifestos de contexto
+encontrados, e por repo conhecido o inventário L1/L2/L3 com hashes, mais o mapa de colisões de `name:`.
+
+- **É o único momento caro da família, e é explícito.** Nenhum outro elo varre a máquina inteira;
+  todos leem o índice e validam só o repo que vão usar.
+- **Escrita passa pelo gate de destino** (`${FLUX_ROOT}/shared/write-destination.md`), como qualquer
+  arquivo que nasce na máquina do usuário.
+- **Nunca na instalação do plugin.** Um plugin que escreve em `~/.claude/agents/` ao ser instalado
+  surpreende o usuário na configuração global dele.
+- `--index` combinado com `<repo>` ou com as demais flags é erro de invocação: diga qual das duas
+  coisas o usuário quis e pare.
+
+Ao equipar um repo (Steps 4, 4b, 5), **atualizar a entrada dele no índice** e recomputar `collisions`.
+Um índice que descreve a máquina de antes da equipagem faz o próximo elo oferecer o que já foi feito.
 
 ---
 
