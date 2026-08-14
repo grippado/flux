@@ -60,6 +60,19 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+      # O checkout deixa refs/tags/<tag> apontando direto para o commit, ou seja,
+      # uma tag leve — mesmo quando a tag no remoto é anotada. O script recusa
+      # tag leve de propósito (nela o `%(contents)` devolve o corpo do commit, que
+      # sairia publicado como se fosse changelog), então sem este fetch toda
+      # release publica o assunto do merge commit e o fallback nunca é notado.
+      - name: Fetch annotated tag object
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          git fetch --force origin "refs/tags/v${VERSION}:refs/tags/v${VERSION}"
+          test "$(git cat-file -t "v${VERSION}")" = "tag"
+
       # A cadeia de fallback do changelog vive no script porque o
       # docs/latest-release.json abaixo resolve a mesma coisa para duas tags, e
       # duas cópias de uma cadeia de fallback divergem na primeira correção.
