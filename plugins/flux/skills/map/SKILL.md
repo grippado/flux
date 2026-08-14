@@ -5,11 +5,13 @@ user-invocable: true
 requires:
   hard:
     - file: shared/agents-index.md
+    - file: shared/review-agents.md
     - file: shared/write-destination.md
     - file: shared/flux-context.md
     - bin: git
   soft:
     - checkout_local
+    - index
 ---
 
 # /flux:map
@@ -102,6 +104,10 @@ invente campo:
 - **`motor:` não entra.** Este verbo não escolhe nem produz motor; quando um repo está sem L0, isso é
   linha do relatório de integridade, não campo de banner.
 
+O gabarito é copiado verbatim, inclusive o trecho `(ancora: alvo <path>)` — que **este verbo nunca
+emite**, porque ele não recebe alvo e a âncora é sempre o `cwd` (ver Step 0-context). Manter o
+template íntegro vale mais que podá-lo por elo.
+
 Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, verbatim, com
 `${FLUX_CMD}` já substituído.
 
@@ -134,10 +140,35 @@ a dele (`${FLUX_ROOT}/shared/preflight.md`, Passo 3-bis).
 |------|--------|
 | `--repo <slug>` | Restringe o levantamento a um repo. Útil depois de mexer numa suite; barato o bastante para rodar sempre que a suspeita for pontual. |
 | `--dry` | Diagnóstico completo e relatório, **sem escrever nada e sem abrir gate**. |
-| `--apply` | Escreve sem o gate de confirmação. O contrato de destino continua valendo por inteiro. |
+| `--apply` | Pula **o gate do índice, e só ele**. Ver a matriz abaixo: o despacho de consertos exige aceite item a item, sempre, sem exceção e sem flag que o desligue. |
 | `--no-fix` | Desliga a fase de despacho: o relatório sai com as invocações de remediação impressas, e nada é oferecido. É o modo "só quero olhar". |
 
-**Escrever sempre passa pelo gate, e é isso que produz o dry-run natural.** Na primeira execução o
+### Matriz de flags (as combinações, explicitamente)
+
+Há **dois** gates neste verbo, e eles não são intercambiáveis: um autoriza escrever o índice, outro
+autoriza cada conserto. A tabela existe porque `--apply` foi cunhado quando havia um gate só.
+
+| invocação | grava o índice | gate do índice | despacha consertos | gate do despacho |
+|---|---|---|---|---|
+| (nenhuma flag) | sim | **sim** | sim | **sim, item a item** |
+| `--dry` | não | não abre | **não** | não abre |
+| `--apply` | sim | **pulado** | sim | **sim, item a item** |
+| `--no-fix` | sim | sim | **não** | n/a |
+| `--apply --no-fix` | sim | pulado | não | n/a |
+| `--dry --apply` | **erro de invocação** | — | — | — |
+
+Três regras que a tabela codifica:
+
+- **Nenhuma flag pula o gate de despacho.** Um `map` que escrevesse suites, espelhos, motores e
+  manifesto em N repos sem uma única confirmação humana em ponto nenhum da cadeia é exatamente o que a
+  seção de despacho chama de o comportamento mais destrutivo da família. `--apply` existe para
+  automação de **levantamento**, não de reparo.
+- **`--dry` desliga o despacho junto**, e não só a escrita do índice: relatar sem escrever nada é o
+  ponto inteiro da flag.
+- **`--dry --apply` é contradição, não precedência.** Dizer qual das duas o usuário quis e parar, em
+  vez de escolher uma.
+
+**Escrever o índice sempre passa pelo gate, e é isso que produz o dry-run natural.** Na primeira execução o
 plano é "criar o índice"; nas seguintes, é o **diff** contra o que já está lá — agents novos, repos
 novos, suites que sumiram, colisões que apareceram. Não há regra de "segunda execução é diferente":
 há uma regra só, a de que escrever na máquina de alguém pede confirmação, e o diff é a consequência
@@ -151,7 +182,7 @@ daquele contrato), e o perfil resolvido dali é o do banner.
 
 Mas o levantamento **não se restringe a esse perfil**: o passo 3 da Ordem de execução descobre *todos*
 os manifestos da máquina, porque mapear só o contexto de onde você sentou seria mapear um pedaço e
-chamar de máquina. O perfil do `cwd` decide o banner e o `vault_context` de um eventual registro; os
+chamar de máquina. O perfil do `cwd` decide o banner; os
 manifestos descobertos decidem o que entra no índice. Não confundir os dois é o que impede este verbo
 de escrever um índice que descreve menos do que o nome dele promete.
 
@@ -214,15 +245,21 @@ Um doctor que só reclama é meio doctor. Depois do relatório, o `map` oferece 
 as executa **chamando o `${FLUX_CMD}equip`** — nunca escrevendo por conta própria. Quem escreve segue
 sendo o dono do gate; o `map` vira a porta de entrada única.
 
-Isto não é exceção: `review`, `iterate`, `land` e `build` já oferecem o `equip` no fechamento em vez
-de gerar suite por conta. O `map` faz o mesmo, com a diferença de enxergar a máquina inteira em vez de
-um repo.
+Esta é a **Forma 2** do `${FLUX_ROOT}/shared/fanout-discipline.md`, e ela só existe sob as três
+garantias declaradas lá: todo gate na main antes do despacho, filho que nunca sobrescreve, filho que
+nunca escreve no manifesto. Não confundir com o que `review`, `iterate`, `land` e `build` fazem: eles
+**oferecem** o `equip` e o rodam na main (Forma 1), um por execução. Este verbo despacha N, e é por
+isso que ele precisa das garantias.
 
 ### O gate acontece na main, antes do despacho
 
 **Item a item, nunca um "consertar tudo".** Um comando de diagnóstico que aplica N escritas de uma
-tacada é o mais destrutivo da família, não o mais útil. O gate lista cada remediação com o repo e a
-invocação exata, e o usuário escolhe quais entram.
+tacada é o mais destrutivo da família, não o mais útil.
+
+O gate segue o gabarito do `${FLUX_ROOT}/shared/hitl.md` — header curto, uma opção por remediação com
+o repo e a invocação exata, e **a saída inócua por último**, nunca omitida: "não consertar nada agora,
+só o relatório". Um gate sem porta de saída não é gate, é pedágio, e este é o único ponto da família
+onde N escritas são autorizadas de uma vez.
 
 Duas razões para o gate ser aqui e não dentro de cada filho:
 
@@ -252,9 +289,18 @@ reconcilia. Um único escritor por execução, que é a mesma disciplina do boar
 
 Invocação: `${FLUX_CMD}equip <slug> <flags da remediação> --from-map`.
 
-O `--from-map` diz ao `equip` duas coisas: o consentimento já foi dado (não abrir gate) e **o carimbo
-no índice é do chamador** (não escrever `flux-agents.json`). Fora isso ele roda normalmente, com o
-contrato de destino inteiro valendo.
+O `--from-map` diz ao `equip` três coisas, e são exatamente as três garantias da Forma 2:
+
+1. **O consentimento de escopo e de destino já foi dado** no gate desta main; não abrir gate.
+2. **O carimbo no índice é do chamador**; não escrever `flux-agents.json`.
+3. **Arquivo existente e manifesto não são dele.** O gate por arquivo existente
+   (`${FLUX_ROOT}/shared/write-destination.md`) é posterior ao levantamento por natureza — o arquivo
+   pode ter nascido entre o gate e o despacho —, e persistir no `flux-context.json` é categoria de
+   gate sempre (`${FLUX_ROOT}/shared/hitl.md`). Nos dois casos o filho **para, não escreve, e devolve**;
+   quem decide é esta main.
+
+Fora isso ele roda normalmente: a cascata e as três guardas do contrato de destino continuam valendo,
+já resolvidas.
 
 Retorno curto exigido, e nada além dele:
 
@@ -265,7 +311,9 @@ Retorno curto exigido, e nada além dele:
 - l2: <path da suite | inalterado | n/a>
 - l3_mirror: <path do espelho + sha256 da origem | inalterado | n/a>
 - motor: <nome do comando criado | inalterado | n/a>
-- recusado: <o que o contrato de destino barrou, ou nada>
+- recusado: <arquivos que já existiam e NÃO foram tocados, ou nada>
+- manifesto_pendente: <o que persistiria em flux-context.json, ou nada>
+- status: <ok | parcial | falhou>
 - bloqueios: <lista curta, ou nenhum>
 ```
 
@@ -273,17 +321,44 @@ Proibido no retorno: conteúdo de arquivo, transcrição do que foi feito, diff.
 que o filho escreveu para conferir; confia no retorno, e se precisar verificar, despacha outra
 apuração.
 
+### Filho que falha, não volta, ou volta incoerente
+
+Um fan-out sem caminho para o filho que morre produz o pior resultado possível aqui: o item some do
+relatório e a Integridade reemitida diz que ele "continua", sem distinguir **tentou e falhou** de
+**nem foi tentado**. Regras:
+
+- **Sem retorno, ou retorno fora do contrato** ⇒ tratar como `status: falhou` com motivo
+  `sem retorno`. Nunca inferir sucesso de silêncio.
+- **`status: falhou` ou `parcial`** ⇒ a entrada daquele repo **não** é atualizada no índice; ela fica
+  como estava, e o item permanece na Integridade **marcado como tentado sem êxito**, que é um terceiro
+  estado e precisa aparecer como tal.
+- **A main não relê o disco para conferir** (contrato de retorno). Precisando verificar, despacha
+  outra apuração — nunca abre o arquivo aqui.
+- Falha de um filho **não cancela os outros**: destinos disjuntos, resultados independentes.
+
 ### Reconciliação (a main, depois que os filhos voltam)
 
 1. Juntar os retornos e **atualizar o índice de uma vez só**: as entradas dos repos equipados, os
    `synced_from_sha256` dos espelhos novos, e o recálculo de `collisions` — que muda com espelho novo
    e por isso **só pode ser computado depois de todos**, nunca por filho.
 2. Escrever o `flux-agents.json`, uma vez, no destino já resolvido.
-3. Reemitir a seção **Integridade** com o estado depois dos consertos: o que saiu da lista, o que
-   continua, e o que foi recusado por gate de destino.
+3. **Arquivo existente devolvido em `recusado:`** ⇒ abrir aqui o gate por arquivo existente que o
+   filho não podia abrir, com as saídas do `${FLUX_ROOT}/shared/write-destination.md`. Aceito, a
+   escrita daquele arquivo acontece nesta main.
+4. **`manifesto_pendente:` não vazio** ⇒ abrir o gate de manifesto (`${FLUX_ROOT}/shared/hitl.md`) e,
+   aceito, gravar o `flux-context.json` **uma vez**, com todos os pendentes juntos. Há um manifesto
+   por perfil: é o mesmo recurso compartilhado do índice, e vale a mesma regra de escritor único.
+5. Reemitir a seção **Integridade** com o estado depois dos consertos: o que saiu da lista, o que
+   continua, o que foi tentado sem êxito, e o que ficou pendente de gate.
 
 `FLUX_CMD` em `UNAVAILABLE` (Passo 1b do preflight) **desliga esta fase inteira**, e ela degrada para
-o que o verbo já fazia: imprimir as invocações para o usuário rodar à mão. Nada de executar o
+o que o verbo já fazia: imprimir as invocações para o usuário rodar à mão. **Isso vai para
+`degradacoes:` no banner**, com esta grafia: `despacho indisponivel — FLUX_CMD nao resolveu; as
+remediacoes saem impressas`. Sem a linha, o output fica indistinguível do caso em que o usuário
+recusou os consertos, que é outro estado e leva a outra conclusão sobre a máquina.
+
+**Fan-out parcial também é degradação de banner**, não só linha de relatório: filhos com
+`status: falhou` ou `parcial` saem como `consertos parciais — <n> de <m> falharam`. Nada de executar o
 Bootstrap inline como consolo — vale aqui o precedente do `land` em
 `${FLUX_ROOT}/shared/codex-compat.md`.
 
@@ -300,6 +375,11 @@ Bootstrap inline como consolo — vale aqui o precedente do `land` em
   tem efeito colateral no repo de outra pessoa. Presença e invocabilidade se apuram por leitura e pela
   lista da sessão, nunca por execução de teste.
 - **Não revise, não implemente, não abra PR.**
+- **Não aborte por `FLUX_CMD UNAVAILABLE`.** O Passo 1b do preflight manda a fase que depende de
+  despacho abortar, e o `flux:land` de fato aborta inteiro. Aqui a divergência é deliberada e está
+  declarada: o produto deste verbo é o **relatório**, não o despacho, então a fase cai e o verbo
+  entrega o resto. Divergir sem dizer que diverge é o que faz dois elos tratarem a mesma condição de
+  formas diferentes sem ninguém notar.
 - **Não escreva no manifesto de contexto.** Sugerir campo faltando (`tracker_repo_map`, `repos`
   desatualizado) é relatório; escrever é gate do `equip`.
 - **Não trate a ausência do índice como erro do usuário.** Ele é opcional por desenho.

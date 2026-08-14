@@ -22,7 +22,7 @@
   "interface": {
     "displayName": "Flux",
     "shortDescription": "One workflow. Every harness.",
-    "longDescription": "Flux is a shared family of ten workflows that carries work from idea to refinement, issue, code, review, iteration, landing, and reply, plus map and equip, which sit outside the cycle: map surveys the installation on your machine, equip prepares a repository. Claude Code, Cursor, and Codex use the same skills, agents, and contracts through native harness adapters.",
+    "longDescription": "Flux is a shared family of ten workflows that carries work from idea to refinement, issue, code, quick look, review, iteration, landing, and reply, plus map and equip, which sit outside the cycle: map surveys the installation on your machine and dispatches the repairs you accept, equip prepares a repository. Claude Code, Cursor, and Codex use the same skills, agents, and contracts through native harness adapters.",
     "developerName": "Gabriel Gripp",
     "category": "Developer Tools",
     "capabilities": ["Interactive", "Read", "Write", "CodeReview", "MultiAgent"],

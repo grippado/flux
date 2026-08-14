@@ -51,8 +51,9 @@ analogia com outro harness — os elos que consomem o índice já o declaram `so
 direta com `indice ausente` no banner.
 
 As ofertas novas (`equip --expose-l3`, `map`) são ofertas de **verbo irmão** e caem na mesma carve-out
-da seção seguinte: sem `FLUX_CMD`, imprimem a instrução em vez de executar. O `flux:map` em si roda
-normalmente quando invocado à mão; o que não funciona é montar o nome dele dentro de outro elo.
+da seção seguinte: sem `FLUX_CMD`, imprimem a instrução em vez de executar. Vale nos dois sentidos —
+o `flux:map` é oferecido por outros elos e ele próprio oferece o `equip`, e nenhuma das duas pontas
+executa sem `FLUX_CMD`.
 
 ### `land` degrada no Codex
 
@@ -60,8 +61,17 @@ normalmente quando invocado à mão; o que não funciona é montar o nome dele d
 `/flux:`, `/flux-` e `/`, e nenhuma dessas formas corresponde ao modo como o Codex expõe a skill.
 Pela regra do próprio passo, `FLUX_CMD` fica `UNAVAILABLE`.
 
-Isso atinge **um** elo, e só um: o `flux:land`, que é o único que despacha um irmão (ele roda o
-`iterate` por PR dentro de subagente). Os demais verbos da família funcionam normalmente.
+Isso atinge os elos que **despacham um irmão**, e são dois — mas eles reagem de formas diferentes, e a
+diferença é o que importa aqui:
+
+- **`flux:land`** roda o `iterate` por PR dentro de subagente, e sem esse despacho não há entrega
+  multi-PR: a fase **aborta**, e com ela o verbo. É o único indisponível no Codex.
+- **`flux:map`** despacha o `equip` por repo na fase de conserto, que é a segunda metade do verbo. Sem
+  `FLUX_CMD` ele **degrada**: o levantamento, o delta, a integridade e o índice saem inteiros, e as
+  remediações são impressas para o usuário rodar à mão. Continua sendo um verbo útil, com uma metade a
+  menos e a perda declarada no banner.
+
+Os demais funcionam normalmente.
 
 A oferta de Bootstrap de specialists (`review`, `iterate`, `land` e `build`) **não** entra nesta
 conta, e o motivo mudou: sem `FLUX_CMD`, a oferta **imprime a instrução e não executa**. Ela deixa de

@@ -137,7 +137,7 @@ Tipos de requisito:
 | `agent: <nome>` | ver Passo 3 |
 | `checkout_local` | o alvo tem checkout local acessível para leitura de contexto |
 | `vault` | `VAULT_ROOT` resolvido e o diretório existe |
-| `index` | o `flux-agents.json` existe e o `generated_by` é compatível. **Só isso**: o teste de frescor por repo é do elo, no momento em que ele sabe quais repos vai usar, e está em `${FLUX_ROOT}/shared/agents-index.md` |
+| `index` | o `flux-agents.json` existe e o `generated_by` é compatível. **Só isso**: o teste de frescor por repo é do elo, no momento em que ele sabe quais repos vai usar, e está em `${FLUX_ROOT}/shared/agents-index.md`. **Sempre `soft`, em elo nenhum `hard`** — nem nos que o escrevem, que abortariam na máquina onde são indispensáveis |
 | `mcp: <prefixo>` | as tools daquele prefixo estão disponíveis na sessão |
 
 **Regra de fronteira:**
@@ -306,7 +306,7 @@ aqui para que nenhum elo os invente e nenhum elo com direito a eles os omita:
 
 | campo | quem emite | o que declara |
 |-------|-----------|---------------|
-| `holistico:` | todos, **menos** `flux:build`, `flux:equip` e `flux:map` | o agente da lente L1, quando o elo resolve um |
+| `holistico:` | todos, **menos** `flux:build`, `flux:equip`, `flux:map`, `flux:refine` e `flux:reply` | o agente da lente L1, quando o elo resolve um |
 | `motor:` | `flux:build` e `flux:equip` | `{nativo <cmd> \| exec_fallback <cmd> \| autonomo \| ausente}` |
 | `destino:` | `flux:equip` e `flux:map` | `{path canonico aprovado \| nao resolvido}` |
 

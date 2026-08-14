@@ -72,9 +72,16 @@ Em particular, e são as violações mais comuns:
 | abrir um segundo repo para comparar | "só uma olhada" | subagente por repo |
 | rodar `grep`/`find` amplo no checkout | "é barato" | subagente (`Explore`) |
 | reler o board para saber onde parou | "preciso do estado" | o board-keeper tem o estado |
-| chamar outro `flux:*` | "é da família" | subagente, sempre — **exceto o `flux:equip` aceito numa oferta**, abaixo |
+| chamar outro `flux:*` | "é da família" | subagente, sempre — **exceto o `flux:equip`**, cujas duas formas estão abaixo |
 
-### A exceção: `flux:equip` aceito numa oferta roda na main
+### O `flux:equip` tem duas formas, e nenhuma delas é o despacho ingênuo
+
+O `equip` é feito de gates, e é isso que o torna diferente de qualquer outro verbo despachável.
+Mandá-lo para subagente **sem mais nada** travaria o fluxo em silêncio no primeiro gate, ou o faria
+escrever no disco de alguém sem nunca ter perguntado. Daí as duas formas: ou ele roda na main, ou os
+gates dele acontecem na main antes de o filho existir.
+
+#### Forma 1: aceito numa oferta, roda na main
 
 Quando `flux:review`, `flux:iterate`, `flux:land` ou `flux:build` oferecem o preparo que faltou
 (`${FLUX_ROOT}/shared/bootstrap-specialists.md`) e o usuário **aceita**, o `flux:equip` roda no
@@ -111,6 +118,36 @@ Duas consequências práticas:
 - **Num watch, a oferta não se repete a cada tick.** Ela é do fechamento, uma vez. Carregar o preparo
   dentro de um loop é exatamente o acúmulo tick após tick contra o qual o princípio adverte.
 
+#### Forma 2: despachado pelo `flux:map`, com os gates já resolvidos na main
+
+O `${FLUX_CMD}map` é o único elo cujo produto é sobre a **máquina** e não sobre um trabalho, e o único
+que encontra N repos precisando de preparo na mesma execução. Rodar N `equip` em série na main
+inviabilizaria o verbo; despachá-los ingenuamente cairia na proibição acima. A saída é o `--from-map`,
+e ele **não é uma exceção à regra do HITL: é a regra do HITL aplicada antes do fan-out.**
+
+Só vale sob as três garantias abaixo, e as três juntas. Faltando qualquer uma, volta a valer a
+proibição, e o `map` degrada para imprimir as invocações:
+
+1. **Todo gate acontece na main, antes do despacho.** O escopo (quais consertos) é aceite item a item;
+   o destino (`${FLUX_ROOT}/shared/write-destination.md`, cascata e três guardas) é resolvido uma vez e
+   desce ao filho como fato dado. Nenhum filho abre gate, porque não sobrou gate para abrir.
+2. **O filho nunca sobrescreve arquivo existente.** O gate por arquivo existente é, por natureza,
+   posterior ao levantamento: o arquivo pode nascer entre o gate e o despacho. O filho que encontra um
+   **para, devolve no campo `recusado:` do contrato de retorno, e a main abre o gate**. Não existe
+   caminho em que um filho decida sobrescrever.
+3. **O filho nunca escreve no manifesto.** Persistir em `flux-context.json` é categoria de gate
+   sempre (`${FLUX_ROOT}/shared/hitl.md`), e há **um** manifesto por perfil: N filhos gravando nele é a
+   mesma corrida do índice, agravada porque o contrato exige merge preservando campos desconhecidos.
+   O filho devolve o que persistiria; quem grava é a main, na reconciliação, com gate.
+
+O que o filho faz, então, é o trabalho pesado sem gate nenhum: ler o repo, detectar a stack, autorar
+suite e motor, escrever **arquivo que não existia**. É exatamente o que a Forma 1 já manda ir para
+subagente — a diferença é só quem é a main.
+
+**Escritor único por recurso compartilhado.** Os destinos por repo são disjuntos por desenho; o
+`flux-agents.json` e o `flux-context.json` não são. Os dois são escritos na reconciliação, uma vez, e
+nunca pelos filhos.
+
 ### Auto-verificação (todo elo, antes de responder)
 
 Antes de emitir a resposta final, o elo confere e o veredito é binário — com a exceção acima já
@@ -137,7 +174,8 @@ Cada elo declara a sua, mas o padrão é este:
 | `flux:review` (doc) | Um agente por doc + um por repo citado | `<DOC_REVIEWER>` + prospectors |
 | `flux:peek` | Um agente (o holístico) — alvo único, mas ainda fora da main | `<HOLISTIC>` |
 | `flux:iterate` | **Verificação**: um agente por lente sobre o lote de threads. **Execução**: um agente para aplicar+quality gate no worktree | specialists / `general-purpose` |
-| `flux:land` | **Uma PR** — um subagente rodando `/flux:iterate --auto --once` por PR | `general-purpose` |
+| `flux:land` | **Uma PR** — um subagente rodando `${FLUX_CMD}iterate --auto --once` por PR | `general-purpose` |
+| `flux:map` | **Duas unidades, e as duas por repo.** *Levantamento*: um agente por repo apurando as três lentes e os hashes. *Despacho*: um subagente rodando `${FLUX_CMD}equip <slug> --from-map` por repo, só para os consertos aceitos no gate (Forma 2, acima) | `general-purpose` |
 | `flux:build` | O motor de execução do repo inteiro (a main mantém o board de execução) | `general-purpose` |
 | `flux:equip` | Detecção de stack, leitura de L3 e autoria (suite e motor), em paralelo quando independentes — a main fica com gates, destino e registro | `general-purpose` |
 | `flux:issue` (prospecção) | **Um repo** por prospector | specialists / `Explore` |

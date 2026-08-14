@@ -62,6 +62,7 @@ foi pedido: quem chamou `/flux:build` quer código, não uma entrevista sobre ag
 | `flux:iterate` | ao assentar a PR, junto com o fechamento |
 | `flux:land` | no go/no-go final, uma vez por repo da entrega |
 | `flux:build` | no handoff (Step 4), depois da PR nascer |
+| `flux:map` | na seção Integridade do relatório, um item por repo — e, aceito, ele **despacha** o `equip` (Forma 2 do `${FLUX_ROOT}/shared/fanout-discipline.md`) em vez de rodá-lo na main, que é o único caso em que a oferta não vira execução no próprio contexto |
 
 **Só oferecer quando L2 está ausente.** Havendo suite local para o repo, não perguntar nada.
 Havendo apenas L3, oferecer mesmo assim, dizendo o que a suite local somaria à do repo.
