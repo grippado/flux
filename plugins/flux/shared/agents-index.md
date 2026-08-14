@@ -151,10 +151,16 @@ Divergiu, ou o índice não existe:
   gate próprio (`${FLUX_ROOT}/shared/write-destination.md`), e um elo de review que reescreve
   configuração global de passagem é exatamente o efeito colateral que a família não pode ter.
 
-**O índice é `soft` em todo elo que o consome, sem exceção.** Ele acelera e desambigua; não habilita
-nada que a varredura direta não fizesse antes. Declarar `hard` num elo de review faria a família parar
-de rodar numa máquina que nunca invocou o `equip`, que é o oposto do que este contrato existe para
-fazer. O único `hard` legítimo é no próprio `equip`, que o escreve.
+**O requisito `index` é `soft` onde quer que apareça, e não é `hard` em elo nenhum — nem nos dois que
+escrevem o arquivo.** Ele acelera e desambigua; não habilita nada que a varredura direta não fizesse
+antes. Declarar `hard` num elo de review faria a família parar de rodar numa máquina que nunca rodou o
+`${FLUX_CMD}map`; declarar `hard` no `map` ou no `equip` seria pior ainda, porque eles abortariam
+exatamente na máquina onde são indispensáveis, que é a que ainda não tem índice.
+
+> **Não confundir os dois requisitos, e o nome parecido é a armadilha.** `file: shared/agents-index.md`
+> é **este contrato**, e ele é `hard` no `map` e no `equip`, que o executam. `index` é o **artefato**
+> descrito por ele, e é `soft` em todo lugar. Um elo pode precisar do contrato sem precisar do
+> arquivo — é justamente o caso de quem vai criá-lo.
 
 A validação é por repo-que-será-usado justamente para que o custo seja proporcional: um `flux:peek`
 numa PR de um repo confere um `dir_sha256`, não vinte.
@@ -166,7 +172,7 @@ Dois verbos, com escopos que não se sobrepõem, e só sob invocação explícit
 | invocação | efeito no índice |
 |---|---|
 | `${FLUX_CMD}map` | escopo máquina: varre raízes, manifestos e repos; **constrói** o índice |
-| `${FLUX_CMD}map --repo <slug>` | releva só aquela entrada, mantendo o resto |
+| `${FLUX_CMD}map --repo <slug>` | escopo restrito ao que aquela flag define (ver o verbo); no índice, reescreve só a entrada dele |
 | `${FLUX_CMD}equip <slug>` | atualiza **a entrada daquele repo** (L1/L2/L3, hashes) e recomputa `collisions` |
 | `${FLUX_CMD}equip <slug> --expose-l3` | o acima, mais o bloco `mirror` com `synced_from_sha256` |
 | `${FLUX_CMD}equip <slug> --from-map` | **nada** — devolve os fatos, e quem carimba é a main do `map` |

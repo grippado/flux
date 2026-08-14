@@ -124,8 +124,8 @@
       </div>
       <p class="workflow-note" data-i18n="workflowNote"><strong>Input:</strong> idea, thread, or bug. <strong>One PR:</strong> use `flux:iterate`; up to three can be iterated in parallel. <strong>More than three PRs:</strong> use `flux:land` to coordinate the delivery. <strong>Communication:</strong> `flux:reply` is standalone and can be called at any point.</p>
       <details class="flow-source"><summary data-i18n="sourceSummary">Same flow as a diagram source</summary><pre><code>flowchart TD
-  MAP["flux:map · setup"] -.once per machine.-> EQUIP["flux:equip · setup"]
-  EQUIP -.once per repo.-> INPUT
+  MAP["flux:map · setup"] -. suggested, never required .-> EQUIP["flux:equip · setup"]
+  EQUIP -. suggested, never required .-> INPUT
   INPUT([Idea / thread / bug]) --> ISSUE["flux:issue"]
   ISSUE --> BUILD["flux:build"]
   BUILD --> PR([one or more PRs])

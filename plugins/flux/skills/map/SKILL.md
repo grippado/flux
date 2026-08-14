@@ -9,8 +9,7 @@ requires:
     - file: shared/flux-context.md
     - bin: git
   soft:
-    - bin: gh
-    - vault
+    - checkout_local
 ---
 
 # /flux:map
@@ -56,15 +55,55 @@ O `map` melhora o resultado dos outros elos; ele **não os habilita**. Sem índi
 varredura direta — o comportamento que existia antes deste verbo — e declara `indice ausente` nas
 degradações. Nada aborta, nada é bloqueado, nada exige setup.
 
-Por isso o índice é `soft` em todo elo que o consome, e `hard` apenas aqui e no `equip`, que são os
-dois que o escrevem. Uma família que exige um comando de preparo para funcionar deixou de funcionar
-na máquina de quem acabou de instalá-la, que é o oposto do que este verbo existe para fazer.
+A regra de onde o requisito `index` pode ser `hard` (em lugar nenhum, inclusive aqui) está em
+`${FLUX_ROOT}/shared/agents-index.md` e não é repetida: este verbo declara `file: shared/agents-index.md`
+em `hard`, que é o **contrato**, e não declara o **artefato**, porque abortar por falta do índice seria
+abortar exatamente na máquina onde este verbo é indispensável.
+
+Uma família que exige um comando de preparo para funcionar deixou de funcionar na máquina de quem
+acabou de instalá-la, que é o oposto do que este verbo existe para fazer.
 
 Vale o mesmo para o que ele diagnostica: `map` **relata, oferece e despacha**. O único arquivo que ele
 escreve com as próprias mãos é o índice; suite, espelho e motor são escritos pelo
 `${FLUX_CMD}equip`, que o `map` chama sob consentimento (seção "Despacho dos consertos"). A diferença
 importa: cada escrita continua sob o contrato que a governa, e recusar todos os consertos deixa o
 `map` sendo exatamente o que ele era, um levantamento.
+
+## Banner de perfil — gabarito (copiar VERBATIM)
+
+Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
+degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
+que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
+improvisado, com campos inventados e sem o `nivel`.
+
+Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
+em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+
+````
+```
+perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN}
+lentes: L1 n/a · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
+destino: {path canonico aprovado | nao resolvido}
+degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+```
+````
+
+Duas particularidades, declaradas também na tabela "Campos que não são de todos os elos" do Passo 5 do
+preflight — o gabarito aqui garante o template em contexto, aquela tabela garante que nenhum elo
+invente campo:
+
+- **`holistico:` não entra**, pelo mesmo motivo do `equip`: este verbo não revisa nada, então resolver
+  um reviewer seria verificar um agente que não vai ser invocado. A linha `lentes` fica, e aqui ela é
+  ainda mais central que lá: o inventário das camadas **é o produto** deste verbo. Quando o
+  levantamento cobre vários repos, `lentes:` traz o agregado (quantos repos em cada estado) e o
+  detalhe por repo vai no relatório, que é onde ele cabe.
+- **`destino:` entra**, porque este verbo escreve um arquivo no disco de alguém — o índice. Vale a
+  regra do `equip`: enquanto o gate de destino não tiver acontecido, a linha sai como `nao resolvido`.
+- **`motor:` não entra.** Este verbo não escolhe nem produz motor; quando um repo está sem L0, isso é
+  linha do relatório de integridade, não campo de banner.
+
+Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, verbatim, com
+`${FLUX_CMD}` já substituído.
 
 ## Fronteira com o preflight (os dois olham os mesmos fatos)
 
@@ -104,17 +143,34 @@ novos, suites que sumiram, colisões que apareceram. Não há regra de "segunda 
 há uma regra só, a de que escrever na máquina de alguém pede confirmação, e o diff é a consequência
 de haver algo com que comparar.
 
+## Step 0-context: resolver perfil
+
+**Seguir `${FLUX_ROOT}/shared/flux-context.md`.** Este verbo tem uma particularidade que nenhum outro
+tem, e ela precisa estar dita: ele **não recebe alvo**, então a âncora é sempre o `cwd` (passo 3
+daquele contrato), e o perfil resolvido dali é o do banner.
+
+Mas o levantamento **não se restringe a esse perfil**: o passo 3 da Ordem de execução descobre *todos*
+os manifestos da máquina, porque mapear só o contexto de onde você sentou seria mapear um pedaço e
+chamar de máquina. O perfil do `cwd` decide o banner e o `vault_context` de um eventual registro; os
+manifestos descobertos decidem o que entra no índice. Não confundir os dois é o que impede este verbo
+de escrever um índice que descreve menos do que o nome dele promete.
+
+Sem manifesto nenhum: perfil genérico, e o levantamento cobre os repos detectados sob o `cwd`.
+
 ## Ordem de execução
 
 1. **Preflight** (`${FLUX_ROOT}/shared/preflight.md`), com a ressalva da fronteira acima.
 2. **Descobrir as raízes de agents** que este harness varre. Não é lista deste contrato: cada harness
-   declara as suas. Nenhuma raiz declarada ⇒ não há onde o índice morar; relatar e parar, sem inventar
-   path por analogia com outro harness.
+   declara as suas. Nenhuma raiz declarada ⇒ **não há onde o índice morar, e só isso**: o levantamento,
+   o delta e o relatório de integridade não dependem de destino, então eles rodam e saem normalmente;
+   o que não acontece é a gravação, declarada em `destino: nao resolvido` e nas degradações. Nunca
+   inventar path por analogia com outro harness.
 3. **Descobrir os manifestos de contexto** (`flux-context.json`), pela varredura do
    `${FLUX_ROOT}/shared/flux-context.md`. Para cada um: `name`, `workspace_root`, `repos`.
 4. **Levantar os repos** — os declarados nos manifestos e os detectados sob cada `workspace_root`. Por
    repo, as três lentes: L1 (holístico resolvido), L2 (suite curada, pela cascata de
-   `specialists_root`), L3 (`<checkout>/.claude/agents/`, filtro de intenção de review do 1b).
+   `specialists_root`), L3 (o diretório de agents do repo e o filtro de intenção de review, ambos definidos no 1b do
+   `${FLUX_ROOT}/shared/review-agents.md` — não reenunciar o path aqui).
 5. **Computar colisões** de `name:` entre tudo que foi levantado, e o `sha256` de cada conjunto.
 6. **Relatar** (formato abaixo).
 7. **Gate de escrita** e, aceito, gravar o índice conforme o contrato de destino.
@@ -143,9 +199,9 @@ O corpo tem três seções, e **a terceira é a razão de o verbo existir**:
 | repo com `L2 ausente` | `${FLUX_CMD}equip <slug> --agents-only` |
 | repo com `L3` presente e inalcançável | o degrau aplicável da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) |
 | espelho L3 defasado (`synced_from_sha256` ≠ atual) | `${FLUX_CMD}equip <slug> --expose-l3` |
-| colisão de `name:` entre suites | desfazer do lado da suite curada, nunca do lado do repo alheio |
+| colisão de `name:` entre suites | a remediação da terceira causa do 1a-bis (`${FLUX_ROOT}/shared/review-agents.md`) |
 | manifesto declarando repo sem checkout local | clonar, ou remover do `repos` — dizer as duas, não escolher |
-| agent sem `name:` no frontmatter | não é invocável; apontar o arquivo |
+| agent sem `name:` no frontmatter | apontar o arquivo; por que ele não é invocável está no item 2 do 1a-bis |
 | repo sem motor de execução (L0) | `${FLUX_CMD}equip <slug> --engine-only` |
 
 **Nenhuma dessas remediações é executada por este verbo.** O `map` não escreve suite, não escreve
@@ -256,3 +312,18 @@ Bootstrap inline como consolo — vale aqui o precedente do `land` em
 - O índice gravado carrega `generated_at` e `generated_by`, que **são** o carimbo: não inventar
   arquivo de marcação separado.
 - Rodar o `map` é barato de repetir e caro de errar: na dúvida entre relatar e agir, relate.
+
+## Handoff
+
+Terminar apontando o próximo passo, como todo elo da família — e aqui ele sai do próprio relatório:
+
+- **Integridade com itens abertos e o usuário recusou o despacho** → imprimir as invocações do
+  `${FLUX_CMD}equip` que resolveriam cada uma, para ele rodar quando quiser.
+- **Integridade limpa** → dizer isso em uma linha e apontar o ciclo (`${FLUX_CMD}issue` ou
+  `${FLUX_CMD}build`, conforme o que ele tiver em mãos). Máquina mapeada não é entrega: é o que
+  torna a próxima entrega melhor.
+- **Nada a mapear** (nenhuma raiz de agents, nenhum manifesto, nenhum repo) → dizer que a família roda
+  assim mesmo, em perfil genérico, e que este verbo passa a ter serventia quando houver ao menos um
+  repo com suite ou um manifesto de contexto.
+
+Nunca chamar o elo seguinte sozinho. Como todos, este verbo termina devolvendo o volante.

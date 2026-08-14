@@ -190,7 +190,7 @@ Se nenhuma PR acionável, avise e termine.
 ### 2. Grafo de ordem + locks
 
 - Classifique cada PR por **camada** (backend/api, bff, frontend, infra) e por issue.
-- Detecte dependências de deploy (quem consome contrato de quem) e monte a **ordem de merge** por toposort cross-repo (mesma lógica de camadas/`blocked_by` do `mutirao-planner`, `${FLUX_ROOT}/agents/mutirao-planner.md`).
+- Detecte dependências de deploy (quem consome contrato de quem) e monte a **ordem de merge** por toposort cross-repo: ordene por camada (produtor de contrato antes de consumidor) e, dentro da camada, respeite as arestas de `blocked_by` que a issue declarar. Ciclo detectado não se desempata por adivinhação — reporte as PRs envolvidas e peça a ordem ao usuário.
 - Fontes de **lock**:
   - **base branch empilhado**: `baseRefName != main` → a PR base entra antes (garantido pelo próprio base).
   - **acoplamento de contrato**: descoberto na fase 3 (ex.: backend gatilho por último).
@@ -425,7 +425,7 @@ por repo no máximo, e sempre depois do veredito: a entrega é o produto, a suit
 |---|---|
 | **sem L2** (`ausente`) | criar a suite: `${FLUX_CMD}equip <repo> --agents-only`, seguindo `${FLUX_ROOT}/shared/bootstrap-specialists.md` |
 | **L3 inalcançável por âncora** | o degrau aplicável da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) — o degrau, não um comando escolhido aqui: as condições são de lá |
-| **`indice ausente` / `indice stale`** (`${FLUX_ROOT}/shared/agents-index.md`) | `${FLUX_CMD}map`, uma vez por máquina |
+| **`indice ausente` / `indice stale`** (`${FLUX_ROOT}/shared/agents-index.md`) | `${FLUX_CMD}map` |
 
 O land não gera suite nem escreve espelho; ele descobre a falta e entrega a decisão ao verbo de
 preparo, que é onde os gates de escrita na máquina do usuário vivem.
@@ -440,5 +440,5 @@ A suite gerada é **L2, fora do repositório** revisado.
 ## Notas finais
 
 - **Não mergeia**: o comando entrega tudo pronto e recomenda a ordem; o merge (e o deploy em prod) é decisão humana.
-- Reuso: `/flux:iterate` (por PR, `--auto --once`, **sempre dentro de subagente** — ver fase 4 e `${FLUX_ROOT}/shared/context-budget.md`), specialists via `review-agents.md`, lógica de toposort do `mutirao-planner`, padrão de board do template compartilhado.
+- Reuso: `/flux:iterate` (por PR, `--auto --once`, **sempre dentro de subagente** — ver fase 4 e `${FLUX_ROOT}/shared/context-budget.md`), specialists via `review-agents.md`, padrão de board do template compartilhado.
 - Se `gh` não estiver autenticado, pedir `gh auth login` e abortar.

@@ -148,7 +148,7 @@ da **causa**, e são três, com remediações que não se substituem:
 | causa | como se reconhece | o que oferecer |
 |---|---|---|
 | **fora de diretório varrido** | o arquivo não está sob `~/.claude/agents/` (subdiretórios incluídos) nem sob `<repo>/.claude/agents/` — vive num repositório de dotfiles, por exemplo | expor, tipicamente por symlink, com **nome único entre todas as suites** |
-| **âncora fora do repo** | o arquivo está no lugar canônico `<repo>/.claude/agents/`, e a sessão subiu num diretório **acima** do repo, que é o que um harness não varre | a **escada de alcance** abaixo. Nunca degradar direto |
+| **âncora fora do repo** | o arquivo está no lugar canônico `<repo>/.claude/agents/`, e a sessão subiu **fora dele** — num diretório acima (repo aninhado) ou numa árvore paralela (árvore irmã); os dois arranjos estão no 1b-bis, e o harness não varre nenhum dos dois | a **escada de alcance** (1b-bis). Nunca degradar direto |
 | **colisão de `name:`** | o nome está registrado, e o que ele descreve é outro escopo (bloco anterior) | renomear com prefixo do repo, **do lado da suite que você cura** |
 
 **Symlink cru não é remédio universal, e oferecê-lo como tal causa dano.** Symlinkar os agents de um

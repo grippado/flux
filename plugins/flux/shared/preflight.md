@@ -97,6 +97,12 @@ Resolver `ADDDIR_CMD` **verificando qual forma a sessão de fato expõe**, paran
 1. `/add-dir` — comando de sessão.
 2. A flag equivalente de invocação do harness, quando ele documenta uma.
 
+**Com o que se verifica.** Vale o 3-bis abaixo, pela mesma razão: não há `command -v` para comando de
+sessão. A fonte é o que a sessão expõe a este processo — a lista de comandos disponíveis —, e por isso
+esta resolução é **introspecção, e privilégio da main**, feita uma vez e descida como fato dado a
+quem precisar. Ler a documentação de um harness **não é** verificar: uma flag documentada e ausente
+nesta sessão resolve para `UNAVAILABLE` como qualquer outra.
+
 Nenhuma forma resolveu → `ADDDIR_CMD` é `UNAVAILABLE`. Isso **não** derruba elo nenhum: o degrau 0
 simplesmente sai da escada, que segue para o degrau 1 (espelho namespaceado), e a ausência é
 declarada como qualquer outra degradação.
@@ -131,7 +137,7 @@ Tipos de requisito:
 | `agent: <nome>` | ver Passo 3 |
 | `checkout_local` | o alvo tem checkout local acessível para leitura de contexto |
 | `vault` | `VAULT_ROOT` resolvido e o diretório existe |
-| `index` | o `flux-agents.json` existe e passou o teste de frescor (`${FLUX_ROOT}/shared/agents-index.md`) |
+| `index` | o `flux-agents.json` existe e o `generated_by` é compatível. **Só isso**: o teste de frescor por repo é do elo, no momento em que ele sabe quais repos vai usar, e está em `${FLUX_ROOT}/shared/agents-index.md` |
 | `mcp: <prefixo>` | as tools daquele prefixo estão disponíveis na sessão |
 
 **Regra de fronteira:**
@@ -300,17 +306,17 @@ aqui para que nenhum elo os invente e nenhum elo com direito a eles os omita:
 
 | campo | quem emite | o que declara |
 |-------|-----------|---------------|
-| `holistico:` | todos, **menos** `flux:build` e `flux:equip` | o agente da lente L1, quando o elo resolve um |
+| `holistico:` | todos, **menos** `flux:build`, `flux:equip` e `flux:map` | o agente da lente L1, quando o elo resolve um |
 | `motor:` | `flux:build` e `flux:equip` | `{nativo <cmd> \| exec_fallback <cmd> \| autonomo \| ausente}` |
-| `destino:` | **só** `flux:equip` | `{path canonico aprovado \| nao resolvido}` |
+| `destino:` | `flux:equip` e `flux:map` | `{path canonico aprovado \| nao resolvido}` |
 
 `motor:` existe nesses dois porque são os únicos que têm relação com o motor de execução: o `build` o
 **escolhe** (`${FLUX_ROOT}/skills/build/SKILL.md`, Step 2), o `equip` o **produz**. Nos dois casos,
 qual motor rodou (ou faltou) é a informação que muda como se lê o resultado — um build em modo
 autônomo rodou sem os gates do repo, e quem lê precisa saber disso de relance.
 
-`destino:` existe só no `equip` porque ele é o único verbo cujo entregável é **um caminho no disco de
-alguém**. Um elo que escreve fora do repo e não diz onde obriga o usuário a caçar o que apareceu;
+`destino:` existe nesses dois porque são os únicos cujo entregável é **um caminho no disco de alguém**
+— a suite ou o motor, no `equip`; o índice, no `map`. Um elo que escreve fora do repo e não diz onde obriga o usuário a caçar o que apareceu;
 enquanto o gate de destino não tiver acontecido, o campo sai como `nao resolvido`, que é a verdade
 naquele instante e não uma omissão.
 

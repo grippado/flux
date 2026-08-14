@@ -66,7 +66,7 @@ continua no perfil genérico.
 Depois de instalar, os verbos ficam disponíveis em qualquer repo Git. No Claude Code, a forma
 é `/flux:peek`; no Cursor, `/flux-peek`; no Codex, use o nome que o Plugin Directory registrar.
 
-**Uma ressalva honesta sobre o Codex:** são **oito** verbos ali, não nove. O `flux:land` é o único
+**Uma ressalva honesta sobre o Codex:** são **nove** verbos ali, não dez. O `flux:land` é o único
 elo que despacha um irmão, e para isso precisa resolver o prefixo de invocação da família — coisa
 que o Codex ainda não expõe de forma verificável. Ele aborta a fase de despacho em vez de degradar
 para uma iteração fora do contrato. Detalhe em
