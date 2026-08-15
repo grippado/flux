@@ -5,8 +5,8 @@
     "published_at": "2026-08-15T14:55:15Z",
     "html_url": "https://github.com/grippado/flux/releases/tag/v1.23.1",
     "summary": {
-      "en": "🔖 release: v1.23.1 — conserto dos seis blockers do 4º passe da LAB-69",
-      "pt": "🔖 release: v1.23.1 — conserto dos seis blockers do 4º passe da LAB-69"
+      "en": "🔖 release: v1.23.1: conserto dos seis blockers do 4º passe da LAB-69",
+      "pt": "🔖 release: v1.23.1: conserto dos seis blockers do 4º passe da LAB-69"
     },
     "changelog_source": "tag_message"
   },
@@ -16,8 +16,8 @@
     "published_at": "2026-08-15T14:36:37Z",
     "html_url": "https://github.com/grippado/flux/releases/tag/v1.23.0",
     "summary": {
-      "en": "🔖 release: v1.23.0 — formato de kit, check-manifests e make_latest",
-      "pt": "🔖 release: v1.23.0 — formato de kit, check-manifests e make_latest"
+      "en": "🔖 release: v1.23.0: formato de kit, check-manifests e make_latest",
+      "pt": "🔖 release: v1.23.0: formato de kit, check-manifests e make_latest"
     },
     "changelog_source": "tag_message"
   },
