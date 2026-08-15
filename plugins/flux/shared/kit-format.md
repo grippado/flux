@@ -64,7 +64,7 @@ absoluto, `~` ou `..` em qualquer campo invalida o kit (ver "Kit inválido").
 | `engine` | sim se `provides` contém `engine` | string | path relativo do arquivo do motor de execução |
 | `specialists` | sim se `provides` contém `specialists` | string | path relativo do **diretório** da suite |
 | `matches` | não | objeto | o matcher. **Ausente → o kit nunca casa sozinho** (ver abaixo) |
-| `manifest_fragment` | não | objeto | fatia de manifesto **sugerida**, nunca aplicada por conta própria. Chaves de uma allowlist fechada (ver abaixo) |
+| `manifest_fragment` | não | objeto | fatia de manifesto **sugerida**, nunca aplicada por conta própria |
 | `verified_against` | não | objeto | contra o que este kit foi verificado, e quando |
 
 **`kit` e `version` são os dois únicos obrigatórios incondicionais**, mais `provides`. Um kit sem
@@ -78,19 +78,8 @@ instalar um plugin alterasse a configuração global de quem instalou. Por isso 
 diferente: `manifest_fragment` é uma **sugestão inerte**, que o verbo de instalação pode oferecer sob o
 gate que ele já tem, e que nenhum elo aplica sozinho.
 
-**E a fatia é fechada por allowlist, como todo o resto do formato.** "Inerte" resolve **quando** a fatia
-é aplicada, não **o que** ela pode conter, e um gate que apresenta um blob de configuração global
-desconhecida é um gate que as pessoas aceitam sem ler. As chaves que um kit tem legitimidade para
-sugerir são as que descrevem **o que o próprio kit trouxe**:
-
-| chave | por que um kit pode sugeri-la |
-|---|---|
-| `exec_fallback` | o kit trouxe o motor; sem esta linha o `flux:build` não o despacha |
-| `kits` | a raiz local onde este kit foi instalado, para a descoberta achá-lo depois sem depender de layout de disco |
-
-Chave fora da lista → o `manifest_fragment` inteiro é descartado e a perda é declarada; **o kit
-continua válido**, porque o defeito é da sugestão e não do que ele fornece. A lista cresce por decisão
-explícita neste arquivo, nunca por um kit inaugurar uma chave.
+**Quais chaves a fatia pode conter não está especificado aqui**, e é da issue que implementar a escrita
+do fragmento (LAB-71): quem valida a fatia é quem a aplica, e hoje ninguém a aplica.
 
 **`specialists` é um diretório e o orquestrador dele chama-se `repo-owner.md`**, o mesmo nome com que o
 Bootstrap escreve orquestrador (`${FLUX_ROOT}/shared/bootstrap-specialists.md`). É a convenção que
@@ -128,11 +117,11 @@ parcialmente o que sobrou de um kit quebrado.
 **Quem valida, e quando.** Esta seção é a **fonte única** do que invalida um kit, e a validação roda
 **no consumidor**, sobre os candidatos que ele foi olhar: o degrau 4 da cascata de L2
 (`${FLUX_ROOT}/shared/review-agents.md`) na leitura, e o verbo de preparo
-(`${FLUX_ROOT}/skills/equip/SKILL.md`) na escrita. Não roda no Passo 1d do preflight, que é localização
-e não leitura — validar lá cobraria o parse de todo `flux-kit.json` da máquina no Step 0 de todo elo,
-inclusive dos que nunca resolvem kit, e transformaria num passo que degrada aquele que declara
-explicitamente que `KIT_ROOTS` vazio não é degradação. Quem valida é quem já ia abrir o arquivo de
-qualquer jeito.
+(`${FLUX_ROOT}/skills/equip/SKILL.md`) sobre a `<ref>` que lhe apontaram. **Os dois vereditos não são o
+mesmo:** na leitura o kit inválido é ignorado e declarado, como descrito acima; no verbo de preparo ele
+**aborta**, porque quem passou `--from-kit` pediu aquele kit e não outra coisa. Não roda no Passo 1d do
+preflight, que localiza e não lê — o porquê mora lá
+(`${FLUX_ROOT}/shared/preflight.md`, Passo 1d) e só lá.
 
 ## O matcher
 
@@ -237,7 +226,13 @@ Só três estados são declarados, porque só três são acionáveis:
 | `kit nao avaliado` | há kit com matcher por arquivo (`files`/`any_of`) e não há checkout local | idem, com o path |
 
 **Os três saem de quem consome `KIT_ROOTS`, nunca do Passo 1d** — que localiza e não lê (ver "Kit
-inválido"). Na prática: o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`) na leitura,
-e o verbo de preparo na escrita. Um estado que só existisse aqui não seria emitido por ninguém.
+inválido"). Hoje há **um único emissor**, e ele é da leitura: o degrau 4 da cascata de L2
+(`${FLUX_ROOT}/shared/review-agents.md`). Um estado que só existisse aqui não seria emitido por ninguém.
+
+> **O lado da escrita não emite nenhum dos três, e isto não é omissão.** O verbo de preparo resolve
+> `<ref>` como caminho, então `kit ambiguo` não é um estado que ele alcance; ele nunca roda o matcher,
+> então `kit nao avaliado` também não; e kit inválido ali **aborta** em vez de degradar. Um emissor de
+> escrita só passa a existir quando a resolução por nome contra as `KIT_ROOTS` existir, o que é da
+> LAB-71.
 
 Os tokens são os do Passo 5 de `${FLUX_ROOT}/shared/preflight.md`, e a grafia é a de lá.

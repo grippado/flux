@@ -322,7 +322,7 @@ que o banner precisa ser.
 | `L3 stale` | a lente L3 roda por espelho (degrau 1 da escada) e a origem mudou desde `synced_from_sha256` | o elo que resolveu as lentes |
 | `indice ausente` | não há `flux-agents.json` na raiz de agents | idem |
 | `indice stale` | há índice, e ele não passou o teste de frescor | idem |
-| `kit ambiguo` | N kits casaram com o mesmo repo, e ambiguidade não se resolve por adivinhação (`${FLUX_ROOT}/shared/kit-format.md`) — sai com a lista dos candidatos | o elo que **consome** `KIT_ROOTS`: o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`) na leitura, o verbo de preparo na escrita |
+| `kit ambiguo` | N kits, **já filtrados por `provides`** (a contagem é sempre depois do filtro), casaram com o mesmo repo, e ambiguidade não se resolve por adivinhação (`${FLUX_ROOT}/shared/kit-format.md`) — sai com a lista dos candidatos | o elo que **consome** `KIT_ROOTS`: hoje, só o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), na leitura. **Na escrita: não implementado** (LAB-71) |
 | `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | idem |
 | `kit nao avaliado` | o kit casa por arquivo (`files`/`any_of`) e não há checkout local para testar | idem |
 
@@ -334,6 +334,12 @@ Os três tokens de índice (`L3 stale`, `indice ausente`, `indice stale`) acompa
 correspondente (`${FLUX_CMD}equip <repo> --expose-l3`, `${FLUX_CMD}map`) e **nenhum deles aborta**: os
 elos caem para a varredura direta, que é o comportamento que existia antes do índice. Os três de kit não
 acompanham oferta e também não abortam.
+
+> **O emissor dos três de kit é um só, e é da leitura.** No caminho de escrita, o verbo de preparo
+> resolve `<ref>` como caminho: ele não roda matcher (logo não alcança `kit ambiguo` nem
+> `kit nao avaliado`) e **aborta** diante de kit inválido em vez de declará-lo. Por isso a coluna diz
+> "não implementado" em vez de nomeá-lo: creditar emissor a quem não emite é o mesmo defeito que este
+> parágrafo existe para evitar.
 
 > **Um estado que só existe no shared não é emitido.** Os três tokens de índice nasceram descritos em
 > `${FLUX_ROOT}/shared/agents-index.md` e em `${FLUX_ROOT}/shared/review-agents.md`, e sem esta tabela
