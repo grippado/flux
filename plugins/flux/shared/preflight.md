@@ -47,6 +47,12 @@ localizada.
 > transforma este passo numa lista de boas intenções. Tudo abaixo deste passo é escrito contra
 > `${FLUX_ROOT}` e `${FLUX_CMD}`, nunca contra o nome de um produto.
 
+> **Um kit não entra nesta cascata.** Um kit é um plugin com raiz própria
+> (`${FLUX_ROOT}/shared/kit-format.md`), e a raiz dele é resolvida à parte, no Passo 1d. Acrescentá-lo
+> aqui faria um plugin instalado poder virar a raiz da família e redefinir `shared/` calado — e faria o
+> `${FLUX_ROOT}` de cada elo depender de qual plugin foi instalado por último. `FLUX_ROOT` continua
+> sendo uma raiz só, a do flux, e parando na primeira que existir.
+
 ### 1b — `FLUX_CMD`
 
 Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR dentro de subagente;
@@ -131,6 +137,57 @@ declarada como qualquer outra degradação.
 > legítimo quando o candidato é **verificável** e tem caminho de ausência. `ADDDIR_CMD` tem os dois,
 > e é por tê-los que ele pode existir; a versão anterior deste contrato imprimia `/add-dir` cru, sem
 > teste e sem ausência, e isso era hardcode.
+
+### 1d — `KIT_ROOTS`
+
+Um **kit** é um plugin com um `flux-kit.json` na raiz, e o contrato dele é
+`${FLUX_ROOT}/shared/kit-format.md`. Este passo resolve **onde procurá-los**, e só isso: o que se faz
+com o que for achado é de lá.
+
+`KIT_ROOTS` é um **conjunto, não uma cascata**. Todas as origens abaixo são consultadas, a união é
+deduplicada por path canônico, e nenhuma cancela a seguinte — duas origens podem apontar para o mesmo
+kit, e um kit pode existir numa e não na outra:
+
+1. `kits` do manifesto, quando há (`${FLUX_ROOT}/shared/flux-context.md`). Cada entrada é um caminho
+   local: a raiz de um kit, ou um diretório de kits.
+2. O **prefixo invariante** de `kits_root` — o trecho antes do primeiro `{repo}`. O campo é um template
+   por repo, e o que interessa aqui é a raiz onde os kits daquela máquina vivem.
+3. Os **irmãos de `${FLUX_ROOT}`**: o diretório pai da raiz da família — **só quando `FLUX_ROOT` veio
+   dos candidatos 1 a 3 do Passo 1a**. Instalado como plugin, o flux é vizinho dos outros plugins, e é
+   este degrau que enxerga um kit instalado do jeito recomendado.
+
+   > **A guarda não é detalhe.** O degrau presume que o pai de `${FLUX_ROOT}` é um diretório de plugins,
+   > e só os candidatos 1 a 3 garantem isso — eles são variáveis que **o harness só define quando ele
+   > mesmo instalou o plugin**. No candidato 5 (checkout local) o pai é o `plugins/` do próprio repo do
+   > flux, onde irmão não é plugin de ninguém; no 6 (`${FLUX_HOME}`) o pai é arbitrário, e um
+   > `FLUX_HOME=~/flux` transformaria esta origem numa varredura de dois níveis do home inteiro, no
+   > Step 0 de **todo** elo. O custo de errar não é só tempo: candidato que ninguém instalou vira
+   > `kit ambiguo` no banner, ou seja, ruído vindo de layout de disco.
+
+   > **Por que o candidato 4 também está fora, embora ele resolva uma instalação.** Ele resolve pelo
+   > marcador `.codex-plugin/plugin.json` subindo a partir do arquivo do verbo — e esse marcador existe
+   > tanto no plugin instalado quanto no **checkout de trabalho do próprio flux**, onde o pai é o
+   > `plugins/` do repositório. Como o marcador não distingue os dois casos, incluí-lo aqui daria à
+   > guarda uma garantia que ela não tem. **A perda é real e é declarada:** numa instalação Codex sem
+   > `CODEX_PLUGIN_ROOT`, um kit irmão só é achado pelas origens 1 e 2 (`kits` do manifesto ou
+   > `kits_root`). Reabrir o degrau para o candidato 4 depende de um marcador que separe instalação de
+   > checkout, e isso é [LAB-107](https://linear.app/g-lab-s/issue/LAB-107).
+
+Em cada raiz, procurar `flux-kit.json` com profundidade máxima de 2 níveis. Nada além do nome do arquivo
+é lido nesta fase, e este passo **localiza, não valida**: quem abre o `flux-kit.json` é quem vai usá-lo,
+e é lá que os três tokens de kit da tabela do Passo 5 são emitidos (`${FLUX_ROOT}/shared/kit-format.md`,
+"Kit inválido" e "Degradação"). O motivo de não validar aqui é que este passo roda no Step 0 de todo elo,
+inclusive dos que nunca resolvem kit, e que o matcher precisa do `REPO_SLUG` e do checkout, que ainda
+não existem nesta fase.
+
+Nenhuma origem produziu raiz, ou nenhuma raiz tem kit: `KIT_ROOTS` é **vazio**. Isso **não é
+degradação e não vai ao banner** — é o caso comum, e uma máquina sem kit se comporta como se comportava
+antes de kits existirem. Só os três estados acionáveis da tabela de tokens abaixo são declarados.
+
+> **Por que a busca é por marcador em disco.** Vale aqui o mesmo rigor do Passo 1a: enumerar os
+> diretórios de plugin de cada harness nomearia produtos sem poder confirmar nada. O `flux-kit.json` é
+> verificável — ou o arquivo está lá, ou não está —, e por isso este passo funciona no harness que ainda
+> não existe.
 
 ## Passo 2 — Verificar os requisitos declarados
 
@@ -275,12 +332,26 @@ que o banner precisa ser.
 | `L3 stale` | a lente L3 roda por espelho (degrau 1 da escada) e a origem mudou desde `synced_from_sha256` | o elo que resolveu as lentes |
 | `indice ausente` | não há `flux-agents.json` na raiz de agents | idem |
 | `indice stale` | há índice, e ele não passou o teste de frescor | idem |
+| `kit ambiguo` | N kits, **já filtrados por `provides`** (a contagem é sempre depois do filtro), casaram com o mesmo repo, e ambiguidade não se resolve por adivinhação (`${FLUX_ROOT}/shared/kit-format.md`) — sai com a lista dos candidatos | o elo que **consome** `KIT_ROOTS`: hoje, só o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), na leitura. **Na escrita: não implementado** (LAB-71) |
+| `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | o sub-passo **1a-kit** (`${FLUX_ROOT}/shared/review-agents.md`), que roda mesmo quando a cascata de L2 não chega ao degrau do kit. **Na escrita: não implementado** (LAB-71) |
+| `kit nao avaliado` | o kit casa por arquivo (`files`/`any_of`) e não há checkout local para testar | idem |
 
-Os três acompanham a oferta correspondente (`${FLUX_CMD}equip <repo> --expose-l3`,
-`${FLUX_CMD}map`) e **nenhum deles aborta**: os elos caem para a varredura direta, que é o
-comportamento que existia antes do índice.
+**Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
+encheria de ruído o banner de toda máquina que não usa kit. Só os três estados de kit acima são
+acionáveis, e só o que é acionável se declara.
 
-> **Um estado que só existe no shared não é emitido.** Estes três nasceram descritos em
+Os três tokens de índice (`L3 stale`, `indice ausente`, `indice stale`) acompanham a oferta
+correspondente (`${FLUX_CMD}equip <repo> --expose-l3`, `${FLUX_CMD}map`) e **nenhum deles aborta**: os
+elos caem para a varredura direta, que é o comportamento que existia antes do índice. Os três de kit não
+acompanham oferta e também não abortam.
+
+> **O emissor dos três de kit é um só, e é da leitura.** No caminho de escrita, o verbo de preparo
+> resolve `<ref>` como caminho: ele não roda matcher (logo não alcança `kit ambiguo` nem
+> `kit nao avaliado`) e **aborta** diante de kit inválido em vez de declará-lo. Por isso a coluna diz
+> "não implementado" em vez de nomeá-lo: creditar emissor a quem não emite é o mesmo defeito que este
+> parágrafo existe para evitar.
+
+> **Um estado que só existe no shared não é emitido.** Os três tokens de índice nasceram descritos em
 > `${FLUX_ROOT}/shared/agents-index.md` e em `${FLUX_ROOT}/shared/review-agents.md`, e sem esta tabela
 > nenhum elo teria de onde copiá-los na hora de emitir — o mesmo motivo pelo qual o gabarito do banner
 > é repetido no corpo de cada verbo.
