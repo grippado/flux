@@ -81,6 +81,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `REPOS` = `repos` (lista de repos conhecidos do contexto)
    - `SPECIALISTS_ROOT` = `specialists_root` (template de path com `{repo}`)
    - `KITS_ROOT` = `kits_root` (template de path com `{repo}`; degrau 3 da cascata de destino, opcional)
+   - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `SPECIALISTS_SPEC` = `specialists_spec` (espec que rege a autoria da suite; opcional)
    - `SPECIALISTS_REPO` = `specialists_repo` (repo onde a suite versionada vive, para PR; opcional)
    - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o pai do `.claude/` achado)

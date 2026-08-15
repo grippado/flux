@@ -80,8 +80,10 @@ gate que ele já tem, e que nenhum elo aplica sozinho.
 
 **Quem aplica a fatia é o verbo de preparo**, sob o gate de manifesto que ele já tem
 (`${FLUX_ROOT}/skills/equip/SKILL.md`, `--from-kit`), e **quem aplica é quem valida**: a lista das
-chaves aceitas é de lá, não daqui, e ampliá-la é da issue que implementar a escrita do fragmento
-(LAB-71). Nenhum outro elo toca no fragmento.
+chaves aceitas é de lá, não daqui — é a tabela de campos persistíveis do Step 6 daquele verbo, que é
+fechada e hoje tem um item alcançável pelo fragmento (`exec_fallback`). Chave fora dela é ignorada e
+declarada. Ampliar a lista é da issue que implementar a escrita do fragmento (LAB-71). Nenhum outro
+elo toca no fragmento.
 
 **A fatia sugere valores, não a forma final do arquivo.** Onde cada valor cai dentro do
 `flux-context.json` é decisão do aplicador, e o autor do kit não tem como saber: ele escreve um
@@ -228,19 +230,23 @@ razão de a resolução de nome tentar as formas prefixadas antes de desistir.
 achar kit, nenhum banner ganha linha para dizer que não havia kit nenhum, e uma máquina sem kit nenhum
 se comporta exatamente como se comportava antes de kits existirem.
 
-Só três estados são declarados, porque só três são acionáveis:
+Só três estados **de kit** são declarados, porque só três são acionáveis:
 
 | estado | quando | quem emite |
 |---|---|---|
 | `kit ambiguo` | N kits, já filtrados por `provides`, casaram com o mesmo repo, **e o degrau que ia escolher foi alcançado** | o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), em `degradacoes:` com a lista |
 | `kit invalido` | há `flux-kit.json` e ele não vale por "Kit inválido" acima | o sub-passo 1a-kit, em `degradacoes:` com o path e o motivo |
-| `kit nao avaliado` | há kit com matcher por arquivo (`files`/`any_of`) e não há checkout local | idem, com o path |
+| `kit nao avaliado` | o casamento daquele kit **dependeria** de `files`/`any_of` (sem `repos`, ou com `repos` que não casou) e não há checkout local para testar | idem, com o path |
 
 **Os três saem de quem consome `KIT_ROOTS`, nunca do Passo 1d** — que localiza e não lê (ver "Kit
-inválido"). Hoje todos vêm da leitura, e de dois pontos diferentes de propósito: os dois últimos são
-sobre o **estado dos kits da máquina** e saem do 1a-kit, que roda mesmo quando a cascata de L2 nem
-chega ao degrau do kit; `kit ambiguo` é sobre uma **escolha não feita** e só é acionável para quem ia
-escolher, então sai do degrau 4. O porquê está em `${FLUX_ROOT}/shared/review-agents.md`, 1a-kit.
+inválido"). O Passo 1d emite um token só, e ele não é sobre kit nenhum: `kit origem nao consultada`
+diz que uma **origem** da busca foi barrada pela guarda do degrau 3, e afirmar isso não exige abrir
+arquivo (`${FLUX_ROOT}/shared/preflight.md`, Passo 1d). Hoje todos vêm da leitura, e de pontos diferentes de propósito, em três larguras: `kit
+invalido` é **estado da máquina** e sai do 1a-kit antes de qualquer filtro, mesmo quando a cascata de
+L2 nem chega ao degrau do kit; `kit nao avaliado` sai do 1a-kit **depois** do filtro por `provides`,
+porque um kit que não fornece o que esta lente procura não é problema dela; `kit ambiguo` é sobre uma
+**escolha não feita** e só é acionável para quem ia escolher, então sai do degrau 4. O porquê de cada
+largura está em `${FLUX_ROOT}/shared/review-agents.md`, 1a-kit.
 
 > **O lado da escrita não emite nenhum dos três, e isto não é omissão.** O verbo de preparo resolve
 > `<ref>` como caminho, então `kit ambiguo` não é um estado que ele alcance; ele nunca roda o matcher,

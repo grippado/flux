@@ -138,6 +138,7 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `SPECIALISTS_ROOT` = `specialists_root` (template de path com `{repo}`; degrau 1 da descoberta de
      L2 e degrau 2 da cascata de destino, opcional)
    - `KITS_ROOT` = `kits_root` (template de path com `{repo}`; degrau 3 da cascata de destino, opcional)
+   - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `WRITE_DESTINATIONS` = `write_destinations` (destinos já aprovados, com o `repos` de cada um;
      degrau 4 da cascata e degrau 3 da descoberta de L2, opcional)
 

@@ -9,6 +9,10 @@
   "specialists_spec": "~/agents/acme/AGENT_SPEC.md",
   "specialists_repo": "acme/agent-suites",
   "kits_root": "~/agents/acme/kits/{repo}",
+  "kits": [
+    "~/.claude/plugins/acme-node-service-kit",
+    "~/agents/acme/kits"
+  ],
   "vault_root": "~/notes",
   "vault_context": "acme",
   "workspace_root": "~/code/acme",

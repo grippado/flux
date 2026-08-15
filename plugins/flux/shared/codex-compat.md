@@ -17,6 +17,16 @@ plugin por caminho relativo ao marketplace e **não documenta uma variável de r
 
 Não copiar nem duplicar os contratos compartilhados.
 
+**Consequência para kits, e ela é do caso ordinário.** O degrau 3 do `KIT_ROOTS` (irmãos de
+`${FLUX_ROOT}`, Passo 1d do [`preflight.md`](preflight.md)) só vale quando a raiz veio dos candidatos
+1 a 3, porque são os únicos em que o harness declarou ter instalado o plugin. Resolvendo pelo
+candidato 4 — que é o caminho normal aqui —, essa origem **não é consultada**, e o elo declara
+`kit origem nao consultada` em `degradacoes:`. Um kit irmão instalado ao lado do flux fica invisível
+até que se declare `kits` no manifesto, que é a remediação completa. O motivo de o candidato 4 não
+servir de guarda está no Passo 1d: o marcador `.codex-plugin/plugin.json` existe igual no checkout de
+trabalho do próprio flux, e não distingue instalação de checkout. Reabrir o degrau é a
+[LAB-107](https://linear.app/g-lab-s/issue/LAB-107).
+
 ## Delegação
 
 Onde um contrato Claude/Cursor disser `Task tool`, o adaptador Codex deve usar a delegação nativa

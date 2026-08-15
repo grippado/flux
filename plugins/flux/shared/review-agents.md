@@ -67,8 +67,9 @@ são emitidos. Na ordem:
    `degradacoes:`, com o path e o motivo.
 2. **Filtrar por `provides`**: só seguem os que declaram `specialists`, que é o que esta lente
    procura. É esse o conjunto que vai ser contado.
-3. **Casar pelo matcher** contra o `REPO_SLUG` e o checkout. Sem checkout local, um kit cujo `matches`
-   só tem `files`/`any_of` **não é avaliado** — não é "não casou" — e vira `kit nao avaliado` em
+3. **Casar pelo matcher** contra o `REPO_SLUG` e o checkout. Sem checkout local, um kit cujo
+   casamento **dependeria** de `files`/`any_of` — porque ele não declara `repos`, ou declara e não
+   casou por ele — **não é avaliado**, e isso não é "não casou": vira `kit nao avaliado` em
    `degradacoes:`, com o path.
 
 O resultado é o conjunto de kits aplicáveis, consumido pelo degrau 4 da cascata. `KIT_ROOTS` vazio →
@@ -77,10 +78,19 @@ este sub-passo não roda e nada é declarado, que é o caso comum.
 > **Por que ele não vive dentro do degrau 4.** A cascata para no primeiro degrau que existir, então um
 > degrau 4 dono da validação nunca rodaria numa máquina com `specialists_root` declarado — e um
 > `flux-kit.json` quebrado ali não seria lido nem declarado, com a ausência de `kit invalido` no banner
-> não distinguindo "não há kit quebrado" de "ninguém precisou olhar". Os dois tokens acima são sobre o
-> **estado dos kits da máquina**, e esse estado não depende de quem ganhou a cascata. `kit ambiguo` é o
-> único que depende, e por isso é o único que fica no degrau 4: ambiguidade só é acionável para quem
-> ia escolher.
+> não distinguindo "não há kit quebrado" de "ninguém precisou olhar". **`kit invalido` é estado da
+> máquina**, e não depende de quem ganhou a cascata: por isso o passo 1 roda antes do filtro, e um kit
+> quebrado que só proveria `engine` também aparece.
+>
+> **Os outros dois são mais estreitos que isso, e a diferença é deliberada.** `kit nao avaliado` sai do
+> passo 3, portanto **depois** do filtro por `provides`: um kit que só provê `engine` e não pôde ser
+> avaliado não é declarado aqui, porque esta lente não estava atrás dele — declará-lo seria pedir ao
+> usuário que consertasse algo que não afetou esta execução. `kit ambiguo` é mais estreito ainda, e
+> depende da cascata: por isso é o único que fica no degrau 4. Ambiguidade só é acionável para quem ia
+> escolher.
+>
+> Quando um consumidor de `engine` existir (LAB-70), ele roda este mesmo sub-passo com o outro filtro,
+> e os dois tokens estreitos passam a ser emitidos também da perspectiva dele.
 
 ### 1a — L2, specialists locais
 
@@ -212,7 +222,7 @@ da **causa**, e são três, com remediações que não se substituem:
 
 | causa | como se reconhece | o que oferecer |
 |---|---|---|
-| **fora de diretório varrido** | o arquivo não está sob `~/.claude/agents/` (subdiretórios incluídos) nem sob `<repo>/.claude/agents/` — vive num repositório de dotfiles, por exemplo | expor, tipicamente por symlink, com **nome único entre todas as suites** |
+| **fora de diretório varrido** | o arquivo não está sob `~/.claude/agents/` (subdiretórios incluídos) nem sob `<repo>/.claude/agents/` — vive num repositório de dotfiles, por exemplo | expor, tipicamente por symlink, com **nome único entre todas as suites**. **Exceção: suite vinda de kit** — ali a remediação é instalar o kit como plugin, nunca symlinkar, pelo motivo do 1a-bis (os nomes de um kit são genéricos por vocação) |
 | **âncora fora do repo** | o arquivo está no lugar canônico `<repo>/.claude/agents/`, e a sessão subiu **fora dele** — num diretório acima (repo aninhado) ou numa árvore paralela (árvore irmã); os dois arranjos estão no 1b-bis, e o harness não varre nenhum dos dois | a **escada de alcance** (1b-bis). Nunca degradar direto |
 | **colisão de `name:`** | o nome está registrado, e o que ele descreve é outro escopo (bloco anterior) | renomear com prefixo do repo, **do lado da suite que você cura** |
 
@@ -351,7 +361,7 @@ seguir. Nunca travar por ausência de specialists.
 | **inalcançável** | a suite existe e não é invocável | `L2 inalcancavel — <motivo>` | o que a **causa** pedir (tabela do 1a-bis): expor, percorrer a escada de alcance (1b-bis), ou desfazer colisão de nome |
 
 Colapsar `inalcançável` em `ausente` faz o elo oferecer **criar de novo** uma suite que já foi
-escrita, que é o mesmo erro que os níveis 2 a 4 do passo 1a existem para evitar, um degrau acima. Colapsar
+escrita, que é o mesmo erro que os níveis 2, 3 e 5 do passo 1a existem para evitar, um degrau acima. Colapsar
 em `disponível` é pior: promete uma cobertura que não houve.
 
 Com `--solo`, pular este passo inteiro e o 2b, independentemente do que exista.
