@@ -45,10 +45,15 @@ jobs:
 
       - name: Resolve version
         id: version
+        env:
+          # Por `env:` e não interpolado no corpo do script: o valor vem de um
+          # input de dispatch, e interpolado ele é colado no bash antes do shell
+          # ver a linha. O passo Resolve latest abaixo já fazia assim.
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            version="${{ inputs.version }}"
+            version="$INPUT_VERSION"
           else
             version="${GITHUB_REF_NAME#v}"
           fi
@@ -72,6 +77,43 @@ jobs:
           set -euo pipefail
           git fetch --force origin "refs/tags/v${VERSION}:refs/tags/v${VERSION}"
           test "$(git cat-file -t "v${VERSION}")" = "tag"
+
+      # Quem é a versão corrente do repo é uma pergunta só, e ela decide três
+      # coisas: o selo Latest da página de releases, o campo prerelease e o
+      # docs/latest-release.json que a landing lê. Resolver aqui, uma vez, é o que
+      # impede as três de discordarem — antes, só o JSON tinha a guarda, e a
+      # release saía marcada como Latest mesmo quando publicava uma versão antiga.
+      #
+      # A resposta sai do release-meta.sh, e não de um laço local, porque a
+      # varredura por ordem semver já mora lá (previous_tag) e duas cópias de uma
+      # varredura divergem na primeira correção — ainda mais agora, que os dois
+      # filtros são deliberadamente diferentes.
+      - name: Resolve latest
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          # Prerelease nunca é a corrente, e a API recusa marcá-la como tal.
+          if [[ "$VERSION" == *-* ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "v${VERSION} é prerelease; não entra como corrente"
+            exit 0
+          fi
+          echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+
+          current="$(scripts/release-meta.sh latest "v${VERSION}")"
+
+          if [[ "$current" == "v${VERSION}" ]]; then
+            echo "is_latest=true" >> "$GITHUB_OUTPUT"
+            echo "v${VERSION} é a versão corrente entre as releases que podem ser Latest"
+          else
+            echo "is_latest=false" >> "$GITHUB_OUTPUT"
+            echo "v${VERSION} não é a versão corrente (${current:-nenhuma})"
+          fi
 
       # A cadeia de fallback do changelog vive no script porque o
       # docs/latest-release.json abaixo resolve a mesma coisa para duas tags, e
@@ -117,36 +159,35 @@ jobs:
           name: flux ${{ steps.version.outputs.version }}
           body_path: notes.md
           # Uma tag com cara de prerelease é publicada como tal, para que uma
-          # `v1.22.0-rc1` nunca vire a versão que a página anuncia como atual.
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          # `v1.22.0-rc1` nunca vire a versão que a página anuncia como atual. Vem
+          # do mesmo passo que o make_latest abaixo: é a resposta de onde o
+          # is_latest já saía, e duas cópias dela divergiriam.
+          prerelease: ${{ steps.latest.outputs.is_prerelease }}
+          # Sem este campo vale o default da API, que é `true`: publicar uma tag
+          # retroativa marcaria a página de releases com uma versão superada como
+          # a corrente. E como a action manda este campo também no update, sem a
+          # resposta vinda das releases um dispatch de reparo chegaria a desmarcar
+          # o Latest de quem o carrega. É a mesma pergunta que o passo do JSON já
+          # respondia, agora respondida antes de publicar em vez de depois.
+          make_latest: ${{ steps.latest.outputs.is_latest }}
 
       # Depois da release e nunca antes: o arquivo nomeia um published_at e uma
       # html_url, e nenhum dos dois existe antes do passo acima ter rodado.
       #
       # Prerelease é pulada pelo mesmo motivo que não vira a versão anunciada na
       # capa: ela não pode passar a ser o que a página chama de versão atual.
+      #
+      # Um dispatch pode nomear qualquer tag, e reconstruir uma antiga é uma coisa
+      # comum de se querer: escrever o arquivo a partir dela anunciaria uma versão
+      # superada como a atual. A guarda é o `is_latest` do passo Resolve latest,
+      # que é a mesma resposta usada no `make_latest` da release acima.
       - name: Update docs/latest-release.json
-        if: ${{ !contains(steps.version.outputs.version, '-') }}
+        if: ${{ steps.latest.outputs.is_latest == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-
-          # Um dispatch pode nomear qualquer tag, e reconstruir uma antiga é uma
-          # coisa comum de se querer. Escrever o arquivo a partir dela anunciaria
-          # uma versão superada como a atual, então o passo pula e passa.
-          highest=""
-          while read -r tag; do
-            [[ -z "$tag" || "$tag" == *-* ]] && continue
-            highest="$tag"
-            break
-          done < <(git tag --list 'v[0-9]*' --sort=-v:refname)
-          if [[ "$highest" != "v${VERSION}" ]]; then
-            echo "v${VERSION} não é a versão mais alta lançada (${highest:-nenhuma});" \
-              "deixando docs/latest-release.json intocado"
-            exit 0
-          fi
 
           # O checkout abaixo troca a árvore inteira pela da main, então um script
           # rodado depois dele é o script da main, não o da tag. O corpo da release
