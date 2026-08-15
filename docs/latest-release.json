@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.23.1",
+    "tag": "v1.23.1",
+    "published_at": "2026-08-15T14:55:15Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.23.1",
+    "summary": {
+      "en": "🔖 release: v1.23.1 — conserto dos seis blockers do 4º passe da LAB-69",
+      "pt": "🔖 release: v1.23.1 — conserto dos seis blockers do 4º passe da LAB-69"
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.23.0",
     "tag": "v1.23.0",
     "published_at": "2026-08-15T14:36:37Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "🔖 release: v1.23.0 — formato de kit, check-manifests e make_latest",
       "pt": "🔖 release: v1.23.0 — formato de kit, check-manifests e make_latest"
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.22.1",
-    "tag": "v1.22.1",
-    "published_at": "2026-08-14T20:59:56Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.22.1",
-    "summary": {
-      "en": "Commands the family tells you to type now exist on your machine, whatever harness you run it in.",
-      "pt": "Os comandos que a família manda digitar passam a existir na sua máquina, em qualquer harness."
     },
     "changelog_source": "tag_message"
   },
