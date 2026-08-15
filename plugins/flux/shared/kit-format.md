@@ -21,7 +21,7 @@ Duas consequências, e as duas são o motivo de o formato ser tão magro:
 - **O que o flux resolve é o binding repo → kit.** Dado um repo, quais kits se aplicam, onde eles estão,
   e o que eles fornecem. Só isso.
 
-> **Um kit não é uma raiz da família.** Um kit tem raiz própria (`KIT_ROOT`), e nenhum arquivo dele é
+> **Um kit não é uma raiz da família.** Um kit tem raiz própria, e nenhum arquivo dele é
 > endereçável como `${FLUX_ROOT}/...`: kit não sobrescreve `shared/` e não acrescenta verbo. Por que ele
 > fica fora da cascata de `${FLUX_ROOT}` está no Passo 1a de `${FLUX_ROOT}/shared/preflight.md`, que é
 > quem rege a cascata.
@@ -78,8 +78,18 @@ instalar um plugin alterasse a configuração global de quem instalou. Por isso 
 diferente: `manifest_fragment` é uma **sugestão inerte**, que o verbo de instalação pode oferecer sob o
 gate que ele já tem, e que nenhum elo aplica sozinho.
 
-**Quais chaves a fatia pode conter não está especificado aqui**, e é da issue que implementar a escrita
-do fragmento (LAB-71): quem valida a fatia é quem a aplica, e hoje ninguém a aplica.
+**Quem aplica a fatia é o verbo de preparo**, sob o gate de manifesto que ele já tem
+(`${FLUX_ROOT}/skills/equip/SKILL.md`, `--from-kit`), e **quem aplica é quem valida**: a lista das
+chaves aceitas é de lá, não daqui, e ampliá-la é da issue que implementar a escrita do fragmento
+(LAB-71). Nenhum outro elo toca no fragmento.
+
+**A fatia sugere valores, não a forma final do arquivo.** Onde cada valor cai dentro do
+`flux-context.json` é decisão do aplicador, e o autor do kit não tem como saber: ele escreve um
+artefato genérico e não conhece o `<slug>` do repo que será equipado. O `exec_fallback` do exemplo
+acima é **o motor deste kit**, e o verbo de preparo grava esse valor **na chave do repo equipado**,
+promovendo o campo a mapa se preciso — ele nunca escreve `exec_fallback` escalar no manifesto de
+ninguém, porque isso trocaria o motor de todos os repos pelo motor deste. Ler o exemplo como o shape
+que o manifesto vai ganhar é lê-lo errado.
 
 **`specialists` é um diretório e o orquestrador dele chama-se `repo-owner.md`**, o mesmo nome com que o
 Bootstrap escreve orquestrador (`${FLUX_ROOT}/shared/bootstrap-specialists.md`). É a convenção que
@@ -115,7 +125,7 @@ Nunca "consertar" um kit inválido, nunca completar campo faltando por inferênc
 parcialmente o que sobrou de um kit quebrado.
 
 **Quem valida, e quando.** Esta seção é a **fonte única** do que invalida um kit, e a validação roda
-**no consumidor**, sobre os candidatos que ele foi olhar: o degrau 4 da cascata de L2
+**no consumidor**, sobre os candidatos que ele foi olhar: o sub-passo 1a-kit
 (`${FLUX_ROOT}/shared/review-agents.md`) na leitura, e o verbo de preparo
 (`${FLUX_ROOT}/skills/equip/SKILL.md`) sobre a `<ref>` que lhe apontaram. **Os dois vereditos não são o
 mesmo:** na leitura o kit inválido é ignorado e declarado, como descrito acima; no verbo de preparo ele
@@ -205,8 +215,9 @@ Um kit que declara `specialists` em `provides` fornece uma suite, e **suite é L
 suite que você cura, pela mesma razão: ela vive fora do repo, evolui no seu ritmo e não depende de PR no
 projeto. Isso é semântica, e sempre foi; o que faltava era a mecânica.
 
-A mecânica está no passo 1a de `${FLUX_ROOT}/shared/review-agents.md`, como um degrau próprio da cascata
-de L2 — inclusive a posição dele na ordem e por que ela é essa. É lá também que vale o gate do 1a-bis:
+A mecânica está no `${FLUX_ROOT}/shared/review-agents.md`, em duas partes: o sub-passo **1a-kit**, que
+lê e casa os kits e roda independente da cascata, e o **degrau 4** do passo 1a, que conta o resultado —
+inclusive a posição dele na ordem e por que ela é essa. É lá também que vale o gate do 1a-bis:
 achar o arquivo do orquestrador do kit **não** é o mesmo que o agente ser invocável, e um kit instalado
 como plugin tem seus agents registrados pelo harness tipicamente **com o prefixo do plugin**, o que é a
 razão de a resolução de nome tentar as formas prefixadas antes de desistir.
@@ -221,13 +232,15 @@ Só três estados são declarados, porque só três são acionáveis:
 
 | estado | quando | quem emite |
 |---|---|---|
-| `kit ambiguo` | N kits, já filtrados por `provides`, casaram com o mesmo repo | o elo que resolveu os kits, em `degradacoes:` com a lista |
-| `kit invalido` | há `flux-kit.json` e ele não vale por "Kit inválido" acima | idem, com o path e o motivo |
+| `kit ambiguo` | N kits, já filtrados por `provides`, casaram com o mesmo repo, **e o degrau que ia escolher foi alcançado** | o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), em `degradacoes:` com a lista |
+| `kit invalido` | há `flux-kit.json` e ele não vale por "Kit inválido" acima | o sub-passo 1a-kit, em `degradacoes:` com o path e o motivo |
 | `kit nao avaliado` | há kit com matcher por arquivo (`files`/`any_of`) e não há checkout local | idem, com o path |
 
 **Os três saem de quem consome `KIT_ROOTS`, nunca do Passo 1d** — que localiza e não lê (ver "Kit
-inválido"). Hoje há **um único emissor**, e ele é da leitura: o degrau 4 da cascata de L2
-(`${FLUX_ROOT}/shared/review-agents.md`). Um estado que só existisse aqui não seria emitido por ninguém.
+inválido"). Hoje todos vêm da leitura, e de dois pontos diferentes de propósito: os dois últimos são
+sobre o **estado dos kits da máquina** e saem do 1a-kit, que roda mesmo quando a cascata de L2 nem
+chega ao degrau do kit; `kit ambiguo` é sobre uma **escolha não feita** e só é acionável para quem ia
+escolher, então sai do degrau 4. O porquê está em `${FLUX_ROOT}/shared/review-agents.md`, 1a-kit.
 
 > **O lado da escrita não emite nenhum dos três, e isto não é omissão.** O verbo de preparo resolve
 > `<ref>` como caminho, então `kit ambiguo` não é um estado que ele alcance; ele nunca roda o matcher,

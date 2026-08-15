@@ -585,7 +585,11 @@ O que vale hoje, e só isto:
   instalar parcialmente o que sobrou de um kit quebrado.
 - Válido → o conteúdo é instalado no destino aprovado, passando **integralmente** pelo contrato de
   destino, arquivo por arquivo, incluindo o gate por arquivo existente. O `manifest_fragment`, quando
-  há, é **oferecido** no gate de manifesto que este verbo já tem, nunca aplicado por consequência.
+  há, é **oferecido** no gate de manifesto que este verbo já tem, nunca aplicado por consequência — e
+  **pelas regras de escrita daquele gate**, não pela forma em que o fragmento veio escrito: o
+  `exec_fallback` sugerido é o valor do motor daquele kit, e ele é gravado na chave do repo equipado,
+  nunca como escalar no manifesto do usuário. É aqui que a validação das chaves do fragmento acontece,
+  porque **quem aplica é quem valida** (`${FLUX_ROOT}/shared/kit-format.md`).
 - Não resolveu → **abortar**. Não cair na autoria do zero silenciosamente: quem passou `--from-kit`
   pediu um kit específico, e entregar outra coisa com o mesmo nome é a pior resposta possível.
 

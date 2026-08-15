@@ -153,15 +153,25 @@ kit, e um kit pode existir numa e não na outra:
 2. O **prefixo invariante** de `kits_root` — o trecho antes do primeiro `{repo}`. O campo é um template
    por repo, e o que interessa aqui é a raiz onde os kits daquela máquina vivem.
 3. Os **irmãos de `${FLUX_ROOT}`**: o diretório pai da raiz da família — **só quando `FLUX_ROOT` veio
-   dos candidatos 1 a 4 do Passo 1a**. Instalado como plugin, o flux é vizinho dos outros plugins, e é
+   dos candidatos 1 a 3 do Passo 1a**. Instalado como plugin, o flux é vizinho dos outros plugins, e é
    este degrau que enxerga um kit instalado do jeito recomendado.
 
    > **A guarda não é detalhe.** O degrau presume que o pai de `${FLUX_ROOT}` é um diretório de plugins,
-   > e só os candidatos 1 a 4 garantem isso. No candidato 5 (checkout local) o pai é o `plugins/` do
-   > próprio repo do flux, onde irmão não é plugin de ninguém; no 6 (`${FLUX_HOME}`) o pai é arbitrário,
-   > e um `FLUX_HOME=~/flux` transformaria esta origem numa varredura de dois níveis do home inteiro, no
+   > e só os candidatos 1 a 3 garantem isso — eles são variáveis que **o harness só define quando ele
+   > mesmo instalou o plugin**. No candidato 5 (checkout local) o pai é o `plugins/` do próprio repo do
+   > flux, onde irmão não é plugin de ninguém; no 6 (`${FLUX_HOME}`) o pai é arbitrário, e um
+   > `FLUX_HOME=~/flux` transformaria esta origem numa varredura de dois níveis do home inteiro, no
    > Step 0 de **todo** elo. O custo de errar não é só tempo: candidato que ninguém instalou vira
    > `kit ambiguo` no banner, ou seja, ruído vindo de layout de disco.
+
+   > **Por que o candidato 4 também está fora, embora ele resolva uma instalação.** Ele resolve pelo
+   > marcador `.codex-plugin/plugin.json` subindo a partir do arquivo do verbo — e esse marcador existe
+   > tanto no plugin instalado quanto no **checkout de trabalho do próprio flux**, onde o pai é o
+   > `plugins/` do repositório. Como o marcador não distingue os dois casos, incluí-lo aqui daria à
+   > guarda uma garantia que ela não tem. **A perda é real e é declarada:** numa instalação Codex sem
+   > `CODEX_PLUGIN_ROOT`, um kit irmão só é achado pelas origens 1 e 2 (`kits` do manifesto ou
+   > `kits_root`). Reabrir o degrau para o candidato 4 depende de um marcador que separe instalação de
+   > checkout, e isso é [LAB-107](https://linear.app/g-lab-s/issue/LAB-107).
 
 Em cada raiz, procurar `flux-kit.json` com profundidade máxima de 2 níveis. Nada além do nome do arquivo
 é lido nesta fase, e este passo **localiza, não valida**: quem abre o `flux-kit.json` é quem vai usá-lo,
@@ -323,7 +333,7 @@ que o banner precisa ser.
 | `indice ausente` | não há `flux-agents.json` na raiz de agents | idem |
 | `indice stale` | há índice, e ele não passou o teste de frescor | idem |
 | `kit ambiguo` | N kits, **já filtrados por `provides`** (a contagem é sempre depois do filtro), casaram com o mesmo repo, e ambiguidade não se resolve por adivinhação (`${FLUX_ROOT}/shared/kit-format.md`) — sai com a lista dos candidatos | o elo que **consome** `KIT_ROOTS`: hoje, só o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), na leitura. **Na escrita: não implementado** (LAB-71) |
-| `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | idem |
+| `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | o sub-passo **1a-kit** (`${FLUX_ROOT}/shared/review-agents.md`), que roda mesmo quando a cascata de L2 não chega ao degrau do kit. **Na escrita: não implementado** (LAB-71) |
 | `kit nao avaliado` | o kit casa por arquivo (`files`/`any_of`) e não há checkout local para testar | idem |
 
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo

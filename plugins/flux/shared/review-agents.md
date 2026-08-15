@@ -55,6 +55,33 @@ REPO_SLUG=$(gh repo view --json name -q .name)   # ou derivar do git remote / cw
 As duas buscas abaixo são **independentes e cumulativas**. Rodar as duas sempre; o resultado de uma
 não cancela a outra.
 
+### 1a-kit — Avaliar os kits, antes da cascata
+
+**Roda sempre que `KIT_ROOTS` não for vazio, independente de qual degrau da cascata abaixo vai
+vencer.** Este sub-passo é o **primeiro ponto do corpo que abre um `flux-kit.json`** — o Passo 1d do
+preflight só localizou os candidatos —, e por isso é aqui que os tokens de kit do Passo 5 do preflight
+são emitidos. Na ordem:
+
+1. **Ler e validar** cada candidato das `KIT_ROOTS` contra a seção "Kit inválido" do
+   `${FLUX_ROOT}/shared/kit-format.md`. Reprovado sai da lista e vira `kit invalido` em
+   `degradacoes:`, com o path e o motivo.
+2. **Filtrar por `provides`**: só seguem os que declaram `specialists`, que é o que esta lente
+   procura. É esse o conjunto que vai ser contado.
+3. **Casar pelo matcher** contra o `REPO_SLUG` e o checkout. Sem checkout local, um kit cujo `matches`
+   só tem `files`/`any_of` **não é avaliado** — não é "não casou" — e vira `kit nao avaliado` em
+   `degradacoes:`, com o path.
+
+O resultado é o conjunto de kits aplicáveis, consumido pelo degrau 4 da cascata. `KIT_ROOTS` vazio →
+este sub-passo não roda e nada é declarado, que é o caso comum.
+
+> **Por que ele não vive dentro do degrau 4.** A cascata para no primeiro degrau que existir, então um
+> degrau 4 dono da validação nunca rodaria numa máquina com `specialists_root` declarado — e um
+> `flux-kit.json` quebrado ali não seria lido nem declarado, com a ausência de `kit invalido` no banner
+> não distinguindo "não há kit quebrado" de "ninguém precisou olhar". Os dois tokens acima são sobre o
+> **estado dos kits da máquina**, e esse estado não depende de quem ganhou a cascata. `kit ambiguo` é o
+> único que depende, e por isso é o único que fica no degrau 4: ambiguidade só é acionável para quem
+> ia escolher.
+
 ### 1a — L2, specialists locais
 
 Resolver o caminho **nesta ordem**, parando no primeiro que existir:
@@ -68,20 +95,11 @@ Resolver o caminho **nesta ordem**, parando no primeiro que existir:
    reivindicando o mesmo slug → **ambíguo**, e ambíguo não se resolve por adivinhação: tratar como
    ausente e dizer no banner.
 4. **O kit aplicável**, quando há exatamente um: o `specialists` do `flux-kit.json` dele, resolvido
-   contra a raiz daquele kit (`${FLUX_ROOT}/shared/kit-format.md`). Este degrau é o **primeiro ponto do
-   corpo que abre um `flux-kit.json`** — o Passo 1d do preflight só localizou os candidatos —, e por
-   isso é aqui que os três tokens de kit do Passo 5 do preflight são emitidos. Na ordem:
-
-   1. **Ler e validar** cada candidato das `KIT_ROOTS` contra a seção "Kit inválido" do `kit-format.md`.
-      Reprovado sai da lista e vira `kit invalido` em `degradacoes:`, com o path e o motivo.
-   2. **Filtrar por `provides`**: só seguem os que declaram `specialists`, que é o que esta lente
-      procura. É esse o conjunto que vai ser contado.
-   3. **Casar pelo matcher** contra o `REPO_SLUG` e o checkout. Sem checkout local, um kit cujo
-      `matches` só tem `files`/`any_of` **não é avaliado** — não é "não casou" — e vira
-      `kit nao avaliado` em `degradacoes:`, com o path.
-   4. **Contar.** Zero → o degrau simplesmente não produz valor, em silêncio. Um → é o candidato.
-      N → **ambíguo**: tratar como ausente e declarar `kit ambiguo` no banner, com a lista. Por que
-      ambíguo aqui não abre menu, e abre no verbo de preparo, está no `kit-format.md` ("Zero, um, N").
+   contra a raiz daquele kit (`${FLUX_ROOT}/shared/kit-format.md`). O conjunto de kits aplicáveis é o
+   que o **1a-kit** já produziu; este degrau só **conta**. Zero → o degrau não produz valor, em
+   silêncio. Um → é o candidato. N → **ambíguo**: tratar como ausente e declarar `kit ambiguo` no
+   banner, com a lista. Por que ambíguo aqui não abre menu, e abre no verbo de preparo, está no
+   `kit-format.md` ("Zero, um, N").
 5. `~/.claude/flux-specialists/<REPO_SLUG>/repo-owner.md` — o default da família, e o destino que o
    `flux:equip` propõe como recomendado quando não há manifesto
    (ver `${FLUX_ROOT}/shared/bootstrap-specialists.md`).
@@ -130,6 +148,14 @@ prefixo do plugin**. Tentar as formas nesta ordem, parando na primeira registrad
 `${FLUX_ROOT}/shared/preflight.md`, e pela mesma razão: todas as instalações são legítimas, e resolver
 só a forma sem prefixo faria a lente do kit ficar inalcançável em toda instalação por plugin, que é o
 caminho recomendado de distribuição de kit.
+
+> **O prefixo tentado é o campo `kit`, e o contrato não garante que ele seja o nome do plugin.** O
+> `${FLUX_ROOT}/shared/kit-format.md` define `kit` como identificador estável e **explicitamente não
+> como endereço**; o prefixo com que um harness registra os agents de um plugin vem do **nome do
+> plugin**, e nada hoje exige que os dois sejam iguais. Divergindo, as três formas falham e a
+> remediação impressa manda instalar como plugin um kit que já está instalado como plugin. Escolher
+> entre exigir a igualdade no `flux-kit.json` ou derivar o prefixo do manifesto do plugin é desenho, e
+> é [LAB-108](https://linear.app/g-lab-s/issue/LAB-108).
 
 Nenhuma das três registrada → o estado é **`inalcançável`**, e a causa é a primeira da tabela abaixo
 (fora de diretório varrido): tipicamente um kit que foi copiado como diretório em vez de instalado como
