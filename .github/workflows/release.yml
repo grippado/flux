@@ -45,10 +45,15 @@ jobs:
 
       - name: Resolve version
         id: version
+        env:
+          # Por `env:` e não interpolado no corpo do script: o valor vem de um
+          # input de dispatch, e interpolado ele é colado no bash antes do shell
+          # ver a linha. O passo Resolve latest abaixo já fazia assim.
+          INPUT_VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            version="${{ inputs.version }}"
+            version="$INPUT_VERSION"
           else
             version="${GITHUB_REF_NAME#v}"
           fi
@@ -104,7 +109,7 @@ jobs:
 
           if [[ "$current" == "v${VERSION}" ]]; then
             echo "is_latest=true" >> "$GITHUB_OUTPUT"
-            echo "v${VERSION} é a versão corrente entre as releases publicadas"
+            echo "v${VERSION} é a versão corrente entre as releases que podem ser Latest"
           else
             echo "is_latest=false" >> "$GITHUB_OUTPUT"
             echo "v${VERSION} não é a versão corrente (${current:-nenhuma})"

@@ -15,6 +15,15 @@
 # GH_TOKEN (ou de um gh logado). No `json`, sem release para a tag, published_at e
 # html_url degradam para null e para a página da tag, nunca para uma data
 # inventada.
+#
+# O `latest` é a exceção declarada a essa degradação: se o `gh` falhar, ele
+# derruba o script e o passo de release fica vermelho antes de publicar. É de
+# propósito. A resposta dele decide o selo Latest do repositório, e a única
+# degradação possível seria voltar ao universo das tags, que é exatamente o
+# universo errado — responderia "sim" para uma tag órfã e arrancaria o selo de
+# quem o carrega. Entre não publicar agora e publicar arrancando o Latest, não
+# publicar é o erro barato: o dispatch republica, o selo perdido não volta
+# sozinho. Quem mexer aqui está mudando o contrato, não corrigindo um descuido.
 
 set -euo pipefail
 
@@ -191,6 +200,20 @@ repo_url() {
 # Ordem semver, nunca cronológica. Uma tag criada hoje pode apontar para um commit
 # antigo, então ordenar por data entregaria à página uma release histórica como a
 # "anterior" de uma versão cortada depois dela.
+#
+# A enumeração é do repositório, não de quem pergunta: o glob e a ordem valem
+# igual para quem quer a versão anterior e para quem quer a corrente. Os filtros
+# é que divergem, e continuam divergindo, cada um na sua função.
+semver_tags() {
+    git tag --list 'v[0-9]*' --sort=-v:refname
+}
+
+# Uma prerelease não é uma versão que a página oferece, então não é candidata a
+# corrente nem a anterior.
+is_prerelease_tag() {
+    [[ "$1" == *-* ]]
+}
+
 previous_tag() {
     local current="$1"
     local seen_current=0 first_other="" tag
@@ -201,15 +224,13 @@ previous_tag() {
             seen_current=1
             continue
         fi
-        # Uma prerelease não é uma versão que a página oferece, então também não é
-        # uma versão de onde a página veio.
-        [[ "$tag" == *-* ]] && continue
+        is_prerelease_tag "$tag" && continue
         if (( seen_current )); then
             printf '%s' "$tag"
             return
         fi
         [[ -z "$first_other" ]] && first_other="$tag"
-    done < <(git tag --list 'v[0-9]*' --sort=-v:refname)
+    done < <(semver_tags)
 
     # A tag sendo lançada é normalmente a mais alta que existe; quando ela não
     # está na lista (um dispatch para uma tag que ninguém pushou), a versão mais
@@ -221,24 +242,44 @@ previous_tag() {
 
 # Qual versão é a corrente do repo, dado que <current> está sendo publicada agora.
 #
-# O universo aqui é o das releases publicadas, não o das tags: o selo Latest é
-# propriedade de release, e uma tag sem release não tem como herdá-lo — se ela
-# disputasse a resposta, um dispatch de reparo na release corrente a demotaria e
-# ninguém assumiria o selo. A ordenação segue a do git, e por isso a varredura
-# continua sendo sobre as tags: o que muda é o filtro, que descarta toda tag sem
-# release, exceto a que este job está publicando.
+# O universo aqui é o das releases que podem carregar o selo Latest, e não o das
+# tags nem o das releases quaisquer. São três exclusões, e cada uma fecha um jeito
+# de o selo sumir do repositório:
+#
+#   tag sem release  — não tem como herdar o selo; se disputasse a resposta, um
+#                      dispatch de reparo na release corrente a demotaria e
+#                      ninguém assumiria o lugar;
+#   rascunho         — o GitHub o ignora ao computar Latest, então um rascunho de
+#                      versão maior que contasse aqui teria o mesmo efeito da tag
+#                      órfã: demote sem herdeiro;
+#   prerelease       — idem, e por flag da release e não só pelo nome da tag: uma
+#                      `v2.0.0` publicada como prévia não tem hífen para delatá-la.
+#
+# A ordenação segue a do git, e por isso a varredura continua sendo sobre as tags:
+# o que muda é o filtro, que descarta tudo que não pode ser Latest, exceto a
+# release que este job está publicando agora.
+#
+# `gh api --paginate` e não `gh release list --limit N`: um limite que trunca não
+# avisa que truncou, e a lista do `release list` vem por data de criação, então um
+# backfill (que cria releases recentes para versões baixas) enche justamente o
+# topo. Truncada, a maior release some, é descartada como se fosse tag órfã, e a
+# versão publicando rouba o selo em silêncio. Paginando não existe corte.
+#
+# Falha do `gh` derruba o script, e isso é deliberado: ver o cabeçalho do arquivo.
 current_tag() {
     local current="$1"
     local published tag
 
-    published="$(gh release list --limit 200 --json tagName --jq '.[].tagName')"
+    published="$(gh api --paginate 'repos/{owner}/{repo}/releases' \
+        --jq '.[] | select(.draft or .prerelease | not) | .tag_name')"
 
     while read -r tag; do
-        [[ -z "$tag" || "$tag" == *-* ]] && continue
+        [[ -z "$tag" ]] && continue
+        is_prerelease_tag "$tag" && continue
         [[ "$tag" != "$current" ]] && ! grep -qxF "$tag" <<< "$published" && continue
         printf '%s' "$tag"
         return
-    done < <(git tag --list 'v[0-9]*' --sort=-v:refname)
+    done < <(semver_tags)
 }
 
 entry_json() {
