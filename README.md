@@ -336,7 +336,13 @@ Antes de abrir PR, valide os manifests. Este comando pega uma classe de erro que
 ```
 claude plugin validate .              # marketplace
 claude plugin validate ./plugins/flux # plugin + frontmatter de cada skill
+scripts/check-manifests.sh            # version e name iguais nos cinco manifests
 ```
+
+Os dois `validate` conferem a forma de cada manifesto isoladamente, e recebem alvos disjuntos, então
+nenhum dos dois enxerga `.cursor-plugin/` nem `.codex-plugin/`. É por isso que o `check-manifests.sh`
+existe: um bump que esquece parte dos cinco passa verde nos dois `validate`, e o mesmo corpo de skills
+chega ao usuário com versão diferente conforme o harness.
 
 > **Sempre use aspas na `description` do frontmatter.** Um `: ` (dois-pontos seguido de espaço) num
 > valor YAML sem aspas quebra o parse, e o skill carrega com **metadata vazia**, silenciosamente:
