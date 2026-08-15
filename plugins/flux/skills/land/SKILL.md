@@ -111,6 +111,7 @@ As flags podem aparecer em qualquer posição e combinadas.
    - `NO_EMDASH` = `no_emdash`
    - `SPECIALISTS_ROOT` = `specialists_root` (template com `{repo}`)
    - `KITS_ROOT` = `kits_root` (template com `{repo}`; degrau 3 da cascata de destino, opcional)
+   - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `REPOS` = `repos` (lista de repos conhecidos do contexto)
    - `WORKSPACE_ROOT` = pai do diretório `.claude/` onde o manifesto foi encontrado
      (ex.: manifesto em `<raiz>/.claude/flux-context.json` → `WORKSPACE_ROOT=<raiz>`)

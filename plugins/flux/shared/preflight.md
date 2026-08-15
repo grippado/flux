@@ -168,21 +168,32 @@ kit, e um kit pode existir numa e não na outra:
    > marcador `.codex-plugin/plugin.json` subindo a partir do arquivo do verbo — e esse marcador existe
    > tanto no plugin instalado quanto no **checkout de trabalho do próprio flux**, onde o pai é o
    > `plugins/` do repositório. Como o marcador não distingue os dois casos, incluí-lo aqui daria à
-   > guarda uma garantia que ela não tem. **A perda é real e é declarada:** numa instalação Codex sem
-   > `CODEX_PLUGIN_ROOT`, um kit irmão só é achado pelas origens 1 e 2 (`kits` do manifesto ou
-   > `kits_root`). Reabrir o degrau para o candidato 4 depende de um marcador que separe instalação de
-   > checkout, e isso é [LAB-107](https://linear.app/g-lab-s/issue/LAB-107).
+   > guarda uma garantia que ela não tem.
+   >
+   > **A perda não é uma borda: no Codex ela é o estado ordinário.** O `${FLUX_ROOT}/shared/codex-compat.md`
+   > registra que o candidato 4 é "o caminho que de fato funciona hoje" ali, porque o Codex não documenta
+   > variável de raiz de plugin. Então, no Codex, esta origem simplesmente não é consultada, e um kit
+   > irmão só é achado pelas origens 1 e 2 (`kits` do manifesto ou `kits_root`) — **declarar `kits` no
+   > manifesto é a remediação, e ela é completa**. Reabrir o degrau depende de um marcador que separe
+   > instalação de checkout, e isso é [LAB-107](https://linear.app/g-lab-s/issue/LAB-107).
+   >
+   > **E ela é declarada em runtime, não só aqui.** Uma origem que a guarda barra é o caso que o Passo 5
+   > proíbe confundir: "eu não procurei" saindo como "não tem". Quando este degrau é barrado, o token
+   > `kit origem nao consultada` vai a `degradacoes:` — ver a tabela do Passo 5. É o único token de kit
+   > que sai deste passo, e ele não contradiz o "1d localiza e não lê": dizer que uma origem não foi
+   > consultada não exige abrir arquivo nenhum.
 
 Em cada raiz, procurar `flux-kit.json` com profundidade máxima de 2 níveis. Nada além do nome do arquivo
 é lido nesta fase, e este passo **localiza, não valida**: quem abre o `flux-kit.json` é quem vai usá-lo,
-e é lá que os três tokens de kit da tabela do Passo 5 são emitidos (`${FLUX_ROOT}/shared/kit-format.md`,
-"Kit inválido" e "Degradação"). O motivo de não validar aqui é que este passo roda no Step 0 de todo elo,
+e é lá que os três tokens de kit **sobre um kit** são emitidos (`${FLUX_ROOT}/shared/kit-format.md`,
+"Kit inválido" e "Degradação"). O quarto, `kit origem nao consultada`, é sobre uma **origem** e sai
+daqui, pelo motivo do bloco da guarda acima. O motivo de não validar aqui é que este passo roda no Step 0 de todo elo,
 inclusive dos que nunca resolvem kit, e que o matcher precisa do `REPO_SLUG` e do checkout, que ainda
 não existem nesta fase.
 
 Nenhuma origem produziu raiz, ou nenhuma raiz tem kit: `KIT_ROOTS` é **vazio**. Isso **não é
 degradação e não vai ao banner** — é o caso comum, e uma máquina sem kit se comporta como se comportava
-antes de kits existirem. Só os três estados acionáveis da tabela de tokens abaixo são declarados.
+antes de kits existirem. Só os estados acionáveis da tabela de tokens abaixo são declarados.
 
 > **Por que a busca é por marcador em disco.** Vale aqui o mesmo rigor do Passo 1a: enumerar os
 > diretórios de plugin de cada harness nomearia produtos sem poder confirmar nada. O `flux-kit.json` é
@@ -332,12 +343,13 @@ que o banner precisa ser.
 | `L3 stale` | a lente L3 roda por espelho (degrau 1 da escada) e a origem mudou desde `synced_from_sha256` | o elo que resolveu as lentes |
 | `indice ausente` | não há `flux-agents.json` na raiz de agents | idem |
 | `indice stale` | há índice, e ele não passou o teste de frescor | idem |
-| `kit ambiguo` | N kits, **já filtrados por `provides`** (a contagem é sempre depois do filtro), casaram com o mesmo repo, e ambiguidade não se resolve por adivinhação (`${FLUX_ROOT}/shared/kit-format.md`) — sai com a lista dos candidatos | o elo que **consome** `KIT_ROOTS`: hoje, só o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), na leitura. **Na escrita: não implementado** (LAB-71) |
+| `kit ambiguo` | N kits, **já filtrados por `provides`** (a contagem é sempre depois do filtro), casaram com o mesmo repo, **e o degrau que ia escolher entre eles foi de fato alcançado** — ambiguidade só é acionável para quem ia escolher, e a cascata de L2 para no primeiro degrau que existir. Sai com a lista dos candidatos (`${FLUX_ROOT}/shared/kit-format.md`) | o elo que **consome** `KIT_ROOTS`: hoje, só o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), na leitura. **Na escrita: não implementado** (LAB-71) |
 | `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | o sub-passo **1a-kit** (`${FLUX_ROOT}/shared/review-agents.md`), que roda mesmo quando a cascata de L2 não chega ao degrau do kit. **Na escrita: não implementado** (LAB-71) |
-| `kit nao avaliado` | o kit casa por arquivo (`files`/`any_of`) e não há checkout local para testar | idem |
+| `kit nao avaliado` | o casamento daquele kit **dependeria** de `files`/`any_of` — ele não declara `repos`, ou declara e não casou por ele — e não há checkout local para testar. Nunca "casa por arquivo": o que não pôde ser testado não passou nem falhou | idem |
+| `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4, 5 ou 6 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
 
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
-encheria de ruído o banner de toda máquina que não usa kit. Só os três estados de kit acima são
+encheria de ruído o banner de toda máquina que não usa kit. Só os quatro estados de kit acima são
 acionáveis, e só o que é acionável se declara.
 
 Os três tokens de índice (`L3 stale`, `indice ausente`, `indice stale`) acompanham a oferta

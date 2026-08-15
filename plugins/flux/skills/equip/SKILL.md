@@ -123,7 +123,7 @@ diga isso ao usuário em uma linha, porque quem escreveu os dois provavelmente e
 /flux:equip api-gateway --agents-only         # só a suite de specialists
 /flux:equip payments --engine-only            # só o motor (o repo já tem suite)
 /flux:equip web-monorepo --dry                # diagnóstico + plano, sem escrever
-/flux:equip notifications --from-kit node-fastify
+/flux:equip notifications --from-kit ~/agents/acme/kits/node-service
 /flux:equip payments --expose-l3              # L3 do repo alcançável fora dele
 /flux:equip                                   # dentro de <WORKSPACE_ROOT>/api-gateway
 ```
@@ -160,6 +160,7 @@ Do perfil, extrair:
 - `WORKSPACE_ROOT` / `REPOS` — para resolver o checkout do slug.
 - `SPECIALISTS_ROOT` / `KITS_ROOT` / `WRITE_DESTINATIONS` — degraus 2, 3 e o registro de aprovações da
   cascata de destino.
+- `KITS` = `kits` — caminhos locais de kit, origem 1 do `KIT_ROOTS` (Passo 1d do preflight), opcional.
 - `SPECIALISTS_SPEC` / `SPECIALISTS_REPO` — espec que rege a autoria da suite e repo das suites
   versionadas.
 - `EXEC_COMMAND` (default `workflow`) / `EXEC_FALLBACK` (sem default; escalar **ou** mapa por repo,
@@ -325,7 +326,9 @@ porque `~/.claude/` costuma ser um symlink para dentro de um repositório de dot
 3. **O que o `equip` escreve é o que a descoberta tem que achar depois.** O passo 1a do
    `review-agents.md` percorre a mesma cascata de destino, na mesma ordem, incluindo os destinos
    aprovados em `write_destinations`, justamente para que uma suite escrita fora do manifesto não
-   fique órfã. Um destino escolhido aqui que não apareça naquela cascata produz o pior desfecho
+   fique órfã. **A cascata de lá tem um degrau a mais**, o do kit aplicável, que não vem da cascata de
+   destino porque não é lugar onde a família escreve — ele entra depois de todos os degraus que esta
+   simetria cobre, e por isso não a quebra. Um destino escolhido aqui que não apareça naquela cascata produz o pior desfecho
    possível: arquivo escrito, trabalho feito, e o elo seguinte oferecendo criar a suite de novo. A
    simetria vale para as duas camadas, com o descobridor certo para cada uma: a suite é achada pela
    cascata do `review-agents.md`, o motor é achado pelo Step 2 do `flux:build` (motor nativo →
@@ -471,7 +474,9 @@ mesmo instante, não no fim.
 
 **Com `--from-map`, este Step não escreve.** Ele apura o que persistiria e devolve no campo
 `manifesto_pendente:` do contrato de retorno; quem grava é a main do `map`, com o gate, na
-reconciliação. Duas razões, e as duas são das mesmas famílias que já governam este verbo: escrever no
+reconciliação. **O que veio de `manifest_fragment` entra nesse campo como qualquer outro valor**, já
+filtrado pela tabela abaixo e marcado como vindo de kit — a filtragem é aqui, no filho, porque é ele
+que leu o kit; o gate é lá. Duas razões, e as duas são das mesmas famílias que já governam este verbo: escrever no
 manifesto é categoria de gate **sempre** (`${FLUX_ROOT}/shared/hitl.md`), e um subagente não tem canal
 para abri-lo; e há **um** `flux-context.json` por perfil, então N filhos gravando nele é a mesma
 corrida do índice, agravada porque a escrita aqui é merge preservando campos desconhecidos, não
@@ -490,8 +495,21 @@ Duas coisas podem ser persistidas, e **cada uma é uma escolha separada**:
 
 | campo | o que grava | por que persistir |
 |---|---|---|
-| `exec_fallback.<slug>` | o nome do motor autorado no Step 5, **sob a chave deste repo** | sem ele, o `flux:build` não acha o motor e continua caindo no modo autônomo — o motor existe e não é usado |
+| `exec_fallback.<slug>` | o nome do motor autorado no Step 5 **ou o sugerido pelo `manifest_fragment` do kit instalado**, sempre **sob a chave deste repo** | sem ele, o `flux:build` não acha o motor e continua caindo no modo autônomo — o motor existe e não é usado |
 | `write_destinations` | o destino canônico aprovado + o estado das guardas | sem ele, o gate de destino volta a cada execução, e o `review-agents.md` perde o degrau que encontra a suite fora do manifesto |
+
+**A tabela é fechada, e é ela a allowlist do `manifest_fragment`.** O `${FLUX_ROOT}/shared/kit-format.md`
+delega a este verbo a validação das chaves da fatia, porque **quem aplica é quem valida**; a lista é
+esta, e hoje ela tem **um** item alcançável pelo fragmento: `exec_fallback`. Chave fora da tabela é
+**ignorada e declarada** — nunca oferecida no gate, nunca gravada, nem com aprovação, porque o gate
+pergunta se pode escrever e não se aquela chave era legítima.
+
+> **Por que fechada, e por que a lista é tão curta.** Um `flux-kit.json` é escrito por quem publicou o
+> kit, que pode não ser você. Sem lista, um kit de terceiro sugere `holistic_reviewer`, `vault_root`,
+> `linear_org` ou `specialists_root` no gate — e instalar um plugin passa a propor escrever o contexto
+> de time de outra pessoa no seu manifesto global. É exatamente o que a separação entre `provides` e
+> `manifest_fragment` existe para impedir (`${FLUX_ROOT}/shared/kit-format.md`), e ela não vale nada se
+> quem aplica aceita qualquer chave. Ampliar a lista é da LAB-71, com o gate de escopo que ela exigir.
 
 GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select, aberto **depois** de os arquivos estarem
 escritos e **antes** de tocar o manifesto:
