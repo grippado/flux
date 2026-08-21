@@ -280,7 +280,8 @@ volta, e é exatamente esse custo que o batching amortiza.
 O gate, nesta ordem, e ele para no primeiro "não":
 
 1. **Existe token?** `LINEAR_API_KEY` no ambiente, ou no arquivo declarado em `secrets_file` do
-   manifesto (default `~/.secrets`, formato `KEY=value`). Ausente: **MCP**.
+   manifesto (default `~/.secrets`, formato `KEY=value`). Ausente: **executar Step 6-pre-bis**
+   (abaixo) antes de decidir o transporte — não cai em MCP em silêncio.
 2. **O token autentica?** Uma query `{ viewer { id name } }`. Resposta diferente de `200`, ou payload
    com `errors`: **MCP**.
 3. **O token enxerga o alvo?** Uma query do team com os labels, que é a mesma que resolve os UUIDs do
@@ -303,11 +304,60 @@ a cada issue joga fora todo o ganho.
 dela precisa ser auditável:
 
 ```
-transporte: api (batch) | api (canário falhou, caiu para mcp) | mcp (sem LINEAR_API_KEY)
+transporte: api (batch) | api (canário falhou, caiu para mcp) | mcp (setup guiado falhou nesta execução) | mcp (usuário optou por não configurar API)
 ```
 
 **Nunca imprimir o token**, nem em log, nem em mensagem de erro, nem no board. Ao ecoar resposta de
 erro da API, filtrar o valor antes.
+
+### Step 6-pre-bis — sem token: perguntar, não presumir
+
+O item 1 do gate historicamente caía em MCP no silêncio, mas isso esconde do usuário um ganho de
+velocidade real (ver a medição acima) por falta de dois minutos de setup. Sem `LINEAR_API_KEY`
+resolvida, **antes de seguir por MCP**, checar se já existe uma escolha salva (ver cache abaixo) e,
+não existindo, abrir um gate de uma pergunta (`${FLUX_ROOT}/shared/hitl.md`, single-select):
+
+1. **Gerar a chave agora** *(Recomendado)* — guiar o passo a passo:
+   1. Abrir `https://linear.app/settings/account/security` (Settings → Security & access →
+      Personal API keys) e criar uma chave nova, com um label que identifique a máquina (ex.:
+      `flux-issue-<hostname>`).
+   2. Colar o valor gerado no `secrets_file` do manifesto (default `~/.secrets`), no formato
+      `LINEAR_API_KEY=<valor>`, uma linha só, sem `export`. Arquivo ainda não existe: instruir a
+      **criar** o arquivo com essa linha, não só "adicionar" a ele. **Nunca peça pro usuário colar a
+      chave no chat** — a instrução é pra ele editar o arquivo diretamente.
+   3. Confirmado o salvamento, **releia o arquivo** e retome o gate a partir do item 2 (autentica).
+      Ainda sem token legível: reportar e cair pra MCP nesta execução (banner:
+      `mcp (setup guiado falhou nesta execução)`), sem gravar preferência (a tentativa falhou, não
+      foi uma escolha).
+2. **Não usar API, seguir por MCP** — grava a preferência no cache local (abaixo) e segue o resto
+   desta execução, e das próximas, direto pelo MCP, sem repetir a pergunta.
+
+Sem `AskUserQuestion` no harness, vira menu numerado, mesma ordem, degradação declarada no banner
+(`${FLUX_ROOT}/shared/hitl.md`).
+
+**Cache da preferência.** `<REPO_PATH>/.claude/cache/flux-issue-linear-transport.json`, mesma raiz de
+cache que o Step 6 já usa para team/project quando há `LINEAR_OPS`. É preferência de máquina, não de
+repo: se `.claude/cache/` não estiver no `.gitignore` do repo-alvo, avisar no banner que o arquivo vai
+aparecer como untracked (ou pior, ser commitado) em vez de gravar em silêncio um cache que outro
+colaborador do mesmo repo não pediu:
+
+```json
+{ "transport": "mcp", "reason": "usuário optou por não configurar LINEAR_API_KEY" }
+```
+
+Antes de abrir a pergunta, ler esse arquivo: `transport: "mcp"` pula direto pro MCP, sem pergunta,
+sem tentar o token de novo. **Não é o `flux-context.json`**: esse manifesto só é escrito pelo
+`flux:equip`, sob os dois campos que ele já governa (`exec_fallback`, `write_destinations`) — dar a
+este elo um terceiro campo pra escrever ali quebraria essa invariante de escritor único
+(`${FLUX_ROOT}/shared/flux-context.md`, "Só um elo escreve este arquivo"). O cache é local ao repo,
+específico deste elo, e não precisa do gate de destino de escrita: é preferência de transporte, não
+artefato de trabalho.
+
+O cache só é consultado **dentro** deste item 1, quando o gate já determinou ausência de token — se
+o token existir, o gate segue normal e o cache nem é lido. Configurando `LINEAR_API_KEY` depois (por
+fora, a qualquer momento), a próxima execução acha o token no item 1 e nem chega a checar o cache — é
+assim que achar o token sempre vence um cache de `"mcp"` antigo, sem precisar de lógica extra de
+prioridade.
 
 ### Step 6 — a criação
 
