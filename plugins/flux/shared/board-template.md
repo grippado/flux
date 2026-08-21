@@ -19,7 +19,7 @@ texto postado no GitHub/Slack, via iterate).
 | **single-PR** | `/flux:iterate` | 1 linha (a PR única) | `flux-iterate` | `YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md` |
 | **multi-PR** | `/flux:land` | N linhas (todas as PRs da entrega) | `flux-land` | `YYYY-MM-DD-HHMM-flux-land-<slug>.md` |
 | **conversa** | `/flux:reply` | N linhas (pendências em aberto do caso) | `thread` | `YYYY-MM-DD-HHMM-flux-reply-<slug-do-caso>.md` |
-| **exploração** | `/flux:issue` + `/flux:refine` | N linhas (as issues candidatas) | `flux-issue` | `YYYY-MM-DD-flux-issue-<slug>.md` (sem `HHMM`, por compatibilidade com os rascunhos já gravados) |
+| **exploração** | `/flux:issue` + `/flux:refine` | N linhas (as issues candidatas) | `flux-issue` | `YYYY-MM-DD-HHMM-flux-issue-<slug>.md` |
 
 > **O nome do arquivo carrega o nome do comando.** O infixo é sempre `flux-<verbo>`, igual ao comando que
 > gerou o board — quem lista o `0-inbox/` sabe de onde cada nota veio sem abrir nenhuma. Os infixos antigos

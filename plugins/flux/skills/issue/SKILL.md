@@ -127,7 +127,7 @@ nenhum; **retomar** o que ele achou, se achou — seguindo o **perfil exploraç�
 > primeira e única notícia. Se um prospector travar ou voltar vazio, um board que nascesse depois não
 > teria rastro de onde parou. Board que nasce depois do trabalho é ata, não board.
 
-1. **Caminho:** o board resolvido no Step 1-bis; ou, sendo novo, `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-flux-issue-<slug>.md`.
+1. **Caminho:** o board resolvido no Step 1-bis; ou, sendo novo, `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md`.
    Path já ocupado por um board de **outro** `source` (slugs diferentes que colidiram): sufixar `-2`,
    `-3`. Nunca sobrescrever board de outro pedido.
 2. **Nasce com:** frontmatter (`execution_status: active`, `source`, `repos`, `linear_ids: []`,

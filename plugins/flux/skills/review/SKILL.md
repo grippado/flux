@@ -250,7 +250,7 @@ eixo por tipo do contexto, se o `/organize` já a promoveu.
 
 ```bash
 ls <VAULT_ROOT>/0-inbox/ <VAULT_CTX_ROOT>/pr-reviews/ 2>/dev/null \
-  | grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}-{repo-slug}-PR{number}(-v[0-9]+)?\.md$" \
+  | grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9]{4})?-{repo-slug}-PR{number}(-v[0-9]+)?\.md$" \
   | sort
 ```
 
@@ -323,11 +323,15 @@ O `FINAL_REPORT` segue o formato `SUMARIO / COMENTARIOS / CHECKLIST / VEREDITO /
 
 Convenção:
 
-- **Com PR number:** `YYYY-MM-DD-{repo-slug}-PR{number}.md`
-  - Exemplo: `2026-04-30-backoffice-bff-PR790.md`
-- **Sem PR (branch local):** `YYYY-MM-DD-{repo-slug}-{branch-slug}.md`
-  - Exemplo: `2026-04-30-backoffice-bff-cma-2400-feature-x.md`
+- **Com PR number:** `YYYY-MM-DD-HHMM-{repo-slug}-PR{number}.md`
+  - Exemplo: `2026-04-30-1435-backoffice-bff-PR790.md`
+- **Sem PR (branch local):** `YYYY-MM-DD-HHMM-{repo-slug}-{branch-slug}.md`
+  - Exemplo: `2026-04-30-1435-backoffice-bff-cma-2400-feature-x.md`
   - branch-slug = nome da branch em kebab-case, sem prefixos como `feat/`, `fix/`
+- `HHMM` = hora **local** da criação do artefato (mesma regra do perfil doc). É o que mantém a
+  listagem do `0-inbox/` em ordem cronológica real — todo perfil da família grava com `HHMM`, e a
+  review não é exceção. A busca de rodada anterior (passo 3b) ignora o `HHMM` de propósito, então
+  artefatos legados sem hora continuam sendo encontrados.
 
 Path completo: `<VAULT_ROOT>/0-inbox/{filename}`
 
@@ -344,8 +348,9 @@ Path completo: `<VAULT_ROOT>/0-inbox/{filename}`
 
 **Re-runs no mesmo dia:**
 
-- Se já existe o arquivo (em qualquer dos dois lugares varridos no passo 3b), sufixar com `-v2`, `-v3`, etc.
-  - `2026-04-30-backoffice-bff-PR790-v2.md`
+- Se já existe artefato da mesma PR no mesmo dia (em qualquer dos dois lugares varridos no passo 3b,
+  com ou sem `HHMM`), sufixar com `-v2`, `-v3`, etc. — o `HHMM` é o da nova rodada.
+  - `2026-04-30-1612-backoffice-bff-PR790-v2.md`
 
 ### 6. Renderizar template e gravar
 

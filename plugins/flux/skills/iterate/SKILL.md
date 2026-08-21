@@ -674,7 +674,7 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
    - Instrução: produzir rascunhos classificados em `accepts-suggestion / defends-decision / needs-discussion / needs-code-change` + os comandos `gh api` prontos para cada thread.
    - Se `ANSWERER` não estiver definido no perfil (genérico): usar `<HOLISTIC>` com instrução explícita de rascunhar réplicas seguindo o mesmo formato.
 5. Computar o **path do arquivo de saída**:
-   - Com `VAULT_ROOT`: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-{repo-slug}-PR{n}-v{N}-answers.md` — nota nova nasce no inbox, como todas as outras.
+   - Com `VAULT_ROOT`: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-{repo-slug}-PR{n}-v{N}-answers.md` — nota nova nasce no inbox, como todas as outras.
      - `{N}` = número de runs de `--dry` neste dia para esta PR. Contar os arquivos de mesmo prefixo nos **dois** lugares onde eles podem estar: `<VAULT_ROOT>/0-inbox/` (ainda não triados) e `<VAULT_CTX_ROOT>/pr-reviews/` (já promovidos pelo `/organize`). Contar só o inbox reinicia o `v` depois de cada triagem e sobrescreve rascunho anterior.
    - Sem `VAULT_ROOT` (perfil genérico): imprimir o resultado no chat em vez de salvar.
 6. **Salvar** o output do `<ANSWERER>` no arquivo calculado (Write tool), com frontmatter mínimo de roteamento (`type: pr-review`, `context: <VAULT_CTX>`, `repo: <repo-slug>`, `pr:`, `date:`, `pending_organize: true`) — sem esse sinal o `/organize` não sabe para qual contexto promover. **Nunca** escrever no GitHub.

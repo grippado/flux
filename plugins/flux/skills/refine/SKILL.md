@@ -178,7 +178,7 @@ Mesma disciplina do `flux:issue`, Steps 1-bis e 1-ter, e pelos mesmos motivos: p
 exploração cujo `source` case com o `SOURCE` nos dois lugares onde ele pode estar
 (`<VAULT_ROOT>/0-inbox/`, ainda não triado, e `<VAULT_CTX_ROOT>/linear/`, já promovido pelo
 `/organize`); casou, retoma onde ele estiver; não casou, cria em
-`<VAULT_ROOT>/0-inbox/YYYY-MM-DD-flux-issue-<slug>.md`. **Anunciar o path no chat.**
+`<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md`. **Anunciar o path no chat.**
 
 > **Por que antes do fan-out.** O mesmo motivo dos outros elos: a prospecção roda em N subagentes por
 > minutos, e um board que nascesse depois não teria rastro de onde o trabalho parou. Board que nasce
