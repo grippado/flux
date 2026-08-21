@@ -283,8 +283,8 @@ O gate, nesta ordem, e ele para no primeiro "não":
 
 1. **Existe token?** O **nome da variável** vem do manifesto (`linear_token_env`, default
    `LINEAR_API_KEY`); o valor vem do ambiente ou, faltando lá, do arquivo declarado em `secrets_file`
-   (default `~/.secrets`, formato `KEY=value`). Ausente nos dois: ver **Step 6-pre-bis** abaixo —
-   não cai em MCP em silêncio.
+   (default `~/.secrets`, formato `KEY=value`). Ausente nos dois: **executar Step 6-pre-bis**
+   (abaixo) antes de decidir o transporte — não cai em MCP em silêncio.
 
    ```bash
    TOKEN_VAR="${LINEAR_TOKEN_ENV:-LINEAR_API_KEY}"       # linear_token_env do manifesto
@@ -344,11 +344,13 @@ não existindo, abrir um gate de uma pergunta (`${FLUX_ROOT}/shared/hitl.md`, si
       `flux-issue-<hostname>`).
    2. Colar o valor gerado no `secrets_file` do manifesto (default `~/.secrets`), no formato
       `${TOKEN_VAR}=<valor>` (onde `TOKEN_VAR` é o nome declarado em `linear_token_env`, ex.:
-      `LINEAR_API_KEY=<valor>`), uma linha só, sem `export`. **Nunca peça pro usuário colar a chave
-      no chat** — a instrução é pra ele editar o arquivo diretamente.
+      `LINEAR_API_KEY=<valor>`), uma linha só, sem `export`. Arquivo ainda não existe: instruir a
+      **criar** o arquivo com essa linha, não só "adicionar" a ele. **Nunca peça pro usuário colar a
+      chave no chat** — a instrução é pra ele editar o arquivo diretamente.
    3. Confirmado o salvamento, **releia o arquivo** e retome o gate a partir do item 2 (autentica).
-      Ainda sem token legível: reportar e cair pra MCP nesta execução, sem gravar preferência (a
-      tentativa falhou, não foi uma escolha).
+      Ainda sem token legível: reportar e cair pra MCP nesta execução (banner:
+      `mcp (setup guiado falhou nesta execução)`), sem gravar preferência (a tentativa falhou, não
+      foi uma escolha).
 2. **Não usar API, seguir por MCP** — grava a preferência no cache local (abaixo) e segue o resto
    desta execução, e das próximas, direto pelo MCP, sem repetir a pergunta.
 
@@ -356,10 +358,13 @@ Sem `AskUserQuestion` no harness, vira menu numerado, mesma ordem, degradação 
 (`${FLUX_ROOT}/shared/hitl.md`).
 
 **Cache da preferência.** `<REPO_PATH>/.claude/cache/flux-issue-linear-transport.json`, mesma raiz de
-cache que o Step 6 já usa para team/project quando há `LINEAR_OPS`:
+cache que o Step 6 já usa para team/project quando há `LINEAR_OPS`. É preferência de máquina, não de
+repo: se `.claude/cache/` não estiver no `.gitignore` do repo-alvo, avisar no banner que o arquivo vai
+aparecer como untracked (ou pior, ser commitado) em vez de gravar em silêncio um cache que outro
+colaborador do mesmo repo não pediu:
 
 ```json
-{ "transport": "mcp", "reason": "usuario optou por nao configurar ${TOKEN_VAR}" }
+{ "transport": "mcp", "reason": "usuário optou por não configurar ${TOKEN_VAR}" }
 ```
 
 Antes de abrir a pergunta, ler esse arquivo: `transport: "mcp"` pula direto pro MCP, sem pergunta,
@@ -370,9 +375,11 @@ este elo um terceiro campo pra escrever ali quebraria essa invariante de escrito
 específico deste elo, e não precisa do gate de destino de escrita: é preferência de transporte, não
 artefato de trabalho.
 
-Configurando a variável declarada em `linear_token_env` depois (por fora, a qualquer momento), a próxima
-execução tenta o token de novo a partir do item 1 — o cache só existe **enquanto** a chave está ausente;
-achar o token no ambiente ou no `secrets_file` sempre tem prioridade sobre um cache de `"mcp"` antigo.
+O cache só é consultado **dentro** deste item 1, quando o gate já determinou ausência de token — se
+o token existir, o gate segue normal e o cache nem é lido. Configurando a variável declarada em
+`linear_token_env` depois (por fora, a qualquer momento), a próxima execução acha o token no item 1
+e nem chega a checar o cache — é assim que achar o token sempre vence um cache de `"mcp"` antigo,
+sem precisar de lógica extra de prioridade.
 
 ### Step 6 — a criação
 
