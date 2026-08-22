@@ -1,11 +1,11 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPrompt } from "./prompt.ts";
 
-const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
+export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
 
-const TICKET_PATTERN = /^[A-Z]{2,5}-\d+$/;
-const LINEAR_URL_PATTERN = /^https?:\/\/linear\.app\//;
+export const TICKET_PATTERN = /^[A-Z]{2,5}-\d+$/;
+export const LINEAR_URL_PATTERN = /^https?:\/\/linear\.app\//;
 
 function isTicket(s: string): boolean {
   return TICKET_PATTERN.test(s) || LINEAR_URL_PATTERN.test(s);
@@ -184,7 +184,9 @@ async function main(): Promise<void> {
   await runVerb({ verb: subcommand, target, repo, dry, rest });
 }
 
-main().catch((err) => {
-  console.error(err instanceof Error ? err.message : String(err));
-  process.exit(1);
-});
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  });
+}
