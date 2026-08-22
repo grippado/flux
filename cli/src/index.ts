@@ -1,5 +1,6 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPrompt } from "./prompt.ts";
+import { launchClaude } from "./launch.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
@@ -114,7 +115,7 @@ async function runVerb(opts: {
   const { verb, target, repo, dry, rest } = opts;
 
   if (target && isTicket(target)) {
-    console.error(`Alvo de ticket (${target}) fora do escopo da v0. Use a interface web do Linear ou aguarde a fatia 2.`);
+    console.error(`Alvo de ticket (${target}) fora do escopo da v0. Use a interface web do Linear para este fluxo.`);
     process.exit(1);
   }
 
@@ -138,17 +139,16 @@ async function runVerb(opts: {
   }
 
   if (!commandExists("claude")) {
-    console.error('claude não encontrado no PATH. Instale via: npm install -g @anthropic-ai/claude-code');
+    console.error("claude não encontrado no PATH. Instale via: npm install -g @anthropic-ai/claude-code");
     process.exit(1);
   }
 
-  console.log(command);
-  console.warn("(abertura de aba chega na fatia 2 — copie e execute o comando acima para abrir o Claude)");
+  await launchClaude(command);
 }
 
 function commandExists(cmd: string): boolean {
   try {
-    const result = Bun.spawnSync(["command", "-v", cmd], { stderr: "ignore" });
+    const result = Bun.spawnSync(["/usr/bin/which", cmd], { stderr: "ignore" });
     return result.exitCode === 0;
   } catch {
     return false;
