@@ -65,14 +65,20 @@ export type LaunchDeps = {
   writePromptFile?: (prompt: string) => string;
 };
 
-export async function launchClaude(prompt: string, deps: LaunchDeps = {}): Promise<void> {
+export type LaunchRequest = {
+  command: string;
+  body: string;
+  invocation: string;
+};
+
+export async function launchClaude(req: LaunchRequest, deps: LaunchDeps = {}): Promise<void> {
   const termProgram = "termProgram" in deps ? deps.termProgram : process.env["TERM_PROGRAM"];
   const isAvailable = deps.checkOsascript ?? osascriptAvailable;
   const run = deps.execScript ?? runOsascript;
   const writeFile = deps.writePromptFile ?? writePromptToTempFile;
 
   const fallback = (): void => {
-    process.stdout.write(prompt + "\n");
+    process.stdout.write(req.command + "\n");
     process.stderr.write(
       "aviso: não foi possível abrir aba automaticamente — execute o comando acima\n",
     );
@@ -85,9 +91,9 @@ export async function launchClaude(prompt: string, deps: LaunchDeps = {}): Promi
 
   let script: string;
   if (termProgram === "iTerm.app" || termProgram === "Apple_Terminal") {
-    const filePath = writeFile(prompt);
+    const filePath = writeFile(req.body);
     const escapedPath = filePath.replace(/'/g, "'\\''");
-    const shellCmd = `claude "$(cat '${escapedPath}')"`;
+    const shellCmd = `${req.invocation} "$(cat '${escapedPath}')"`;
     if (termProgram === "iTerm.app") {
       script = buildITermScript(shellCmd);
     } else {

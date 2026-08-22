@@ -1,6 +1,6 @@
 import type { ResolvedContext } from "./resolve.ts";
 
-const CLI_VERSION = "1.24.1";
+const CLI_VERSION = "1.24.2";
 
 export const FLUX_CMD_PREFIX = "/flux:";
 
@@ -15,7 +15,26 @@ function escapeForArgv(s: string): string {
     .replace(/"/g, '\\"');
 }
 
-export function buildPrompt(ctx: ResolvedContext, verb: string, args: string): string {
+export type CommandOptions = {
+  safe?: boolean;
+  claudeCmd?: string;
+};
+
+export function resolveInvocation(opts: CommandOptions = {}): string {
+  const override = opts.claudeCmd ?? process.env["FLUX_CLAUDE_CMD"];
+  if (override) return override;
+  return opts.safe ? "claude" : "claude --dangerously-skip-permissions";
+}
+
+export function buildCommand(body: string, opts: CommandOptions = {}): string {
+  return `${resolveInvocation(opts)} "${escapeForArgv(body)}"`;
+}
+
+export function buildPrompt(ctx: ResolvedContext, verb: string, args: string, opts: CommandOptions = {}): string {
+  return buildCommand(buildPromptBody(ctx, verb, args), opts);
+}
+
+export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string): string {
   const lines: string[] = [];
 
   lines.push(`--- PREFLIGHT RESOLVIDO (flux-cli v${CLI_VERSION}) ---`);
@@ -38,6 +57,5 @@ export function buildPrompt(ctx: ResolvedContext, verb: string, args: string): s
   lines.push(`--- FIM PREFLIGHT RESOLVIDO ---`);
   lines.push(`${FLUX_CMD_PREFIX}${verb} ${args}`);
 
-  const body = lines.join("\n");
-  return `claude "${escapeForArgv(body)}"`;
+  return lines.join("\n");
 }

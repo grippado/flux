@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { resolveContext } from "./resolve.ts";
-import { buildPrompt } from "./prompt.ts";
+import { buildPrompt, buildCommand } from "./prompt.ts";
 import { SUPPORTED_VERBS, TICKET_PATTERN, LINEAR_URL_PATTERN } from "./index.ts";
 
 let tmpDir: string;
@@ -185,7 +185,16 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
     const cmd = buildPrompt(ctx, "review", 'arg "com aspas"');
 
     expect(cmd).toContain('\\"com aspas\\"');
-    expect(cmd.startsWith('claude "')).toBe(true);
+    expect(cmd.startsWith('claude --dangerously-skip-permissions "')).toBe(true);
+  });
+
+  it("bypass e o default; --safe remove; FLUX_CLAUDE_CMD sobrepoe", async () => {
+    const ctx = await resolveContext({ cwd: tmpDir });
+    const body = "corpo";
+    expect(buildCommand(body)).toStartWith('claude --dangerously-skip-permissions "');
+    expect(buildCommand(body, { safe: true })).toStartWith('claude "');
+    expect(buildCommand(body, { claudeCmd: "scc" })).toStartWith('scc "');
+    expect(buildPrompt(ctx, "review", "x", { safe: true }).startsWith('claude "')).toBe(true);
   });
 
   it("escapa subshell $(...) no argv", async () => {
