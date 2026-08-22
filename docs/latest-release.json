@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.24.1",
+    "tag": "v1.24.1",
+    "published_at": "2026-08-22T23:35:56Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.24.1",
+    "summary": {
+      "en": "🔖 release: v1.24.1: flux-cli completo (launcher de aba, slug e gate interativo do issue)",
+      "pt": "🔖 release: v1.24.1: flux-cli completo (launcher de aba, slug e gate interativo do issue)"
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.24.0",
     "tag": "v1.24.0",
     "published_at": "2026-08-22T23:06:42Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "🔖 release: v1.24.0: a chave do tracker vira campo do manifesto, e a fatia 1 do flux-cli",
       "pt": "🔖 release: v1.24.0: a chave do tracker vira campo do manifesto, e a fatia 1 do flux-cli"
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.23.1",
-    "tag": "v1.23.1",
-    "published_at": "2026-08-15T14:55:15Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.23.1",
-    "summary": {
-      "en": "🔖 release: v1.23.1: conserto dos seis blockers do 4º passe da LAB-69",
-      "pt": "🔖 release: v1.23.1: conserto dos seis blockers do 4º passe da LAB-69"
     },
     "changelog_source": "tag_message"
   },
