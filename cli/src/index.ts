@@ -1,5 +1,6 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPrompt } from "./prompt.ts";
+import { launchClaude } from "./launch.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
@@ -138,12 +139,11 @@ async function runVerb(opts: {
   }
 
   if (!commandExists("claude")) {
-    console.error('claude não encontrado no PATH. Instale via: npm install -g @anthropic-ai/claude-code');
+    console.error("claude não encontrado no PATH. Instale via: npm install -g @anthropic-ai/claude-code");
     process.exit(1);
   }
 
-  console.log(command);
-  console.warn("(abertura de aba chega na fatia 2 — copie e execute o comando acima para abrir o Claude)");
+  await launchClaude(command);
 }
 
 function commandExists(cmd: string): boolean {
