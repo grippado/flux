@@ -61,6 +61,47 @@ O adaptador Codex usa a delegação nativa de subagentes para o fan-out. MCP, va
 specialists são capacidades opcionais: quando ausentes, o preflight declara a degradação e o Flux
 continua no perfil genérico.
 
+### CLI (experimental)
+
+A CLI resolve o preflight fora de qualquer sessão de IA e abre o terminal já com o prompt armado,
+eliminando a etapa manual de copiar e colar. Em vez de abrir o Claude e digitar `/flux:review meu-repo`,
+você roda `flux review meu-repo` no terminal e a aba já nasce com o bloco PREFLIGHT RESOLVIDO na entrada.
+
+**Limitação declarada nesta versão:** o launcher suporta apenas o Claude Code. A abertura automática
+de aba funciona no iTerm2 e no Terminal.app (macOS); em qualquer outro emulador a CLI imprime o
+comando no stdout e avisa no stderr, para que você cole e execute manualmente.
+
+#### Instalação
+
+```bash
+cd cli
+bun install          # instala dependências, se houver
+bun run build        # gera o binário ./flux
+mv flux /usr/local/bin/flux   # ou outro diretório no seu PATH
+```
+
+**Permissão de automação no primeiro uso (macOS):** ao rodar o primeiro `flux <verbo>`, o macOS pode
+exibir um diálogo pedindo permissão para o terminal controlar o iTerm2 ou o Terminal.app via
+AppleScript. Aceite o diálogo; a permissão fica salva em Preferências do Sistema → Privacidade e
+Segurança → Automação.
+
+**`FLUX_HOME`:** se você não instalou o flux como plugin de nenhum harness, defina `FLUX_HOME`
+apontando para o diretório `plugins/flux` do seu checkout. A CLI usa essa variável como fonte
+explícita do FLUX_ROOT antes de tentar a heurística.
+
+```bash
+export FLUX_HOME=~/code/flux/plugins/flux
+```
+
+#### Exemplos
+
+```bash
+flux resolve . --json                 # inspeciona o contexto resolvido no cwd
+flux review 31 --repo flux --dry      # monta o prompt sem abrir o Claude
+flux review meu-repo                  # abre aba com /flux:review meu-repo pronto
+flux build LAB-126 --dry              # vê o comando antes de executar
+```
+
 ### Depois de instalar, nos três
 
 Depois de instalar, os verbos ficam disponíveis em qualquer repo Git. No Claude Code, a forma
