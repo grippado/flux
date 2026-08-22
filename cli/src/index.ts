@@ -115,7 +115,7 @@ async function runVerb(opts: {
   const { verb, target, repo, dry, rest } = opts;
 
   if (target && isTicket(target)) {
-    console.error(`Alvo de ticket (${target}) fora do escopo da v0. Use a interface web do Linear ou aguarde a fatia 2.`);
+    console.error(`Alvo de ticket (${target}) fora do escopo da v0. Use a interface web do Linear para este fluxo.`);
     process.exit(1);
   }
 

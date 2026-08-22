@@ -70,7 +70,6 @@ describe("filterManifestsClaimingSlug: declaracao via workspace_root + .git", ()
     const records = [makeManifestRecord("/ws", { name: "ctx", workspace_root: tmpDir })];
     const result = filterManifestsClaimingSlug("meu-repo", records);
     expect(result).toHaveLength(1);
-    // repoDir used to satisfy TypeScript
     expect(repoDir).toContain("meu-repo");
   });
 

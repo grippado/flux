@@ -196,7 +196,6 @@ function anchorFromManifestRecord(record: ManifestRecord, slug: string): string 
     const ws = expandHome(m.workspace_root);
     const candidate = join(ws, slug);
     if (existsSync(join(candidate, ".git"))) return candidate;
-    if (existsSync(candidate)) return candidate;
   }
   return record.dir;
 }
@@ -268,7 +267,7 @@ function resolveL3Paths(repoCheckout: string | null): string[] {
   return [];
 }
 
-async function promptDisambiguation(candidates: string[]): Promise<string> {
+async function promptDisambiguation(candidates: string[]): Promise<number> {
   const MAX_ATTEMPTS = 3;
   const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
 
@@ -283,7 +282,7 @@ async function promptDisambiguation(candidates: string[]): Promise<string> {
           const idx = parseInt(answer.trim(), 10) - 1;
           if (idx >= 0 && idx < candidates.length) {
             rl.close();
-            resolve(candidates[idx]);
+            resolve(idx);
           } else if (attempt >= MAX_ATTEMPTS) {
             rl.close();
             process.stderr.write(`Entrada inválida após ${MAX_ATTEMPTS} tentativas. Abortando.\n`);
@@ -349,13 +348,13 @@ export async function resolveContext(opts: {
       const claiming = filterManifestsClaimingSlug(slug, allManifests);
 
       if (claiming.length === 1) {
+        warnings.push(`slug "${slug}" resolvido via varredura de manifestos (não por manifesto próximo) — verifique se o contexto está correto`);
         anchor = anchorFromManifestRecord(claiming[0], slug);
         unresolvedSlug = null;
       } else if (claiming.length > 1) {
         const labels = claiming.map((r) => r.manifest.name ?? r.dir);
-        const chosen = await promptDisambiguation(labels);
-        const chosenRecord = claiming.find((r) => (r.manifest.name ?? r.dir) === chosen) ?? claiming[0];
-        anchor = anchorFromManifestRecord(chosenRecord, slug);
+        const chosenIdx = await promptDisambiguation(labels);
+        anchor = anchorFromManifestRecord(claiming[chosenIdx], slug);
         unresolvedSlug = null;
       } else {
         warnings.push(`slug "${slug}" não encontrado em nenhum manifesto — ancorando no cwd`);

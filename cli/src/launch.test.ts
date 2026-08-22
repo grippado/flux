@@ -1,5 +1,22 @@
 import { describe, it, expect } from "bun:test";
-import { escapeAppleScript, buildITermScript, buildTerminalScript } from "./launch.ts";
+import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude } from "./launch.ts";
+
+function captureWrites(): { stdout: string[]; stderr: string[]; restore: () => void } {
+  const stdout: string[] = [];
+  const stderr: string[] = [];
+  const origOut = process.stdout.write.bind(process.stdout);
+  const origErr = process.stderr.write.bind(process.stderr);
+  (process.stdout as { write: unknown }).write = (s: string) => { stdout.push(s); return true; };
+  (process.stderr as { write: unknown }).write = (s: string) => { stderr.push(s); return true; };
+  return {
+    stdout,
+    stderr,
+    restore: () => {
+      (process.stdout as { write: unknown }).write = origOut;
+      (process.stderr as { write: unknown }).write = origErr;
+    },
+  };
+}
 
 describe("escapeAppleScript: backslash antes de aspas", () => {
   it("escapa backslash simples", () => {
@@ -49,5 +66,66 @@ describe("buildTerminalScript: do script + activate", () => {
   it("embute o comando escapado", () => {
     const script = buildTerminalScript('claude "hello"');
     expect(script).toContain('do script "claude \\"hello\\""');
+  });
+});
+
+describe("launchClaude: caminhos de execução", () => {
+  it("fallback quando osascript indisponivel", async () => {
+    const cap = captureWrites();
+    try {
+      await launchClaude("claude hello", { checkOsascript: () => false, termProgram: "iTerm.app" });
+      expect(cap.stdout.join("")).toContain("claude hello");
+      expect(cap.stderr.join("")).toContain("aviso");
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("iTerm.app com osascript disponivel invoca script correto e nao escreve no stdout", async () => {
+    let scriptUsed = "";
+    const cap = captureWrites();
+    try {
+      await launchClaude("claude hello", {
+        checkOsascript: () => true,
+        execScript: (s) => { scriptUsed = s; return true; },
+        termProgram: "iTerm.app",
+      });
+      expect(cap.stdout.join("")).toBe("");
+      expect(scriptUsed).toContain("iTerm2");
+      expect(scriptUsed).toContain("write text");
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("Apple_Terminal com osascript disponivel invoca script correto e nao escreve no stdout", async () => {
+    let scriptUsed = "";
+    const cap = captureWrites();
+    try {
+      await launchClaude("claude hello", {
+        checkOsascript: () => true,
+        execScript: (s) => { scriptUsed = s; return true; },
+        termProgram: "Apple_Terminal",
+      });
+      expect(cap.stdout.join("")).toBe("");
+      expect(scriptUsed).toContain('application "Terminal"');
+      expect(scriptUsed).toContain("do script");
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("terminal nao reconhecido cai no fallback mesmo com osascript disponivel", async () => {
+    const cap = captureWrites();
+    try {
+      await launchClaude("claude hello", {
+        checkOsascript: () => true,
+        termProgram: "hyper",
+      });
+      expect(cap.stdout.join("")).toContain("claude hello");
+      expect(cap.stderr.join("")).toContain("aviso");
+    } finally {
+      cap.restore();
+    }
   });
 });

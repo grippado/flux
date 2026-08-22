@@ -99,7 +99,7 @@ export FLUX_HOME=~/code/flux/plugins/flux
 flux resolve . --json                 # inspeciona o contexto resolvido no cwd
 flux review 31 --repo flux --dry      # monta o prompt sem abrir o Claude
 flux review meu-repo                  # abre aba com /flux:review meu-repo pronto
-flux build LAB-126 --dry              # vê o comando antes de executar
+flux build meu-repo --dry             # vê o comando antes de executar
 ```
 
 ### Depois de instalar, nos três

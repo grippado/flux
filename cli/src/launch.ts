@@ -47,8 +47,16 @@ function runOsascript(script: string): boolean {
   }
 }
 
-export async function launchClaude(command: string): Promise<void> {
-  const termProgram = process.env["TERM_PROGRAM"];
+export type LaunchDeps = {
+  checkOsascript?: () => boolean;
+  execScript?: (script: string) => boolean;
+  termProgram?: string;
+};
+
+export async function launchClaude(command: string, deps: LaunchDeps = {}): Promise<void> {
+  const termProgram = "termProgram" in deps ? deps.termProgram : process.env["TERM_PROGRAM"];
+  const isAvailable = deps.checkOsascript ?? osascriptAvailable;
+  const run = deps.execScript ?? runOsascript;
 
   const fallback = (): void => {
     process.stdout.write(command + "\n");
@@ -57,7 +65,7 @@ export async function launchClaude(command: string): Promise<void> {
     );
   };
 
-  if (!osascriptAvailable()) {
+  if (!isAvailable()) {
     fallback();
     return;
   }
@@ -72,7 +80,7 @@ export async function launchClaude(command: string): Promise<void> {
     return;
   }
 
-  const ok = runOsascript(script);
+  const ok = run(script);
   if (!ok) {
     fallback();
   }
