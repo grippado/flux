@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.24.2",
+    "tag": "v1.24.2",
+    "published_at": "2026-08-22T23:46:06Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.24.2",
+    "summary": {
+      "en": "🔖 release: v1.24.2: launch da CLI com bypass de permissões por default",
+      "pt": "🔖 release: v1.24.2: launch da CLI com bypass de permissões por default"
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.24.1",
     "tag": "v1.24.1",
     "published_at": "2026-08-22T23:35:56Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "🔖 release: v1.24.1: flux-cli completo (launcher de aba, slug e gate interativo do issue)",
       "pt": "🔖 release: v1.24.1: flux-cli completo (launcher de aba, slug e gate interativo do issue)"
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.24.0",
-    "tag": "v1.24.0",
-    "published_at": "2026-08-22T23:06:42Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.24.0",
-    "summary": {
-      "en": "🔖 release: v1.24.0: a chave do tracker vira campo do manifesto, e a fatia 1 do flux-cli",
-      "pt": "🔖 release: v1.24.0: a chave do tracker vira campo do manifesto, e a fatia 1 do flux-cli"
     },
     "changelog_source": "tag_message"
   },
