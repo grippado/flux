@@ -321,11 +321,13 @@ a cada issue joga fora todo o ganho.
 dela precisa ser auditável:
 
 ```
-transporte: api (batch) | api (canário falhou, caiu para mcp) | mcp (sem <linear_token_env>) | mcp (setup guiado falhou nesta execução) | mcp (usuário optou por não configurar API)
+transporte: api (batch) | api (canário falhou, caiu para mcp) | mcp (setup guiado falhou nesta execução) | mcp (usuário optou por não configurar API)
 ```
 
-O `mcp (sem ...)` cita o **nome** da variável que foi procurada, nunca o valor: sem o nome, quem lê o
-banner não sabe se configurou a chave errada ou não configurou nenhuma.
+Não existe entrada "mcp por token ausente": com o Step 6-pre-bis, ausência de token nunca decide
+transporte sozinha — ela abre o gate, e o banner declara o **desfecho do gate** (falha do setup ou
+escolha do usuário), nunca a ausência crua. Quando uma entrada citar a variável, cita o **nome** (o
+declarado em `linear_token_env`), nunca o valor.
 
 **Nunca imprimir o token**, nem em log, nem em mensagem de erro, nem no board. Ao ecoar resposta de
 erro da API, filtrar o valor antes.
@@ -336,7 +338,11 @@ O item 1 do gate historicamente caía em MCP no silêncio, mas isso esconde do u
 velocidade real (ver a medição acima) por falta de dois minutos de setup. Sem o token resolvido (variável
 `$TOKEN_VAR`, nome declarado em `linear_token_env`, default `LINEAR_API_KEY`), **antes de seguir por MCP**,
 checar se já existe uma escolha salva (ver cache abaixo) e,
-não existindo, abrir um gate de uma pergunta (`${FLUX_ROOT}/shared/hitl.md`, single-select):
+não existindo, abrir um gate de uma pergunta (`${FLUX_ROOT}/shared/hitl.md`, single-select).
+
+**As duas opções prosseguem com a criação** — ela já foi aprovada no gate do Step 5; o que se escolhe
+aqui é só o canal. Por isso este gate não tem opção de abortar: a porta de saída inócua deste fluxo é
+a do Step 5 (`Só o rascunho, não criar`), e "seguir por MCP" é escolha de transporte, nunca um abort.
 
 1. **Gerar a chave agora** *(Recomendado)* — guiar o passo a passo:
    1. Abrir `https://linear.app/settings/account/security` (Settings → Security & access →
@@ -368,7 +374,8 @@ colaborador do mesmo repo não pediu:
 ```
 
 Antes de abrir a pergunta, ler esse arquivo: `transport: "mcp"` pula direto pro MCP, sem pergunta,
-sem tentar o token de novo. **Não é o `flux-context.json`**: esse manifesto só é escrito pelo
+sem tentar o token de novo — e o banner sai `mcp (usuário optou por não configurar API)`: o cache-hit
+é a mesma escolha, relembrada, e o banner não pode apagá-la fingindo omissão. **Não é o `flux-context.json`**: esse manifesto só é escrito pelo
 `flux:equip`, sob os dois campos que ele já governa (`exec_fallback`, `write_destinations`) — dar a
 este elo um terceiro campo pra escrever ali quebraria essa invariante de escritor único
 (`${FLUX_ROOT}/shared/flux-context.md`, "Só um elo escreve este arquivo"). O cache é local ao repo,
