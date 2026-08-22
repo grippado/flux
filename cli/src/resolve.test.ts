@@ -51,6 +51,38 @@ describe("resolve: ancora por path", () => {
 
     expect(ctx.anchor).toBe(tmpDir);
   });
+
+  it("deriva o slug do basename da ancora quando --repo esta ausente", async () => {
+    const repoDir = makeGitRepo(tmpDir, "meu-repo");
+    const specialistsBase = join(tmpDir, "agents");
+    const specialistsDir = join(specialistsBase, "meu-repo");
+    mkdirSync(specialistsDir, { recursive: true });
+    writeFileSync(join(specialistsDir, "repo-owner.md"), "persona");
+    makeManifest(tmpDir, ".claude", {
+      name: "workspace-ctx",
+      workspace_root: tmpDir,
+      specialists_root: join(specialistsBase, "{repo}", "repo-owner.md"),
+    });
+
+    const ctx = await resolveContext({
+      targetPath: repoDir,
+      cwd: tmpDir,
+    });
+
+    expect(ctx.lenses.l2_paths.length).toBeGreaterThan(0);
+    expect(ctx.lenses.l2_paths[0]).toContain("meu-repo");
+  });
+
+  it("nao deriva slug quando a ancora nao e repo git", async () => {
+    makeManifest(tmpDir, ".claude", {
+      name: "ctx",
+      specialists_root: join(tmpDir, "agents", "{repo}", "repo-owner.md"),
+    });
+
+    const ctx = await resolveContext({ targetPath: null, cwd: tmpDir });
+
+    expect(ctx.lenses.l2_paths).toEqual([]);
+  });
 });
 
 describe("resolve: .claude vence .cursor no mesmo nivel", () => {

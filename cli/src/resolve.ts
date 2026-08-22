@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync } from "fs";
-import { join, dirname, resolve as resolvePath } from "path";
+import { join, dirname, basename, resolve as resolvePath } from "path";
 import { homedir } from "os";
 import * as readline from "readline";
 
@@ -232,6 +232,7 @@ export async function resolveContext(opts: {
   const warnings: string[] = [];
 
   const anchor = resolveAnchor(targetPath, cwd, repoSlug);
+  const effectiveRepoSlug = repoSlug ?? (existsSync(join(anchor, ".git")) ? basename(anchor) : null);
 
   const { manifest, path: manifestPath, dir: _manifestDir } = resolveManifestFromCandidates(anchor, warnings);
 
@@ -242,17 +243,18 @@ export async function resolveContext(opts: {
 
   const profile = manifest?.name ?? "generico";
   const execCommand = manifest?.exec_command ?? "workflow";
-  const execFallback = resolveExecFallback(manifest, repoSlug);
+  const execFallback = resolveExecFallback(manifest, effectiveRepoSlug);
 
-  const repoCheckout = repoSlug
+  const repoCheckout = effectiveRepoSlug
     ? (() => {
+        if (!repoSlug && existsSync(join(anchor, ".git"))) return anchor;
         const wsRoot = manifest?.workspace_root ? expandHome(manifest.workspace_root) : dirname(manifestPath ?? cwd);
-        const candidates = [join(cwd, repoSlug), join(wsRoot, repoSlug)];
+        const candidates = [join(cwd, effectiveRepoSlug), join(wsRoot, effectiveRepoSlug)];
         return candidates.find((c) => existsSync(join(c, ".git"))) ?? null;
       })()
     : null;
 
-  const l2Paths = resolveL2Paths(manifest, repoSlug);
+  const l2Paths = resolveL2Paths(manifest, effectiveRepoSlug);
   const l3Paths = resolveL3Paths(repoCheckout);
 
   return {
