@@ -13,6 +13,7 @@ export interface FluxManifest {
   vault_context?: string;
   linear_org?: string;
   no_emdash?: boolean;
+  repos?: string[];
   [key: string]: unknown;
 }
 
@@ -33,6 +34,12 @@ export interface ResolvedContext {
   warnings: string[];
 }
 
+export interface ManifestRecord {
+  path: string;
+  dir: string;
+  manifest: FluxManifest;
+}
+
 function expandHome(p: string): string {
   if (p.startsWith("~/")) return join(homedir(), p.slice(2));
   return p;
@@ -50,6 +57,46 @@ function findManifestUpward(anchor: string): { path: string; dir: string } | nul
     if (parent === current) break;
     current = parent;
   }
+  return null;
+}
+
+export function resolveFluxRootHeuristic(homeDir?: string): { root: string; source: string } | null {
+  const home = homeDir ?? homedir();
+
+  const basePaths: string[] = [];
+  try {
+    const entries = readdirSync(home);
+    for (const entry of entries) {
+      if (/^\.claude/.test(entry) || entry === ".cursor") {
+        basePaths.push(join(home, entry, "plugins", "cache", "flux", "flux"));
+      }
+    }
+  } catch {}
+
+  let bestParts: number[] | null = null;
+  let bestPath: string | null = null;
+
+  for (const base of basePaths) {
+    if (!existsSync(base)) continue;
+    try {
+      const versions = readdirSync(base);
+      const valid = versions.filter((v) => /^\d+\.\d+\.\d+$/.test(v));
+      for (const v of valid) {
+        const parts = v.split(".").map(Number);
+        if (
+          !bestParts ||
+          parts[0] > bestParts[0] ||
+          (parts[0] === bestParts[0] && parts[1] > bestParts[1]) ||
+          (parts[0] === bestParts[0] && parts[1] === bestParts[1] && parts[2] > bestParts[2])
+        ) {
+          bestParts = parts;
+          bestPath = join(base, v);
+        }
+      }
+    } catch {}
+  }
+
+  if (bestPath) return { root: bestPath, source: "heuristica-cli" };
   return null;
 }
 
@@ -96,30 +143,62 @@ function findCodexPluginMarker(): string | null {
   return null;
 }
 
-function resolveFluxRootHeuristic(): { root: string; source: string } | null {
-  const home = homedir();
-  const candidates = [
-    join(home, ".claude", "plugins", "cache", "flux", "flux"),
-    join(home, ".cursor", "plugins", "cache", "flux", "flux"),
-  ];
-  for (const base of candidates) {
-    if (!existsSync(base)) continue;
+function scanForManifests(searchRoots: string[]): ManifestRecord[] {
+  const results: ManifestRecord[] = [];
+  const seen = new Set<string>();
+  const SKIP = new Set([".git", "node_modules", ".cache", ".npm", ".yarn"]);
+
+  function scan(dir: string, depth: number): void {
+    if (depth > 4) return;
     try {
-      const versions = readdirSync(base);
-      const sorted = versions
-        .filter((v) => /^\d+\.\d+\.\d+$/.test(v))
-        .sort((a, b) => {
-          const pa = a.split(".").map(Number);
-          const pb = b.split(".").map(Number);
-          for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pb[i] - pa[i];
-          return 0;
-        });
-      if (sorted.length > 0) {
-        return { root: join(base, sorted[0]), source: "heuristica-cli" };
+      for (const configDir of [".claude", ".cursor"]) {
+        const manifestPath = join(dir, configDir, "flux-context.json");
+        if (!seen.has(manifestPath) && existsSync(manifestPath)) {
+          seen.add(manifestPath);
+          try {
+            const raw = JSON.parse(readFileSync(manifestPath, "utf-8"));
+            if (raw && typeof raw === "object") {
+              results.push({ path: manifestPath, dir, manifest: raw as FluxManifest });
+            }
+          } catch {}
+        }
+      }
+      const entries = readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        if (SKIP.has(entry.name)) continue;
+        scan(join(dir, entry.name), depth + 1);
       }
     } catch {}
   }
-  return null;
+
+  for (const root of searchRoots) {
+    scan(root, 0);
+  }
+  return results;
+}
+
+export function filterManifestsClaimingSlug(slug: string, records: ManifestRecord[]): ManifestRecord[] {
+  return records.filter((r) => {
+    const m = r.manifest;
+    if (Array.isArray(m.repos) && (m.repos as string[]).includes(slug)) return true;
+    if (m.workspace_root) {
+      const ws = expandHome(m.workspace_root);
+      if (existsSync(join(ws, slug, ".git"))) return true;
+    }
+    return false;
+  });
+}
+
+function anchorFromManifestRecord(record: ManifestRecord, slug: string): string {
+  const m = record.manifest;
+  if (m.workspace_root) {
+    const ws = expandHome(m.workspace_root);
+    const candidate = join(ws, slug);
+    if (existsSync(join(candidate, ".git"))) return candidate;
+    if (existsSync(candidate)) return candidate;
+  }
+  return record.dir;
 }
 
 function resolveAnchor(targetArg: string | null, cwd: string, repo: string | null): string {
@@ -225,13 +304,65 @@ export async function resolveContext(opts: {
   repoSlug?: string | null;
   targetPath?: string | null;
   cwd?: string;
+  searchRoots?: string[];
 }): Promise<ResolvedContext> {
   const cwd = opts.cwd ?? process.cwd();
   const repoSlug = opts.repoSlug ?? null;
   const targetPath = opts.targetPath ?? null;
+  const searchRoots = opts.searchRoots ?? [homedir()];
   const warnings: string[] = [];
 
-  const anchor = resolveAnchor(targetPath, cwd, repoSlug);
+  let anchor = resolveAnchor(targetPath, cwd, repoSlug);
+
+  let unresolvedSlug: string | null = null;
+  if (targetPath) {
+    const abs = resolvePath(cwd, targetPath);
+    if (!existsSync(abs)) unresolvedSlug = targetPath;
+  }
+  if (!unresolvedSlug && repoSlug) {
+    const simpleCandidates = [join(cwd, repoSlug), join(cwd, "..", repoSlug)];
+    if (!simpleCandidates.some((c) => existsSync(join(c, ".git")))) {
+      unresolvedSlug = repoSlug;
+    }
+  }
+
+  if (unresolvedSlug) {
+    const slug = unresolvedSlug;
+
+    const nearbyManifest = findManifestUpward(cwd);
+    if (nearbyManifest) {
+      try {
+        const raw = JSON.parse(readFileSync(nearbyManifest.path, "utf-8")) as FluxManifest;
+        if (raw?.workspace_root) {
+          const ws = expandHome(raw.workspace_root);
+          const candidate = join(ws, slug);
+          if (existsSync(join(candidate, ".git"))) {
+            anchor = candidate;
+            unresolvedSlug = null;
+          }
+        }
+      } catch {}
+    }
+
+    if (unresolvedSlug) {
+      const allManifests = scanForManifests(searchRoots);
+      const claiming = filterManifestsClaimingSlug(slug, allManifests);
+
+      if (claiming.length === 1) {
+        anchor = anchorFromManifestRecord(claiming[0], slug);
+        unresolvedSlug = null;
+      } else if (claiming.length > 1) {
+        const labels = claiming.map((r) => r.manifest.name ?? r.dir);
+        const chosen = await promptDisambiguation(labels);
+        const chosenRecord = claiming.find((r) => (r.manifest.name ?? r.dir) === chosen) ?? claiming[0];
+        anchor = anchorFromManifestRecord(chosenRecord, slug);
+        unresolvedSlug = null;
+      } else {
+        warnings.push(`slug "${slug}" não encontrado em nenhum manifesto — ancorando no cwd`);
+      }
+    }
+  }
+
   const effectiveRepoSlug = repoSlug ?? (existsSync(join(anchor, ".git")) ? basename(anchor) : null);
 
   const { manifest, path: manifestPath, dir: _manifestDir } = resolveManifestFromCandidates(anchor, warnings);
