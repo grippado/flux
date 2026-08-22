@@ -4,6 +4,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { resolveContext } from "./resolve.ts";
 import { buildPrompt } from "./prompt.ts";
+import { SUPPORTED_VERBS, TICKET_PATTERN, LINEAR_URL_PATTERN } from "./index.ts";
 
 let tmpDir: string;
 
@@ -155,6 +156,34 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
     expect(cmd.startsWith('claude "')).toBe(true);
   });
 
+  it("escapa subshell $(...) no argv", async () => {
+    const ctx = await resolveContext({ cwd: tmpDir });
+    const cmd = buildPrompt(ctx, "review", "$(rm -rf /)");
+
+    expect(cmd).toContain("\\$(");
+  });
+
+  it("escapa backtick no argv", async () => {
+    const ctx = await resolveContext({ cwd: tmpDir });
+    const cmd = buildPrompt(ctx, "review", "`id`");
+
+    expect(cmd).toContain("\\`");
+  });
+
+  it("escapa backslash no argv", async () => {
+    const ctx = await resolveContext({ cwd: tmpDir });
+    const cmd = buildPrompt(ctx, "review", "path\\to\\file");
+
+    expect(cmd).toContain("\\\\");
+  });
+
+  it("contem linha flux_cmd no bloco preflight", async () => {
+    const ctx = await resolveContext({ cwd: tmpDir });
+    const cmd = buildPrompt(ctx, "review", "meu-repo");
+
+    expect(cmd).toContain("flux_cmd:");
+  });
+
   it("contem delimitadores de bloco preflight", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
     const cmd = buildPrompt(ctx, "build", "meu-repo");
@@ -172,10 +201,9 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
 });
 
 describe("verbo desconhecido: exit 1", () => {
-  it("istica dos verbos suportados inclui todos os 10", () => {
-    const VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"];
-    expect(VERBS).toHaveLength(10);
-    for (const v of VERBS) {
+  it("lista dos verbos suportados inclui todos os 10", () => {
+    expect(SUPPORTED_VERBS).toHaveLength(10);
+    for (const v of SUPPORTED_VERBS) {
       expect(typeof v).toBe("string");
     }
   });
@@ -183,7 +211,6 @@ describe("verbo desconhecido: exit 1", () => {
 
 describe("ticket como alvo: fora da v0", () => {
   it("detecta padrao XXYY-123", () => {
-    const TICKET_PATTERN = /^[A-Z]{2,5}-\d+$/;
     expect(TICKET_PATTERN.test("LAB-126")).toBe(true);
     expect(TICKET_PATTERN.test("ENG-1234")).toBe(true);
     expect(TICKET_PATTERN.test("AB-1")).toBe(true);
@@ -193,7 +220,6 @@ describe("ticket como alvo: fora da v0", () => {
   });
 
   it("detecta URL do Linear", () => {
-    const LINEAR_URL_PATTERN = /^https?:\/\/linear\.app\//;
     expect(LINEAR_URL_PATTERN.test("https://linear.app/g-lab-s/issue/LAB-126/foo")).toBe(true);
     expect(LINEAR_URL_PATTERN.test("https://github.com/foo")).toBe(false);
   });

@@ -2,11 +2,17 @@ import type { ResolvedContext } from "./resolve.ts";
 
 const CLI_VERSION = "1.23.2";
 
+export const FLUX_CMD_PREFIX = "/flux:";
+
 const ADVISORY_SENTENCE =
   "Este bloco é ADVISORY. A skill o recebe como ponto de partida e revalida barato os campos que dependem de estado de sessão (registro de agente, FLUX_CMD, ADDDIR_CMD, nível FULL/REDUCED/THIN, MCPs, campo lentes: do banner).";
 
 function escapeForArgv(s: string): string {
-  return s.replace(/"/g, '\\"');
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/\$/g, "\\$")
+    .replace(/`/g, "\\`")
+    .replace(/"/g, '\\"');
 }
 
 export function buildPrompt(ctx: ResolvedContext, verb: string, args: string): string {
@@ -27,9 +33,10 @@ export function buildPrompt(ctx: ResolvedContext, verb: string, args: string): s
     lines.push(`avisos:`);
     for (const w of ctx.warnings) lines.push(`  - ${w}`);
   }
+  lines.push(`flux_cmd: /flux: (Claude-only v0; revalide com a forma que sua sessao expoe)`);
   lines.push(ADVISORY_SENTENCE);
   lines.push(`--- FIM PREFLIGHT RESOLVIDO ---`);
-  lines.push(`/flux:${verb} ${args}`);
+  lines.push(`${FLUX_CMD_PREFIX}${verb} ${args}`);
 
   const body = lines.join("\n");
   return `claude "${escapeForArgv(body)}"`;
