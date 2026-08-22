@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 import { join, dirname, resolve as resolvePath } from "path";
 import { homedir } from "os";
 import * as readline from "readline";
@@ -105,7 +105,7 @@ function resolveFluxRootHeuristic(): { root: string; source: string } | null {
   for (const base of candidates) {
     if (!existsSync(base)) continue;
     try {
-      const versions = Bun.spawnSync(["ls", base]).stdout.toString().trim().split("\n").filter(Boolean);
+      const versions = readdirSync(base);
       const sorted = versions
         .filter((v) => /^\d+\.\d+\.\d+$/.test(v))
         .sort((a, b) => {
@@ -190,17 +190,34 @@ function resolveL3Paths(repoCheckout: string | null): string[] {
 }
 
 async function promptDisambiguation(candidates: string[]): Promise<string> {
+  const MAX_ATTEMPTS = 3;
   const rl = readline.createInterface({ input: process.stdin, output: process.stderr });
+
   return new Promise((resolve) => {
-    rl.question(
-      `Mais de um manifesto reivindica este slug. Qual contexto usar?\n${candidates.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}\n> `,
-      (answer) => {
-        rl.close();
-        const idx = parseInt(answer.trim(), 10) - 1;
-        if (idx >= 0 && idx < candidates.length) resolve(candidates[idx]);
-        else resolve(candidates[0]);
-      }
-    );
+    let attempt = 0;
+
+    const ask = () => {
+      attempt++;
+      rl.question(
+        `Mais de um manifesto reivindica este slug. Qual contexto usar?\n${candidates.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}\n> `,
+        (answer) => {
+          const idx = parseInt(answer.trim(), 10) - 1;
+          if (idx >= 0 && idx < candidates.length) {
+            rl.close();
+            resolve(candidates[idx]);
+          } else if (attempt >= MAX_ATTEMPTS) {
+            rl.close();
+            process.stderr.write(`Entrada inválida após ${MAX_ATTEMPTS} tentativas. Abortando.\n`);
+            process.exit(1);
+          } else {
+            process.stderr.write(`Entrada inválida. Digite um número entre 1 e ${candidates.length}.\n`);
+            ask();
+          }
+        }
+      );
+    };
+
+    ask();
   });
 }
 
