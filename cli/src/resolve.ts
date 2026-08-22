@@ -146,7 +146,10 @@ function findCodexPluginMarker(): string | null {
 function scanForManifests(searchRoots: string[]): ManifestRecord[] {
   const results: ManifestRecord[] = [];
   const seen = new Set<string>();
-  const SKIP = new Set([".git", "node_modules", ".cache", ".npm", ".yarn"]);
+  const SKIP = new Set([
+    ".git", "node_modules", ".cache", ".npm", ".yarn",
+    "Library", "Applications", "Pictures", "Movies", "Music", ".Trash", "go", ".local",
+  ]);
 
   function scan(dir: string, depth: number): void {
     if (depth > 4) return;

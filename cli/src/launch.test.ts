@@ -1,4 +1,5 @@
 import { describe, it, expect } from "bun:test";
+import { readFileSync } from "fs";
 import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude } from "./launch.ts";
 
 function captureWrites(): { stdout: string[]; stderr: string[]; restore: () => void } {
@@ -89,6 +90,7 @@ describe("launchClaude: caminhos de execução", () => {
         checkOsascript: () => true,
         execScript: (s) => { scriptUsed = s; return true; },
         termProgram: "iTerm.app",
+        writePromptFile: () => "/tmp/flux-test/prompt.txt",
       });
       expect(cap.stdout.join("")).toBe("");
       expect(scriptUsed).toContain("iTerm2");
@@ -106,10 +108,40 @@ describe("launchClaude: caminhos de execução", () => {
         checkOsascript: () => true,
         execScript: (s) => { scriptUsed = s; return true; },
         termProgram: "Apple_Terminal",
+        writePromptFile: () => "/tmp/flux-test/prompt.txt",
       });
       expect(cap.stdout.join("")).toBe("");
       expect(scriptUsed).toContain('application "Terminal"');
       expect(scriptUsed).toContain("do script");
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("prompt multi-linha: AppleScript nao contem newline literal e arquivo recebe prompt intacto", async () => {
+    const multiLinePrompt = "linha 1\nlinha 2\nlinha 3";
+    let scriptUsed = "";
+    let capturedPrompt = "";
+    let capturedPath = "";
+
+    const cap = captureWrites();
+    try {
+      await launchClaude(multiLinePrompt, {
+        checkOsascript: () => true,
+        execScript: (s) => { scriptUsed = s; return true; },
+        termProgram: "iTerm.app",
+        writePromptFile: (p) => {
+          capturedPrompt = p;
+          capturedPath = "/tmp/flux-prompt-test/prompt.txt";
+          return capturedPath;
+        },
+      });
+      const writeTextLine = scriptUsed.split("\n").find((l) => l.includes("write text"));
+      expect(writeTextLine).toBeDefined();
+      expect(writeTextLine!).not.toContain("\n");
+      expect(writeTextLine!).not.toMatch(/\\n/);
+      expect(capturedPrompt).toBe(multiLinePrompt);
+      expect(scriptUsed).toContain(capturedPath);
     } finally {
       cap.restore();
     }

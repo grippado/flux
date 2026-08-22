@@ -148,7 +148,7 @@ async function runVerb(opts: {
 
 function commandExists(cmd: string): boolean {
   try {
-    const result = Bun.spawnSync(["command", "-v", cmd], { stderr: "ignore" });
+    const result = Bun.spawnSync(["/usr/bin/which", cmd], { stderr: "ignore" });
     return result.exitCode === 0;
   } catch {
     return false;
