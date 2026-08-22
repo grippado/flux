@@ -44,6 +44,8 @@ Se o prompt trouxer o corpo inline em vez do path, use o corpo inline e não abr
 
 As tools do tracker são MCP, e **o prefixo delas muda de máquina para máquina**. Nunca chute um nome. Descubra as tools de criação e de leitura de issue pela busca de tools, e use as que aparecerem.
 
+**Quando o prompt declarar transporte `api`**, o caminho é outro: o orquestrador já passou o **nome da variável** com o token (o `linear_token_env` do perfil, default `LINEAR_API_KEY`) e o arquivo de secrets, e a criação vai num único request GraphQL batched com as mutations aliasadas. Leia o valor da variável pelo nome recebido, nunca por um nome fixo — máquinas com mais de um workspace guardam uma chave por contexto. **Nunca ecoe o token** e nunca o grave no que você retorna. O token não estando lá, não improvise: caia no caminho MCP acima.
+
 Não encontrou tool de criação: pare. Retorne `FALHOU: sem tool de criação no tracker`. É degradação legítima, e o orquestrador sabe o que fazer com ela.
 
 ## Passo 3 — Conferir o corpo antes de criar

@@ -57,7 +57,9 @@ Seguir `${FLUX_ROOT}/shared/flux-context.md`. Extrair: `HOLISTIC`, `SPECIALISTS_
 `REPOS`, `VAULT_ROOT` (raiz compartilhada, onde fica o `0-inbox/`), `VAULT_CTX`,
 `VAULT_CTX_ROOT` (raiz do contexto, onde o eixo por tipo vive; só leitura, ausente → `VAULT_ROOT`),
 `NO_EMDASH`, `LINEAR_ORG` (org do Linear), `LINEAR_OPS` (path do
-doc de mecânica Linear do perfil; opcional) e os agentes de prospecção (`slack_prospector` quando a
+doc de mecânica Linear do perfil; opcional), `LINEAR_TOKEN_ENV` (campo `linear_token_env`; nome da
+variável com o token da API, default `LINEAR_API_KEY`), `SECRETS_FILE` (campo `secrets_file`, default
+`~/.secrets`) e os agentes de prospecção (`slack_prospector` quando a
 fonte é Slack). Sem manifesto: perfil genérico (holístico `pr-reviewer`, sem persistência automática,
 sem Linear).
 
@@ -279,8 +281,23 @@ volta, e é exatamente esse custo que o batching amortiza.
 
 O gate, nesta ordem, e ele para no primeiro "não":
 
-1. **Existe token?** `LINEAR_API_KEY` no ambiente, ou no arquivo declarado em `secrets_file` do
-   manifesto (default `~/.secrets`, formato `KEY=value`). Ausente: **MCP**.
+1. **Existe token?** O **nome da variável** vem do manifesto (`linear_token_env`, default
+   `LINEAR_API_KEY`); o valor vem do ambiente ou, faltando lá, do arquivo declarado em `secrets_file`
+   (default `~/.secrets`, formato `KEY=value`). Ausente nos dois: **MCP**.
+
+   ```bash
+   TOKEN_VAR="${LINEAR_TOKEN_ENV:-LINEAR_API_KEY}"       # linear_token_env do manifesto
+   TOKEN=$(printenv "$TOKEN_VAR")                        # printenv, não expansão indireta: portátil zsh/bash
+   [ -z "$TOKEN" ] && TOKEN=$(grep -E "^${TOKEN_VAR}=" "${SECRETS_FILE:-$HOME/.secrets}" 2>/dev/null | cut -d= -f2-)
+   ```
+
+   > **Por que o nome é configurável, e por que o default não é o seu.** Quem trabalha em mais de um
+   > workspace do tracker tem mais de uma chave, e as duas não cabem sob o mesmo nome no mesmo cofre.
+   > Cada manifesto declara a sua, e é assim que o elo nunca cria issue numa org com a credencial da
+   > outra. Um nome de máquina hardcoded aqui faria o degrau 1 falhar para todo mundo que não tem
+   > aquele nome. O contrato do campo está em `${FLUX_ROOT}/shared/flux-context.md`, e as regras de
+   > manuseio do token (nunca ecoar, nunca gravar, header em vez de `--user`, aviso de permissão
+   > frouxa no arquivo) em `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do token".
 2. **O token autentica?** Uma query `{ viewer { id name } }`. Resposta diferente de `200`, ou payload
    com `errors`: **MCP**.
 3. **O token enxerga o alvo?** Uma query do team com os labels, que é a mesma que resolve os UUIDs do
@@ -303,8 +320,11 @@ a cada issue joga fora todo o ganho.
 dela precisa ser auditável:
 
 ```
-transporte: api (batch) | api (canário falhou, caiu para mcp) | mcp (sem LINEAR_API_KEY)
+transporte: api (batch) | api (canário falhou, caiu para mcp) | mcp (sem <linear_token_env>)
 ```
+
+O `mcp (sem ...)` cita o **nome** da variável que foi procurada, nunca o valor: sem o nome, quem lê o
+banner não sabe se configurou a chave errada ou não configurou nenhuma.
 
 **Nunca imprimir o token**, nem em log, nem em mensagem de erro, nem no board. Ao ecoar resposta de
 erro da API, filtrar o valor antes.

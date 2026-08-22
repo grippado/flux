@@ -151,6 +151,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   "linear_org": "acme",
   "tracker_repo_map": { "Payments": "payments", "Platform": "api-gateway" },
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
+  "linear_token_env": "LINEAR_API_KEY",
   "repos": ["api-gateway", "web-monorepo", "notifications", "payments", "..."],
   "exec_command": "workflow",
   "scope_escalation": "/sdd — hub de refinamento em ~/code/acme/technical-refining",
@@ -163,6 +164,7 @@ com o reviewer de outro time sem que nada acuse o problema.
     "root": "~/.envault",
     "base": "~/code"
   },
+  "secrets_file": "~/.secrets",
   "quality_gate": {
     "provider": "sonarcloud",
     "host": "https://sonarcloud.io",
@@ -215,6 +217,29 @@ com o reviewer de outro time sem que nada acuse o problema.
 - `linear_ops` — path de um doc que descreve a **mecânica** de criação no Linear do time (cache de
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
+- `linear_token_env` — **nome da variável** (não o valor) que guarda o token da API do Linear, usado
+  pelo gate de transporte do `flux:issue` (Step 6-pre) para decidir entre a API GraphQL batched e o
+  MCP. Default `LINEAR_API_KEY`.
+
+  O campo existe porque **quem tem mais de um workspace de tracker tem mais de uma chave**, e as duas
+  não podem morar sob o mesmo nome no mesmo cofre. Declarando o nome por contexto, cada manifesto
+  aponta para a sua (`LINEAR_API_KEY_ACME` no manifesto do time, outra no pessoal) e o elo nunca cria
+  numa org com a credencial da outra. **Nunca colocar o token aqui**: o manifesto é versionado em
+  dotfiles com frequência, e o valor mora no ambiente ou no `secrets_file`.
+
+  Ausente → `LINEAR_API_KEY`; não existindo essa variável, o gate para no degrau 1 e o transporte é
+  **MCP**, declarado no banner. Não é falha: é o caminho default de quem nunca configurou chave.
+- `secrets_file` — arquivo de secrets da máquina, no formato `KEY=value` (sem `export`, uma chave por
+  linha, comentários com `#`), consultado quando a variável nomeada por um campo `*_token_env` não
+  está no ambiente. Default `~/.secrets`. Existe porque **a sessão de um subagente não herda o que foi
+  exportado interativamente no shell do usuário**: sem ler o arquivo, todo elo que roda em fan-out
+  concluiria "sem token" numa máquina que tem token. O bloco `quality_gate` aceita um `secrets_file`
+  próprio, que **vence** este para aquele bloco — um cofre separado para o token do gate externo é
+  legítimo; o default é os dois lerem o mesmo arquivo.
+
+  As regras de manuseio (nunca ecoar, nunca gravar, autenticar por header, avisar quando a permissão
+  do arquivo for frouxa) valem para **qualquer** token lido daqui e moram em
+  `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do token".
 - `mcp` — prefixos das MCP tools que os elos com integração externa usam. Dois canais:
   `docs` (leitura de documento — o modo doc do `flux:review` e do `flux:peek`) e `slack`
   (o `flux:reply`). Declare **o prefixo**, não os nomes das tools: o elo descobre as tools daquele
@@ -362,6 +387,8 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
 - `mcp` = ausente; cada elo com integração externa descobre a capacidade na sessão e degrada
   declarando a perda quando não achar (o `flux:reply` sem canal Slack aborta; o modo doc do
   `flux:review`/`flux:peek` aborta só naquele alvo).
+- `linear_token_env` = `LINEAR_API_KEY`; `secrets_file` = `~/.secrets`. Sem a variável no ambiente e
+  sem a linha no arquivo, o gate de transporte do `flux:issue` fica em **MCP** e diz isso no banner.
 - `quality_gate` = ausente (sem consulta à API de quality gates; gate externo é tratado como
   pendência humana com degradação declarada — ver `${FLUX_ROOT}/shared/quality-gate-api.md`).
 
