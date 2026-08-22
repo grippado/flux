@@ -1,5 +1,5 @@
 import { resolveContext } from "./resolve.ts";
-import { buildPrompt } from "./prompt.ts";
+import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
 import { launchClaude } from "./launch.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
@@ -18,7 +18,7 @@ function isSupportedVerb(s: string): s is Verb {
 
 function printUsage(): void {
   console.error("Uso: flux resolve [alvo] [--repo <slug>] --json");
-  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry]");
+  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe]");
   console.error("");
   console.error(`Verbos suportados: ${SUPPORTED_VERBS.join(", ")}`);
 }
@@ -29,6 +29,7 @@ function parseArgs(argv: string[]): {
   repo: string | null;
   json: boolean;
   dry: boolean;
+  safe: boolean;
   rest: string[];
 } {
   const args = [...argv];
@@ -37,6 +38,7 @@ function parseArgs(argv: string[]): {
   let repo: string | null = null;
   let json = false;
   let dry = false;
+  let safe = false;
   const rest: string[] = [];
 
   if (args.length > 0) {
@@ -55,6 +57,9 @@ function parseArgs(argv: string[]): {
     } else if (a === "--dry") {
       dry = true;
       i++;
+    } else if (a === "--safe") {
+      safe = true;
+      i++;
     } else if (!target && !a.startsWith("--")) {
       target = a;
       i++;
@@ -64,7 +69,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { subcommand, target, repo, json, dry, rest };
+  return { subcommand, target, repo, json, dry, safe, rest };
 }
 
 async function runResolve(opts: {
@@ -110,9 +115,10 @@ async function runVerb(opts: {
   target: string | null;
   repo: string | null;
   dry: boolean;
+  safe: boolean;
   rest: string[];
 }): Promise<void> {
-  const { verb, target, repo, dry, rest } = opts;
+  const { verb, target, repo, dry, safe, rest } = opts;
 
   if (target && isTicket(target)) {
     console.error(`Alvo de ticket (${target}) fora do escopo da v0. Use a interface web do Linear para este fluxo.`);
@@ -131,19 +137,22 @@ async function runVerb(opts: {
   const extraArgs = rest.join(" ");
   const args = [targetArg, repoFlag, extraArgs].filter(Boolean).join(" ").trim();
 
-  const command = buildPrompt(ctx, verb, args);
+  const body = buildPromptBody(ctx, verb, args);
+  const invocation = resolveInvocation({ safe });
+  const command = buildCommand(body, { safe });
 
   if (dry) {
     console.log(command);
     return;
   }
 
-  if (!commandExists("claude")) {
+  const binary = invocation.split(" ")[0]!;
+  if (binary === "claude" && !commandExists("claude")) {
     console.error("claude não encontrado no PATH. Instale via: npm install -g @anthropic-ai/claude-code");
     process.exit(1);
   }
 
-  await launchClaude(command);
+  await launchClaude({ command, body, invocation });
 }
 
 function commandExists(cmd: string): boolean {
@@ -163,7 +172,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { subcommand, target, repo, json, dry, rest } = parseArgs(argv);
+  const { subcommand, target, repo, json, dry, safe, rest } = parseArgs(argv);
 
   if (!subcommand) {
     printUsage();
@@ -181,7 +190,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await runVerb({ verb: subcommand, target, repo, dry, rest });
+  await runVerb({ verb: subcommand, target, repo, dry, safe, rest });
 }
 
 if (import.meta.main) {

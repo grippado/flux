@@ -71,6 +71,12 @@ você roda `flux review meu-repo` no terminal e a aba já nasce com o bloco PREF
 de aba funciona no iTerm2 e no Terminal.app (macOS); em qualquer outro emulador a CLI imprime o
 comando no stdout e avisa no stderr, para que você cole e execute manualmente.
 
+**Permissões:** por default a sessão abre com `claude --dangerously-skip-permissions` — a CLI existe
+para despachar trabalho, e uma aba que para no primeiro prompt de permissão não despacha nada. Quem
+preferir a sessão com os gates de permissão do harness passa `--safe`. Para usar um wrapper próprio no
+lugar do `claude` (um alias de conta, um launcher com sync), exporte `FLUX_CLAUDE_CMD` com o comando
+completo: ele é usado verbatim e as flags passam a ser responsabilidade dele.
+
 #### Instalação
 
 ```bash

@@ -74,8 +74,8 @@ describe("launchClaude: caminhos de execução", () => {
   it("fallback quando osascript indisponivel", async () => {
     const cap = captureWrites();
     try {
-      await launchClaude("claude hello", { checkOsascript: () => false, termProgram: "iTerm.app" });
-      expect(cap.stdout.join("")).toContain("claude hello");
+      await launchClaude({ command: 'claude "hello"', body: "hello", invocation: "claude" }, { checkOsascript: () => false, termProgram: "iTerm.app" });
+      expect(cap.stdout.join("")).toContain('claude "hello"');
       expect(cap.stderr.join("")).toContain("aviso");
     } finally {
       cap.restore();
@@ -86,7 +86,7 @@ describe("launchClaude: caminhos de execução", () => {
     let scriptUsed = "";
     const cap = captureWrites();
     try {
-      await launchClaude("claude hello", {
+      await launchClaude({ command: 'claude "hello"', body: "hello", invocation: "claude" }, {
         checkOsascript: () => true,
         execScript: (s) => { scriptUsed = s; return true; },
         termProgram: "iTerm.app",
@@ -104,7 +104,7 @@ describe("launchClaude: caminhos de execução", () => {
     let scriptUsed = "";
     const cap = captureWrites();
     try {
-      await launchClaude("claude hello", {
+      await launchClaude({ command: 'claude "hello"', body: "hello", invocation: "claude" }, {
         checkOsascript: () => true,
         execScript: (s) => { scriptUsed = s; return true; },
         termProgram: "Apple_Terminal",
@@ -126,7 +126,7 @@ describe("launchClaude: caminhos de execução", () => {
 
     const cap = captureWrites();
     try {
-      await launchClaude(multiLinePrompt, {
+      await launchClaude({ command: `claude "${multiLinePrompt}"`, body: multiLinePrompt, invocation: "claude --dangerously-skip-permissions" }, {
         checkOsascript: () => true,
         execScript: (s) => { scriptUsed = s; return true; },
         termProgram: "iTerm.app",
@@ -141,7 +141,9 @@ describe("launchClaude: caminhos de execução", () => {
       expect(writeTextLine!).not.toContain("\n");
       expect(writeTextLine!).not.toMatch(/\\n/);
       expect(capturedPrompt).toBe(multiLinePrompt);
+      expect(capturedPrompt).not.toContain('claude "');
       expect(scriptUsed).toContain(capturedPath);
+      expect(scriptUsed).toContain("--dangerously-skip-permissions");
     } finally {
       cap.restore();
     }
@@ -150,11 +152,11 @@ describe("launchClaude: caminhos de execução", () => {
   it("terminal nao reconhecido cai no fallback mesmo com osascript disponivel", async () => {
     const cap = captureWrites();
     try {
-      await launchClaude("claude hello", {
+      await launchClaude({ command: 'claude "hello"', body: "hello", invocation: "claude" }, {
         checkOsascript: () => true,
         termProgram: "hyper",
       });
-      expect(cap.stdout.join("")).toContain("claude hello");
+      expect(cap.stdout.join("")).toContain('claude "hello"');
       expect(cap.stderr.join("")).toContain("aviso");
     } finally {
       cap.restore();
