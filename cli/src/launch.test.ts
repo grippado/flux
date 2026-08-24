@@ -144,6 +144,23 @@ describe("launchClaude: caminhos de execução", () => {
       expect(capturedPrompt).not.toContain('claude "');
       expect(scriptUsed).toContain(capturedPath);
       expect(scriptUsed).toContain("--dangerously-skip-permissions");
+      expect(scriptUsed).toContain(`-- \\"$(cat '${capturedPath}')\\"`);
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("separa o prompt com -- para o Commander.js nao interpretar conteudo iniciado em -- como opcao", async () => {
+    let scriptUsed = "";
+    const cap = captureWrites();
+    try {
+      await launchClaude({ command: "claude", body: "--- PREFLIGHT RESOLVIDO ---", invocation: "claude --dangerously-skip-permissions" }, {
+        checkOsascript: () => true,
+        execScript: (s) => { scriptUsed = s; return true; },
+        termProgram: "iTerm.app",
+        writePromptFile: () => "/tmp/flux-prompt-test/prompt.txt",
+      });
+      expect(scriptUsed).toContain("--dangerously-skip-permissions -- ");
     } finally {
       cap.restore();
     }

@@ -71,6 +71,11 @@ export type LaunchRequest = {
   invocation: string;
 };
 
+export function buildShellCmd(invocation: string, filePath: string): string {
+  const escapedPath = filePath.replace(/'/g, "'\\''");
+  return `${invocation} -- "$(cat '${escapedPath}')"`;
+}
+
 export async function launchClaude(req: LaunchRequest, deps: LaunchDeps = {}): Promise<void> {
   const termProgram = "termProgram" in deps ? deps.termProgram : process.env["TERM_PROGRAM"];
   const isAvailable = deps.checkOsascript ?? osascriptAvailable;
@@ -92,8 +97,7 @@ export async function launchClaude(req: LaunchRequest, deps: LaunchDeps = {}): P
   let script: string;
   if (termProgram === "iTerm.app" || termProgram === "Apple_Terminal") {
     const filePath = writeFile(req.body);
-    const escapedPath = filePath.replace(/'/g, "'\\''");
-    const shellCmd = `${req.invocation} "$(cat '${escapedPath}')"`;
+    const shellCmd = buildShellCmd(req.invocation, filePath);
     if (termProgram === "iTerm.app") {
       script = buildITermScript(shellCmd);
     } else {
