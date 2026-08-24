@@ -1,6 +1,6 @@
 {
   "name": "flux-cli",
-  "version": "1.24.2",
+  "version": "1.26.0",
   "private": true,
   "scripts": {
     "test": "bun test",

@@ -1,1 +1,6 @@
 .DS_Store
+cli/flux
+cli/*.bun-build
+benchmark/results/
+benchmark/fixtures/
+__pycache__/

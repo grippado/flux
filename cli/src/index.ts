@@ -1,6 +1,9 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
-import { launchClaude } from "./launch.ts";
+import { launchClaude, runHere } from "./launch.ts";
+import { runPreflight } from "./preflight.ts";
+import { gatherPr } from "./gather.ts";
+import { repoSlugFromTarget } from "./github-url.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
@@ -18,7 +21,9 @@ function isSupportedVerb(s: string): s is Verb {
 
 function printUsage(): void {
   console.error("Uso: flux resolve [alvo] [--repo <slug>] --json");
-  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe]");
+  console.error("     flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
+  console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
+  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--here]");
   console.error("");
   console.error(`Verbos suportados: ${SUPPORTED_VERBS.join(", ")}`);
 }
@@ -27,18 +32,26 @@ function parseArgs(argv: string[]): {
   subcommand: string | null;
   target: string | null;
   repo: string | null;
+  family: string | null;
+  out: string | null;
   json: boolean;
   dry: boolean;
   safe: boolean;
+  here: boolean;
+  threads: boolean;
   rest: string[];
 } {
   const args = [...argv];
   let subcommand: string | null = null;
   let target: string | null = null;
   let repo: string | null = null;
+  let family: string | null = null;
+  let out: string | null = null;
   let json = false;
   let dry = false;
   let safe = false;
+  let here = false;
+  let threads = false;
   const rest: string[] = [];
 
   if (args.length > 0) {
@@ -51,6 +64,12 @@ function parseArgs(argv: string[]): {
     if (a === "--repo" && i + 1 < args.length) {
       repo = args[i + 1];
       i += 2;
+    } else if (a === "--family" && i + 1 < args.length) {
+      family = args[i + 1];
+      i += 2;
+    } else if (a === "--out" && i + 1 < args.length) {
+      out = args[i + 1];
+      i += 2;
     } else if (a === "--json") {
       json = true;
       i++;
@@ -59,6 +78,12 @@ function parseArgs(argv: string[]): {
       i++;
     } else if (a === "--safe") {
       safe = true;
+      i++;
+    } else if (a === "--here") {
+      here = true;
+      i++;
+    } else if (a === "--threads") {
+      threads = true;
       i++;
     } else if (!target && !a.startsWith("--")) {
       target = a;
@@ -69,7 +94,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { subcommand, target, repo, json, dry, safe, rest };
+  return { subcommand, target, repo, family, out, json, dry, safe, here, threads, rest };
 }
 
 async function runResolve(opts: {
@@ -78,7 +103,7 @@ async function runResolve(opts: {
   json: boolean;
 }): Promise<void> {
   const ctx = await resolveContext({
-    repoSlug: opts.repo ?? (opts.target && !opts.target.startsWith("/") ? opts.target : null),
+    repoSlug: opts.repo ?? repoSlugFromTarget(opts.target) ?? (opts.target && !opts.target.startsWith("/") ? opts.target : null),
     targetPath: opts.target,
     cwd: process.cwd(),
   });
@@ -116,16 +141,17 @@ async function runVerb(opts: {
   repo: string | null;
   dry: boolean;
   safe: boolean;
+  here: boolean;
   rest: string[];
 }): Promise<void> {
-  const { verb, target, repo, dry, safe, rest } = opts;
+  const { verb, target, repo, dry, safe, here, rest } = opts;
 
   if (target && isTicket(target)) {
     console.error(`Alvo de ticket (${target}) fora do escopo da v0. Use a interface web do Linear para este fluxo.`);
     process.exit(1);
   }
 
-  const repoSlug = repo ?? null;
+  const repoSlug = repo ?? repoSlugFromTarget(target);
   const ctx = await resolveContext({
     repoSlug,
     targetPath: target,
@@ -152,6 +178,11 @@ async function runVerb(opts: {
     process.exit(1);
   }
 
+  if (here) {
+    const exitCode = runHere({ command, body, invocation });
+    process.exit(exitCode);
+  }
+
   await launchClaude({ command, body, invocation });
 }
 
@@ -172,7 +203,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { subcommand, target, repo, json, dry, safe, rest } = parseArgs(argv);
+  const { subcommand, target, repo, family, out, json, dry, safe, here, threads, rest } = parseArgs(argv);
 
   if (!subcommand) {
     printUsage();
@@ -184,13 +215,45 @@ async function main(): Promise<void> {
     return;
   }
 
+  if (subcommand === "preflight") {
+    if (!target) {
+      console.error("Uso: flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
+      process.exit(2);
+    }
+    const result = await runPreflight({
+      verb: target,
+      target: rest[0] ?? null,
+      repo,
+      family,
+      cwd: process.cwd(),
+    });
+    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    process.exit(result.status === "abort" ? 3 : 0);
+  }
+
+  if (subcommand === "gather") {
+    if (target !== "pr" || !rest[0]) {
+      console.error("Uso: flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
+      process.exit(2);
+    }
+    const result = await gatherPr({
+      target: rest[0],
+      repo,
+      cwd: process.cwd(),
+      threads,
+      outDir: out,
+    });
+    process.stdout.write(JSON.stringify(result, null, 2) + "\n");
+    process.exit(result.status === "abort" ? 3 : 0);
+  }
+
   if (!isSupportedVerb(subcommand)) {
     console.error(`Verbo desconhecido: "${subcommand}"`);
     console.error(`Verbos suportados: ${SUPPORTED_VERBS.join(", ")}`);
     process.exit(1);
   }
 
-  await runVerb({ verb: subcommand, target, repo, dry, safe, rest });
+  await runVerb({ verb: subcommand, target, repo, dry, safe, here, rest });
 }
 
 if (import.meta.main) {

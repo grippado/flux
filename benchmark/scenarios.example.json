@@ -1,0 +1,12 @@
+[
+  {
+    "id": "C1",
+    "dir": "/Users/gabriel.gripp/www/isaac/gravity-design-system",
+    "prompt": "/flux:review 1053 --solo — não grave artefato no vault nem poste nada no GitHub; imprima o parecer só no chat"
+  },
+  {
+    "id": "C3",
+    "dir": "/Users/gabriel.gripp/www/isaac/gravity-design-system",
+    "prompt": "/flux:peek 1055"
+  }
+]

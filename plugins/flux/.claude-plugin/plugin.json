@@ -1,7 +1,7 @@
 {
   "name": "flux",
   "description": "Ciclo de trabalho agêntico para qualquer repo Git: refine, issue, build, peek, review, iterate, land e reply, mais o map e o equip, que preparam a máquina e o repo. Global e context-agnóstico, com o que é específico do seu time vindo de um manifesto, nunca hardcoded.",
-  "version": "1.24.2",
+  "version": "1.26.0",
   "author": {
     "name": "Gabriel Gripp",
     "email": "550632+grippado@users.noreply.github.com"

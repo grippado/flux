@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "fs";
-import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude } from "./launch.ts";
+import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, assertSafeInvocation, buildShellCmd } from "./launch.ts";
 
 function captureWrites(): { stdout: string[]; stderr: string[]; restore: () => void } {
   const stdout: string[] = [];
@@ -37,6 +37,31 @@ describe("escapeAppleScript: backslash antes de aspas", () => {
   });
 });
 
+describe("assertSafeInvocation: rejeita metacaractere de shell em FLUX_CLAUDE_CMD", () => {
+  it("lanca para encadeamento e execucao de subcomando", () => {
+    expect(() => assertSafeInvocation("claude; rm -rf /")).toThrow();
+    expect(() => assertSafeInvocation("claude && echo pwned")).toThrow();
+    expect(() => assertSafeInvocation("claude | tee /tmp/x")).toThrow();
+    expect(() => assertSafeInvocation("claude $(cat /etc/passwd)")).toThrow();
+    expect(() => assertSafeInvocation("claude `whoami`")).toThrow();
+  });
+
+  it("lanca para redirecionamento", () => {
+    expect(() => assertSafeInvocation("claude > /tmp/output")).toThrow();
+    expect(() => assertSafeInvocation("claude < /tmp/input")).toThrow();
+  });
+
+  it("nao lanca para invocacao limpa", () => {
+    expect(() => assertSafeInvocation("claude")).not.toThrow();
+    expect(() => assertSafeInvocation("claude --dangerously-skip-permissions")).not.toThrow();
+    expect(() => assertSafeInvocation("/usr/local/bin/claude")).not.toThrow();
+  });
+
+  it("buildShellCmd propaga a rejeicao de assertSafeInvocation", () => {
+    expect(() => buildShellCmd("claude; rm -rf /", "/tmp/prompt.txt")).toThrow();
+  });
+});
+
 describe("buildITermScript: estrutura AppleScript correta", () => {
   it("menciona iTerm2 e write text", () => {
     const script = buildITermScript("claude hello");
@@ -67,6 +92,34 @@ describe("buildTerminalScript: do script + activate", () => {
   it("embute o comando escapado", () => {
     const script = buildTerminalScript('claude "hello"');
     expect(script).toContain('do script "claude \\"hello\\""');
+  });
+});
+
+describe("runHere: executa na aba atual via shell interativo, sem osascript", () => {
+  it("passa por zsh -i -c para resolver funcoes/aliases (ex.: FLUX_CLAUDE_CMD apontando pra uma shell function)", () => {
+    let argvUsed: string[] = [];
+    const exitCode = runHere(
+      { command: "irrelevante", body: "--- PREFLIGHT RESOLVIDO ---\n/flux:iterate 4742", invocation: "scc" },
+      {
+        spawn: (argv) => { argvUsed = argv; return 0; },
+        writePromptFile: () => "/tmp/flux-prompt-test/prompt.txt",
+        shell: "/bin/zsh",
+      },
+    );
+    expect(argvUsed[0]).toBe("/bin/zsh");
+    expect(argvUsed[1]).toBe("-i");
+    expect(argvUsed[2]).toBe("-c");
+    expect(argvUsed[3]).toContain("scc -- ");
+    expect(argvUsed[3]).toContain("$(cat '/tmp/flux-prompt-test/prompt.txt')");
+    expect(exitCode).toBe(0);
+  });
+
+  it("propaga o exit code do processo filho", () => {
+    const exitCode = runHere(
+      { command: "irrelevante", body: "hello", invocation: "claude" },
+      { spawn: () => 7, writePromptFile: () => "/tmp/flux-prompt-test/prompt.txt" },
+    );
+    expect(exitCode).toBe(7);
   });
 });
 
@@ -144,6 +197,23 @@ describe("launchClaude: caminhos de execução", () => {
       expect(capturedPrompt).not.toContain('claude "');
       expect(scriptUsed).toContain(capturedPath);
       expect(scriptUsed).toContain("--dangerously-skip-permissions");
+      expect(scriptUsed).toContain(`-- \\"$(cat '${capturedPath}')\\"`);
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("separa o prompt com -- para o Commander.js nao interpretar conteudo iniciado em -- como opcao", async () => {
+    let scriptUsed = "";
+    const cap = captureWrites();
+    try {
+      await launchClaude({ command: "claude", body: "--- PREFLIGHT RESOLVIDO ---", invocation: "claude --dangerously-skip-permissions" }, {
+        checkOsascript: () => true,
+        execScript: (s) => { scriptUsed = s; return true; },
+        termProgram: "iTerm.app",
+        writePromptFile: () => "/tmp/flux-prompt-test/prompt.txt",
+      });
+      expect(scriptUsed).toContain("--dangerously-skip-permissions -- ");
     } finally {
       cap.restore();
     }

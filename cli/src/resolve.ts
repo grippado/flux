@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "fs";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "fs";
 import { join, dirname, basename, resolve as resolvePath } from "path";
 import { homedir } from "os";
 import * as readline from "readline";
@@ -115,7 +115,13 @@ function resolveFluxRoot(): { root: string; source: string } {
   const pluginMarker = findCodexPluginMarker();
   if (pluginMarker) return { root: pluginMarker, source: "codex-plugin-marker" };
 
-  const selfDir = dirname(import.meta.path ?? __filename);
+  const selfPath = import.meta.path ?? __filename;
+  let selfDir: string;
+  try {
+    selfDir = dirname(realpathSync(selfPath));
+  } catch {
+    selfDir = dirname(selfPath);
+  }
   const twoUp = resolvePath(selfDir, "..", "..");
   if (existsSync(join(twoUp, "shared"))) return { root: twoUp, source: "two-levels-up" };
 
@@ -156,14 +162,20 @@ function scanForManifests(searchRoots: string[]): ManifestRecord[] {
     try {
       for (const configDir of [".claude", ".cursor"]) {
         const manifestPath = join(dir, configDir, "flux-context.json");
-        if (!seen.has(manifestPath) && existsSync(manifestPath)) {
-          seen.add(manifestPath);
+        if (existsSync(manifestPath)) {
+          let dedupeKey = manifestPath;
           try {
-            const raw = JSON.parse(readFileSync(manifestPath, "utf-8"));
-            if (raw && typeof raw === "object") {
-              results.push({ path: manifestPath, dir, manifest: raw as FluxManifest });
-            }
+            dedupeKey = realpathSync(manifestPath);
           } catch {}
+          if (!seen.has(dedupeKey)) {
+            seen.add(dedupeKey);
+            try {
+              const raw = JSON.parse(readFileSync(manifestPath, "utf-8"));
+              if (raw && typeof raw === "object") {
+                results.push({ path: manifestPath, dir, manifest: raw as FluxManifest });
+              }
+            } catch {}
+          }
         }
       }
       const entries = readdirSync(dir, { withFileTypes: true });
@@ -317,15 +329,14 @@ export async function resolveContext(opts: {
   let anchor = resolveAnchor(targetPath, cwd, repoSlug);
 
   let unresolvedSlug: string | null = null;
-  if (targetPath) {
-    const abs = resolvePath(cwd, targetPath);
-    if (!existsSync(abs)) unresolvedSlug = targetPath;
-  }
-  if (!unresolvedSlug && repoSlug) {
+  if (repoSlug) {
     const simpleCandidates = [join(cwd, repoSlug), join(cwd, "..", repoSlug)];
     if (!simpleCandidates.some((c) => existsSync(join(c, ".git")))) {
       unresolvedSlug = repoSlug;
     }
+  } else if (targetPath) {
+    const abs = resolvePath(cwd, targetPath);
+    if (!existsSync(abs)) unresolvedSlug = targetPath;
   }
 
   if (unresolvedSlug) {

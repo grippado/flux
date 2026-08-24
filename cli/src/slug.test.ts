@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "fs";
+import { mkdirSync, writeFileSync, rmSync, mkdtempSync, symlinkSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { filterManifestsClaimingSlug, resolveContext, type ManifestRecord } from "./resolve.ts";
@@ -98,6 +98,56 @@ describe("resolucao por slug no resolveContext: 1 candidato", () => {
       expect(ctx.anchor).not.toBe(tmpDir);
     } finally {
       rmSync(wsDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("resolucao por slug no resolveContext: repoSlug tem prioridade sobre targetPath nao-git", () => {
+  it("usa repoSlug (nao a URL da PR) para casar contra repos[] do manifesto", async () => {
+    const wsDir = mkdtempSync(join(tmpdir(), "flux-slug-ws-"));
+    try {
+      makeGitRepo(wsDir, "rf-monorepo");
+      writeManifest(wsDir, { name: "arco", repos: ["rf-monorepo"], workspace_root: wsDir });
+
+      const ctx = await resolveContext({
+        repoSlug: "rf-monorepo",
+        targetPath: "https://github.com/OlaIsaac/rf-monorepo/pull/4742",
+        cwd: tmpDir,
+        searchRoots: [wsDir],
+      });
+
+      expect(ctx.profile).toBe("arco");
+      expect(ctx.anchor).toContain("rf-monorepo");
+      expect(ctx.warnings.some((w) => w.includes("pull/4742"))).toBe(false);
+    } finally {
+      rmSync(wsDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("resolucao por slug no resolveContext: manifesto alcancado por dois caminhos nao duplica candidato", () => {
+  it("deduplica via realpath quando um symlink de diretorio expoe o mesmo manifesto sob outro caminho", async () => {
+    const realRoot = mkdtempSync(join(tmpdir(), "flux-real-"));
+    const searchRoot = mkdtempSync(join(tmpdir(), "flux-search-"));
+    try {
+      makeGitRepo(realRoot, "rf-monorepo");
+      writeManifest(realRoot, { name: "arco", repos: ["rf-monorepo"], workspace_root: realRoot });
+
+      const linkedDir = join(searchRoot, "isaac-link");
+      mkdirSync(linkedDir, { recursive: true });
+      symlinkSync(join(realRoot, ".claude"), join(linkedDir, ".claude"));
+
+      const ctx = await resolveContext({
+        targetPath: "rf-monorepo",
+        cwd: tmpDir,
+        searchRoots: [realRoot, searchRoot],
+      });
+
+      expect(ctx.profile).toBe("arco");
+      expect(ctx.anchor).toContain("rf-monorepo");
+    } finally {
+      rmSync(realRoot, { recursive: true, force: true });
+      rmSync(searchRoot, { recursive: true, force: true });
     }
   });
 });
