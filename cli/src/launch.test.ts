@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "fs";
-import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere } from "./launch.ts";
+import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, assertSafeInvocation, buildShellCmd } from "./launch.ts";
 
 function captureWrites(): { stdout: string[]; stderr: string[]; restore: () => void } {
   const stdout: string[] = [];
@@ -34,6 +34,31 @@ describe("escapeAppleScript: backslash antes de aspas", () => {
 
   it("string sem caracteres especiais fica intacta", () => {
     expect(escapeAppleScript("claude /flux:review")).toBe("claude /flux:review");
+  });
+});
+
+describe("assertSafeInvocation: rejeita metacaractere de shell em FLUX_CLAUDE_CMD", () => {
+  it("lanca para encadeamento e execucao de subcomando", () => {
+    expect(() => assertSafeInvocation("claude; rm -rf /")).toThrow();
+    expect(() => assertSafeInvocation("claude && echo pwned")).toThrow();
+    expect(() => assertSafeInvocation("claude | tee /tmp/x")).toThrow();
+    expect(() => assertSafeInvocation("claude $(cat /etc/passwd)")).toThrow();
+    expect(() => assertSafeInvocation("claude `whoami`")).toThrow();
+  });
+
+  it("lanca para redirecionamento", () => {
+    expect(() => assertSafeInvocation("claude > /tmp/output")).toThrow();
+    expect(() => assertSafeInvocation("claude < /tmp/input")).toThrow();
+  });
+
+  it("nao lanca para invocacao limpa", () => {
+    expect(() => assertSafeInvocation("claude")).not.toThrow();
+    expect(() => assertSafeInvocation("claude --dangerously-skip-permissions")).not.toThrow();
+    expect(() => assertSafeInvocation("/usr/local/bin/claude")).not.toThrow();
+  });
+
+  it("buildShellCmd propaga a rejeicao de assertSafeInvocation", () => {
+    expect(() => buildShellCmd("claude; rm -rf /", "/tmp/prompt.txt")).toThrow();
   });
 });
 

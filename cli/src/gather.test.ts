@@ -190,6 +190,52 @@ describe("gatherPr", () => {
     expect(r.threads_path).not.toBeNull();
   });
 
+  test("entrada null dentro de nodes do GraphQL nao quebra o map", async () => {
+    const graphql = {
+      data: {
+        repository: {
+          pullRequest: {
+            reviewThreads: {
+              nodes: [
+                null,
+                {
+                  isResolved: false,
+                  path: "src/x.ts",
+                  line: 84,
+                  comments: {
+                    nodes: [
+                      { databaseId: 1, url: "u1", author: { login: "senior" }, body: "TTL configuravel?", createdAt: "2026-08-21T00:00:00Z" },
+                    ],
+                  },
+                },
+                null,
+              ],
+            },
+          },
+        },
+      },
+    };
+    const r = await gatherPr({
+      target: "247",
+      repo: "acme/api",
+      cwd: tmp,
+      threads: true,
+      outDir: join(tmp, "out"),
+      gh: fakeGh({
+        "pr view": { ok: true, stdout: JSON.stringify(PR_VIEW) },
+        "pr diff": { ok: true, stdout: "diff" },
+        "api users/marcelino -q .name": { ok: true, stdout: "" },
+        "api user -q .login": { ok: true, stdout: "gabriel\n" },
+        "api graphql": { ok: true, stdout: JSON.stringify(graphql) },
+        "api repos/acme/api/issues/247/comments": { ok: true, stdout: "[]" },
+      }),
+    });
+    expect(r.status).toBe("ok");
+    expect(r.thread_count).toBe(1);
+    const thread = r.threads?.[0] as Record<string, unknown>;
+    expect(thread["author"]).toBe("senior");
+  });
+
   test("body de thread com 200+ chars busca o completo via REST", async () => {
     const truncated = "x".repeat(200);
     const full = "x".repeat(200) + " e o resto do argumento que o GraphQL cortou";
