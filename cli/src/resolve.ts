@@ -323,15 +323,14 @@ export async function resolveContext(opts: {
   let anchor = resolveAnchor(targetPath, cwd, repoSlug);
 
   let unresolvedSlug: string | null = null;
-  if (targetPath) {
-    const abs = resolvePath(cwd, targetPath);
-    if (!existsSync(abs)) unresolvedSlug = targetPath;
-  }
-  if (!unresolvedSlug && repoSlug) {
+  if (repoSlug) {
     const simpleCandidates = [join(cwd, repoSlug), join(cwd, "..", repoSlug)];
     if (!simpleCandidates.some((c) => existsSync(join(c, ".git")))) {
       unresolvedSlug = repoSlug;
     }
+  } else if (targetPath) {
+    const abs = resolvePath(cwd, targetPath);
+    if (!existsSync(abs)) unresolvedSlug = targetPath;
   }
 
   if (unresolvedSlug) {

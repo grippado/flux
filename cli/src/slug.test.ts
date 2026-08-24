@@ -102,6 +102,29 @@ describe("resolucao por slug no resolveContext: 1 candidato", () => {
   });
 });
 
+describe("resolucao por slug no resolveContext: repoSlug tem prioridade sobre targetPath nao-git", () => {
+  it("usa repoSlug (nao a URL da PR) para casar contra repos[] do manifesto", async () => {
+    const wsDir = mkdtempSync(join(tmpdir(), "flux-slug-ws-"));
+    try {
+      makeGitRepo(wsDir, "rf-monorepo");
+      writeManifest(wsDir, { name: "arco", repos: ["rf-monorepo"], workspace_root: wsDir });
+
+      const ctx = await resolveContext({
+        repoSlug: "rf-monorepo",
+        targetPath: "https://github.com/OlaIsaac/rf-monorepo/pull/4742",
+        cwd: tmpDir,
+        searchRoots: [wsDir],
+      });
+
+      expect(ctx.profile).toBe("arco");
+      expect(ctx.anchor).toContain("rf-monorepo");
+      expect(ctx.warnings.some((w) => w.includes("pull/4742"))).toBe(false);
+    } finally {
+      rmSync(wsDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("resolucao por slug no resolveContext: 0 candidatos", () => {
   it("adiciona warning e ancora no cwd quando nenhum manifesto reivindica", async () => {
     const isolatedSearch = mkdtempSync(join(tmpdir(), "flux-empty-search-"));

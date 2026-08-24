@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "fs";
 import { join, dirname, resolve as resolvePath } from "path";
 import { homedir } from "os";
 import { resolveContext, type FluxManifest, type ResolvedContext } from "./resolve.ts";
+import { repoSlugFromTarget } from "./github-url.ts";
 
 export const PREFLIGHT_SCHEMA_VERSION = "1.0.0";
 
@@ -286,7 +287,7 @@ export async function runPreflight(opts: {
 }): Promise<PreflightResult> {
   const cwd = opts.cwd ?? process.cwd();
   const ctx = await resolveContext({
-    repoSlug: opts.repo ?? null,
+    repoSlug: opts.repo ?? repoSlugFromTarget(opts.target ?? null),
     targetPath: opts.target ?? null,
     cwd,
   });

@@ -3,6 +3,7 @@ import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
 import { launchClaude, runHere } from "./launch.ts";
 import { runPreflight } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
+import { repoSlugFromTarget } from "./github-url.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
@@ -102,7 +103,7 @@ async function runResolve(opts: {
   json: boolean;
 }): Promise<void> {
   const ctx = await resolveContext({
-    repoSlug: opts.repo ?? (opts.target && !opts.target.startsWith("/") ? opts.target : null),
+    repoSlug: opts.repo ?? repoSlugFromTarget(opts.target) ?? (opts.target && !opts.target.startsWith("/") ? opts.target : null),
     targetPath: opts.target,
     cwd: process.cwd(),
   });
@@ -150,7 +151,7 @@ async function runVerb(opts: {
     process.exit(1);
   }
 
-  const repoSlug = repo ?? null;
+  const repoSlug = repo ?? repoSlugFromTarget(target);
   const ctx = await resolveContext({
     repoSlug,
     targetPath: target,
