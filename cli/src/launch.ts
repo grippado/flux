@@ -71,7 +71,18 @@ export type LaunchRequest = {
   invocation: string;
 };
 
+const SHELL_METACHAR_PATTERN = /[;&|`\n]|\$\(/;
+
+export function assertSafeInvocation(invocation: string): void {
+  if (SHELL_METACHAR_PATTERN.test(invocation)) {
+    throw new Error(
+      `invocation contém metacaractere de shell não permitido: ${JSON.stringify(invocation)}. Verifique FLUX_CLAUDE_CMD.`,
+    );
+  }
+}
+
 export function buildShellCmd(invocation: string, filePath: string): string {
+  assertSafeInvocation(invocation);
   const escapedPath = filePath.replace(/'/g, "'\\''");
   return `${invocation} -- "$(cat '${escapedPath}')"`;
 }
