@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "fs";
+import { existsSync, readFileSync, readdirSync, realpathSync } from "fs";
 import { join, dirname, basename, resolve as resolvePath } from "path";
 import { homedir } from "os";
 import * as readline from "readline";
@@ -115,7 +115,13 @@ function resolveFluxRoot(): { root: string; source: string } {
   const pluginMarker = findCodexPluginMarker();
   if (pluginMarker) return { root: pluginMarker, source: "codex-plugin-marker" };
 
-  const selfDir = dirname(import.meta.path ?? __filename);
+  const selfPath = import.meta.path ?? __filename;
+  let selfDir: string;
+  try {
+    selfDir = dirname(realpathSync(selfPath));
+  } catch {
+    selfDir = dirname(selfPath);
+  }
   const twoUp = resolvePath(selfDir, "..", "..");
   if (existsSync(join(twoUp, "shared"))) return { root: twoUp, source: "two-levels-up" };
 

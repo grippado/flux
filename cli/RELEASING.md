@@ -11,7 +11,8 @@ Antes de publicar um binário novo:
    `plugins/flux/.claude-plugin/plugin.json`, `.cursor-plugin/marketplace.json`,
    `plugins/flux/.cursor-plugin/plugin.json`, `plugins/flux/.codex-plugin/plugin.json`)
    quando a release da CLI acompanhar um release de plugin — caso contrário, bumpe só o `cli/package.json`.
-3. Atualize a constante `CLI_VERSION` em `cli/src/prompt.ts` para refletir a nova versão.
+3. A versão embutida no binário (`CLI_VERSION` em `cli/src/prompt.ts`) é lida de `cli/package.json`
+   no build — não há segundo lugar para bumpar.
 4. Reconstrua o binário:
    ```bash
    cd cli && bun run build

@@ -1,6 +1,7 @@
 import type { ResolvedContext } from "./resolve.ts";
+import pkg from "../package.json";
 
-const CLI_VERSION = "1.24.2";
+const CLI_VERSION: string = pkg.version;
 
 export const FLUX_CMD_PREFIX = "/flux:";
 

@@ -1,0 +1,2090 @@
+[
+ {
+  "name": "peek",
+  "contract_lines": 1490,
+  "mechanical_steps": [
+   {
+    "step": "Parsear argumento e classificar tipo de alvo (sem arg → working tree; numérico → PR; URL github → PR; URL docs → doc; string com '..' → git range; nome de branch; path local; outro)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse-args"
+   },
+   {
+    "step": "Resolver FLUX_ROOT via cascata: CLAUDE_PLUGIN_ROOT → CURSOR_PLUGIN_ROOT → marcador .codex-plugin/plugin.json → dois níveis acima do SKILL.md (readlink -f se symlink) → FLUX_HOME",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux root"
+   },
+   {
+    "step": "Resolver FLUX_CMD verificando qual forma a sessão expõe: /flux: → /flux- → / (introspecção da sessão; sem command -v possível)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux root"
+   },
+   {
+    "step": "Resolver âncora a partir do alvo (path local → slug de repo procurado no WORKSPACE_ROOT → cwd) e subir a árvore procurando flux-context.json em .claude/ e .cursor/",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux context-find"
+   },
+   {
+    "step": "Verificar hard requirements declarados no frontmatter: shared/review-legend.md existe em FLUX_ROOT; git disponível (command -v)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Resolver e verificar agente holístico pela cascata: holistic_reviewer do manifesto → override local .claude/agents/reviewer.md → flux:pr-reviewer → flux-pr-reviewer → pr-reviewer; confirmar que está registrado na sessão",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Classificar nível de capacidade: REDUCED (checkout local presente) vs THIN (sem checkout local) — peek nunca atinge FULL por definição",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Coletar diff/conteúdo do alvo: git diff HEAD (working tree), gh pr diff <n> (PR por número ou URL), git diff <range> (range de commits), git diff main..<branch> (branch), ou Read de arquivo/diretório local",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Para alvo PR: coletar título + número + repo + branches via gh pr view (metadados mínimos, sem threads); para branch/working tree: git log main..HEAD --oneline",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Emitir banner de perfil no formato canônico do preflight (perfil/nivel/holistico/degradacoes), verificando soft ausentes",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux banner"
+   }
+  ],
+  "summary": "Peek é o fluxo mais enxuto: ~70% do esforço mecânico é o Step 0 (FLUX_ROOT + FLUX_CMD + context-find + preflight). O modelo gasta 9-12 tool calls antes de coletar o diff, e carrega 1490 linhas de contrato para uma tarefa cujo único julgamento real é a análise do conteúdo pelo holístico. O desperdício principal é a cascata de resolução de ambiente e a descoberta de contexto, que produzem sempre o mesmo resultado dado o mesmo disco e a mesma sessão."
+ },
+ {
+  "name": "review",
+  "contract_lines": 3200,
+  "mechanical_steps": [
+   {
+    "step": "Parsear argumentos: detectar e remover --solo; classificar token restante como número de PR, URL de PR, URL de doc, ou ausente; resolver verbo (pr vs doc, explícito ou inferido)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse-args"
+   },
+   {
+    "step": "Resolver FLUX_ROOT + FLUX_CMD + ADDDIR_CMD + KIT_ROOTS (Passo 1a-d do preflight): cascatas de env vars, marcadores de disco, irmãos de FLUX_ROOT",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux root"
+   },
+   {
+    "step": "Resolver âncora (alvo → slug → manifesto reivindica o slug? → cwd) e varrer árvore por flux-context.json, extraindo todas as variáveis de sessão do manifesto (HOLISTIC, VAULT_ROOT, VAULT_CTX, SPECIALISTS_ROOT, etc.)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux context-find"
+   },
+   {
+    "step": "Verificar hard requirements (review-legend.md, review-artifact-template.md, git, agent holístico) e soft requirements (gh, vault, index); classificar nível FULL/REDUCED/THIN",
+    "est_tool_calls": 5,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Resolver REPO_FULL e PR_NUMBER a partir do target (gh repo view, parse de URL ou git branch --show-current); verificar acesso cross-repo via gh pr diff se necessário",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Coletar metadados da PR via gh pr view --json (number, title, body, author, headRefName, baseRefName, headRefOid, url, state, additions, deletions, changedFiles, commits, assignees)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Coletar diff completo via gh pr diff",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Buscar nome humano do autor (gh api users/{login}); detectar IS_OWN_PR comparando gh api user -q .login com author.login e assignees",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Extrair ticket Linear do título/branch via regex [A-Z]{2,5}-\\d+; montar PR_URL, COMMIT_URL, TICKET_URL (com LINEAR_ORG do manifesto ou null)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Coletar review threads via GraphQL (reviewThreads first:100 com isResolved, path, line, databaseId, url, author, body); para bodies truncados (>200 chars), fetch completo via REST gh api pulls/comments/{databaseId}",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux gather threads"
+   },
+   {
+    "step": "Coletar top-level PR comments via gh api repos/{REPO_FULL}/issues/{PR_NUMBER}/comments; descartar bots (CI, sincronização de ticket, reviewer automático sem conteúdo)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather threads"
+   },
+   {
+    "step": "Buscar rodadas anteriores da mesma PR no vault: ls VAULT_ROOT/0-inbox/ e VAULT_CTX_ROOT/pr-reviews/ filtrando pelo padrão de nome {repo-slug}-PR{number}; ler seção de comentários e frontmatter do mais recente",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux gather vault"
+   },
+   {
+    "step": "Ler arquivos de contexto do checkout local quando disponível: AGENTS.md, CLAUDE.md (qualquer nível), .github/PULL_REQUEST_TEMPLATE.md",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux gather local"
+   },
+   {
+    "step": "Descobrir specialists L2: cascata specialists_root → kits_root → write_destinations → kit aplicável → default da família; para cada candidato, ler frontmatter e verificar name: registrado na sessão (1a-bis do review-agents)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux scan agents"
+   },
+   {
+    "step": "Descobrir specialists L3: find .claude/agents/**.md no checkout; filtrar por intenção de review (path, nome de arquivo, description, tools do frontmatter); desempatar orquestrador; verificar registrado na sessão",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux scan agents"
+   },
+   {
+    "step": "Emitir banner de perfil (perfil/nivel/holistico/lentes L1-L2-L3/degradacoes) com tokens canônicos do preflight (ausente/inalcancavel, L3 stale, kit ambiguo, etc.)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux banner"
+   },
+   {
+    "step": "Computar nome do arquivo de output: YYYY-MM-DD-HHMM-{repo-slug}-PR{number}.md (ou -v2/-v3 se há rodada anterior no mesmo dia); montar path completo VAULT_ROOT/0-inbox/",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux filename"
+   },
+   {
+    "step": "Gravar arquivo markdown no vault (Write tool) após renderização do template",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Step 8b (PR de terceiro): validar números de linha do diff antes de postar (buscar trecho no arquivo RIGHT side); montar JSON payload da review; postar via gh api -X POST .../pulls/{n}/reviews",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux post-review"
+   },
+   {
+    "step": "Step 8a (PR própria): atribuir PR ao usuário se ainda não assignee (gh pr edit --add-assignee); abrir GATE HITL com opções de ação",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux post-review"
+   }
+  ],
+  "summary": "Review é majoritariamente mecânico antes da delegação ao subagente. Os 20 passos mecânicos consomem ~35-40 tool calls antes de qualquer análise. O maior desperdício de tokens é duplo: (1) o modelo carrega 3200 linhas de contrato para executar coleta que é sequência fixa de comandos gh/git; (2) cada etapa de resolução (cascata de FLUX_ROOT, context-find, preflight, specialist discovery) gera texto de raciocínio intermediário que não contribui para o review em si. O julgamento começa apenas no Passo 4 (análise via subagente holístico + reconciliação), que é a parcela mínima."
+ },
+ {
+  "name": "iterate",
+  "contract_lines": 4205,
+  "mechanical_steps": [
+   {
+    "step": "Parsear todos os flags (--auto, --once/--no-watch, --dry, --solo, --no-rebase/--skip-conflict-gate, --parent-board <path>); separar PR spec dos flags; montar variáveis AUTO/WATCH/DRY/SOLO/PARENT_BOARD",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse-args"
+   },
+   {
+    "step": "Verificar autenticação: gh auth status (falha → abortar com instrução)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Resolver FLUX_ROOT + FLUX_CMD + ADDDIR_CMD + KIT_ROOTS (mesma cascata do preflight)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux root"
+   },
+   {
+    "step": "Resolver âncora e localizar flux-context.json; extrair variáveis de sessão (HOLISTIC, VAULT_ROOT, VAULT_CTX, SPECIALISTS_ROOT, ANSWERER, KITS, etc.)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux context-find"
+   },
+   {
+    "step": "Verificar hard/soft requirements e holístico; classificar nível de capacidade",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Resolver PR spec → REPO_FULL + PR_NUMBER: parse de URL (owner/repo/pull/n), gh repo view para número puro, gh pr view sem arg para branch atual",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Coletar metadados da PR incluindo mergeable e mergeStateStatus (gh pr view --json number,title,headRefName,baseRefName,url,state,isDraft,author,headRefOid,mergeable,mergeStateStatus)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Coletar TODAS as threads (abertas + resolvidas) via GraphQL reviewThreads first:100; para bodies truncados, REST gh api pulls/comments/{databaseId}; particionar em threads abertas vs corpus de referência",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux gather threads"
+   },
+   {
+    "step": "Coletar top-level PR issue comments via gh api issues/{n}/comments; particionar em acionáveis vs ignoráveis (bot de CI/Linear/reviewer automático)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather threads"
+   },
+   {
+    "step": "Coletar estado do CI via gh pr checks --json name,state,conclusion,link; classificar agregado (rodando/verde/vermelho)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather ci"
+   },
+   {
+    "step": "Avaliar critério de término antecipado: nenhuma thread acionável + nenhum issue comment sem réplica + CI não vermelho + mergeable==MERGEABLE → reportar no chat e terminar",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Gate de integração: quando mergeable==CONFLICTING, rodar git rev-list --left-right --count e git merge-tree --write-tree --name-only para listar arquivos em conflito; quando UNKNOWN, reconsultar até 3 vezes",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux scan conflict"
+   },
+   {
+    "step": "Quando CI vermelho: coletar log do run falho (gh run view <run-id> --log-failed); quando gate externo (Sonar), consultar API de quality gate conforme quality-gate-api.md para obter condições em ERROR com arquivo:linha",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux gather ci"
+   },
+   {
+    "step": "Descobrir specialists L2 + L3 (mesma mecânica do review: cascata specialists_root, verificar name: registrado na sessão, filtrar L3 por intenção de review, escada de alcance 1b-bis se inalcançável)",
+    "est_tool_calls": 5,
+    "deterministic": true,
+    "cli_candidate": "flux scan agents"
+   },
+   {
+    "step": "Resolver e criar worktree dedicada para headRefName da PR (git worktree list; git worktree add se inexistente; provisionar env a partir de env_vault do manifesto)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux worktree"
+   },
+   {
+    "step": "Criar board no vault: computar caminho VAULT_ROOT/0-inbox/YYYY-MM-DD-HHMM-flux-iterate-pr{N}-{repo-slug}.md; verificar se já existe (retomada de watch); gravar seguindo board-template.md perfil single-PR; registrar proveniência --parent-board se presente",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux board-init"
+   },
+   {
+    "step": "Emitir banner de perfil (perfil/nivel/holistico/lentes/degradacoes) com os tokens canônicos",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux banner"
+   },
+   {
+    "step": "Pre-commit comment check (passo 8, antes de commitar): git diff --cached | grep -nE '^\\+\\s*(//|/\\*|\\*|\\{/\\*|#)'; remover linhas de comentário adicionadas que não sejam diretivas de ferramenta",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux check-comments"
+   },
+   {
+    "step": "Postar réplicas no GitHub: para cada thread endereçada em ordem, gh api .../comments/{databaseId}/replies + gh api .../reactions (-f content=+1 ou -1) + gh api graphql resolveReviewThread; para issue comments, gh api issues/{n}/comments",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux post-replies"
+   },
+   {
+    "step": "Commit + push (opção 1): git add arquivos alterados; git commit via HEREDOC com Conventional Commits + emoji + Co-Authored-By trailer; git push origin headRefName",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux push"
+   },
+   {
+    "step": "Reconciliar título/descrição (Step 8a): gh pr list --limit 20 --json para inferir formato de título; gh pr view --json body para ler body atual; gh pr edit --title / --body-file para edição cirúrgica",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux post-review"
+   },
+   {
+    "step": "Watch loop (tick): recoletar threads + CI + mergeable via os mesmos comandos dos passos 7-10; repetir gate de integração e triagem de CI; atualizar board; invocar nova passada de subagentes se houver delta",
+    "est_tool_calls": 5,
+    "deterministic": true,
+    "cli_candidate": "flux watch"
+   }
+  ],
+  "summary": "Iterate é o fluxo com maior sobrecarga mecânica absoluta: 4205 linhas de contrato e ~55 tool calls de coleta/infraestrutura antes e depois do julgamento real (verificar alegação + rascunhar réplica), que acontece inteiramente em subagente. O desperdício principal está em três lugares: (1) a cascata de resolução de ambiente (FLUX_ROOT, contexto, preflight) é idêntica em todo elo e reexecutada do zero a cada invocação, inclusive nos ticks do watch; (2) a coleta de threads (GraphQL + REST para bodies truncados + issue comments) é uma sequência fixa de até 5 chamadas que hoje exige o modelo para orquestrar uma por uma; (3) a gestão do board (criar, atualizar a cada tick) consome tokens de raciocínio sobre template preenchimento que é puramente estrutural."
+ },
+ {
+  "name": "land",
+  "contract_lines": 3554,
+  "mechanical_steps": [
+   {
+    "step": "Resolver âncora e procurar flux-context.json subindo a árvore (cwd → parent…), extrair HOLISTIC/VAULT_ROOT/REPOS/SPECIALISTS_ROOT etc.",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Inferir ORG via git -C <repo> remote get-url origin no primeiro repo disponível",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "gh auth status para validar ambiente",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Parse de flags --once / --solo / --board e separação de targets (issue URLs vs PR URLs)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse-flags"
+   },
+   {
+    "step": "get_issue via Linear MCP para cada issue-alvo (metadados, sub-issues, anexos/links, relações blocks/blockedBy)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux gather-issue"
+   },
+   {
+    "step": "gh pr list --search <ticket-id> --state all --json para cada repo×ticket (descoberta primária por conteúdo)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux gather-pr"
+   },
+   {
+    "step": "gh pr list --jq select(.headRefName | test) para cross-check por branch pattern (case-insensitive substring)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux gather-pr"
+   },
+   {
+    "step": "git -C <repo> worktree list para cada repo (inspecionar worktrees já existentes)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux scan-worktrees"
+   },
+   {
+    "step": "Verificar existência de checkout local (ls <WORKSPACE_ROOT>/<repo>) para cada repo das PRs descobertas",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux scan-repos"
+   },
+   {
+    "step": "Criar/abrir board no vault (Write para <VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-land-<slug>.md com painel inicial)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux open-board"
+   },
+   {
+    "step": "Ler delivery state JSON (<VAULT_ROOT>/.delivery/<slug>.json) para retomar watch",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux read-state"
+   },
+   {
+    "step": "GraphQL reviewThreads (isResolved + author + reactions) + jq por PR a cada tick",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux gather-pr"
+   },
+   {
+    "step": "gh api repos/<owner>/<repo>/issues/<n>/comments por PR a cada tick (issue comments top-level não chegam via reviewThreads)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux gather-pr"
+   },
+   {
+    "step": "gh pr checks --json para CI agregado por PR a cada tick",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux gather-pr"
+   },
+   {
+    "step": "Consultar quality-gate API (SonarCloud/SonarQube) quando check falhante é identificado como quality gate pelo nome",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux quality-gate"
+   },
+   {
+    "step": "Escrever delivery state JSON atualizado (lastTickAt, resolvedThreadIds, lastHeadSha, quietTicks, iterateRounds) após cada tick",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Emitir banner de perfil VERBATIM (preflight Passo 5) com nivel FULL/REDUCED/THIN, lentes, degradações",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Montar mensagem de review Slack (template fixo ':open-pr:  [ticket] título < repo') e chamar slack_send_message",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "ScheduleWakeup com cadência calculada (270s se CI rodando, 1200s se quiet) para watch consolidado",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "O land é o fluxo com maior desperdício de tokens: carrega 13 shareds (~3109 linhas) que em grande parte descrevem contratos de subagentes e formats de board que o modelo nunca usa inline — apenas repassa para subagentes. A cada tick do watch repete 3 chamadas Bash por PR (GraphQL threads + issue comments + gh pr checks) que são puramente coleta de dados estruturados. A descoberta de PRs (2 rodadas de gh pr list por repo×ticket) e a varredura de worktrees/checkouts são 100% determinísticas e representam ~8-10 tool calls que um CLI 'flux gather-pr' emitiria em JSON pronto. O orçamento de contexto (context-budget.md, 118 linhas) existe para resolver problemas que o CLI eliminaria sem precisar de instrução alguma no contrato."
+ },
+ {
+  "name": "issue",
+  "contract_lines": 2983,
+  "mechanical_steps": [
+   {
+    "step": "Resolver âncora e procurar flux-context.json subindo a árvore; extrair VAULT_ROOT/VAULT_CTX/SPECIALISTS_ROOT/LINEAR_OPS/LINEAR_TOKEN_ENV/SECRETS_FILE",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Detectar tipo de fonte pelo argumento (Slack permalink regex, GitHub PR URL pattern, texto livre) e extrair SOURCE/REQUEST",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse-source"
+   },
+   {
+    "step": "slack_read_thread (se fonte for permalink Slack) para coletar a thread completa",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather-slack"
+   },
+   {
+    "step": "gh pr view --json title,body,files,url,headRefOid + gh pr diff (se fonte for PR)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux gather-pr"
+   },
+   {
+    "step": "Buscar board existente por source: grep type:flux-issue + casar source: em 0-inbox/ e linear/ (dois diretórios)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux find-board"
+   },
+   {
+    "step": "Abrir/criar board no vault (Write <VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux open-board"
+   },
+   {
+    "step": "Resolver token Linear: printenv $TOKEN_VAR; se vazio, grep no SECRETS_FILE",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Ler cache de transporte (.claude/cache/flux-issue-linear-transport.json) antes de abrir o gate de token",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Query Linear {viewer{id name}} para verificar se token autentica",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Query Linear de team/project/labels para resolver UUIDs (uma query, serve todo o lote)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather-linear"
+   },
+   {
+    "step": "Montar permalinks de código: https://github.com/{owner}/{repo}/blob/{sha}/{path}#L{n} a partir dos achados dos prospectors",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Step 6-pos: query de verificação do lote criado (labels, milestone, prioridade, relações de bloqueio, contagem)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux verify-issues"
+   },
+   {
+    "step": "Gravar cache de preferência de transporte (json {transport, reason}) após escolha do usuário",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Fechar board: gravar linear_ids, atualizar execution_status: done, handoff para flux:build",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "O desperdício central do issue está na resolução de contexto e busca de board: o modelo percorre a árvore de diretórios, lê flux-context.json, depois faz grep em dois diretórios do vault para casar source — tudo isso são 5-6 tool calls que um 'flux preflight + flux find-board' resolveria em dados estruturados sem consumir contexto. A verificação pós-criação (Step 6-pos, 1 query Linear) é totalmente determinística e poderia ser um subcomando 'flux verify-issues' independente. O token-resolution + cache de transporte custam ~3 tool calls por execução que o CLI já resolveria no bootstrap."
+ },
+ {
+  "name": "refine",
+  "contract_lines": 3152,
+  "mechanical_steps": [
+   {
+    "step": "Resolver âncora e procurar flux-context.json subindo a árvore; extrair SPECIALISTS_ROOT/REPOS/VAULT_ROOT/VAULT_CTX/NO_EMDASH/SCOPE_ESCALATION",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Parse de flags --repo / --dry / --no-prd e detecção de tipo de fonte (permalink Slack, PR URL, ticket, texto livre)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse-flags"
+   },
+   {
+    "step": "T0: ler scope-gate.md (~221 linhas) e aplicar os sinais ao texto do REQUEST sem nenhuma chamada de agente",
+    "est_tool_calls": 1,
+    "deterministic": false,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Buscar board existente por source em 0-inbox/ e <VAULT_CTX_ROOT>/linear/ (mesmo algoritmo do flux:issue Step 1-bis)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux find-board"
+   },
+   {
+    "step": "Verificar checkouts locais para TARGET_REPOS (ls <WORKSPACE_ROOT>/<repo>) e mapear disponibilidade",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux scan-repos"
+   },
+   {
+    "step": "Ler seção 🔬 Achados de codebase do board existente (Read) para descontar o que já foi verificado antes de reprospectar",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Criar/abrir board no vault (Write <VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md com nome fixo flux-issue mesmo nascendo do refine)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux open-board"
+   },
+   {
+    "step": "T1 pós-prospecção: reaplicar scope-gate com sinais medidos (repos com escrita, diretórios de topo, número de slices)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Consolidar board: rolar carimbo de data (frontmatter updated:, TLDR, painel), gravar scope: no frontmatter, escrever seção 7-septies",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Emitir banner de perfil VERBATIM com linha escopo (T0 provisório, depois reemitido com T1 apurado)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   }
+  ],
+  "summary": "O refine é majoritariamente julgamento: T0/T1 (medir escopo), a redação do PRD-fast e TRD-fast, o plano de slices e a classificação AFK/HITL são todos passos não-determinísticos onde o LLM agrega valor real. Os passos mecânicos representam uma fração menor do fluxo vs. land/issue, concentrados no setup (preflight, find-board, scan-repos, open-board = ~10 tool calls) que se repetem identicamente em todos os elos da família. O custo de contrato (3152 linhas) é alto em relação ao conteúdo de julgamento porque carrega shareds como fanout-discipline e context-budget que o CLI tornaria desnecessários como instrução."
+ },
+ {
+  "name": "reply",
+  "contract_lines": 2245,
+  "mechanical_steps": [
+   {
+    "step": "Resolver âncora e procurar flux-context.json subindo a árvore; extrair VAULT_ROOT/VAULT_CTX/NO_EMDASH/REPOS/WORKSPACE_ROOT/PROSPECTOR/ANSWERER/MCP_SLACK",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Parse de verbo + flags em loop bash (responder/acompanhar/mudou, --once, --board) e identificação de TARGETS[]",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse-flags"
+   },
+   {
+    "step": "Decompor permalink Slack via sed/regex: extrair CHANNEL_ID, MSG_TS, THREAD_TS, KIND (thread/dm/channel)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux parse-slack"
+   },
+   {
+    "step": "Confirmar disponibilidade de MCP Slack (prefixo MCP_SLACK resolvido do manifesto ou descoberta na sessão)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Buscar board existente: grep em 0-inbox/ por boards type:thread cujo surfaces[].channel_id case com CHANNEL_ID (e thread_ts)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux find-board"
+   },
+   {
+    "step": "slack_read_thread (se há thread_ts) ou slack_read_channel (DM/canal) na superfície atual",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather-slack"
+   },
+   {
+    "step": "slack_get_reactions na mensagem-alvo (evitar duplicar reação no watch)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather-slack"
+   },
+   {
+    "step": "slack_read_user_profile / slack_search_users para cada autor distinto (nome + user_id + cargo/título)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux gather-slack"
+   },
+   {
+    "step": "Extrair repos citados (casar contra REPOS), PRs (#\\d+), tickets ([A-Z]{2,5}-\\d+) e derivar URLs canônicas via regex",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse-slack"
+   },
+   {
+    "step": "Verificar checkouts locais (ls <WORKSPACE_ROOT>/<repo>) para cada repo extraído",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux scan-repos"
+   },
+   {
+    "step": "Criar/atualizar board no vault (Write/Edit <VAULT_ROOT>/0-inbox/AAAA-MM-DD-HHMM-flux-reply-<slug>.md)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux open-board"
+   },
+   {
+    "step": "Ler sidecar de watch (.slack-watch/<slug>.json) para retomar lastSeenTs e round por superfície",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Computar delta por superfície ativa (ts > lastSeenTs, excluindo mensagens do próprio usuário e triviais)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Escrever sidecar de watch atualizado (round++, lastSeenTs, quietTicks) após cada tick",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "ScheduleWakeup com cadência calculada (600s caso quente, 1800s caso morno) para modo watch",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "O reply tem o menor contract_lines da família (2245) e o melhor equilíbrio: a maior parte do valor é julgamento do answerer (classificar responder/reagir/nada, redigir rascunho Slack-safe, Maria Bonita). Os passos mecânicos custam ~19 tool calls concentrados em três grupos: preflight/parse (~5 calls, idênticos em todos os elos), gather-slack (~5 calls de MCP Slack que o CLI poderia agregar num único payload), e find-board + open-board + sidecar (~7 calls de leitura/escrita de estado que se repetem a cada tick do watch). A cada tick o modelo relê o contrato inteiro para decidir apenas qual cadência de ScheduleWakeup usar."
+ },
+ {
+  "name": "flux:build",
+  "contract_lines": 720,
+  "mechanical_steps": [
+   {
+    "step": "Parse de argumentos: separar flags próprias (--dry, --engine, --no-slice) do primeiro token candidato a <repo> e do $REST repassado ao motor",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse-args"
+   },
+   {
+    "step": "Resolver flux-context.json: subir a árvore a partir da âncora (repo explícito), abrir o manifesto achado, extrair WORKSPACE_ROOT, EXEC_COMMAND, EXEC_FALLBACK, SPECIALISTS_ROOT, KITS_ROOT, WRITE_DESTINATIONS, VAULT_ROOT, NO_EMDASH",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux resolve-context"
+   },
+   {
+    "step": "Detectar workspace vs repo mode: checar se cwd/$CANDIDATE/.git ou WORKSPACE_ROOT/$CANDIDATE/.git existem",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux detect-mode"
+   },
+   {
+    "step": "Resolver REPO_PATH: cwd/$REPO, depois WORKSPACE_ROOT/$REPO, depois varrer todos os manifestos da máquina procurando quem reivindica o slug (campo repos ou WORKSPACE_ROOT/<slug>/.git)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux resolve-repo"
+   },
+   {
+    "step": "Descobrir motor de execução: verificar existência de REPO_PATH/.claude/commands/<EXEC_COMMAND>.md (nativo), resolver EXEC_FALLBACK do manifesto (chave repo → default → nenhum), confirmar invocabilidade na sessão",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux scan-engine"
+   },
+   {
+    "step": "Descobrir lentes L2/L3 para o banner (cascata specialists_root → kits_root → write_destinations; depois filtrar .claude/agents/ do repo para L3)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux scan-agents"
+   },
+   {
+    "step": "Buscar corpo da issue no Linear (quando o argumento é ID ou URL de ticket): chamada GraphQL ou gh CLI para obter título, descrição, seção de embasamento em código",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux gather-issue"
+   },
+   {
+    "step": "Criar board de execução em VAULT_ROOT/0-inbox/YYYY-MM-DD-HHMM-flux-build-<slug>-<ticket>.md com frontmatter e painel de etapas todas em ⏳ pendente",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux create-board"
+   },
+   {
+    "step": "Computar sinais do scope-gate lendo o texto da issue já em contexto (contar entregáveis, repos com escrita, diretórios de topo, sinal de motor autônomo): nenhuma tool call pois o insumo já está carregado",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Atualizar board após retorno do motor: marcar etapas ✅/❌, preencher pr:, registrar esforço e evento de escopo; anunciar path do próximo elo",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux update-board"
+   }
+  ],
+  "summary": "O desperdício está concentrado em duas fases repetidas a cada invocação: (1) a cascata de contexto (resolver manifesto + REPO_PATH + motor + L2/L3) consome ~14 tool calls que um CLI devolveria em <1s como JSON; (2) montar e atualizar o board gasta 2 tool calls de escrita em arquivo de vault que o CLI poderia fazer atomicamente. O único passo de julgamento real é decidir se o scope-gate abre e qual fatia propor — todo o resto é varredura de filesystem e leitura de manifesto."
+ },
+ {
+  "name": "flux:map",
+  "contract_lines": 409,
+  "mechanical_steps": [
+   {
+    "step": "Resolver flux-context.json do cwd (âncora do perfil do banner; o levantamento vai além deste perfil)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux resolve-context"
+   },
+   {
+    "step": "Descobrir raízes de agents declaradas pelo harness",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux scan-agents"
+   },
+   {
+    "step": "Varrer a máquina por todos os flux-context.json (find recursivo em paths conhecidos); extrair name, workspace_root, repos de cada manifesto",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux resolve-context"
+   },
+   {
+    "step": "Por repo (dispatched a subagentes em paralelo): verificar L1 (agent holístico na lista da sessão), L2 (cascata specialists_root → kits_root → write_destinations → default), L3 (filtrar .claude/agents/ por intenção de review)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux scan-agents"
+   },
+   {
+    "step": "Computar colisões de name: entre todos os agents levantados e sha256 de cada conjunto de agents por repo",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux scan-agents"
+   },
+   {
+    "step": "Ler flux-agents.json existente para computar delta (agents novos, repos novos, lentes que quebraram, colisões aparecidas) desde generated_at anterior",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux scan-agents"
+   },
+   {
+    "step": "Escrever flux-agents.json no destino aprovado com generated_at e generated_by (após gate de escrita do usuário)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux write-index"
+   }
+  ],
+  "summary": "O map é quase inteiramente mecânico: toda a fase de levantamento (passos 1 a 6) é varredura de filesystem e leitura de frontmatter — custo O(N repos) em tool calls que um CLI devolveria como JSON em <1s. O único passo de julgamento é formular as mensagens de remediação e decidir o despacho dos consertos; o relatório em si é montagem de dados já coletados. O contrato não lista bootstrap-specialists nem kit-format como hard requires: o map despacha equip para consertos e não reimplementa a lógica deles."
+ },
+ {
+  "name": "flux:equip",
+  "contract_lines": 1065,
+  "mechanical_steps": [
+   {
+    "step": "Resolver flux-context.json (mesma cascata do build: âncora = repo, extrair WORKSPACE_ROOT, SPECIALISTS_ROOT, KITS_ROOT, WRITE_DESTINATIONS, EXEC_COMMAND, EXEC_FALLBACK, SPECIALISTS_SPEC, SPECIALISTS_REPO, VAULT_ROOT, NO_EMDASH)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux resolve-context"
+   },
+   {
+    "step": "Resolver REPO_PATH: mesma cascata de três degraus do build (cwd/$slug, WORKSPACE_ROOT/$slug, busca por manifestos que reivindicam o slug)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux resolve-repo"
+   },
+   {
+    "step": "Inventariar L0 motor: checar existência de REPO_PATH/.claude/commands/<EXEC_COMMAND>.md; resolver EXEC_FALLBACK para este repo (chave slug → default → nenhum); confirmar invocabilidade na sessão",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux scan-engine"
+   },
+   {
+    "step": "Inventariar L2 (cascata de descoberta: specialists_root → kits_root → write_destinations; sub-passo 1a-kit para kits; 1a-bis para invocabilidade do name:)",
+    "est_tool_calls": 5,
+    "deterministic": true,
+    "cli_candidate": "flux scan-agents"
+   },
+   {
+    "step": "Inventariar L3: listar .claude/agents/ do repo e filtrar por intenção de review (excluir implementation, test-runner, backend-dev, db-migrations)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux scan-agents"
+   },
+   {
+    "step": "Validar flux-kit.json quando --from-kit: parsear JSON, checar campos obrigatórios (kit, version, provides não vazio, schema conhecido), verificar que os paths declarados (engine, specialists) existem em disco, rejeitar path absoluto/~/..)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux validate-kit"
+   },
+   {
+    "step": "Avaliar matcher do kit: checar repos (igualdade exata), files (todos os globs existem no checkout), any_of (pelo menos um glob existe); sem checkout local apenas repos decide",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux match-kit"
+   },
+   {
+    "step": "Resolver destino de escrita para L2 (10 passos obrigatórios do write-destination.md: cascata de 5 degraus, normalização a diretório, F1 symlink check, canonização por realpath, F2 git-repo check, F3 dotfiles check; gate por arquivo existente na main)",
+    "est_tool_calls": 6,
+    "deterministic": true,
+    "cli_candidate": "flux resolve-dest"
+   },
+   {
+    "step": "Resolver destino de escrita para L0 motor (checar ~/.claude/commands/ e ~/.cursor/commands/ em ordem; pergunta ao usuário só quando nenhum existe); aplicar os mesmos F1/canonização/F2/F3 do contrato de destino",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux resolve-dest"
+   },
+   {
+    "step": "Escrever arquivo do motor de execução no destino aprovado (nome flux-engine-<slug>)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux write-engine"
+   },
+   {
+    "step": "Atualizar entrada do repo no flux-agents.json e recomputar collisions (Read + Write; interditado quando --from-map, que devolve fatos no contrato de retorno)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux write-index"
+   },
+   {
+    "step": "Verificar invocabilidade de L2: checar se o name: do frontmatter da suite está registrado como subagent_type nesta instalação (mesmo teste do 1a-bis)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux scan-agents"
+   },
+   {
+    "step": "Verificar invocabilidade de L0: checar se o nome gravado em exec_fallback está declarado e invocável na sessão (mesmo inventário do Step 3)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux scan-agents"
+   }
+  ],
+  "summary": "O equip tem o maior peso de contrato (1065 linhas entre SKILL.md + bootstrap-specialists + kit-format, sem contar flux-context.md, write-destination.md e review-agents.md que também são hard requires) e o maior número de passos mecânicos: a cascata de destino sozinha tem 10 sub-passos (F1/F2/F3 + canonização + gate por arquivo existente) que um CLI resolveria de forma determinística, e o diagnóstico do inventário (L0/L2/L3) repete varreduras já feitas em build e map. A autoria real da suite e do motor vai para subagentes, mas a orquestração dessas chamadas ainda consome contexto do modelo principal."
+ },
+ {
+  "name": "review-pr",
+  "contract_lines": 273,
+  "summary": "O fluxo de review-pr é pesado em contexto: carrega o próprio SKILL.md (112 linhas), LINEAR-OPS.md (69 linhas) e COMMENT-FORMAT.md (92 linhas) obrigatoriamente. Os passos mecânicos concentram-se em coleta de metadados do PR, criação de worktree e detecção de autoria — todos com saída 100% determinística dado o mesmo PR. O desperdício principal está nos múltiplos round-trips de gh CLI que poderiam ser colapsados em um único preflight de CLI antes de o modelo entrar em cena.",
+  "mechanical_steps": [
+   {
+    "step": "Parsear input e inferir owner/repo via git remote",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "gh pr view — buscar metadata (title, state, branch refs, URL, author)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Verificar se PR está aberta (stop se closed/merged)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "EnterWorktree — criar/entrar worktree para o branch do PR",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight worktree"
+   },
+   {
+    "step": "Read LINEAR-OPS.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "mcp__linear__get_issue — buscar título, descrição e acceptance criteria da issue Linear",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather issue"
+   },
+   {
+    "step": "Read COMMENT-FORMAT.md (severity/category tables, comment template, reconciliation rule)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Detecção de autoria: gh pr view --json author + gh api user --jq .login (comparar PR author vs authenticated user)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux preflight authorship"
+   }
+  ]
+ },
+ {
+  "name": "fix-pr",
+  "contract_lines": 99,
+  "summary": "fix-pr é o fluxo mais mecânico do conjunto: intake, sync de branch e dispatch de replies são todos determinísticos. O modelo gasta uma quantidade expressiva de tool calls em GraphQL (threads + reviews + standalone comments) e em lógica de worktree que um CLI resolveria em uma chamada. O julgamento real acontece apenas no planejamento das respostas (code_change vs reply_only vs none). O desperdício principal é o modelo executar inline toda a coleta GraphQL multi-fonte em múltiplos Bash calls sequenciais.",
+  "mechanical_steps": [
+   {
+    "step": "Parsear input (owner/repo + PR-number ou só PR-number) e inferir remote",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Buscar metadata do PR via gh (state, baseRefName, branch, title, URL) — parar se closed/merged",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr"
+   },
+   {
+    "step": "Fetch review threads via GraphQL (filtrar isResolved:true e threads com reply do PR author)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr comments"
+   },
+   {
+    "step": "Fetch pullRequest.reviews.nodes (review-submission bodies) via GraphQL",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr comments"
+   },
+   {
+    "step": "Fetch pullRequest.comments.nodes (standalone PR comments) via GraphQL",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr comments"
+   },
+   {
+    "step": "Strip HTML decorators de todos os bodies de comentário",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux gather pr comments"
+   },
+   {
+    "step": "Checar existência de worktree para o branch; criar se ausente via EnterWorktree",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux preflight worktree"
+   },
+   {
+    "step": "Verificar se o branch está behind origin/{base_branch} (git fetch + git rev-list)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux sync check"
+   },
+   {
+    "step": "Rebase inline contra origin/{base_branch} e push --force-with-lease (caminho sem conflito)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux sync rebase"
+   },
+   {
+    "step": "Rodar quality checks (linters/testes) após cada commit de fix",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux quality-check"
+   },
+   {
+    "step": "Escrever body de reply em temp file e disparar via gh pr comment --body-file (por item review/comment)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux reply"
+   },
+   {
+    "step": "Push final para origin (e retry/SHA update se rejeitado por divergência)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux push"
+   }
+  ]
+ },
+ {
+  "name": "create-pr",
+  "contract_lines": 63,
+  "summary": "create-pr é o fluxo mais enxuto do conjunto: quase tudo é delegado ao agente pr-creator. Os únicos passos mecânicos são parsear o input e resolver o branch atual. O SKILL.md é curto e sem shareds. Não há desperdício significativo de tokens em passos mecânicos — o modelo faz essentially só parse + dispatch + relay.",
+  "mechanical_steps": [
+   {
+    "step": "Parsear argumentos (distinguir branch vs Linear ref por regex [A-Z]+-\\d+)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse input"
+   },
+   {
+    "step": "git branch --show-current — resolver branch atual quando não fornecido",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather branch"
+   },
+   {
+    "step": "Despachar pr-creator via Agent com branch e linear-issue-ref opcional",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ]
+ },
+ {
+  "name": "architecture-review",
+  "contract_lines": 68,
+  "summary": "architecture-review é majoritariamente julgamento (análise SOLID + design patterns + coupling/cohesion). Os passos mecânicos são poucos: extrair a lista de arquivos do plano e ler cada um + buscar padrões relacionados. O modelo gasta ~4-8 tool calls em leitura de codebase que um CLI de varredura poderia pré-agregar. O corpo do fluxo é análise pura — não há templates, shareds, nem GitHub interactions para mecanizar.",
+  "mechanical_steps": [
+   {
+    "step": "Extrair lista de arquivos propostos da tabela 'Files to Create or Modify' do plano (text parsing)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux parse plan"
+   },
+   {
+    "step": "Read de cada arquivo proposto que já existe no WORK_DIR",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux gather files"
+   },
+   {
+    "step": "Glob/Grep para padrões relacionados e estrutura de dependências em WORK_DIR",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux scan patterns"
+   }
+  ]
+ },
+ {
+  "name": "review-issue",
+  "contract_lines": 172,
+  "summary": "review-issue carrega LINEAR-OPS.md (69 linhas) + SKILL.md (73 linhas) + um template de tipo (~42 linhas cada). O Glob para listar templates e o Read do arquivo escolhido são passos mecânicos puros que um CLI resolveria em zero tool calls (mapeamento tipo → arquivo é determinístico). O julgamento real está na comparação da issue contra o template e na redação do rewrite — mas dois Read calls e um Glob precedem esse julgamento mecanicamente.",
+  "mechanical_steps": [
+   {
+    "step": "Read LINEAR-OPS.md (guardrail para operações Linear)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "mcp__linear__get_issue — buscar issue pelo identifier (id, title, description, labels)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather issue"
+   },
+   {
+    "step": "Glob no diretório references/ para listar templates disponíveis (quando tipo é ambíguo)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux resolve template"
+   },
+   {
+    "step": "Resolver tipo do label → nome do arquivo template ({type}.md, lowercase)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux resolve template"
+   },
+   {
+    "step": "Read do arquivo de template resolvido em plugins/core/skills/to-issue/references/{type}.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather template"
+   },
+   {
+    "step": "mcp__linear__save_issue — salvar description reescrita após confirmação explícita",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ]
+ },
+ {
+  "name": "implement-task",
+  "contract_lines": 394,
+  "summary": "O fluxo é majoritariamente julgamento (TDD planning, slicing de comportamentos, decisão de padrões), mas carrega um bloco inicial 100% mecânico que gasta ~8 tool calls antes de qualquer linha de código: fetch de issue, mark-in-progress, parse de flags, leitura de 3 shareds, abertura de worktree e branch guard. O desperdício está na leitura redundante de LINEAR-OPS.md, TDD-PROMPT.md e PATTERN-SEARCH.md em todo run, mesmo quando o contexto já foi resolvido, e na sequência git de branch guard que poderia ser um único subcomando CLI.",
+  "mechanical_steps": [
+   {
+    "step": "Parse de flags do $ARGUMENTS (--full-review, --no-worktree, --review-arch) e remoção dos tokens reconhecidos",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Fetch do issue Linear via mcp__linear__get_issue para obter gitBranchName, labels e corpo",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather issue"
+   },
+   {
+    "step": "Mark issue 'In Progress' + assign 'me' via mcp__linear__save_issue imediatamente após fetch",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux update issue-status"
+   },
+   {
+    "step": "Leitura de shared/LINEAR-OPS.md (cache, security guardrail, team routing)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Leitura de shared/TDD-PROMPT.md (ciclo red-green-refactor, cycle cap)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Leitura de shared/PATTERN-SEARCH.md (search order: same dir → layer → reference → utils)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "EnterWorktree: criar worktree em branch derivada do gitBranchName (truncado a 40 chars)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux worktree open"
+   },
+   {
+    "step": "Branch guard: git branch --show-current + git symbolic-ref refs/remotes/origin/HEAD; comparar e abortar se igual ao default",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Leitura do label 'Issue Origin' (já presente nos dados do get_issue) para decidir short-path vs full search",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Glob .claude/commands/ para localizar comandos de validação por repo (test-local, validate-components)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather commands"
+   },
+   {
+    "step": "Pós-PR: add label 'Built with AI Agent' + save_comment PT-BR + mcp__linear__save_issue mantendo In Progress",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux update issue"
+   },
+   {
+    "step": "ExitWorktree + limpeza do worktree/branch após SHIP_DONE",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux worktree close"
+   }
+  ]
+ },
+ {
+  "name": "plan-task",
+  "contract_lines": 404,
+  "summary": "O fluxo é primariamente julgamento (entrevista de disambiguação, detecção de ambiguidades, synthesis do plano). O desperdício mecânico está na fase de Context Loading: leitura em paralelo de CLAUDE.md, README.md, Glob de ADRs e glossário do repo target, mais a leitura de 5 shareds (LINEAR-OPS, PATTERN-SEARCH, TDD-PROMPT, PLANNER-PROMPT, PLAN-FORMAT) que consomem ~8 tool calls e ~350 linhas de contrato antes da primeira pergunta ao usuário. A escrita do arquivo de plano e o update Linear também são totalmente mecânicos.",
+  "mechanical_steps": [
+   {
+    "step": "Fetch do issue Linear via mcp__linear__get_issue quando ARGUMENTS bate [A-Z]+-\\d+",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather issue"
+   },
+   {
+    "step": "Leitura de shared/LINEAR-OPS.md antes de qualquer operação Linear",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Glob + Read paralelo: CLAUDE.md, README.md, docs/adr/*.md (relevantes ao tópico) e glossário do repo target",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux gather context"
+   },
+   {
+    "step": "Leitura de skills/plan-task/PLANNER-PROMPT.md (98 linhas) para aplicar inline com WORK_DIR/ISSUE/EXPLORE_CONTEXT",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Leitura de skills/plan-task/PLAN-FORMAT.md (49 linhas) para estrutura exata do output",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Leitura de shared/TDD-PROMPT.md para guiar commit sequence (tracer bullet → incremental loop → refactor)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Leitura de shared/PATTERN-SEARCH.md (passada ao Explore subagent)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Write arquivo de plano em docs/plans/{date}-{id}-{slug}.md após aprovação",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Update Linear: mcp__linear__save_issue com description do plano traduzida para PT-BR + condicional save_comment",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux update issue"
+   }
+  ]
+ },
+ {
+  "name": "to-issue",
+  "contract_lines": 200,
+  "summary": "O fluxo é misto: a decomposição em vertical slices é julgamento, mas tudo que é metadata inference (team routing, project/milestone lookup, template load) é mecânico e gasta 4-5 MCP calls antes de montar qualquer proposta. O maior desperdício é a sequência list_teams + list_projects + list_milestones + list_issue_labels que roda toda vez mesmo quando o contexto já fornece o projeto/time alvo. A leitura do template references/{type}.md também é puramente mecânica.",
+  "mechanical_steps": [
+   {
+    "step": "Leitura de shared/LINEAR-OPS.md (cache, security guardrail, team routing, estimate_options)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Read do arquivo de argumento (ADR, plan file, PRD) quando passado como path",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "mcp__linear__list_teams para resolver team routing",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather linear"
+   },
+   {
+    "step": "mcp__linear__list_projects para inferir projeto/milestone pelo contexto",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather linear"
+   },
+   {
+    "step": "Detecção de decomposição: varrer ## Consequências (ADR) ou Files table (plan) — parse estrutural do arquivo já lido",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux check plan"
+   },
+   {
+    "step": "Read do template references/{type}.md correspondente ao tipo inferido",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "mcp__linear__save_issue por issue (em Decomposition Mode: N chamadas em ordem de dependência, blockers primeiro)",
+    "est_tool_calls": 5,
+    "deterministic": true,
+    "cli_candidate": "flux create issue"
+   }
+  ]
+ },
+ {
+  "name": "generate-adr",
+  "contract_lines": 147,
+  "summary": "O fluxo é predominantemente mecânico: context loading (Glob + Read de ADRs existentes + Read do format), synthesis usa julgamento leve (o conteúdo já foi decidido na conversa), e write+update são puros. O desperdício está em ler todos os ADRs existentes para encontrar o próximo número sequencial — operação que uma CLI resolveria com uma linha de bash. O modelo também roda date +%Y-%m-%d via Bash quando isso poderia ser injetado pelo harness.",
+  "mechanical_steps": [
+   {
+    "step": "Read de generate-adr/ADR-FORMAT.md (31 linhas) para estrutura canônica",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Glob docs/adr/*.md para listar ADRs existentes",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux scan adrs"
+   },
+   {
+    "step": "Read de cada ADR existente para determinar próximo número sequencial {NNN} e checar duplicatas",
+    "est_tool_calls": 5,
+    "deterministic": true,
+    "cli_candidate": "flux scan adrs"
+   },
+   {
+    "step": "Bash date +%Y-%m-%d para obter data do ADR",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Write do arquivo docs/adr/{NNN}-{slug}.md após aprovação",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Edit do ADR supersedido: atualizar linha de Status para 'Supersedido por ADR-{NNN}' (condicional)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux update adr-status"
+   }
+  ]
+ },
+ {
+  "name": "slack-bugs-to-linear",
+  "contract_lines": 190,
+  "summary": "O fluxo tem uma fase mecânica pesada antes de qualquer triagem: leitura de 2 shareds, check/write de config local, ToolSearch para carregar o Slack MCP, 4 chamadas Linear de listagem (teams, projects, milestones, labels), e leitura do thread Slack. Toda essa infra (~9 tool calls) precede a classificação de bugs, que é julgamento. O despacho de subagents de investigação tem estrutura determinística (um por bug) mas conteúdo variável.",
+  "mechanical_steps": [
+   {
+    "step": "Leitura de shared/SLACK-BUGS-OPS.md (config, permalinks, body template, agent contract)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Leitura de shared/LINEAR-OPS.md (cache, team routing, formatting rules)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Read de ~/.claude/slack-bugs-to-linear.config.md; se ausente, coletar e Write do arquivo de config",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather config"
+   },
+   {
+    "step": "ToolSearch select: carregar ferramentas do Slack MCP (read, file-read, send) em uma única chamada",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "mcp__linear__list_teams + list_projects + list_milestones + list_issue_labels — 4 chamadas de listagem em paralelo",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux gather linear"
+   },
+   {
+    "step": "Leitura do thread/canal Slack via ferramenta matching (thread_ts presente → read_thread; ausente → read_channel)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather slack"
+   },
+   {
+    "step": "Detecção de thread vs channel a partir do link (/p<TS> → message; sem /p<TS> → channel)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "mcp__linear__save_issue por bug identificado (sequencial ou batch conforme dependências de milestone)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "flux create issue"
+   }
+  ]
+ },
+ {
+  "name": "agent-readiness",
+  "contract_lines": 1565,
+  "summary": "Este é o fluxo com o maior desperdício mecânico absoluto: ~1475 linhas de contrato de tiers (bronze/prata/ouro/platina) são carregadas condicionalmente via Glob+Read a cada run, mas a lógica de avaliação é 100% determinística dado o output dos scripts bash. O modelo gasta ~15 tool calls (4 Globs, 4 Bash de scripts, leituras de tier.md por ⚠️, Reads de reference e REPORT-FORMAT, mkdir, 2 Writes, 1 Read+Edit do README) que produzem output idêntico para o mesmo repositório — candidato perfeito para um CLI que roda os scripts e monta o relatório sem gastar tokens.",
+  "mechanical_steps": [
+   {
+    "step": "Resolver REPO_PATH via Bash git rev-parse --show-toplevel; ls para validar",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Leitura de agent-readiness/reference.md (87 linhas — dimensões, tier progression, bypass flags, criterion IDs)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Glob scripts/check-{tier}.sh por tier (4 Globs sequenciais: bronze, prata, ouro, platina)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux scan scripts"
+   },
+   {
+    "step": "Bash check-{tier}.sh {REPO_PATH} por tier (4 execuções, parse de linhas EMOJI|CHECK_ID|MESSAGE)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "flux run checks"
+   },
+   {
+    "step": "Por ⚠️ result: Glob tiers/{tier-name}.md + Read + instruções de avaliação via Read/Bash adicionais",
+    "est_tool_calls": 6,
+    "deterministic": true,
+    "cli_candidate": "flux resolve warnings"
+   },
+   {
+    "step": "Leitura de agent-readiness/REPORT-FORMAT.md (160 linhas — Console, File, Badge, Diff formats)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Read do report anterior .claude/docs/agent-readiness-report.md para gerar diff de critérios",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux check sidecar"
+   },
+   {
+    "step": "Bash mkdir -p {REPO_PATH}/.claude/docs/ para garantir diretório antes dos writes",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Write do relatório markdown .claude/docs/agent-readiness-report.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Write do sidecar JSON .claude/docs/agent-readiness-report.json com spec_version extraída do spec.md",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Read README.md + localizar marcador badge ou H1 + Edit para inserir/substituir bloco de badge",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux update badge"
+   }
+  ]
+ },
+ {
+  "name": "agent-onboard",
+  "contract_lines": 319,
+  "summary": "O fluxo orquestra outros flows (agent-readiness, agent-forger, agent-uplift handlers) então seu próprio contrato é relativamente curto, mas dispara cascatas de centenas de tool calls via Task/Skill. Os passos mecânicos próprios são: leitura/escrita do .agent-readiness.yml (config persistence), check da existência do sidecar JSON, despacho estrutural dos 3 Task subagents de exploração em paralelo, e comparação determinística de tier atual vs tier alvo. A classification de actions (DELEGATE/AUTHOR/BYPASS) é julgamento; a aplicação de ações aprovadas (ler handler + escrever arquivo) é mecânica mas delegada para agent-forger.",
+  "mechanical_steps": [
+   {
+    "step": "Resolver REPO_PATH via argumento ou Bash git rev-parse --show-toplevel",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux preflight"
+   },
+   {
+    "step": "Read de .agent-readiness.yml na raiz do repo para reusar campos já declarados e evitar re-perguntas",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux gather config"
+   },
+   {
+    "step": "Write/Edit de .agent-readiness.yml com target tier e bypass declarations após entrevista",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Check existência de .claude/docs/agent-readiness-report.json (Bash ls ou Read) para decidir se roda /agent-readiness",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "flux check sidecar"
+   },
+   {
+    "step": "Despacho de 3 Task subagents em paralelo (single message): stack/estrutura, tooling/CI, docs/prontidão",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Leitura de agent-readiness/REPORT-FORMAT.md para aplicar rendering rules ao relatório consolidado dos subagents",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Comparação current tier vs target tier para decidir se há trabalho a fazer (dados já em memória do sidecar/report)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Validação pós-tier: verificar que arquivos tocados pelo agent-forger são subset do plano aprovado (.claude/, CLAUDE.md, readiness docs)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "flux validate boundary"
+   }
+  ]
+ },
+ {
+  "name": "sdd-grill",
+  "contract_lines": 251,
+  "mechanical_steps": [
+   {
+    "step": "Dispatch único do agente grill-recon para resolver paths/identidade git/freshness de todos os repos citados nos inputs",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd grill-recon"
+   },
+   {
+    "step": "Ler shared/grill-recon-ops.md para mapear cada kind de openQuestion ao que perguntar ao usuário",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "Flow é majoritariamente julgamento — entrevista iterativa de produto que o LLM conduz pergunta por pergunta. O único bloco mecânico real é o recon de repos (1 Agent dispatch + 1 Read do ops guide). O custo de contexto é baixo (251 linhas) mas o token waste vem dos múltiplos turnos de diálogo até fechar todas as branches da árvore de decisão."
+ },
+ {
+  "name": "sdd-prd",
+  "contract_lines": 347,
+  "mechanical_steps": [
+   {
+    "step": "Navegar repos impactados: listar módulos existentes, feature flags e endpoints para confirmar estado atual",
+    "est_tool_calls": 8,
+    "deterministic": true,
+    "cli_candidate": "sdd scan-codebase"
+   },
+   {
+    "step": "Ler reference/template.md antes de escrever o prd.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Gravar prd.md em domains/<domínio>/<área>/<iniciativa>/prd.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Invocar sdd-figma-map passando caminho do prd.md (passo 4 do fluxo)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Invocar sdd-linker para validar links e registrar em shared/INDEX.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "A exploração do codebase (módulos, flags, endpoints) gasta 8 tool calls repetíveis com mesmo output dado mesmo input. O checklist de validação (passo 5) e as invocações downstream de sdd-figma-map e sdd-linker são passos fixos orquestráveis por CLI sem participação do LLM. A geração das seções do PRD em si é pura síntese/julgamento sobre o contexto já coletado."
+ },
+ {
+  "name": "sdd-figma-map",
+  "contract_lines": 251,
+  "mechanical_steps": [
+   {
+    "step": "Ler prd.md e extrair User Stories (id, título, descrição) e links Figma únicos por par (fileKey, nodeId)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd extract-us-links"
+   },
+   {
+    "step": "Chamar mcp__Figma__get_metadata para cada link (inline se ≤2; dispatch paralelo de N Agents se ≥3)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "sdd validate-figma-links"
+   },
+   {
+    "step": "Montar tabela Frame → Aplicação → Perfil → US com confidence scoring baseado nos metadados MCP",
+    "est_tool_calls": 0,
+    "deterministic": false,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Patchar prd.md: inserir linhas **Figma**: por US e substituir tabela na seção Referências externas",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd patch-prd-figma"
+   }
+  ],
+  "summary": "Leitura do prd.md, chamadas MCP paralelas e patch do arquivo são mecânicos (N+2 tool calls determinísticos). O único julgamento é a inferência de app/perfil quando ambíguo no nome do frame — e mesmo aí o modelo frequentemente devolve ao usuário. Um CLI que executasse as chamadas MCP e retornasse um mapa estruturado reduziria o modelo a apenas decidir os casos ambíguos e aplicar o patch."
+ },
+ {
+  "name": "sdd-grill-tech",
+  "contract_lines": 349,
+  "mechanical_steps": [
+   {
+    "step": "Ler prd.md e extrair repos impactados do frontmatter (repos:)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Dispatch único do agente grill-recon para todos os repos do PRD",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd grill-recon"
+   },
+   {
+    "step": "Ler shared/grill-recon-ops.md para mapear openQuestions a perguntas",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Ler CLAUDE.md de cada repo + seguir links para docs de padrões/arquitetura",
+    "est_tool_calls": 6,
+    "deterministic": true,
+    "cli_candidate": "sdd load-repo-contracts"
+   },
+   {
+    "step": "Explorar cada repo em paralelo via Agents (módulos, flags, error handling, BFF pattern, DS, testes, módulo de referência)",
+    "est_tool_calls": 15,
+    "deterministic": true,
+    "cli_candidate": "sdd scan-codebase"
+   }
+  ],
+  "summary": "Flow é majoritariamente entrevista arquitetural (julgamento). Os passos mecânicos — recon, leitura de CLAUDE.md + pattern docs e exploração paralela de codebase — consomem 24 tool calls antes de qualquer pergunta ser feita. Um CLI que entregasse um relatório estruturado de padrões por repo eliminaria o custo de exploração do LLM, deixando o modelo apenas conduzir a entrevista com dados já disponíveis."
+ },
+ {
+  "name": "sdd-trd",
+  "contract_lines": 684,
+  "mechanical_steps": [
+   {
+    "step": "Ler prd.md completo para extrair US, BRs, ECs, Permissions Matrix, repos",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Validar cobertura do resumo grill-tech: confirmar que todas as seções obrigatórias do template estão cobertas",
+    "est_tool_calls": 0,
+    "deterministic": false,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Gravar trd.md em domains/<domínio>/<área>/<iniciativa>/trd.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Invocar sdd-threat-model para preencher seção ## Threat Model — Resumo",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Invocar sdd-linker (mode: transition, phase: flip, prd→trd) para flitar status do prd.md e atualizar cross-links",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "O maior gasto de tokens é o template de 465 linhas que o modelo carrega para saber o formato do TRD. A geração do artefato é síntese de julgamento sobre o resumo do grill-tech. As invocações downstream de sdd-threat-model e sdd-linker são passos fixos de orquestração que um CLI poderia acionar sem envolver o LLM."
+ },
+ {
+  "name": "sdd-threat-model",
+  "contract_lines": 340,
+  "mechanical_steps": [
+   {
+    "step": "Verificar pré-condições: prd.md status != draft, trd.md tem seções preenchidas (não placeholder), anchor ## Threat Model — Resumo presente, PM-NNN explícitos no PRD",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "sdd check-prerequisites"
+   },
+   {
+    "step": "Ler prd.md (US, BR, EC, Permissions Matrix) e trd.md (Architecture, Contracts, Data Model) como inputs da análise STRIDE",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Patchar trd.md: substituir apenas seção ## Threat Model — Resumo com tabela de mitigações gerada",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd patch-threat-model"
+   }
+  ],
+  "summary": "As pré-condições (status, seções preenchidas, PM-NNN, anchor) são verificações binárias que o LLM executa lendo 2 arquivos completos — um CLI verificaria isso em milissegundos via grep/frontmatter parse sem consumir contexto. A análise STRIDE+DREAD é puro julgamento e não tem substituto, mas o patch final na seção do trd.md é uma operação de string replace determinística."
+ },
+ {
+  "name": "sdd-design",
+  "contract_lines": 672,
+  "mechanical_steps": [
+   {
+    "step": "Chamar mcp__Figma__get_metadata no link fornecido para listar frames e classificar por app/breakpoint",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd validate-figma-links"
+   },
+   {
+    "step": "Para cada componente: chamar mcp__Figma__get_design_context + get_variable_defs + get_screenshot",
+    "est_tool_calls": 12,
+    "deterministic": true,
+    "cli_candidate": "sdd extract-figma-context"
+   },
+   {
+    "step": "Navegar gravity-design-system para confirmar nome real de export, props disponíveis e variantes de cada componente mapeado",
+    "est_tool_calls": 8,
+    "deterministic": true,
+    "cli_candidate": "sdd scan-gravity-ds"
+   },
+   {
+    "step": "Gravar DESIGN.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "A extração do Figma (3 chamadas MCP por componente) e a confirmação de exports no gravity-design-system (grep por nome de componente) são as maiores fontes de tool calls mecânicos — 20+ por run. O sdd-workflow.md de 361 linhas carregado inteiro para contexto gera o maior desperdício de tokens fixos do flow: o modelo lê o workflow completo mas usa apenas as convenções de estrutura do DESIGN.md."
+ },
+ {
+  "name": "sdd-plan-backend",
+  "contract_lines": 934,
+  "mechanical_steps": [
+   {
+    "step": "Validar acesso local a cada repo backend: test -d <path>/.git por repo da lista extraída do frontmatter prd.md",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "sdd check-repo-access"
+   },
+   {
+    "step": "Ler prd.md e trd.md por completo e confirmar que status != draft em ambos",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Ler CLAUDE.md de cada repo + seguir links para docs de padrões (convenção universal)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "sdd load-repo-contracts"
+   },
+   {
+    "step": "Listar src/modules/, src/database/migrations/, flags enum por repo para identificar padrão de referência e evitar conflitos",
+    "est_tool_calls": 6,
+    "deterministic": true,
+    "cli_candidate": "sdd scan-codebase"
+   },
+   {
+    "step": "Gravar backend/plan.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Invocar sdd-linker (mode: transition, phase: detect, trd→plan) para drift detection antes de finalizar",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "O guardrail de acesso a repos (step 0) e a varredura de módulos/migrations/flags consomem 15 tool calls 100% determinísticos antes de qualquer archetype ser selecionado. O carregamento de 934 linhas de contrato (SKILL.md + sdd-workflow + template + archetypes) é o maior custo fixo: o modelo usa o catálogo de archetypes para decisão, mas a leitura de módulos existentes e enum de flags são simples listagens que um CLI entregaria como JSON."
+ },
+ {
+  "name": "sdd-plan-frontend",
+  "contract_lines": 996,
+  "mechanical_steps": [
+   {
+    "step": "Validar acesso local a repos frontend + gravity-design-system: test -d <path>/.git por repo",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "sdd check-repo-access"
+   },
+   {
+    "step": "Ler prd.md + trd.md + DESIGN.md por completo e confirmar status != draft nos três",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Ler CLAUDE.md + pattern docs de cada repo frontend",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "sdd load-repo-contracts"
+   },
+   {
+    "step": "Navegar gravity-design-system: confirmar nome real de export, props e variantes de cada componente listado no DESIGN.md → Component Mapping",
+    "est_tool_calls": 8,
+    "deterministic": true,
+    "cli_candidate": "sdd scan-gravity-ds"
+   },
+   {
+    "step": "Listar modules/, verificar procedures tRPC ou hooks HTTP/REST existentes por repo alvo",
+    "est_tool_calls": 6,
+    "deterministic": true,
+    "cli_candidate": "sdd scan-codebase"
+   },
+   {
+    "step": "Explorar e2e-tests: listar gateways e POMs existentes (quando TRD → Testing Decisions → e2e-tests está preenchido)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "sdd scan-e2e"
+   },
+   {
+    "step": "Gravar frontend/plan.md",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Invocar sdd-linker (mode: transition, phase: detect)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "É o flow com maior contrato fixo (996 linhas) e maior variedade de varreduras mecânicas: repos backend-equivalentes do sdd-plan-backend mais a confirmação de exports do Gravity DS e de procedures tRPC vs HTTP/REST. A distinção tRPC (rf-monorepo) vs HTTP/REST (backoffice-bff) é uma verificação binária determinística que hoje custa 6 Reads/Greps — um CLI com mapa de repos→protocolo resolveria em O(1)."
+ },
+ {
+  "name": "sdd-issues",
+  "contract_lines": 1709,
+  "mechanical_steps": [
+   {
+    "step": "Validar acesso local a cada repo da camada: test -d <path>/.git, com mensagem de abort explícita listando repos inacessíveis",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "sdd check-repo-access"
+   },
+   {
+    "step": "Ler prd.md, trd.md, <layer>/plan.md, DESIGN.md (frontend) — verificar que trd.md tem ## Threat Model — Resumo preenchida (não placeholder)",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Verificar via Grep/Read que cada identificador citado inline no Contrato (função, preHandler, import, constante) existe no repo alvo antes de escrever",
+    "est_tool_calls": 15,
+    "deterministic": true,
+    "cli_candidate": "sdd scan-codebase"
+   },
+   {
+    "step": "Extrair tabela ### Mitigações do trd.md e construir mapa M-NN → issue-alvo (Anexar em) + Application + Tipo + texto inline",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "sdd extract-mitigations"
+   },
+   {
+    "step": "Validar que cada M-NN.Anexar em referencia uma issue que existe na quebra da camada atual (hard-fail se não encontrar)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "sdd validate-mitigations"
+   },
+   {
+    "step": "Gravar <layer>/issues.md com todas as issues geradas",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Gerar diagrama Mermaid de dependências no início do documento (parse das Blocked by declaradas)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "sdd render-dep-graph"
+   }
+  ],
+  "summary": "O flow mais pesado do pipeline (1709 linhas de contrato, incluindo template de 1175 linhas com todos os archetypes expandidos). As 4 verificações de acesso a repo, leitura de 4 artefatos upstream, 15+ greps de identificadores e o join de mitigações M-NN → issue são operações mecânicas antes de qualquer issue ser escrita. O join de mitigações é um lookup determinístico em memória que hoje é descrito em ~40 linhas de instrução para o LLM fazer manualmente."
+ },
+ {
+  "name": "sdd-linker",
+  "contract_lines": 248,
+  "mechanical_steps": [
+   {
+    "step": "Ler frontmatter de cada artefato da initiative (teams, impacted_teams, domains, repos, areas, tags)",
+    "est_tool_calls": 5,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Glob domains/**/prd.md e domains/**/ARCHITECTURE.md para descobrir todas as initiatives existentes",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd index-initiatives"
+   },
+   {
+    "step": "Ler primeiras ~30 linhas de frontmatter de cada prd.md encontrado para calcular afinidade por overlap de campos",
+    "est_tool_calls": 20,
+    "deterministic": true,
+    "cli_candidate": "sdd index-initiatives"
+   },
+   {
+    "step": "Calcular scores de afinidade (domains/repos/areas/impacted_teams overlap) e selecionar até 5 relacionadas",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "sdd index-initiatives"
+   },
+   {
+    "step": "Resolver paths relativos entre artefatos da initiative e preencher seção ## Links em cada um",
+    "est_tool_calls": 4,
+    "deterministic": true,
+    "cli_candidate": "sdd resolve-links"
+   },
+   {
+    "step": "Editar shared/INDEX.md adicionando linha da initiative na tabela do domínio correto",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd patch-index"
+   },
+   {
+    "step": "Editar initiatives relacionadas ativas para adicionar backlinks reversos (quando relação bidirecional)",
+    "est_tool_calls": 3,
+    "deterministic": true,
+    "cli_candidate": "sdd patch-backlinks"
+   },
+   {
+    "step": "(mode: transition, phase: flip) Atualizar status e updated: do artefato anterior no frontmatter",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   }
+  ],
+  "summary": "A varredura de domains/**/prd.md é linearmente escalável com o vault — hoje com N initiatives o LLM faz N reads parciais para computar afinidade por overlap de 4 campos de frontmatter, o que é um join O(N) trivial para qualquer script. O cálculo de paths relativos e o patch de shared/INDEX.md são operações de string completamente determinísticas. Um índice pré-computado reduziria de N+9 tool calls para 1 lookup + M writes."
+ },
+ {
+  "name": "sdd-issue-tree",
+  "contract_lines": 253,
+  "mechanical_steps": [
+   {
+    "step": "Ler backend/issues.md e frontend/issues.md — extrair por issue: ID, título, Application, Blocked by (hard), Contract from (soft), Agent autonomy",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "sdd extract-issue-graph"
+   },
+   {
+    "step": "Construir grafo dirigido: nós = issues, arestas = Blocked by; detectar referências quebradas e ciclos",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "sdd topo-sort"
+   },
+   {
+    "step": "Executar ordenação topológica por níveis (Level 0 = raízes sem blocker; Level N+1 = issues com todos blockers em ≤N)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "sdd topo-sort"
+   },
+   {
+    "step": "Detectar Contract from sem Blocked by correspondente (warnings de falso paralelismo)",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "sdd topo-sort"
+   },
+   {
+    "step": "Renderizar seções ## Level <N> com bullets por issue + diagrama Mermaid flowchart LR + seção ## Resumo",
+    "est_tool_calls": 0,
+    "deterministic": true,
+    "cli_candidate": "sdd render-dep-graph"
+   },
+   {
+    "step": "Gravar issue-tree.md sobrescrevendo versão anterior",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd render-dep-graph"
+   }
+  ],
+  "summary": "Este é o flow com maior proporção de trabalho mecânico puro — parse de campos estruturados, algoritmo de ordenação topológica, detecção de ciclos e geração de Mermaid são computação de grafo 100% determinística que o LLM executa pior que um script de 60 linhas. Apenas 3 tool calls são necessários (2 Reads + 1 Write); tudo entre eles é raciocínio computacional sobre estrutura de dados fixa. Um CLI executaria esse flow em <1 segundo sem consumir um único token do LLM."
+ },
+ {
+  "name": "sdd-pr",
+  "contract_lines": 164,
+  "mechanical_steps": [
+   {
+    "step": "Criar ou reutilizar branch sdd/<initiative>/<stage> a partir de main",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd open-pr"
+   },
+   {
+    "step": "git add dos artefatos da initiative + shared/INDEX.md se modificado",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd open-pr"
+   },
+   {
+    "step": "git commit com mensagem no formato [<LINEAR_ID>] docs(<domínio>/<área>/<iniciativa>): <stage> + lista de artefatos + Co-Authored-By",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd open-pr"
+   },
+   {
+    "step": "git push -u origin sdd/<initiative>/<stage>",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd open-pr"
+   },
+   {
+    "step": "gh pr create --title [LINEAR_ID] <Stage>: <Initiative> --body <template interpolado> --assignee @me",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd open-pr"
+   },
+   {
+    "step": "Fallback: gh pr view {branch} --json url se assignee falhar (evitar re-criação acidental do PR)",
+    "est_tool_calls": 1,
+    "deterministic": true,
+    "cli_candidate": "sdd open-pr"
+   }
+  ],
+  "summary": "Flow quase inteiramente mecânico: 5-6 comandos git/gh com templates fixos interpolados por 4 variáveis (initiative path, Linear ID, stage, lista de artefatos). O único julgamento do LLM é interpolar as variáveis nos templates de commit e PR body — trabalho que um CLI parametrizado com esses 4 inputs realizaria sem LLM, carregando 164 linhas de contrato desnecessariamente."
+ },
+ {
+  "name": "sdd-behavior-review",
+  "contract_lines": 170,
+  "mechanical_steps": [
+   {
+    "step": "Ler prd.md (e trd.md quando existir) e verificar status de cada um",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Identificar conflitos TRD > PRD em comportamentos (Open Questions com [DECIDIDO ...]) e registrar na coluna Observações",
+    "est_tool_calls": 0,
+    "deterministic": false,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Gerar BR inteira com .md como fonte; ao final listar pontos bloqueados por falta de label/texto literal antes de pedir Figma",
+    "est_tool_calls": 0,
+    "deterministic": false,
+    "cli_candidate": "nenhum"
+   },
+   {
+    "step": "Chamar mcp__Figma__get_screenshot apenas para os pontos específicos bloqueados (fallback cirúrgico)",
+    "est_tool_calls": 2,
+    "deterministic": true,
+    "cli_candidate": "sdd validate-figma-links"
+   }
+  ],
+  "summary": "Flow é majoritariamente julgamento — extração e estruturação de casos de teste a partir de US/BR/EC/PM do PRD e do TRD. O único bloco mecânico fixo é a leitura dos dois artefatos e o fallback cirúrgico de Figma screenshots para labels não transcritos. O contrato (170 linhas) é leve; o custo vem da iteração do LLM cobrindo todas as combinações de papel × cenário × ação para gerar a planilha."
+ }
+]
