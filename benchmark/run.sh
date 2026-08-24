@@ -59,6 +59,9 @@ row = {"scenario": scenario, "arm": arm, "run": int(run_n), "kind": kind,
        "wall_s": round(float(ended) - float(started), 1)}
 try:
     d = json.load(open(out_file))
+    if isinstance(d, list):
+        results = [e for e in d if isinstance(e, dict) and e.get("type") == "result"]
+        d = results[-1] if results else {}
     u = d.get("usage", {})
     row.update({
         "cost_usd": d.get("total_cost_usd"),
