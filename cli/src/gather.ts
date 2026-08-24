@@ -310,8 +310,11 @@ export async function gatherPr(opts: {
     if (threadsRes.ok) {
       try {
         const data = JSON.parse(threadsRes.stdout);
-        const nodes: Record<string, unknown>[] =
+        const rawNodes: unknown[] =
           data?.data?.repository?.pullRequest?.reviewThreads?.nodes ?? [];
+        const nodes: Record<string, unknown>[] = rawNodes.filter(
+          (n): n is Record<string, unknown> => n != null && typeof n === "object",
+        );
         const fullBody = (comment: { database_id: unknown; body: unknown }): unknown => {
           if (typeof comment.body !== "string" || comment.body.length < 200) return comment.body;
           if (typeof comment.database_id !== "number") return comment.body;
