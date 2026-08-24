@@ -71,7 +71,7 @@ export type LaunchRequest = {
   invocation: string;
 };
 
-const SHELL_METACHAR_PATTERN = /[;&|`\n]|\$\(/;
+const SHELL_METACHAR_PATTERN = /[;&|`\n<>]|\$\(/;
 
 export function assertSafeInvocation(invocation: string): void {
   if (SHELL_METACHAR_PATTERN.test(invocation)) {
