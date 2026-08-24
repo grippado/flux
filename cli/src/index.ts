@@ -146,19 +146,31 @@ async function runVerb(opts: {
 }): Promise<void> {
   const { verb, target, repo, dry, safe, here, rest } = opts;
 
-  if (target && isTicket(target)) {
-    console.error(`Alvo de ticket (${target}) fora do escopo da v0. Use a interface web do Linear para este fluxo.`);
-    process.exit(1);
+  let effectiveTarget = target;
+  if (target && LINEAR_URL_PATTERN.test(target)) {
+    const idMatch = target.match(/\/issue\/([A-Z]{2,5}-\d+)/i);
+    const ticketId = idMatch ? idMatch[1].toUpperCase() : null;
+    if (!repo) {
+      const hint = ticketId ?? "<ID>";
+      console.error(`Alvo de ticket Linear requer --repo. Exemplo: flux ${verb} ${hint} --repo <slug-do-repo>`);
+      process.exit(1);
+    }
+    effectiveTarget = ticketId ?? target;
+  } else if (target && TICKET_PATTERN.test(target)) {
+    if (!repo) {
+      console.error(`Alvo de ticket Linear requer --repo. Exemplo: flux ${verb} ${target} --repo <slug-do-repo>`);
+      process.exit(1);
+    }
   }
 
-  const repoSlug = repo ?? repoSlugFromTarget(target);
+  const repoSlug = repo ?? repoSlugFromTarget(effectiveTarget);
   const ctx = await resolveContext({
     repoSlug,
-    targetPath: target,
+    targetPath: effectiveTarget,
     cwd: process.cwd(),
   });
 
-  const targetArg = target ?? "";
+  const targetArg = effectiveTarget ?? "";
   const repoFlag = repoSlug ? `--repo ${repoSlug}` : "";
   const extraArgs = rest.join(" ");
   const args = [targetArg, repoFlag, extraArgs].filter(Boolean).join(" ").trim();
