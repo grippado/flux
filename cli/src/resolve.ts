@@ -162,14 +162,20 @@ function scanForManifests(searchRoots: string[]): ManifestRecord[] {
     try {
       for (const configDir of [".claude", ".cursor"]) {
         const manifestPath = join(dir, configDir, "flux-context.json");
-        if (!seen.has(manifestPath) && existsSync(manifestPath)) {
-          seen.add(manifestPath);
+        if (existsSync(manifestPath)) {
+          let dedupeKey = manifestPath;
           try {
-            const raw = JSON.parse(readFileSync(manifestPath, "utf-8"));
-            if (raw && typeof raw === "object") {
-              results.push({ path: manifestPath, dir, manifest: raw as FluxManifest });
-            }
+            dedupeKey = realpathSync(manifestPath);
           } catch {}
+          if (!seen.has(dedupeKey)) {
+            seen.add(dedupeKey);
+            try {
+              const raw = JSON.parse(readFileSync(manifestPath, "utf-8"));
+              if (raw && typeof raw === "object") {
+                results.push({ path: manifestPath, dir, manifest: raw as FluxManifest });
+              }
+            } catch {}
+          }
         }
       }
       const entries = readdirSync(dir, { withFileTypes: true });
