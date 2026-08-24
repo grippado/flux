@@ -53,6 +53,14 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, t
 nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:iterate` num harness,
 `/flux-iterate` em outro) — nunca `flux:` literal.
 
+## Step 0-cli: atalho mecânico (tentar primeiro)
+
+Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight iterate [alvo] --json` antes da
+resolução agentica. JSON válido resolve o Step 0-context abaixo — revalidar só o que
+`session_revalidation_required` lista — e a coleta da PR usa `flux gather pr <n> --threads --json`
+(threads são insumo obrigatório deste elo; `degraded` sem threads → tratar como a perda que o
+fluxo já descreve). CLI ausente ou saída inválida → seguir o step abaixo como sempre.
+
 ## Step 0-context: resolver perfil de contexto
 
 Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:

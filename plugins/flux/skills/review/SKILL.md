@@ -50,6 +50,13 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, t
 nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:review` num harness,
 `/flux-review` em outro) — nunca `flux:` literal.
 
+## Step 0-cli: atalho mecânico (tentar primeiro)
+
+Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight review [alvo] --json` antes de
+qualquer resolução agentica. JSON válido resolve o Step 0-preflight e o Step 0-context abaixo —
+revalidar só o que `session_revalidation_required` lista, e usar `flux gather pr` na coleta do
+pipeline `pr`. CLI ausente ou saída inválida → seguir os dois steps abaixo como sempre.
+
 ## Step 0-preflight: verificar pré-requisitos
 
 Seguir `${FLUX_ROOT}/shared/preflight.md` **antes de coletar o alvo**. Ele resolve `FLUX_ROOT`, verifica

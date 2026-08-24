@@ -33,6 +33,14 @@ O parse vem primeiro porque a **âncora de contexto é o alvo**, não o `cwd`
 rodado do home tem que usar o perfil do `acme`, e é o perfil que decide qual reviewer holístico o
 preflight vai verificar no passo seguinte.
 
+## Step 0-cli: atalho mecânico (tentar primeiro)
+
+Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight peek [alvo] --json` logo após o
+parse do alvo. JSON válido resolve os itens 1, 2, 4 e a parte de disco do 3 e do 5 abaixo —
+revalidar só o que `session_revalidation_required` lista; alvo PR usa `flux gather pr <n> --json`
+(sem `--threads`: o peek não consome threads). CLI ausente ou saída inválida → seguir o step
+abaixo como sempre.
+
 ## Step 0-preflight: verificar antes de trabalhar
 
 Seguir `${FLUX_ROOT}/shared/preflight.md` **antes de ler o conteúdo do alvo**. Ele resolve `FLUX_ROOT`, verifica
