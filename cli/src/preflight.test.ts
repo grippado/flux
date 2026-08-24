@@ -150,6 +150,7 @@ describe("runPreflight", () => {
       expect(result.status).toBe("abort");
       expect(result.abort_message).toContain("review-legend.md");
       expect(result.session_revalidation_required).toEqual([]);
+      expect(result.capability_level_hint).toBe("UNAVAILABLE");
     } finally {
       delete process.env["CLAUDE_PLUGIN_ROOT"];
     }

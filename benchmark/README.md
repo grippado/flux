@@ -49,10 +49,13 @@ python3 analyze.py results/<timestamp>
 ```
 
 `run.sh` grava um `results.jsonl` (custo, tokens, duração por run, via `claude -p
---output-format json`). `parse_phase.py` localiza o transcript de cada `session_id` e segmenta a
-fase mecânica (até o primeiro dispatch de `Task`/`Agent`), deduplicando usage por `requestId` — a
-mesma requisição aparece 2-3x no JSONL por streaming. `analyze.py` emite a tabela final
-(mediana A vs B, Δ%, IC 95% via bootstrap) em `report.md`.
+--output-format json`; no claude 2.1.240 esse formato emite um ARRAY de eventos com o `result` no
+fim, e o extrator aceita array e objeto). `parse_phase.py` localiza o transcript de cada
+`session_id` e segmenta a fase mecânica (até o primeiro dispatch de `Task`/`Agent` — `Agent` é o
+nome real do tool no harness atual, verificado em transcript; `Task` cobre transcripts antigos; o
+`SendMessage` citado em `research/benchmarkDesign.md` estava errado), deduplicando usage por
+`requestId` — a mesma requisição aparece 2-3x no JSONL por streaming. `analyze.py` emite a tabela
+final (mediana A vs B, Δ%, IC 95% via bootstrap) em `report.md`.
 
 ## Métricas
 

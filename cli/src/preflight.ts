@@ -325,16 +325,16 @@ export async function runPreflight(opts: {
   );
   if (!sibling_origin_consulted) degradations.push("kit origem nao consultada");
 
-  const capability = hardFailed.length > 0
+  const fluxRootUnavailable = ctx.flux_root === "UNAVAILABLE";
+  const aborted = hardFailed.length > 0 || fluxRootUnavailable;
+
+  const capability = aborted
     ? "UNAVAILABLE"
     : classifyCapabilityHint({
         manifestPresent: manifest !== null,
         hasCheckout,
         hasSpecialists: ctx.lenses.l2_paths.length > 0,
       });
-
-  const fluxRootUnavailable = ctx.flux_root === "UNAVAILABLE";
-  const aborted = hardFailed.length > 0 || fluxRootUnavailable;
 
   return {
     schema_version: PREFLIGHT_SCHEMA_VERSION,

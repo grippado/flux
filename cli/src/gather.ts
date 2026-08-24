@@ -33,11 +33,9 @@ export function extractTicket(title: string, headRef: string, linearOrg: string 
   return { id, url: linearOrg ? `https://linear.app/${linearOrg}/issue/${id}` : null };
 }
 
-export function isBotComment(authorLogin: string, body: string, botLogins: string[]): boolean {
+export function isBotComment(authorLogin: string, botLogins: string[]): boolean {
   if (authorLogin.endsWith("[bot]")) return true;
   if (botLogins.includes(authorLogin)) return true;
-  const trimmed = body.trim();
-  if (trimmed.length < 20 && /^(sync|ci)\b/i.test(trimmed)) return true;
   return false;
 }
 
@@ -314,14 +312,27 @@ export async function gatherPr(opts: {
         const data = JSON.parse(threadsRes.stdout);
         const nodes: Record<string, unknown>[] =
           data?.data?.repository?.pullRequest?.reviewThreads?.nodes ?? [];
+        const fullBody = (comment: { database_id: unknown; body: unknown }): unknown => {
+          if (typeof comment.body !== "string" || comment.body.length < 200) return comment.body;
+          if (typeof comment.database_id !== "number") return comment.body;
+          const rest = gh(["api", `repos/${repoFull}/pulls/comments/${comment.database_id}`, "-q", ".body"]);
+          if (rest.ok && rest.stdout.length > 0) {
+            const full = rest.stdout.replace(/\n$/, "");
+            return full.length >= comment.body.length ? full : comment.body;
+          }
+          return comment.body;
+        };
         const threads = nodes.map((t) => {
-          const comments = ((t["comments"] as { nodes?: Record<string, unknown>[] })?.nodes ?? []).map((c) => ({
-            database_id: c["databaseId"],
-            url: c["url"],
-            author: (c["author"] as { login?: string } | null)?.login ?? null,
-            body: c["body"],
-            created_at: c["createdAt"],
-          }));
+          const comments = ((t["comments"] as { nodes?: Record<string, unknown>[] })?.nodes ?? []).map((c) => {
+            const base = {
+              database_id: c["databaseId"],
+              url: c["url"],
+              author: (c["author"] as { login?: string } | null)?.login ?? null,
+              body: c["body"],
+              created_at: c["createdAt"],
+            };
+            return { ...base, body: fullBody(base) };
+          });
           const first = comments[0] ?? null;
           return {
             is_resolved: t["isResolved"],
@@ -360,7 +371,7 @@ export async function gatherPr(opts: {
             body: String(c["body"] ?? ""),
             created_at: c["created_at"],
           }))
-          .filter((c) => !isBotComment(c.author, c.body, botLogins));
+          .filter((c) => !isBotComment(c.author, botLogins));
         result.issue_comments = kept;
         result.issue_comment_count = kept.length;
       } catch {

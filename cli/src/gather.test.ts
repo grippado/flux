@@ -55,16 +55,13 @@ describe("extractTicket", () => {
 
 describe("isBotComment", () => {
   test("sufixo [bot] e sempre bot", () => {
-    expect(isBotComment("dependabot[bot]", "qualquer coisa longa o suficiente", [])).toBe(true);
+    expect(isBotComment("dependabot[bot]", [])).toBe(true);
   });
   test("login na lista do manifesto e bot", () => {
-    expect(isBotComment("arco-reviewer", "parecer completo com conteudo substantivo", ["arco-reviewer"])).toBe(true);
+    expect(isBotComment("arco-reviewer", ["arco-reviewer"])).toBe(true);
   });
-  test("humano com conteudo nao e bot", () => {
-    expect(isBotComment("gabriel", "acho que este endpoint precisa de paginacao", [])).toBe(false);
-  });
-  test("body curto de sync e bot", () => {
-    expect(isBotComment("ci-user", "sync ok", [])).toBe(true);
+  test("humano nao e bot, mesmo com comentario curto sobre CI", () => {
+    expect(isBotComment("gabriel", [])).toBe(false);
   });
 });
 
@@ -191,6 +188,51 @@ describe("gatherPr", () => {
     expect((thread["replies"] as unknown[]).length).toBe(1);
     expect(r.issue_comment_count).toBe(1);
     expect(r.threads_path).not.toBeNull();
+  });
+
+  test("body de thread com 200+ chars busca o completo via REST", async () => {
+    const truncated = "x".repeat(200);
+    const full = "x".repeat(200) + " e o resto do argumento que o GraphQL cortou";
+    const graphql = {
+      data: {
+        repository: {
+          pullRequest: {
+            reviewThreads: {
+              nodes: [
+                {
+                  isResolved: false,
+                  path: "src/x.ts",
+                  line: 10,
+                  comments: {
+                    nodes: [
+                      { databaseId: 77, url: "u", author: { login: "senior" }, body: truncated, createdAt: "2026-08-21T00:00:00Z" },
+                    ],
+                  },
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+    const r = await gatherPr({
+      target: "247",
+      repo: "acme/api",
+      cwd: tmp,
+      threads: true,
+      outDir: join(tmp, "out"),
+      gh: fakeGh({
+        "pr view": { ok: true, stdout: JSON.stringify(PR_VIEW) },
+        "pr diff": { ok: true, stdout: "diff" },
+        "api users/marcelino -q .name": { ok: true, stdout: "" },
+        "api user -q .login": { ok: true, stdout: "gabriel\n" },
+        "api graphql": { ok: true, stdout: JSON.stringify(graphql) },
+        "api repos/acme/api/pulls/comments/77 -q .body": { ok: true, stdout: full + "\n" },
+        "api repos/acme/api/issues/247/comments": { ok: true, stdout: "[]" },
+      }),
+    });
+    const thread = r.threads?.[0] as Record<string, unknown>;
+    expect(thread["body"]).toBe(full);
   });
 
   test("falha parcial em threads degrada sem abortar", async () => {
