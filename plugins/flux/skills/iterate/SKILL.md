@@ -125,6 +125,7 @@ As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebas
 - Não resolver thread humana que esteja em `needs-discussion` (ver guardrail no passo 7).
 - Não retentar escrita em repo cross-org sem acesso — capturar o erro e reportar.
 - **Não editar título nem descrição de PR de terceiro.** A reconciliação do passo 8a só vale para PR cuja `author.login` é a conta autenticada; em PR de outra pessoa, a correção vira sugestão em comentário. Nunca reescrever texto alheio.
+- **Não commitar nem pushar em PR de terceiro sem pedido explícito + confirmação textual.** `IS_OWN_PR == false` é modo `ready-only` por default (passo 6): só interação (responder/reagir/resolver). Sair disso exige a opção "pedir permissão pra escrever" e a confirmação textual do passo 6 — nunca inferido de contexto, nunca default mesmo com `--auto`.
 - **Não mexer no prefixo de ticket do título** (`[ENG-1234]`, `[PROD-000]`). É chave de rastreabilidade para Linear e CI; trocar ou remover quebra automação em silêncio.
 - **Não renomear título que só ficou genérico.** Renomeia-se apenas título que nomeia desenho refutado. A barra do título é mais alta que a da descrição, porque ele vira mensagem de squash commit e circula em notificação.
 - **Não regerar a descrição da PR do zero.** Editar sempre sobre o body atual, cirurgicamente. Body regenerado apaga contexto humano (links de PRs irmãs, checklist marcada pelo revisor) de forma silenciosa e irreversível pela UI.
@@ -178,7 +179,9 @@ gh pr view $PR_NUMBER --repo $REPO_FULL \
   --json number,title,headRefName,baseRefName,url,state,isDraft,author,headRefOid,mergeable,mergeStateStatus
 ```
 
-`mergeable` e `mergeStateStatus` **não são opcionais nesta coleta**: eles alimentam o gate de integração do passo 2b, que roda antes da triagem de CI. `author` é o guard de autoria (força-push e reconciliação de descrição só valem em PR própria).
+`mergeable` e `mergeStateStatus` **não são opcionais nesta coleta**: eles alimentam o gate de integração do passo 2b, que roda antes da triagem de CI.
+
+**`IS_OWN_PR` — o guard de autoria.** `IS_OWN_PR = (author.login == ME)`, onde `ME` é a conta autenticada (`gh api user -q .login`). Governa três coisas, não só duas: força-push (passo 2b), reconciliação de título/descrição (passo 8a) **e, a partir daqui, quais opções o GATE do passo 6 oferece e se o passo 8 (commit/push) pode rodar**. `IS_OWN_PR == false` não distingue colega de time com push habilitado de desconhecido: é binário, por `author.login`, sem exceção para coautoria ou bypass de branch protection.
 
 Buscar **todas** as threads via GraphQL (a REST não expõe `isResolved`). Buscar resolvidas também é essencial: elas formam o **corpus de referência** para o cross-reference do passo 3.
 
@@ -450,9 +453,11 @@ Integração roda em Docker. Se o daemon estiver down (`docker info` falha), **n
 
 > O Biome ignora os paths de teste de integração: rodar `biome check` num arquivo sob `tests/integration/` reporta "Checked 0 files" — isso é esperado, não é erro; registrar como n/a no plano.
 
-### 6. Confirmação interativa (pular se `--auto`)
+### 6. Confirmação interativa (pular se `--auto`, exceto em PR de terceiro sem escrita concedida)
 
-Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + mensagem de commit), e abra um GATE (`${FLUX_ROOT}/shared/hitl.md`) (single-select):
+Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + mensagem de commit), e abra um GATE (`${FLUX_ROOT}/shared/hitl.md`) (single-select). **As opções dependem de `IS_OWN_PR`:**
+
+**`IS_OWN_PR == true`** (comportamento atual, sem mudança):
 
 - **Header:** `Atualizar PR?`
 - **Question:** `Apliquei as correções e preparei as respostas das {N} threads da PR #{number}. O que fazer agora?`
@@ -464,9 +469,44 @@ Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + me
 
 > A opção recomendada é a primeira, com `(Recomendado)` no label. Com `--auto`, assuma a opção 1 sem perguntar.
 
+**`IS_OWN_PR == false`** (modo `ready-only` por default — RN-01): sem escrita já concedida nesta rodada
+(ver "Pedido explícito de escrita" abaixo), o GATE **não oferece nem executa commit/push como caminho
+default**. Ele se comporta como se só a opção de interação existisse:
+
+- **Header:** `Atualizar PR de terceiro?`
+- **Question:** `Apliquei as correções e preparei as respostas das {N} threads da PR #{number}, que não é sua. O que fazer agora?`
+- **Options (nesta ordem):**
+  1. `Postar respostas e resolver, sem push (Recomendado)` — descrição: `Interage no GitHub (réplicas, reações, resolve threads). Nenhum commit, nenhum push — PR de terceiro não escreve por default.`
+  2. `Pedir permissão pra escrever nela agora` — descrição: `Abre uma confirmação textual explícita antes de liberar commit/push nesta PR de terceiro (RN-02/RN-03). Ver "Pedido explícito de escrita".`
+  3. `Só deixar as correções locais` — descrição: `Não toca no GitHub. Threads ficam abertas, nada é commitado.`
+  4. `Cancelar` — descrição: `Não posta nada.`
+
+> Com `--auto`, assuma a opção 1 (interação, sem push) **a menos que a escrita já tenha sido concedida
+> nesta rodada ou persista de uma rodada anterior do mesmo watch** (ver "Pedido explícito de escrita").
+> `--auto` nunca dispensa a confirmação textual da opção 2 por conta própria — ele só reaproveita uma
+> concessão que já aconteceu.
+
+#### Pedido explícito de escrita em PR de terceiro (RN-02, RN-03)
+
+Escolhida a opção 2 (`IS_OWN_PR == false`), o comando **não libera commit/push ainda**: abre uma
+segunda pergunta, desta vez de confirmação textual (não outro single-select do `shared/hitl.md`) —
+peça pro usuário digitar explicitamente algo como `sim, escrever na PR de terceiro`. Qualquer resposta
+que não seja essa confirmação textual cancela o pedido e volta pro modo `ready-only` (opção 1).
+
+Confirmado o texto, a escrita fica concedida **para esta rodada** e o fluxo segue como se a opção 1 de
+`IS_OWN_PR == true` tivesse sido escolhida (post + commit + push, passo 7 e passo 8 rodam normalmente).
+
+**Persistência no watch (RN-c):** a concessão vale pras próximas rodadas automáticas do **mesmo run**
+de watch, sem precisar ser re-afirmada a cada rodada — grave `writeGrantedForThirdParty: true` no
+estado persistente (ver "Estado persistente" no modo WATCH). Um novo `/flux:iterate` (nova invocação,
+novo estado) sempre nasce em `ready-only`; a concessão não atravessa runs.
+
+Nunca inferir o pedido de contexto (ex.: o usuário mencionar "pode commitar" numa thread não conta).
+A confirmação textual é o único caminho.
+
 **Interação com o gate do passo 2b:**
 - Se o gate **resolveu** um conflito neste run e o force-push ainda não foi aprovado, a aprovação do force-push é **pergunta própria e anterior** a esta (feita no passo 2b, com estratégia + decisão por arquivo + gates), nunca embutida na opção 1. Reescrever histórico e postar réplicas são decisões de risco diferente, e juntá-las esconde a mais grave atrás da mais trivial. `--auto` dispensa **esta** confirmação, não aquela.
-- Se o gate ficou em **modo degradado**, o plano mostrado aqui não tem "arquivos alterados" nem mensagem de commit (o passo 4 foi pulado). Ajustar a pergunta para o que resta: postar as réplicas + reações e resolver as threads. A opção 1 vira equivalente à 2, e isso deve estar dito na descrição da opção, junto do motivo (`PR conflitante com a base, correções suspensas`).
+- Se o gate ficou em **modo degradado**, o plano mostrado aqui não tem "arquivos alterados" nem mensagem de commit (o passo 4 foi pulado). Ajustar a pergunta para o que resta: postar as réplicas + reações e resolver as threads. Em `IS_OWN_PR == true`, a opção 1 vira equivalente à 2, dito na descrição junto do motivo (`PR conflitante com a base, correções suspensas`). Em `IS_OWN_PR == false`, o modo degradado é compatível com o `ready-only` já default: nada muda na pergunta.
 
 ### 7. Postar réplicas + reações + resolver (opções 1 e 2) · fase 3
 
@@ -495,6 +535,12 @@ Top-level issue comments: responder = novo `gh api repos/$REPO_FULL/issues/$PR_N
 > commite e não pushe** (nem rode o passo 8a, que pressupõe push). O passo 7 já fechou a conversa; o
 > código fica intocado e o bloqueio vai no relatório do passo 9. Não "aproveitar" o push para
 > atualizar a branch.
+
+> **GUARDA DE AUTORIA (RN-01/RN-02):** com `IS_OWN_PR == false`, este passo só roda se a escrita foi
+> concedida no passo 6 (opção 2 + confirmação textual, desta rodada ou persistida do watch). Sem essa
+> concessão, o passo 6 já não teria levado até aqui — mas se algum caminho de código chegar neste
+> ponto sem `IS_OWN_PR == true` nem a concessão registrada, é bug: aborte o commit/push, registre o
+> bloqueio e reporte, nunca escreva "por garantia".
 
 Confirme que TODAS as threads endereçadas foram respondidas e resolvidas antes de pushar.
 
@@ -709,7 +755,7 @@ Cenário típico: o usuário fechou a 1ª rodada de threads e **vai sair**. Quer
 2. **Monitore o CI** da PR (GitHub Actions) e avise/aja quando quebrar.
 3. Não esqueça: mantenha a sessão acordada com cadência sã até a PR assentar.
 
-As **rodadas subsequentes do watch rodam em `--auto`**: cada uma aplica + posta + resolve + commita + pusha sozinha (assume a opção 1 da confirmação), já que o usuário tipicamente saiu. A 1ª passada mantém a confirmação interativa, a menos que `--auto`. A configuração de `--solo` persiste em todas as rodadas. Verificação contra o código real continua **obrigatória** em toda rodada, watch não relaxa o rigor anti-falso-positivo.
+As **rodadas subsequentes do watch rodam em `--auto`**: cada uma aplica + posta + resolve + commita + pusha sozinha (assume a opção 1 da confirmação), já que o usuário tipicamente saiu. **Em PR de terceiro, isso vale só se a escrita já foi concedida** (`writeGrantedForThirdParty == true` no estado, ver "Pedido explícito de escrita" no passo 6); sem concessão, cada rodada automática fica em `ready-only` (interação, sem commit/push) até o usuário pedir escrita numa passada interativa. A 1ª passada mantém a confirmação interativa, a menos que `--auto`. A configuração de `--solo` persiste em todas as rodadas. Verificação contra o código real continua **obrigatória** em toda rodada, watch não relaxa o rigor anti-falso-positivo.
 
 ### Estado persistente (não esquecer entre wakes)
 
@@ -730,6 +776,7 @@ Mantenha um arquivo de estado por PR para sobreviver aos `ScheduleWakeup` e às 
   "lastMergeable": "MERGEABLE|CONFLICTING|UNKNOWN|null",
   "conflictAttemptedAtBaseSha": null,
   "forcePushApproved": false,
+  "writeGrantedForThirdParty": false,
   "bodySyncedAtSha": "abc123",
   "titleSyncedAtSha": "abc123",
   "quietTicks": 0,
@@ -740,9 +787,9 @@ Mantenha um arquivo de estado por PR para sobreviver aos `ScheduleWakeup` e às 
 }
 ```
 
-Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre).
+Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido.
 
-Na 1ª passada, gravar o estado inicial (round 1, threads que você resolveu, SHA pós-push, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA para o qual descrição e título foram reconciliados no passo 8a, ou `null` se não houve drift). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente `isResolved == true` de sua autoria, o `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles, e o `board` a partir do naming determinístico do passo 2a.
+Na 1ª passada, gravar o estado inicial (round 1, threads que você resolveu, SHA pós-push, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA para o qual descrição e título foram reconciliados no passo 8a, ou `null` se não houve drift, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente `isResolved == true` de sua autoria, o `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles, e o `board` a partir do naming determinístico do passo 2a.
 
 **Atualizar o board a cada tick:** todo tick rola o carimbo de data do board (frontmatter `updated:`, TLDR, título do painel) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline de Eventos Relevantes + parágrafo na Timeline Verbosa. Tick quiet só rola a data.
 
