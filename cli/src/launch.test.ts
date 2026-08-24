@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "fs";
-import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude } from "./launch.ts";
+import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere } from "./launch.ts";
 
 function captureWrites(): { stdout: string[]; stderr: string[]; restore: () => void } {
   const stdout: string[] = [];
@@ -67,6 +67,34 @@ describe("buildTerminalScript: do script + activate", () => {
   it("embute o comando escapado", () => {
     const script = buildTerminalScript('claude "hello"');
     expect(script).toContain('do script "claude \\"hello\\""');
+  });
+});
+
+describe("runHere: executa na aba atual via shell interativo, sem osascript", () => {
+  it("passa por zsh -i -c para resolver funcoes/aliases (ex.: FLUX_CLAUDE_CMD apontando pra uma shell function)", () => {
+    let argvUsed: string[] = [];
+    const exitCode = runHere(
+      { command: "irrelevante", body: "--- PREFLIGHT RESOLVIDO ---\n/flux:iterate 4742", invocation: "scc" },
+      {
+        spawn: (argv) => { argvUsed = argv; return 0; },
+        writePromptFile: () => "/tmp/flux-prompt-test/prompt.txt",
+        shell: "/bin/zsh",
+      },
+    );
+    expect(argvUsed[0]).toBe("/bin/zsh");
+    expect(argvUsed[1]).toBe("-i");
+    expect(argvUsed[2]).toBe("-c");
+    expect(argvUsed[3]).toContain("scc -- ");
+    expect(argvUsed[3]).toContain("$(cat '/tmp/flux-prompt-test/prompt.txt')");
+    expect(exitCode).toBe(0);
+  });
+
+  it("propaga o exit code do processo filho", () => {
+    const exitCode = runHere(
+      { command: "irrelevante", body: "hello", invocation: "claude" },
+      { spawn: () => 7, writePromptFile: () => "/tmp/flux-prompt-test/prompt.txt" },
+    );
+    expect(exitCode).toBe(7);
   });
 });
 

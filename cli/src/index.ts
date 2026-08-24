@@ -1,6 +1,6 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
-import { launchClaude } from "./launch.ts";
+import { launchClaude, runHere } from "./launch.ts";
 import { runPreflight } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
 
@@ -22,7 +22,7 @@ function printUsage(): void {
   console.error("Uso: flux resolve [alvo] [--repo <slug>] --json");
   console.error("     flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
   console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
-  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe]");
+  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--here]");
   console.error("");
   console.error(`Verbos suportados: ${SUPPORTED_VERBS.join(", ")}`);
 }
@@ -36,6 +36,7 @@ function parseArgs(argv: string[]): {
   json: boolean;
   dry: boolean;
   safe: boolean;
+  here: boolean;
   threads: boolean;
   rest: string[];
 } {
@@ -48,6 +49,7 @@ function parseArgs(argv: string[]): {
   let json = false;
   let dry = false;
   let safe = false;
+  let here = false;
   let threads = false;
   const rest: string[] = [];
 
@@ -76,6 +78,9 @@ function parseArgs(argv: string[]): {
     } else if (a === "--safe") {
       safe = true;
       i++;
+    } else if (a === "--here") {
+      here = true;
+      i++;
     } else if (a === "--threads") {
       threads = true;
       i++;
@@ -88,7 +93,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { subcommand, target, repo, family, out, json, dry, safe, threads, rest };
+  return { subcommand, target, repo, family, out, json, dry, safe, here, threads, rest };
 }
 
 async function runResolve(opts: {
@@ -135,9 +140,10 @@ async function runVerb(opts: {
   repo: string | null;
   dry: boolean;
   safe: boolean;
+  here: boolean;
   rest: string[];
 }): Promise<void> {
-  const { verb, target, repo, dry, safe, rest } = opts;
+  const { verb, target, repo, dry, safe, here, rest } = opts;
 
   if (target && isTicket(target)) {
     console.error(`Alvo de ticket (${target}) fora do escopo da v0. Use a interface web do Linear para este fluxo.`);
@@ -171,6 +177,11 @@ async function runVerb(opts: {
     process.exit(1);
   }
 
+  if (here) {
+    const exitCode = runHere({ command, body, invocation });
+    process.exit(exitCode);
+  }
+
   await launchClaude({ command, body, invocation });
 }
 
@@ -191,7 +202,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { subcommand, target, repo, family, out, json, dry, safe, threads, rest } = parseArgs(argv);
+  const { subcommand, target, repo, family, out, json, dry, safe, here, threads, rest } = parseArgs(argv);
 
   if (!subcommand) {
     printUsage();
@@ -241,7 +252,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await runVerb({ verb: subcommand, target, repo, dry, safe, rest });
+  await runVerb({ verb: subcommand, target, repo, dry, safe, here, rest });
 }
 
 if (import.meta.main) {

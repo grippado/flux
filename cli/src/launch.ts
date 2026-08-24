@@ -76,6 +76,27 @@ export function buildShellCmd(invocation: string, filePath: string): string {
   return `${invocation} -- "$(cat '${escapedPath}')"`;
 }
 
+export type HereDeps = {
+  spawn?: (argv: string[]) => number;
+  writePromptFile?: (prompt: string) => string;
+  shell?: string;
+};
+
+function spawnInherit(argv: string[]): number {
+  const proc = Bun.spawnSync(argv, { stdio: ["inherit", "inherit", "inherit"] });
+  return proc.exitCode ?? 1;
+}
+
+export function runHere(req: LaunchRequest, deps: HereDeps = {}): number {
+  const spawn = deps.spawn ?? spawnInherit;
+  const writeFile = deps.writePromptFile ?? writePromptToTempFile;
+  const shell = deps.shell ?? process.env["SHELL"] ?? "/bin/zsh";
+
+  const filePath = writeFile(req.body);
+  const shellCmd = buildShellCmd(req.invocation, filePath);
+  return spawn([shell, "-i", "-c", shellCmd]);
+}
+
 export async function launchClaude(req: LaunchRequest, deps: LaunchDeps = {}): Promise<void> {
   const termProgram = "termProgram" in deps ? deps.termProgram : process.env["TERM_PROGRAM"];
   const isAvailable = deps.checkOsascript ?? osascriptAvailable;
