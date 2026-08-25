@@ -181,7 +181,7 @@ gh pr view $PR_NUMBER --repo $REPO_FULL \
 
 `mergeable` e `mergeStateStatus` **não são opcionais nesta coleta**: eles alimentam o gate de integração do passo 2b, que roda antes da triagem de CI.
 
-**`IS_OWN_PR` — o guard de autoria.** `IS_OWN_PR = (author.login == ME)`, onde `ME` é a conta autenticada (`gh api user -q .login`). Governa quatro coisas: força-push (passo 2b), reconciliação de título/descrição (passo 8a), **quais opções o GATE do passo 6 oferece e se o passo 8 (commit/push) pode rodar**, e **se o auto-fix de CI do passo 2c pode commitar/pushar** a correção que aplicou. `IS_OWN_PR == false` não distingue colega de time com push habilitado de desconhecido: é binário, por `author.login`, sem exceção para coautoria ou bypass de branch protection.
+**`IS_OWN_PR` — o guard de autoria.** `IS_OWN_PR = (author.login == ME)`, onde `ME` é a conta autenticada (`gh api user -q .login`). **Deliberadamente mais restrito que o `IS_OWN_PR` do `${FLUX_CMD}review`** (que também conta assignee): aqui ele guarda commit, push e force-push, não só postar comentário, e ser assignee não implica consentimento pra escrever no histórico da branch de outra pessoa. Governa cinco coisas: força-push (passo 2b), reconciliação de título/descrição (passo 8a), **quais opções o GATE do passo 6 oferece e se o passo 8 (commit/push) pode rodar**, **se o executor do passo 4 pode commitar/pushar em `--auto`**, e **se o auto-fix de CI do passo 2c pode commitar/pushar** a correção que aplicou. `IS_OWN_PR == false` não distingue colega de time com push habilitado de desconhecido: é binário, por `author.login`, sem exceção para coautoria ou bypass de branch protection.
 
 Buscar **todas** as threads via GraphQL (a REST não expõe `isResolved`). Buscar resolvidas também é essencial: elas formam o **corpus de referência** para o cross-reference do passo 3.
 
@@ -420,8 +420,12 @@ Prompt do executor (auto-contido, ele não herda a conversa):
   justamente a discussão da review, a evidência e o veredito — material que pede para virar comentário
   e não deve. Um despacho sem essa linha terceiriza a violação e volta pronto para commitar.
 - O quality gate do passo 5, para rodar antes de devolver.
-- Com `--auto`: o executor também **commita e pusha** (passo 8), num só despacho, e devolve o SHA.
-  Sem `--auto`, ele para depois do gate — o commit fica para depois do gate humano do passo 6.
+- Com `--auto` **e** (`IS_OWN_PR == true` **ou** `IS_OWN_PR == false` com `writeGrantedForThirdParty
+  == true`): o executor também **commita e pusha** (passo 8), num só despacho, e devolve o SHA. Sem
+  `--auto`, ele para depois do gate — o commit fica para depois do gate humano do passo 6. **Com
+  `IS_OWN_PR == false` sem concessão, mesmo em `--auto`, o executor para depois do quality gate e não
+  commita nem pusha** — o mesmo guard do passo 6/8, aplicado aqui, porque em `--auto` o passo 6 pode
+  nunca ser alcançado antes do commit acontecer.
 
 Contrato de retorno (**< 40 linhas**, sem diff colado):
 
@@ -490,8 +494,12 @@ default**. Ele se comporta como se só a opção de interação existisse:
 
 Escolhida a opção 2 (`IS_OWN_PR == false`), o comando **não libera commit/push ainda**: abre uma
 segunda pergunta, desta vez de confirmação textual (não outro single-select do `shared/hitl.md`) —
-peça pro usuário digitar explicitamente algo como `sim, escrever na PR de terceiro`. Qualquer resposta
-que não seja essa confirmação textual cancela o pedido e volta pro modo `no-push` (opção 1).
+peça pro usuário digitar explicitamente algo como `sim, escrever na PR de terceiro`. **Critério de
+aceitação:** conta qualquer resposta que expresse, em texto claro e explícito, consentimento pra
+escrever *nesta* PR de terceiro (variações da frase-exemplo servem; não precisa ser match exato).
+Resposta vaga, neutra, condicional, ou fora do contexto desse consentimento (ex.: mudar de assunto,
+"talvez", "deixa eu pensar") **não** conta como confirmação e cancela o pedido, voltando pro modo
+`no-push` (opção 1).
 
 Confirmado o texto, a escrita fica concedida **para esta rodada** e o fluxo segue como se a opção 1 de
 `IS_OWN_PR == true` tivesse sido escolhida (post + commit + push, passo 7 e passo 8 rodam normalmente).
