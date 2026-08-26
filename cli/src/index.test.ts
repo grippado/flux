@@ -4,7 +4,7 @@ import { mkdtempSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { buildRemoteSshArgv } from "./launch.ts";
-import { promptForRepo } from "./index.ts";
+import { promptForRepo, runWizard } from "./index.ts";
 
 describe("flux --remote --dry: reencaminha o comando sem levar --dry/--remote/--new junto", () => {
   it("--remote combinado com --dry imprime o comando ssh esperado (--here nao e mais forcado, e um no-op)", () => {
@@ -59,5 +59,42 @@ describe("promptForRepo: fallback interativo quando falta --repo", () => {
     Object.defineProperty(process.stdin, "isTTY", { value: true, configurable: true });
     globalThis.prompt = (() => null) as typeof prompt;
     expect(promptForRepo("teste")).toBeNull();
+  });
+});
+
+describe("runWizard: flux sem argumentos monta o argv equivalente", () => {
+  const origPrompt = globalThis.prompt;
+
+  afterEach(() => {
+    globalThis.prompt = origPrompt;
+  });
+
+  function queuePrompts(answers: (string | null)[]): void {
+    let i = 0;
+    globalThis.prompt = (() => (i < answers.length ? answers[i++]! : null)) as typeof prompt;
+  }
+
+  it("verbo por numero + alvo + repo, remoto recusado: monta [verbo, alvo, --repo, slug]", async () => {
+    queuePrompts(["5", "123", "flux", "n"]);
+    const argv = await runWizard();
+    expect(argv).toEqual(["peek", "123", "--repo", "flux"]);
+  });
+
+  it("verbo por nome, alvo/repo em branco: monta so [verbo]", async () => {
+    queuePrompts(["peek", "", "", "n"]);
+    const argv = await runWizard();
+    expect(argv).toEqual(["peek"]);
+  });
+
+  it("verbo invalido seguido de cancelamento (Enter em branco): retorna null", async () => {
+    queuePrompts(["nao-existe", ""]);
+    const argv = await runWizard();
+    expect(argv).toBeNull();
+  });
+
+  it("cancelado de cara (Enter em branco no primeiro prompt): retorna null", async () => {
+    queuePrompts([""]);
+    const argv = await runWizard();
+    expect(argv).toBeNull();
   });
 });

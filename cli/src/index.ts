@@ -296,6 +296,48 @@ export async function pickRemoteInteractively(): Promise<string | null> {
   return reachable[idx - 1]!;
 }
 
+// `flux` sem nenhum argumento, num terminal de verdade: em vez de só mostrar
+// o uso, pergunta o que fazer e monta o argv equivalente ao que o usuário
+// teria digitado — daí em diante segue o pipeline normal (parseArgs/runVerb),
+// sem duplicar nenhuma lógica de resolução de repo/alvo/remoto.
+export async function runWizard(): Promise<string[] | null> {
+  console.error("flux — modo interativo (sem argumentos)\n");
+  console.error("Comandos disponíveis:");
+  SUPPORTED_VERBS.forEach((v, i) => console.error(`  ${i + 1}. ${v}`));
+
+  let verb: Verb | null = null;
+  while (!verb) {
+    const answer = prompt("Qual comando? [número ou nome]")?.trim();
+    if (!answer) return null;
+    const asIndex = Number(answer);
+    if (Number.isInteger(asIndex) && asIndex >= 1 && asIndex <= SUPPORTED_VERBS.length) {
+      verb = SUPPORTED_VERBS[asIndex - 1]!;
+    } else if (isSupportedVerb(answer)) {
+      verb = answer;
+    } else {
+      console.error(`"${answer}" não é um comando válido — tente de novo (Enter em branco cancela).`);
+    }
+  }
+
+  const target = prompt("PR/URL/ticket/path (opcional — Enter usa o diretório atual):")?.trim();
+  const repo = prompt("Repo (slug, opcional — Enter deixa o flux resolver):")?.trim();
+
+  let remoteAlias: string | null = null;
+  const wantsRemote = /^y/i.test(prompt("Rodar numa máquina remota via SSH? [y/N]")?.trim() ?? "");
+  if (wantsRemote) {
+    remoteAlias = await pickRemoteInteractively();
+    if (!remoteAlias) {
+      console.error("[flux] nenhuma máquina escolhida — seguindo local.");
+    }
+  }
+
+  const argv: string[] = [verb];
+  if (target) argv.push(target);
+  if (repo) argv.push("--repo", repo);
+  if (remoteAlias) argv.push("--remote", remoteAlias);
+  return argv;
+}
+
 function commandExists(cmd: string): boolean {
   try {
     const result = Bun.spawnSync(["/usr/bin/which", cmd], { stderr: "ignore" });
@@ -306,7 +348,12 @@ function commandExists(cmd: string): boolean {
 }
 
 async function main(): Promise<void> {
-  const argv = process.argv.slice(2);
+  let argv = process.argv.slice(2);
+
+  if (argv.length === 0 && process.stdin.isTTY) {
+    const wizardArgv = await runWizard();
+    if (wizardArgv) argv = wizardArgv;
+  }
 
   if (argv.length === 0) {
     printUsage();
