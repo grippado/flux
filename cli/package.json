@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "test": "bun test",
-    "build": "bun build --compile src/index.ts --outfile flux"
+    "build": "bun build --compile src/index.ts --outfile flux",
+    "setup": "bash scripts/setup.sh"
   }
 }

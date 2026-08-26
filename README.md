@@ -9,7 +9,7 @@
    da ideia ao merge, sem trocar de ferramenta
 ```
 
-[![license](https://img.shields.io/badge/license-MIT-6B7280)](LICENSE) [![claude code](https://img.shields.io/badge/Claude%20Code-plugin-8B5CF6)](#claude-code) [![cursor](https://img.shields.io/badge/Cursor-plugin-3B82F6)](#cursor) [![codex](https://img.shields.io/badge/Codex-plugin-A78BFA)](#codex)
+[![license](https://img.shields.io/badge/license-MIT-6B7280)](LICENSE) [![claude code](https://img.shields.io/badge/Claude%20Code-plugin-8B5CF6)](#claude-code) [![cursor](https://img.shields.io/badge/Cursor-plugin-3B82F6)](#cursor) [![codex](https://img.shields.io/badge/Codex-plugin-A78BFA)](#codex) [![cli](https://img.shields.io/badge/CLI-terminal-10B981)](#cli)
 
 > Família de comandos **globais e context-agnósticos** que cobre o ciclo inteiro de trabalho num repo: da issue ao código, do código ao review, do review ao merge, do merge à comunicação.
 
@@ -61,15 +61,55 @@ O adaptador Codex usa a delegação nativa de subagentes para o fan-out. MCP, va
 specialists são capacidades opcionais: quando ausentes, o preflight declara a degradação e o Flux
 continua no perfil genérico.
 
-### CLI (experimental)
+### CLI
 
-A CLI resolve o preflight fora de qualquer sessão de IA e abre o terminal já com o prompt armado,
-eliminando a etapa manual de copiar e colar. Em vez de abrir o Claude e digitar `/flux:review meu-repo`,
-você roda `flux review meu-repo` no terminal e a aba já nasce com o bloco PREFLIGHT RESOLVIDO na entrada.
+A CLI resolve o preflight fora de qualquer sessão de IA e já roda o Claude Code com o prompt
+armado, eliminando a etapa manual de copiar e colar. Em vez de abrir o Claude e digitar
+`/flux:review meu-repo`, você roda `flux review meu-repo` no terminal — por padrão **na aba
+atual** (equivalente ao antigo `--here`, agora o comportamento default).
 
-**Limitação declarada nesta versão:** o launcher suporta apenas o Claude Code. A abertura automática
-de aba funciona no iTerm2 e no Terminal.app (macOS); em qualquer outro emulador a CLI imprime o
-comando no stdout e avisa no stderr, para que você cole e execute manualmente.
+```bash
+flux review meu-repo                  # roda na aba atual, prompt já armado
+flux review 31 --repo flux --dry      # só monta e mostra o comando, não executa
+flux build meu-repo --new             # abre aba nova (iTerm2/Terminal.app) em vez de rodar aqui
+```
+
+**Sem nenhum argumento**, num terminal de verdade, a CLI entra em modo interativo: um menu
+navegável por seta (↑↓ ou `j`/`k`, número ou Enter, Esc cancela) pergunta o comando — com uma
+descrição curta de cada um —, depois o alvo (PR/URL/ticket/path, opcional), o repo (opcional) e
+se quer rodar numa máquina remota.
+
+```
+$ flux
+flux — modo interativo (sem argumentos). Qual comando?
+(setas ou j/k pra navegar, número ou Enter pra confirmar, Esc cancela)
+
+  review   revisão formal de PR/doc (specialists + reviewer)
+❯ build    implementa um ticket, entrega PR draft
+  peek     relance rápido e read-only de PR/diff/doc
+  ...
+```
+
+**Prévia do banner antes de disparar.** Com terminal interativo (e sem `--dry`), antes de abrir o
+Claude Code a CLI mostra o banner completo que vai ser enviado e um menu de seta com três opções:
+enviar como está (Enter no primeiro item), anexar um comentário extra ao banner, ou cancelar.
+`--yes`/`-y` pula essa prévia — útil pra quem já confia no fluxo e não quer o passo extra toda vez.
+
+**Rodar numa outra máquina, via SSH.** `--remote <alias>` reencaminha o comando inteiro pra um
+alias já configurado no seu `~/.ssh/config` — herda o terminal atual do outro lado, como se você
+tivesse aberto uma sessão SSH e rodado o `flux` de lá. Sem valor (`--remote` sozinho), a CLI lista
+os `Host` alcançáveis agora e pergunta qual usar (mesmo menu de seta); um comentário
+`# flux:ignore` na linha acima de um `Host` tira aquele alias da lista — útil pra servidor de
+produção que só está no `~/.ssh/config` por conveniência, não pra rodar sessões do flux.
+
+```bash
+flux review 31 --repo flux --remote worzix   # dispara direto no alias "worzix"
+flux review 31 --repo flux --remote          # pergunta qual máquina alcançável usar
+```
+
+**Limitação declarada:** a abertura automática de aba (`--new`) suporta só o Claude Code, e só
+funciona no iTerm2 e no Terminal.app (macOS); em qualquer outro emulador, ou fora do macOS, a CLI
+imprime o comando no stdout e avisa no stderr, para você colar e rodar na mão.
 
 **Permissões:** por default a sessão abre com `claude --dangerously-skip-permissions` — a CLI existe
 para despachar trabalho, e uma aba que para no primeiro prompt de permissão não despacha nada. Quem
@@ -81,15 +121,25 @@ completo: ele é usado verbatim e as flags passam a ser responsabilidade dele.
 
 ```bash
 cd cli
-bun install          # instala dependências, se houver
-bun run build        # gera o binário ./flux
-mv flux /usr/local/bin/flux   # ou outro diretório no seu PATH
+bun run setup     # builda, re-assina (macOS) e instala em ~/.local/bin/flux
 ```
 
-**Permissão de automação no primeiro uso (macOS):** ao rodar o primeiro `flux <verbo>`, o macOS pode
-exibir um diálogo pedindo permissão para o terminal controlar o iTerm2 ou o Terminal.app via
-AppleScript. Aceite o diálogo; a permissão fica salva em Preferências do Sistema → Privacidade e
-Segurança → Automação.
+`bun run setup` é o atalho de dev: builda o binário, re-assina no macOS (necessário em máquinas com
+MDM/EndpointSecurity — sem isso o primeiro exec depois de cada build pode morrer com "killed" e um
+`load code signature error` no log do sistema, sem indicar nada de errado no binário em si), e
+copia pra `~/.local/bin/flux`. Preferindo fazer na mão, ou instalar em outro lugar:
+
+```bash
+cd cli
+bun run build                  # gera o binário ./flux
+codesign --force --sign - flux # macOS com MDM/EndpointSecurity; opcional nos demais casos
+mv flux ~/.local/bin/flux      # ou outro diretório no seu PATH
+```
+
+**Permissão de automação no primeiro uso do `--new` (macOS):** ao rodar o primeiro `flux <verbo>
+--new`, o macOS pode exibir um diálogo pedindo permissão para o terminal controlar o iTerm2 ou o
+Terminal.app via AppleScript. Aceite o diálogo; a permissão fica salva em Preferências do Sistema →
+Privacidade e Segurança → Automação. Sem `--new` (o padrão), essa permissão nunca é pedida.
 
 **`FLUX_HOME`:** se você não instalou o flux como plugin de nenhum harness, defina `FLUX_HOME`
 apontando para o diretório `plugins/flux` do seu checkout. A CLI usa essa variável como fonte
@@ -99,13 +149,26 @@ explícita do FLUX_ROOT antes de tentar a heurística.
 export FLUX_HOME=~/code/flux/plugins/flux
 ```
 
+#### Flags
+
+| Flag | Efeito |
+|---|---|
+| `--repo <slug>` | repo alvo, quando não dá pra inferir do alvo ou do `cwd` |
+| `--dry` | só imprime o comando/prompt montado, sem executar nada nem mostrar a prévia do banner |
+| `--safe` | roda com os gates de permissão do harness, em vez de `--dangerously-skip-permissions` |
+| `--new` | abre aba nova (iTerm2/Terminal.app) em vez de rodar na aba atual (o padrão) |
+| `--remote [alias]` | roda na máquina do alias (`~/.ssh/config`); sem valor, pergunta interativamente |
+| `--yes`, `-y` | pula a prévia do banner antes de disparar |
+
 #### Exemplos
 
 ```bash
 flux resolve . --json                 # inspeciona o contexto resolvido no cwd
-flux review 31 --repo flux --dry      # monta o prompt sem abrir o Claude
-flux review meu-repo                  # abre aba com /flux:review meu-repo pronto
-flux build meu-repo --dry             # vê o comando antes de executar
+flux review 31 --repo flux --dry      # monta o prompt sem executar nada
+flux review meu-repo                  # roda na aba atual, /flux:review meu-repo pronto
+flux build meu-repo --new             # mesma coisa, mas abrindo aba nova
+flux review 31 --repo flux --remote   # escolhe interativamente uma máquina acessível via SSH
+flux                                  # modo interativo: pergunta comando, alvo, repo e remoto
 ```
 
 ### Depois de instalar, nos três

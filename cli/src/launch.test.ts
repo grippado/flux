@@ -1,6 +1,8 @@
 import { describe, it, expect } from "bun:test";
-import { readFileSync } from "fs";
-import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, assertSafeInvocation, buildShellCmd } from "./launch.ts";
+import { readFileSync, mkdtempSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, runRemote, assertSafeInvocation, buildShellCmd, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
 
 function captureWrites(): { stdout: string[]; stderr: string[]; restore: () => void } {
   const stdout: string[] = [];
@@ -231,5 +233,167 @@ describe("launchClaude: caminhos de execução", () => {
     } finally {
       cap.restore();
     }
+  });
+});
+
+describe("runRemote: reencaminha o comando pra outra máquina via ssh -t", () => {
+  it("alcancavel: chama ssh -t <alias> com o argv reencaminhado e escapado", () => {
+    let argvUsed: string[] = [];
+    const exitCode = runRemote(
+      { remote: "personal", argv: ["review", "4742", "--repo", "flux", "--here"] },
+      {
+        checkSshAvailable: () => true,
+        checkReachable: () => true,
+        spawn: (argv) => { argvUsed = argv; return 0; },
+      },
+    );
+    expect(argvUsed).toEqual(
+      buildRemoteSshArgv("personal", ["review", "4742", "--repo", "flux", "--here"]),
+    );
+    expect(argvUsed[0]).toBe("ssh");
+    expect(argvUsed[1]).toBe("-t");
+    expect(argvUsed[2]).toBe("personal");
+    expect(argvUsed[3]).toBe("zsh");
+    expect(argvUsed[4]).toBe("-lic");
+    expect(argvUsed[5]).toContain("flux");
+    expect(argvUsed[5]).toContain("review");
+    expect(exitCode).toBe(0);
+  });
+
+  it("propaga o exit code do processo filho", () => {
+    const exitCode = runRemote(
+      { remote: "arco", argv: ["peek", "--here"] },
+      { checkSshAvailable: () => true, checkReachable: () => true, spawn: () => 5 },
+    );
+    expect(exitCode).toBe(5);
+  });
+
+  it("ssh ausente no PATH: aviso e exit 1, sem tentar spawn", () => {
+    const cap = captureWrites();
+    let spawned = false;
+    try {
+      const exitCode = runRemote(
+        { remote: "personal", argv: ["review", "--here"] },
+        { checkSshAvailable: () => false, spawn: () => { spawned = true; return 0; } },
+      );
+      expect(exitCode).toBe(1);
+      expect(spawned).toBe(false);
+      expect(cap.stderr.join("")).toContain("ssh não encontrado");
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("alias inalcancavel: mensagem clara e exit 1, sem stack trace de ssh", () => {
+    const cap = captureWrites();
+    let spawned = false;
+    try {
+      const exitCode = runRemote(
+        { remote: "worzix-desligado", argv: ["review", "--here"] },
+        {
+          checkSshAvailable: () => true,
+          checkReachable: () => false,
+          spawn: () => { spawned = true; return 0; },
+        },
+      );
+      expect(exitCode).toBe(1);
+      expect(spawned).toBe(false);
+      expect(cap.stderr.join("")).toContain("worzix-desligado");
+      expect(cap.stderr.join("")).toContain("não está acessível");
+    } finally {
+      cap.restore();
+    }
+  });
+});
+
+describe("listSshHostAliases: descobre candidatos a --remote em ~/.ssh/config", () => {
+  function fixtureConfig(contents: string): string {
+    const dir = mkdtempSync(join(tmpdir(), "flux-ssh-config-"));
+    const path = join(dir, "config");
+    writeFileSync(path, contents);
+    return path;
+  }
+
+  it("lista aliases simples, ignora wildcard e hosts com ponto (servicos, nao maquinas)", () => {
+    const path = fixtureConfig([
+      "Host github.com",
+      "  User git",
+      "",
+      "Host hq",
+      "  HostName hq.gripp.link",
+      "",
+      "Host personal",
+      "  HostName worzix.local",
+      "",
+      "Host arco",
+      "  HostName ISAAC-CJ9CJKFLQ3.local",
+      "",
+      "Host *",
+      "  ServerAliveInterval 60",
+      "",
+    ].join("\n"));
+
+    expect(listSshHostAliases(path)).toEqual(["hq", "personal", "arco"]);
+  });
+
+  it("dedup aliases repetidos e trata multiplos patterns na mesma linha Host", () => {
+    const path = fixtureConfig("Host personal worzix\nHostName worzix.local\nHost personal\n");
+    expect(listSshHostAliases(path)).toEqual(["personal", "worzix"]);
+  });
+
+  it("arquivo inexistente: retorna lista vazia sem lancar", () => {
+    expect(listSshHostAliases("/tmp/flux-nao-existe-ssh-config-xyz")).toEqual([]);
+  });
+
+  it("comentario '# flux:ignore' logo acima do Host exclui o bloco inteiro (ex.: servidor de producao)", () => {
+    const path = fixtureConfig([
+      "# Hostgator HQ, producao do guia-cumuru, flux:ignore",
+      "Host hq",
+      "  HostName hq.gripp.link",
+      "",
+      "Host personal",
+      "  HostName worzix.local",
+      "",
+    ].join("\n"));
+
+    expect(listSshHostAliases(path)).toEqual(["personal"]);
+  });
+
+  it("flux:ignore tolera linha em branco entre o comentario e o Host", () => {
+    const path = fixtureConfig([
+      "# flux:ignore",
+      "",
+      "Host producao",
+      "  HostName prod.example.com",
+      "",
+    ].join("\n"));
+
+    expect(listSshHostAliases(path)).toEqual([]);
+  });
+
+  it("comentario comum (sem o marcador) nao exclui nada", () => {
+    const path = fixtureConfig([
+      "# so uma nota qualquer",
+      "Host personal",
+      "  HostName worzix.local",
+      "",
+    ].join("\n"));
+
+    expect(listSshHostAliases(path)).toEqual(["personal"]);
+  });
+});
+
+describe("checkRemotesReachable: filtra so os aliases que respondem via ssh", () => {
+  it("mantem apenas os alcancaveis, preservando a ordem original", async () => {
+    const reachable = await checkRemotesReachable(
+      ["a", "b", "c"],
+      (alias) => alias !== "b",
+    );
+    expect(reachable).toEqual(["a", "c"]);
+  });
+
+  it("nenhum alcancavel: retorna lista vazia", async () => {
+    const reachable = await checkRemotesReachable(["a", "b"], () => false);
+    expect(reachable).toEqual([]);
   });
 });

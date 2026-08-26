@@ -1,6 +1,6 @@
-import { mkdtempSync, writeFileSync } from "fs";
+import { mkdtempSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { tmpdir, homedir } from "os";
 
 export function escapeAppleScript(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -81,10 +81,13 @@ export function assertSafeInvocation(invocation: string): void {
   }
 }
 
+export function shellQuoteArg(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
 export function buildShellCmd(invocation: string, filePath: string): string {
   assertSafeInvocation(invocation);
-  const escapedPath = filePath.replace(/'/g, "'\\''");
-  return `${invocation} -- "$(cat '${escapedPath}')"`;
+  return `${invocation} -- "$(cat ${shellQuoteArg(filePath)})"`;
 }
 
 export type HereDeps = {
@@ -106,6 +109,106 @@ export function runHere(req: LaunchRequest, deps: HereDeps = {}): number {
   const filePath = writeFile(req.body);
   const shellCmd = buildShellCmd(req.invocation, filePath);
   return spawn([shell, "-i", "-c", shellCmd]);
+}
+
+export type RemoteRequest = {
+  remote: string;
+  argv: string[];
+};
+
+export type RemoteDeps = {
+  checkSshAvailable?: () => boolean;
+  checkReachable?: (remote: string) => boolean;
+  spawn?: (argv: string[]) => number;
+};
+
+function sshAvailable(): boolean {
+  return Bun.which("ssh") !== null;
+}
+
+function sshReachable(remote: string): boolean {
+  try {
+    const result = Bun.spawnSync(
+      ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=3", remote, "exit"],
+      { stderr: "ignore", stdout: "ignore" },
+    );
+    return result.exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+
+export function listSshHostAliases(configPath?: string): string[] {
+  let text: string;
+  try {
+    text = readFileSync(configPath ?? join(homedir(), ".ssh", "config"), "utf8");
+  } catch {
+    return [];
+  }
+
+  const aliases: string[] = [];
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i]!.match(/^\s*Host\s+(.+)$/i);
+    if (!match) continue;
+
+    // Marcador de opt-out: um comentário "# flux:ignore" em qualquer linha
+    // logo acima do "Host" (pulando linhas em branco) exclui esse bloco
+    // inteiro de --remote — sem precisar o CLI conhecer nomes de máquina
+    // específicos (ex.: um servidor de produção que só está em ~/.ssh/config
+    // por conveniência, não porque deva rodar sessões do flux).
+    let ignored = false;
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = lines[j]!.trim();
+      if (prev === "") continue;
+      ignored = /^#.*flux:ignore/i.test(prev);
+      break;
+    }
+    if (ignored) continue;
+
+    for (const token of match[1]!.trim().split(/\s+/)) {
+      // Descarta wildcards (Host *, Host 192.168.*) e hosts com ponto — esses
+      // são tipicamente serviços (github.com, hq.gripp.link), não máquinas
+      // pessoais candidatas a --remote.
+      if (token.includes("*") || token.includes("?") || token.includes(".")) continue;
+      if (!aliases.includes(token)) aliases.push(token);
+    }
+  }
+  return aliases;
+}
+
+export async function checkRemotesReachable(
+  candidates: string[],
+  isReachable: (remote: string) => boolean = sshReachable,
+): Promise<string[]> {
+  const results = await Promise.all(
+    candidates.map((alias) => Promise.resolve(isReachable(alias)).then((ok) => (ok ? alias : null))),
+  );
+  return results.filter((a): a is string => a !== null);
+}
+
+export function runRemote(req: RemoteRequest, deps: RemoteDeps = {}): number {
+  const isAvailable = deps.checkSshAvailable ?? sshAvailable;
+  const isReachable = deps.checkReachable ?? sshReachable;
+  const spawn = deps.spawn ?? spawnInherit;
+
+  if (!isAvailable()) {
+    process.stderr.write("aviso: ssh não encontrado no PATH — --remote não funciona aqui\n");
+    return 1;
+  }
+  if (!isReachable(req.remote)) {
+    process.stderr.write(
+      `[flux] ✋ ${req.remote} não está acessível via SSH agora — verifique a conexão e ~/.ssh/config\n`,
+    );
+    return 1;
+  }
+
+  return spawn(buildRemoteSshArgv(req.remote, req.argv));
+}
+
+export function buildRemoteSshArgv(remote: string, argv: string[]): string[] {
+  const remoteCmd = ["flux", ...argv].map(shellQuoteArg).join(" ");
+  return ["ssh", "-t", remote, "zsh", "-lic", shellQuoteArg(remoteCmd)];
 }
 
 export async function launchClaude(req: LaunchRequest, deps: LaunchDeps = {}): Promise<void> {
