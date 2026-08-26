@@ -1,6 +1,6 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
-import { launchClaude, runHere } from "./launch.ts";
+import { launchClaude, runHere, runRemote, buildRemoteSshArgv } from "./launch.ts";
 import { runPreflight } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
@@ -23,7 +23,7 @@ function printUsage(): void {
   console.error("Uso: flux resolve [alvo] [--repo <slug>] --json");
   console.error("     flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
   console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
-  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--here]");
+  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--here] [--remote <alias>]");
   console.error("");
   console.error(`Verbos suportados: ${SUPPORTED_VERBS.join(", ")}`);
 }
@@ -38,6 +38,7 @@ function parseArgs(argv: string[]): {
   dry: boolean;
   safe: boolean;
   here: boolean;
+  remote: string | null;
   threads: boolean;
   rest: string[];
 } {
@@ -51,6 +52,7 @@ function parseArgs(argv: string[]): {
   let dry = false;
   let safe = false;
   let here = false;
+  let remote: string | null = null;
   let threads = false;
   const rest: string[] = [];
 
@@ -63,6 +65,9 @@ function parseArgs(argv: string[]): {
     const a = args[i];
     if (a === "--repo" && i + 1 < args.length) {
       repo = args[i + 1];
+      i += 2;
+    } else if (a === "--remote" && i + 1 < args.length) {
+      remote = args[i + 1];
       i += 2;
     } else if (a === "--family" && i + 1 < args.length) {
       family = args[i + 1];
@@ -94,7 +99,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { subcommand, target, repo, family, out, json, dry, safe, here, threads, rest };
+  return { subcommand, target, repo, family, out, json, dry, safe, here, remote, threads, rest };
 }
 
 async function runResolve(opts: {
@@ -142,9 +147,35 @@ async function runVerb(opts: {
   dry: boolean;
   safe: boolean;
   here: boolean;
+  remote: string | null;
   rest: string[];
+  argv: string[];
 }): Promise<void> {
-  const { verb, target, repo, dry, safe, here, rest } = opts;
+  const { verb, target, repo, dry, safe, here, remote, rest, argv } = opts;
+
+  if (remote) {
+    const forwarded: string[] = [];
+    let sawHere = false;
+    for (let i = 0; i < argv.length; i++) {
+      const a = argv[i];
+      if (a === "--remote") {
+        i++;
+        continue;
+      }
+      if (a === "--dry") continue;
+      if (a === "--here") sawHere = true;
+      forwarded.push(a!);
+    }
+    if (!sawHere) forwarded.push("--here");
+
+    if (dry) {
+      console.log(buildRemoteSshArgv(remote, forwarded).join(" "));
+      return;
+    }
+
+    const exitCode = runRemote({ remote, argv: forwarded });
+    process.exit(exitCode);
+  }
 
   let effectiveTarget = target;
   if (target && LINEAR_URL_PATTERN.test(target)) {
@@ -215,7 +246,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { subcommand, target, repo, family, out, json, dry, safe, here, threads, rest } = parseArgs(argv);
+  const { subcommand, target, repo, family, out, json, dry, safe, here, remote, threads, rest } = parseArgs(argv);
 
   if (!subcommand) {
     printUsage();
@@ -265,7 +296,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await runVerb({ verb: subcommand, target, repo, dry, safe, here, rest });
+  await runVerb({ verb: subcommand, target, repo, dry, safe, here, remote, rest, argv });
 }
 
 if (import.meta.main) {

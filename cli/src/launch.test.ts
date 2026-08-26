@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { readFileSync } from "fs";
-import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, assertSafeInvocation, buildShellCmd } from "./launch.ts";
+import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, runRemote, assertSafeInvocation, buildShellCmd, buildRemoteSshArgv } from "./launch.ts";
 
 function captureWrites(): { stdout: string[]; stderr: string[]; restore: () => void } {
   const stdout: string[] = [];
@@ -228,6 +228,76 @@ describe("launchClaude: caminhos de execução", () => {
       });
       expect(cap.stdout.join("")).toContain('claude "hello"');
       expect(cap.stderr.join("")).toContain("aviso");
+    } finally {
+      cap.restore();
+    }
+  });
+});
+
+describe("runRemote: reencaminha o comando pra outra máquina via ssh -t", () => {
+  it("alcancavel: chama ssh -t <alias> com o argv reencaminhado e escapado", () => {
+    let argvUsed: string[] = [];
+    const exitCode = runRemote(
+      { remote: "personal", argv: ["review", "4742", "--repo", "flux", "--here"] },
+      {
+        checkSshAvailable: () => true,
+        checkReachable: () => true,
+        spawn: (argv) => { argvUsed = argv; return 0; },
+      },
+    );
+    expect(argvUsed).toEqual(
+      buildRemoteSshArgv("personal", ["review", "4742", "--repo", "flux", "--here"]),
+    );
+    expect(argvUsed[0]).toBe("ssh");
+    expect(argvUsed[1]).toBe("-t");
+    expect(argvUsed[2]).toBe("personal");
+    expect(argvUsed[3]).toBe("zsh");
+    expect(argvUsed[4]).toBe("-lic");
+    expect(argvUsed[5]).toContain("flux");
+    expect(argvUsed[5]).toContain("review");
+    expect(exitCode).toBe(0);
+  });
+
+  it("propaga o exit code do processo filho", () => {
+    const exitCode = runRemote(
+      { remote: "arco", argv: ["peek", "--here"] },
+      { checkSshAvailable: () => true, checkReachable: () => true, spawn: () => 5 },
+    );
+    expect(exitCode).toBe(5);
+  });
+
+  it("ssh ausente no PATH: aviso e exit 1, sem tentar spawn", () => {
+    const cap = captureWrites();
+    let spawned = false;
+    try {
+      const exitCode = runRemote(
+        { remote: "personal", argv: ["review", "--here"] },
+        { checkSshAvailable: () => false, spawn: () => { spawned = true; return 0; } },
+      );
+      expect(exitCode).toBe(1);
+      expect(spawned).toBe(false);
+      expect(cap.stderr.join("")).toContain("ssh não encontrado");
+    } finally {
+      cap.restore();
+    }
+  });
+
+  it("alias inalcancavel: mensagem clara e exit 1, sem stack trace de ssh", () => {
+    const cap = captureWrites();
+    let spawned = false;
+    try {
+      const exitCode = runRemote(
+        { remote: "worzix-desligado", argv: ["review", "--here"] },
+        {
+          checkSshAvailable: () => true,
+          checkReachable: () => false,
+          spawn: () => { spawned = true; return 0; },
+        },
+      );
+      expect(exitCode).toBe(1);
+      expect(spawned).toBe(false);
+      expect(cap.stderr.join("")).toContain("worzix-desligado");
+      expect(cap.stderr.join("")).toContain("não está acessível");
     } finally {
       cap.restore();
     }

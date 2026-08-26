@@ -4,6 +4,10 @@ A CLI tem versão própria em `cli/package.json`, **fora do array verificado por
 (decisão registrada na PR #31: a CLI não é plugin de harness e não compartilha a cadência de
 versionamento com os cinco manifests do plugin).
 
+> **Instalação local de dev** (build + assinatura + `~/.local/bin/flux`): `cd cli && bun run setup`.
+> Não é este checklist — é o atalho pra desenvolver/testar a CLI localmente sem repetir os passos 4-5
+> na mão a cada mudança. Ver `cli/scripts/setup.sh`.
+
 Antes de publicar um binário novo:
 
 1. Bumpe `version` em `cli/package.json` para a versão desejada.

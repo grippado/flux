@@ -81,10 +81,13 @@ export function assertSafeInvocation(invocation: string): void {
   }
 }
 
+export function shellQuoteArg(s: string): string {
+  return `'${s.replace(/'/g, "'\\''")}'`;
+}
+
 export function buildShellCmd(invocation: string, filePath: string): string {
   assertSafeInvocation(invocation);
-  const escapedPath = filePath.replace(/'/g, "'\\''");
-  return `${invocation} -- "$(cat '${escapedPath}')"`;
+  return `${invocation} -- "$(cat ${shellQuoteArg(filePath)})"`;
 }
 
 export type HereDeps = {
@@ -106,6 +109,57 @@ export function runHere(req: LaunchRequest, deps: HereDeps = {}): number {
   const filePath = writeFile(req.body);
   const shellCmd = buildShellCmd(req.invocation, filePath);
   return spawn([shell, "-i", "-c", shellCmd]);
+}
+
+export type RemoteRequest = {
+  remote: string;
+  argv: string[];
+};
+
+export type RemoteDeps = {
+  checkSshAvailable?: () => boolean;
+  checkReachable?: (remote: string) => boolean;
+  spawn?: (argv: string[]) => number;
+};
+
+function sshAvailable(): boolean {
+  return Bun.which("ssh") !== null;
+}
+
+function sshReachable(remote: string): boolean {
+  try {
+    const result = Bun.spawnSync(
+      ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=3", remote, "exit"],
+      { stderr: "ignore", stdout: "ignore" },
+    );
+    return result.exitCode === 0;
+  } catch {
+    return false;
+  }
+}
+
+export function runRemote(req: RemoteRequest, deps: RemoteDeps = {}): number {
+  const isAvailable = deps.checkSshAvailable ?? sshAvailable;
+  const isReachable = deps.checkReachable ?? sshReachable;
+  const spawn = deps.spawn ?? spawnInherit;
+
+  if (!isAvailable()) {
+    process.stderr.write("aviso: ssh não encontrado no PATH — --remote não funciona aqui\n");
+    return 1;
+  }
+  if (!isReachable(req.remote)) {
+    process.stderr.write(
+      `[flux] ✋ ${req.remote} não está acessível via SSH agora — verifique a conexão e ~/.ssh/config\n`,
+    );
+    return 1;
+  }
+
+  return spawn(buildRemoteSshArgv(req.remote, req.argv));
+}
+
+export function buildRemoteSshArgv(remote: string, argv: string[]): string[] {
+  const remoteCmd = ["flux", ...argv].map(shellQuoteArg).join(" ");
+  return ["ssh", "-t", remote, "zsh", "-lic", shellQuoteArg(remoteCmd)];
 }
 
 export async function launchClaude(req: LaunchRequest, deps: LaunchDeps = {}): Promise<void> {
