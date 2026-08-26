@@ -147,9 +147,25 @@ export function listSshHostAliases(configPath?: string): string[] {
   }
 
   const aliases: string[] = [];
-  for (const line of text.split("\n")) {
-    const match = line.match(/^\s*Host\s+(.+)$/i);
+  const lines = text.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const match = lines[i]!.match(/^\s*Host\s+(.+)$/i);
     if (!match) continue;
+
+    // Marcador de opt-out: um comentário "# flux:ignore" em qualquer linha
+    // logo acima do "Host" (pulando linhas em branco) exclui esse bloco
+    // inteiro de --remote — sem precisar o CLI conhecer nomes de máquina
+    // específicos (ex.: um servidor de produção que só está em ~/.ssh/config
+    // por conveniência, não porque deva rodar sessões do flux).
+    let ignored = false;
+    for (let j = i - 1; j >= 0; j--) {
+      const prev = lines[j]!.trim();
+      if (prev === "") continue;
+      ignored = /^#.*flux:ignore/i.test(prev);
+      break;
+    }
+    if (ignored) continue;
+
     for (const token of match[1]!.trim().split(/\s+/)) {
       // Descarta wildcards (Host *, Host 192.168.*) e hosts com ponto — esses
       // são tipicamente serviços (github.com, hq.gripp.link), não máquinas

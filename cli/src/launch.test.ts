@@ -344,6 +344,43 @@ describe("listSshHostAliases: descobre candidatos a --remote em ~/.ssh/config", 
   it("arquivo inexistente: retorna lista vazia sem lancar", () => {
     expect(listSshHostAliases("/tmp/flux-nao-existe-ssh-config-xyz")).toEqual([]);
   });
+
+  it("comentario '# flux:ignore' logo acima do Host exclui o bloco inteiro (ex.: servidor de producao)", () => {
+    const path = fixtureConfig([
+      "# Hostgator HQ, producao do guia-cumuru, flux:ignore",
+      "Host hq",
+      "  HostName hq.gripp.link",
+      "",
+      "Host personal",
+      "  HostName worzix.local",
+      "",
+    ].join("\n"));
+
+    expect(listSshHostAliases(path)).toEqual(["personal"]);
+  });
+
+  it("flux:ignore tolera linha em branco entre o comentario e o Host", () => {
+    const path = fixtureConfig([
+      "# flux:ignore",
+      "",
+      "Host producao",
+      "  HostName prod.example.com",
+      "",
+    ].join("\n"));
+
+    expect(listSshHostAliases(path)).toEqual([]);
+  });
+
+  it("comentario comum (sem o marcador) nao exclui nada", () => {
+    const path = fixtureConfig([
+      "# so uma nota qualquer",
+      "Host personal",
+      "  HostName worzix.local",
+      "",
+    ].join("\n"));
+
+    expect(listSshHostAliases(path)).toEqual(["personal"]);
+  });
 });
 
 describe("checkRemotesReachable: filtra so os aliases que respondem via ssh", () => {
