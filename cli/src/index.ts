@@ -8,6 +8,19 @@ import { repoSlugFromTarget } from "./github-url.ts";
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
 
+const VERB_HINTS: Record<Verb, string> = {
+  review: "revisão formal de PR/doc (specialists + reviewer)",
+  refine: "PRD + plano numa rodada, a partir de ideia/thread/bug",
+  issue: "cria issue embasada em código a partir de qualquer fonte",
+  build: "implementa um ticket, entrega PR draft",
+  peek: "relance rápido e read-only de PR/diff/doc",
+  iterate: "fecha o loop de uma PR (threads, CI, push)",
+  land: "orquestra entrega multi-PR até o merge",
+  reply: "acompanha um caso do Slack embasado em código",
+  map: "levanta a instalação da família nesta máquina",
+  equip: "equipa um repo com motor de execução + specialists",
+};
+
 export const TICKET_PATTERN = /^[A-Z]{2,5}-\d+$/;
 export const LINEAR_URL_PATTERN = /^https?:\/\/linear\.app\//;
 
@@ -23,8 +36,9 @@ function printUsage(): void {
   console.error("Uso: flux resolve [alvo] [--repo <slug>] --json");
   console.error("     flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
   console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
-  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--new] [--remote [alias]]");
+  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--new] [--remote [alias]] [--yes|-y]");
   console.error("     flux <verbo> ... --remote  (sem alias: pergunta interativamente qual máquina alcançável usar)");
+  console.error("     flux <verbo> ... --yes     (pula a prévia do banner antes de disparar o Claude Code)");
   console.error("");
   console.error(`Verbos suportados: ${SUPPORTED_VERBS.join(", ")}`);
 }
@@ -41,6 +55,7 @@ function parseArgs(argv: string[]): {
   openNew: boolean;
   remote: string | null;
   remotePrompt: boolean;
+  yes: boolean;
   threads: boolean;
   rest: string[];
 } {
@@ -56,6 +71,7 @@ function parseArgs(argv: string[]): {
   let openNew = false;
   let remote: string | null = null;
   let remotePrompt = false;
+  let yes = false;
   let threads = false;
   const rest: string[] = [];
 
@@ -93,6 +109,9 @@ function parseArgs(argv: string[]): {
     } else if (a === "--safe") {
       safe = true;
       i++;
+    } else if (a === "--yes" || a === "-y") {
+      yes = true;
+      i++;
     } else if (a === "--here") {
       // --here virou o padrão (ver --new); aceita e ignora, pra não quebrar
       // quem já digita a flag por hábito.
@@ -112,7 +131,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, threads, rest };
+  return { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, rest };
 }
 
 async function runResolve(opts: {
@@ -162,10 +181,11 @@ async function runVerb(opts: {
   openNew: boolean;
   remote: string | null;
   remotePrompt: boolean;
+  yes: boolean;
   rest: string[];
   argv: string[];
 }): Promise<void> {
-  const { verb, target, repo, dry, safe, openNew, rest, argv } = opts;
+  const { verb, target, repo, dry, safe, openNew, yes, rest, argv } = opts;
   let remote = opts.remote;
 
   if (opts.remotePrompt) {
@@ -236,13 +256,25 @@ async function runVerb(opts: {
   const extraArgs = rest.join(" ");
   const args = [targetArg, repoFlag, extraArgs].filter(Boolean).join(" ").trim();
 
-  const body = buildPromptBody(ctx, verb, args);
+  let body = buildPromptBody(ctx, verb, args);
   const invocation = resolveInvocation({ safe });
-  const command = buildCommand(body, { safe });
+  let command = buildCommand(body, { safe });
 
   if (dry) {
     console.log(command);
     return;
+  }
+
+  if (!yes && process.stdin.isTTY) {
+    const extra = reviewBanner(body);
+    if (extra === null) {
+      console.error("[flux] cancelado.");
+      process.exit(1);
+    }
+    if (extra) {
+      body = `${body}\n\n---\nComentário adicional do usuário:\n${extra}`;
+      command = buildCommand(body, { safe });
+    }
   }
 
   const binary = invocation.split(" ")[0]!;
@@ -257,6 +289,114 @@ async function runVerb(opts: {
   }
 
   await launchClaude({ command, body, invocation });
+}
+
+export type MenuItem = { value: string; label: string; hint?: string };
+
+function renderMenuLines(items: MenuItem[], selected: number): string[] {
+  return items.map((item, i) => {
+    const marker = i === selected ? "❯" : " ";
+    const label = i === selected ? `\x1b[36m${item.label}\x1b[0m` : item.label;
+    const hint = item.hint ? `  \x1b[2m${item.hint}\x1b[0m` : "";
+    return `${marker} ${label}${hint}`;
+  });
+}
+
+export type MenuKeyAction =
+  | { type: "up" | "down" | "cancel" | "confirm" | "ignore" }
+  | { type: "jump"; index: number };
+
+// Parser puro de tecla -> ação. Separado do I/O de stdin pra ser testável
+// sem precisar de um TTY/raw-mode de verdade.
+export function interpretMenuKey(chunk: string, itemCount: number): MenuKeyAction {
+  if (chunk === "\x03" || chunk === "\x1b") return { type: "cancel" };
+  if (chunk === "\r" || chunk === "\n") return { type: "confirm" };
+  if (chunk === "\x1b[A" || chunk === "k") return { type: "up" };
+  if (chunk === "\x1b[B" || chunk === "j") return { type: "down" };
+  const digit = Number(chunk);
+  if (Number.isInteger(digit) && digit >= 1 && digit <= itemCount) {
+    return { type: "jump", index: digit - 1 };
+  }
+  return { type: "ignore" };
+}
+
+// Menu navegavel por seta (up/down), atalho numerico, e Enter/Esc - sem lib
+// externa (mesma filosofia zero-deps do resto do CLI). Degrada pra null
+// fora de um TTY real; quem chama decide o que fazer sem selecao.
+export function selectFromMenu(title: string, items: MenuItem[]): Promise<string | null> {
+  if (!process.stdin.isTTY || !process.stdout.isTTY || items.length === 0) {
+    return Promise.resolve(null);
+  }
+
+  console.error(title);
+  console.error("(setas ou j/k pra navegar, numero ou Enter pra confirmar, Esc cancela)\n");
+
+  let selected = 0;
+  for (const line of renderMenuLines(items, selected)) console.error(line);
+
+  return new Promise((resolve) => {
+    const stdin = process.stdin;
+    const wasRaw = stdin.isRaw ?? false;
+    stdin.setRawMode?.(true);
+    stdin.resume();
+    stdin.setEncoding("utf8");
+
+    const cleanup = () => {
+      stdin.setRawMode?.(wasRaw);
+      stdin.pause();
+      stdin.removeListener("data", onData);
+    };
+
+    const redraw = () => {
+      process.stderr.write(`\x1b[${items.length}A`);
+      for (const line of renderMenuLines(items, selected)) {
+        process.stderr.write(`\r\x1b[2K${line}\n`);
+      }
+    };
+
+    const onData = (chunk: string) => {
+      const action = interpretMenuKey(chunk, items.length);
+      switch (action.type) {
+        case "cancel":
+          cleanup();
+          resolve(null);
+          break;
+        case "confirm":
+          cleanup();
+          resolve(items[selected]!.value);
+          break;
+        case "up":
+          selected = (selected - 1 + items.length) % items.length;
+          redraw();
+          break;
+        case "down":
+          selected = (selected + 1) % items.length;
+          redraw();
+          break;
+        case "jump":
+          selected = action.index;
+          cleanup();
+          resolve(items[selected]!.value);
+          break;
+        case "ignore":
+          break;
+      }
+    };
+
+    stdin.on("data", onData);
+  });
+}
+
+
+// Mostra o banner (o prompt de verdade que vai pro Claude Code) antes de
+// disparar, e deixa enviar do jeito que está (Enter) ou anexar um
+// comentário extra que vira parte do banner. Retorna null = cancelou
+// (Ctrl+D), "" = mandar como está, string não-vazia = comentário a anexar.
+export function reviewBanner(body: string): string | null {
+  console.error("\n--- banner que será enviado pro Claude Code ---");
+  console.error(body);
+  console.error("--- fim do banner ---\n");
+  return prompt("Enviar assim? [Enter confirma] ou digite um comentário extra pra anexar (Ctrl+D cancela):");
 }
 
 export function promptForRepo(question: string): string | null {
@@ -288,36 +428,28 @@ export async function pickRemoteInteractively(): Promise<string | null> {
     return yes ? reachable[0]! : null;
   }
 
-  console.error("[flux] máquinas acessíveis:");
-  reachable.forEach((alias, i) => console.error(`  ${i + 1}. ${alias}`));
-  const answer = prompt(`Qual? [1-${reachable.length}]`);
-  const idx = Number(answer?.trim());
-  if (!Number.isInteger(idx) || idx < 1 || idx > reachable.length) return null;
-  return reachable[idx - 1]!;
+  return selectFromMenu(
+    "[flux] máquinas acessíveis:",
+    reachable.map((alias) => ({ value: alias, label: alias })),
+  );
 }
 
 // `flux` sem nenhum argumento, num terminal de verdade: em vez de só mostrar
 // o uso, pergunta o que fazer e monta o argv equivalente ao que o usuário
 // teria digitado — daí em diante segue o pipeline normal (parseArgs/runVerb),
 // sem duplicar nenhuma lógica de resolução de repo/alvo/remoto.
-export async function runWizard(): Promise<string[] | null> {
-  console.error("flux — modo interativo (sem argumentos)\n");
-  console.error("Comandos disponíveis:");
-  SUPPORTED_VERBS.forEach((v, i) => console.error(`  ${i + 1}. ${v}`));
+export type WizardDeps = {
+  selectVerb?: () => Promise<string | null>;
+};
 
-  let verb: Verb | null = null;
-  while (!verb) {
-    const answer = prompt("Qual comando? [número ou nome]")?.trim();
-    if (!answer) return null;
-    const asIndex = Number(answer);
-    if (Number.isInteger(asIndex) && asIndex >= 1 && asIndex <= SUPPORTED_VERBS.length) {
-      verb = SUPPORTED_VERBS[asIndex - 1]!;
-    } else if (isSupportedVerb(answer)) {
-      verb = answer;
-    } else {
-      console.error(`"${answer}" não é um comando válido — tente de novo (Enter em branco cancela).`);
-    }
-  }
+export async function runWizard(deps: WizardDeps = {}): Promise<string[] | null> {
+  const selectVerb = deps.selectVerb ?? (() => selectFromMenu(
+    "flux — modo interativo (sem argumentos). Qual comando?",
+    SUPPORTED_VERBS.map((v) => ({ value: v, label: v, hint: VERB_HINTS[v] })),
+  ));
+  const picked = await selectVerb();
+  if (!picked || !isSupportedVerb(picked)) return null;
+  const verb: Verb = picked;
 
   const target = prompt("PR/URL/ticket/path (opcional — Enter usa o diretório atual):")?.trim();
   const repo = prompt("Repo (slug, opcional — Enter deixa o flux resolver):")?.trim();
@@ -360,7 +492,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, threads, rest } = parseArgs(argv);
+  const { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, rest } = parseArgs(argv);
 
   if (!subcommand) {
     printUsage();
@@ -410,7 +542,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await runVerb({ verb: subcommand, target, repo, dry, safe, openNew, remote, remotePrompt, rest, argv });
+  await runVerb({ verb: subcommand, target, repo, dry, safe, openNew, remote, remotePrompt, yes, rest, argv });
 }
 
 if (import.meta.main) {

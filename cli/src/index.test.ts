@@ -4,7 +4,7 @@ import { mkdtempSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { buildRemoteSshArgv } from "./launch.ts";
-import { promptForRepo, runWizard } from "./index.ts";
+import { promptForRepo, runWizard, interpretMenuKey, reviewBanner } from "./index.ts";
 
 describe("flux --remote --dry: reencaminha o comando sem levar --dry/--remote/--new junto", () => {
   it("--remote combinado com --dry imprime o comando ssh esperado (--here nao e mais forcado, e um no-op)", () => {
@@ -74,27 +74,88 @@ describe("runWizard: flux sem argumentos monta o argv equivalente", () => {
     globalThis.prompt = (() => (i < answers.length ? answers[i++]! : null)) as typeof prompt;
   }
 
-  it("verbo por numero + alvo + repo, remoto recusado: monta [verbo, alvo, --repo, slug]", async () => {
-    queuePrompts(["5", "123", "flux", "n"]);
-    const argv = await runWizard();
+  it("verbo escolhido no menu + alvo + repo, remoto recusado: monta [verbo, alvo, --repo, slug]", async () => {
+    queuePrompts(["123", "flux", "n"]);
+    const argv = await runWizard({ selectVerb: async () => "peek" });
     expect(argv).toEqual(["peek", "123", "--repo", "flux"]);
   });
 
-  it("verbo por nome, alvo/repo em branco: monta so [verbo]", async () => {
-    queuePrompts(["peek", "", "", "n"]);
-    const argv = await runWizard();
+  it("alvo/repo em branco: monta so [verbo]", async () => {
+    queuePrompts(["", "", "n"]);
+    const argv = await runWizard({ selectVerb: async () => "peek" });
     expect(argv).toEqual(["peek"]);
   });
 
-  it("verbo invalido seguido de cancelamento (Enter em branco): retorna null", async () => {
-    queuePrompts(["nao-existe", ""]);
-    const argv = await runWizard();
+  it("menu cancelado (Esc/Ctrl+C): retorna null sem perguntar mais nada", async () => {
+    let promptCalled = false;
+    globalThis.prompt = (() => { promptCalled = true; return ""; }) as typeof prompt;
+    const argv = await runWizard({ selectVerb: async () => null });
     expect(argv).toBeNull();
+    expect(promptCalled).toBe(false);
+  });
+});
+
+describe("interpretMenuKey: parser puro de tecla do menu interativo", () => {
+  it("seta pra cima/baixo (ou j/k)", () => {
+    expect(interpretMenuKey("\x1b[A", 5)).toEqual({ type: "up" });
+    expect(interpretMenuKey("k", 5)).toEqual({ type: "up" });
+    expect(interpretMenuKey("\x1b[B", 5)).toEqual({ type: "down" });
+    expect(interpretMenuKey("j", 5)).toEqual({ type: "down" });
   });
 
-  it("cancelado de cara (Enter em branco no primeiro prompt): retorna null", async () => {
-    queuePrompts([""]);
-    const argv = await runWizard();
-    expect(argv).toBeNull();
+  it("Enter/retorno confirma a selecao atual", () => {
+    expect(interpretMenuKey("\r", 5)).toEqual({ type: "confirm" });
+    expect(interpretMenuKey("\n", 5)).toEqual({ type: "confirm" });
+  });
+
+  it("Esc e Ctrl+C cancelam", () => {
+    expect(interpretMenuKey("\x1b", 5)).toEqual({ type: "cancel" });
+    expect(interpretMenuKey("\x03", 5)).toEqual({ type: "cancel" });
+  });
+
+  it("digito dentro do range pula direto pro item (0-based)", () => {
+    expect(interpretMenuKey("1", 5)).toEqual({ type: "jump", index: 0 });
+    expect(interpretMenuKey("5", 5)).toEqual({ type: "jump", index: 4 });
+  });
+
+  it("digito fora do range e qualquer outra tecla: ignora", () => {
+    expect(interpretMenuKey("0", 5)).toEqual({ type: "ignore" });
+    expect(interpretMenuKey("6", 5)).toEqual({ type: "ignore" });
+    expect(interpretMenuKey("a", 5)).toEqual({ type: "ignore" });
+  });
+});
+
+describe("reviewBanner: prevw do banner antes de disparar o Claude Code", () => {
+  const origPrompt = globalThis.prompt;
+
+  afterEach(() => {
+    globalThis.prompt = origPrompt;
+  });
+
+  it("Enter em branco (string vazia): sinaliza 'enviar como esta'", () => {
+    globalThis.prompt = (() => "") as typeof prompt;
+    expect(reviewBanner("--- corpo do banner ---")).toBe("");
+  });
+
+  it("texto digitado: retorna o comentario extra pra anexar", () => {
+    globalThis.prompt = (() => "adiciona um teste unitário pra isso também") as typeof prompt;
+    expect(reviewBanner("--- corpo ---")).toBe("adiciona um teste unitário pra isso também");
+  });
+
+  it("Ctrl+D (EOF): retorna null, sinalizando cancelamento", () => {
+    globalThis.prompt = (() => null) as typeof prompt;
+    expect(reviewBanner("--- corpo ---")).toBeNull();
+  });
+});
+
+describe("flux --dry: nunca aciona a previa do banner (reviewBanner), mesmo com TTY", () => {
+  it("--dry imprime o comando e retorna sem chamar prompt()", () => {
+    const dir = mkdtempSync(join(tmpdir(), "flux-dry-no-review-"));
+    const out = execFileSync(
+      "bun",
+      ["run", join(import.meta.dir, "index.ts"), "peek", "--repo", "flux", "--dry"],
+      { cwd: dir, encoding: "utf8", input: "" },
+    );
+    expect(out).toContain("/flux:peek --repo flux");
   });
 });
