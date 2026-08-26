@@ -1,6 +1,6 @@
-import { mkdtempSync, writeFileSync } from "fs";
+import { mkdtempSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { tmpdir, homedir } from "os";
 
 export function escapeAppleScript(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -136,6 +136,39 @@ function sshReachable(remote: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function listSshHostAliases(configPath?: string): string[] {
+  let text: string;
+  try {
+    text = readFileSync(configPath ?? join(homedir(), ".ssh", "config"), "utf8");
+  } catch {
+    return [];
+  }
+
+  const aliases: string[] = [];
+  for (const line of text.split("\n")) {
+    const match = line.match(/^\s*Host\s+(.+)$/i);
+    if (!match) continue;
+    for (const token of match[1]!.trim().split(/\s+/)) {
+      // Descarta wildcards (Host *, Host 192.168.*) e hosts com ponto — esses
+      // são tipicamente serviços (github.com, hq.gripp.link), não máquinas
+      // pessoais candidatas a --remote.
+      if (token.includes("*") || token.includes("?") || token.includes(".")) continue;
+      if (!aliases.includes(token)) aliases.push(token);
+    }
+  }
+  return aliases;
+}
+
+export async function checkRemotesReachable(
+  candidates: string[],
+  isReachable: (remote: string) => boolean = sshReachable,
+): Promise<string[]> {
+  const results = await Promise.all(
+    candidates.map((alias) => Promise.resolve(isReachable(alias)).then((ok) => (ok ? alias : null))),
+  );
+  return results.filter((a): a is string => a !== null);
 }
 
 export function runRemote(req: RemoteRequest, deps: RemoteDeps = {}): number {

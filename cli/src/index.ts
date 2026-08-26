@@ -1,6 +1,6 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
-import { launchClaude, runHere, runRemote, buildRemoteSshArgv } from "./launch.ts";
+import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
 import { runPreflight } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
@@ -23,7 +23,8 @@ function printUsage(): void {
   console.error("Uso: flux resolve [alvo] [--repo <slug>] --json");
   console.error("     flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
   console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
-  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--here] [--remote <alias>]");
+  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--new] [--remote [alias]]");
+  console.error("     flux <verbo> ... --remote  (sem alias: pergunta interativamente qual máquina alcançável usar)");
   console.error("");
   console.error(`Verbos suportados: ${SUPPORTED_VERBS.join(", ")}`);
 }
@@ -37,8 +38,9 @@ function parseArgs(argv: string[]): {
   json: boolean;
   dry: boolean;
   safe: boolean;
-  here: boolean;
+  openNew: boolean;
   remote: string | null;
+  remotePrompt: boolean;
   threads: boolean;
   rest: string[];
 } {
@@ -51,8 +53,9 @@ function parseArgs(argv: string[]): {
   let json = false;
   let dry = false;
   let safe = false;
-  let here = false;
+  let openNew = false;
   let remote: string | null = null;
+  let remotePrompt = false;
   let threads = false;
   const rest: string[] = [];
 
@@ -66,9 +69,15 @@ function parseArgs(argv: string[]): {
     if (a === "--repo" && i + 1 < args.length) {
       repo = args[i + 1];
       i += 2;
-    } else if (a === "--remote" && i + 1 < args.length) {
-      remote = args[i + 1];
-      i += 2;
+    } else if (a === "--remote") {
+      if (i + 1 < args.length && !args[i + 1]!.startsWith("--")) {
+        remote = args[i + 1];
+        i += 2;
+      } else {
+        // --remote sem valor: pede pra descobrir/escolher interativamente.
+        remotePrompt = true;
+        i++;
+      }
     } else if (a === "--family" && i + 1 < args.length) {
       family = args[i + 1];
       i += 2;
@@ -85,7 +94,11 @@ function parseArgs(argv: string[]): {
       safe = true;
       i++;
     } else if (a === "--here") {
-      here = true;
+      // --here virou o padrão (ver --new); aceita e ignora, pra não quebrar
+      // quem já digita a flag por hábito.
+      i++;
+    } else if (a === "--new") {
+      openNew = true;
       i++;
     } else if (a === "--threads") {
       threads = true;
@@ -99,7 +112,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { subcommand, target, repo, family, out, json, dry, safe, here, remote, threads, rest };
+  return { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, threads, rest };
 }
 
 async function runResolve(opts: {
@@ -146,27 +159,37 @@ async function runVerb(opts: {
   repo: string | null;
   dry: boolean;
   safe: boolean;
-  here: boolean;
+  openNew: boolean;
   remote: string | null;
+  remotePrompt: boolean;
   rest: string[];
   argv: string[];
 }): Promise<void> {
-  const { verb, target, repo, dry, safe, here, remote, rest, argv } = opts;
+  const { verb, target, repo, dry, safe, openNew, rest, argv } = opts;
+  let remote = opts.remote;
+
+  if (opts.remotePrompt) {
+    remote = await pickRemoteInteractively();
+    if (!remote) {
+      console.error("[flux] nenhuma máquina selecionada — abortando.");
+      process.exit(1);
+    }
+  }
 
   if (remote) {
+    // Execução remota é sempre inline (equivalente a --here) — abrir aba nova
+    // do outro lado da conexão SSH não faz sentido, então --new é descartado.
     const forwarded: string[] = [];
-    let sawHere = false;
     for (let i = 0; i < argv.length; i++) {
-      const a = argv[i];
+      const a = argv[i]!;
       if (a === "--remote") {
-        i++;
+        // pula o valor também só quando ele existia (mesma regra do parseArgs)
+        if (i + 1 < argv.length && !argv[i + 1]!.startsWith("--")) i++;
         continue;
       }
-      if (a === "--dry") continue;
-      if (a === "--here") sawHere = true;
-      forwarded.push(a!);
+      if (a === "--dry" || a === "--new") continue;
+      forwarded.push(a);
     }
-    if (!sawHere) forwarded.push("--here");
 
     if (dry) {
       console.log(buildRemoteSshArgv(remote, forwarded).join(" "));
@@ -178,23 +201,30 @@ async function runVerb(opts: {
   }
 
   let effectiveTarget = target;
+  let effectiveRepo = repo;
   if (target && LINEAR_URL_PATTERN.test(target)) {
     const idMatch = target.match(/\/issue\/([A-Z]{2,5}-\d+)/i);
     const ticketId = idMatch ? idMatch[1].toUpperCase() : null;
-    if (!repo) {
+    if (!effectiveRepo) {
       const hint = ticketId ?? "<ID>";
-      console.error(`Alvo de ticket Linear requer --repo. Exemplo: flux ${verb} ${hint} --repo <slug-do-repo>`);
-      process.exit(1);
+      effectiveRepo = promptForRepo(`Alvo de ticket Linear "${hint}" requer --repo`);
+      if (!effectiveRepo) {
+        console.error(`Alvo de ticket Linear requer --repo. Exemplo: flux ${verb} ${hint} --repo <slug-do-repo>`);
+        process.exit(1);
+      }
     }
     effectiveTarget = ticketId ?? target;
   } else if (target && TICKET_PATTERN.test(target)) {
-    if (!repo) {
-      console.error(`Alvo de ticket Linear requer --repo. Exemplo: flux ${verb} ${target} --repo <slug-do-repo>`);
-      process.exit(1);
+    if (!effectiveRepo) {
+      effectiveRepo = promptForRepo(`Alvo de ticket "${target}" requer --repo`);
+      if (!effectiveRepo) {
+        console.error(`Alvo de ticket Linear requer --repo. Exemplo: flux ${verb} ${target} --repo <slug-do-repo>`);
+        process.exit(1);
+      }
     }
   }
 
-  const repoSlug = repo ?? repoSlugFromTarget(effectiveTarget);
+  const repoSlug = effectiveRepo ?? repoSlugFromTarget(effectiveTarget);
   const ctx = await resolveContext({
     repoSlug,
     targetPath: effectiveTarget,
@@ -221,12 +251,49 @@ async function runVerb(opts: {
     process.exit(1);
   }
 
-  if (here) {
+  if (!openNew) {
     const exitCode = runHere({ command, body, invocation });
     process.exit(exitCode);
   }
 
   await launchClaude({ command, body, invocation });
+}
+
+export function promptForRepo(question: string): string | null {
+  if (!process.stdin.isTTY) return null;
+  const answer = prompt(`${question}. Qual o slug do repo?`);
+  const trimmed = answer?.trim();
+  return trimmed ? trimmed : null;
+}
+
+export async function pickRemoteInteractively(): Promise<string | null> {
+  if (!process.stdin.isTTY) return null;
+
+  const candidates = listSshHostAliases();
+  if (candidates.length === 0) {
+    console.error("[flux] nenhum Host em ~/.ssh/config pra escolher — passe --remote <alias> direto.");
+    return null;
+  }
+
+  console.error("[flux] verificando quais máquinas estão acessíveis agora...");
+  const reachable = await checkRemotesReachable(candidates);
+  if (reachable.length === 0) {
+    console.error("[flux] nenhuma máquina de ~/.ssh/config está acessível na rede agora.");
+    return null;
+  }
+
+  if (reachable.length === 1) {
+    const answer = prompt(`[flux] só "${reachable[0]}" está acessível agora. Rodar aí? [Y/n]`);
+    const yes = !answer || /^y/i.test(answer.trim());
+    return yes ? reachable[0]! : null;
+  }
+
+  console.error("[flux] máquinas acessíveis:");
+  reachable.forEach((alias, i) => console.error(`  ${i + 1}. ${alias}`));
+  const answer = prompt(`Qual? [1-${reachable.length}]`);
+  const idx = Number(answer?.trim());
+  if (!Number.isInteger(idx) || idx < 1 || idx > reachable.length) return null;
+  return reachable[idx - 1]!;
 }
 
 function commandExists(cmd: string): boolean {
@@ -246,7 +313,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { subcommand, target, repo, family, out, json, dry, safe, here, remote, threads, rest } = parseArgs(argv);
+  const { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, threads, rest } = parseArgs(argv);
 
   if (!subcommand) {
     printUsage();
@@ -296,7 +363,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await runVerb({ verb: subcommand, target, repo, dry, safe, here, remote, rest, argv });
+  await runVerb({ verb: subcommand, target, repo, dry, safe, openNew, remote, remotePrompt, rest, argv });
 }
 
 if (import.meta.main) {

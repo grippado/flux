@@ -1,6 +1,8 @@
 import { describe, it, expect } from "bun:test";
-import { readFileSync } from "fs";
-import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, runRemote, assertSafeInvocation, buildShellCmd, buildRemoteSshArgv } from "./launch.ts";
+import { readFileSync, mkdtempSync, writeFileSync } from "fs";
+import { tmpdir } from "os";
+import { join } from "path";
+import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, runRemote, assertSafeInvocation, buildShellCmd, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
 
 function captureWrites(): { stdout: string[]; stderr: string[]; restore: () => void } {
   const stdout: string[] = [];
@@ -301,5 +303,60 @@ describe("runRemote: reencaminha o comando pra outra máquina via ssh -t", () =>
     } finally {
       cap.restore();
     }
+  });
+});
+
+describe("listSshHostAliases: descobre candidatos a --remote em ~/.ssh/config", () => {
+  function fixtureConfig(contents: string): string {
+    const dir = mkdtempSync(join(tmpdir(), "flux-ssh-config-"));
+    const path = join(dir, "config");
+    writeFileSync(path, contents);
+    return path;
+  }
+
+  it("lista aliases simples, ignora wildcard e hosts com ponto (servicos, nao maquinas)", () => {
+    const path = fixtureConfig([
+      "Host github.com",
+      "  User git",
+      "",
+      "Host hq",
+      "  HostName hq.gripp.link",
+      "",
+      "Host personal",
+      "  HostName worzix.local",
+      "",
+      "Host arco",
+      "  HostName ISAAC-CJ9CJKFLQ3.local",
+      "",
+      "Host *",
+      "  ServerAliveInterval 60",
+      "",
+    ].join("\n"));
+
+    expect(listSshHostAliases(path)).toEqual(["hq", "personal", "arco"]);
+  });
+
+  it("dedup aliases repetidos e trata multiplos patterns na mesma linha Host", () => {
+    const path = fixtureConfig("Host personal worzix\nHostName worzix.local\nHost personal\n");
+    expect(listSshHostAliases(path)).toEqual(["personal", "worzix"]);
+  });
+
+  it("arquivo inexistente: retorna lista vazia sem lancar", () => {
+    expect(listSshHostAliases("/tmp/flux-nao-existe-ssh-config-xyz")).toEqual([]);
+  });
+});
+
+describe("checkRemotesReachable: filtra so os aliases que respondem via ssh", () => {
+  it("mantem apenas os alcancaveis, preservando a ordem original", async () => {
+    const reachable = await checkRemotesReachable(
+      ["a", "b", "c"],
+      (alias) => alias !== "b",
+    );
+    expect(reachable).toEqual(["a", "c"]);
+  });
+
+  it("nenhum alcancavel: retorna lista vazia", async () => {
+    const reachable = await checkRemotesReachable(["a", "b"], () => false);
+    expect(reachable).toEqual([]);
   });
 });
