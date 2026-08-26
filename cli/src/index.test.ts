@@ -125,26 +125,33 @@ describe("interpretMenuKey: parser puro de tecla do menu interativo", () => {
   });
 });
 
-describe("reviewBanner: prevw do banner antes de disparar o Claude Code", () => {
+describe("reviewBanner: previa do banner antes de disparar o Claude Code", () => {
   const origPrompt = globalThis.prompt;
 
   afterEach(() => {
     globalThis.prompt = origPrompt;
   });
 
-  it("Enter em branco (string vazia): sinaliza 'enviar como esta'", () => {
-    globalThis.prompt = (() => "") as typeof prompt;
-    expect(reviewBanner("--- corpo do banner ---")).toBe("");
+  it("escolha 'send': retorna { type: 'send' } sem chamar prompt() de texto", async () => {
+    let promptCalled = false;
+    globalThis.prompt = (() => { promptCalled = true; return "nunca deveria chamar"; }) as typeof prompt;
+    const result = await reviewBanner("--- corpo do banner ---", { selectChoice: async () => "send" });
+    expect(result).toEqual({ type: "send" });
+    expect(promptCalled).toBe(false);
   });
 
-  it("texto digitado: retorna o comentario extra pra anexar", () => {
+  it("escolha 'comment': pergunta o texto e retorna { type: 'comment', text }", async () => {
     globalThis.prompt = (() => "adiciona um teste unitário pra isso também") as typeof prompt;
-    expect(reviewBanner("--- corpo ---")).toBe("adiciona um teste unitário pra isso também");
+    const result = await reviewBanner("--- corpo ---", { selectChoice: async () => "comment" });
+    expect(result).toEqual({ type: "comment", text: "adiciona um teste unitário pra isso também" });
   });
 
-  it("Ctrl+D (EOF): retorna null, sinalizando cancelamento", () => {
-    globalThis.prompt = (() => null) as typeof prompt;
-    expect(reviewBanner("--- corpo ---")).toBeNull();
+  it("escolha 'cancel' (ou menu cancelado com Esc/Ctrl+C, que retorna null): retorna { type: 'cancel' }", async () => {
+    const asCancel = await reviewBanner("--- corpo ---", { selectChoice: async () => "cancel" });
+    expect(asCancel).toEqual({ type: "cancel" });
+
+    const asEsc = await reviewBanner("--- corpo ---", { selectChoice: async () => null });
+    expect(asEsc).toEqual({ type: "cancel" });
   });
 });
 

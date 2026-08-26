@@ -266,13 +266,13 @@ async function runVerb(opts: {
   }
 
   if (!yes && process.stdin.isTTY) {
-    const extra = reviewBanner(body);
-    if (extra === null) {
+    const review = await reviewBanner(body);
+    if (review.type === "cancel") {
       console.error("[flux] cancelado.");
       process.exit(1);
     }
-    if (extra) {
-      body = `${body}\n\n---\nComentário adicional do usuário:\n${extra}`;
+    if (review.type === "comment" && review.text) {
+      body = `${body}\n\n---\nComentário adicional do usuário:\n${review.text}`;
       command = buildCommand(body, { safe });
     }
   }
@@ -388,15 +388,38 @@ export function selectFromMenu(title: string, items: MenuItem[]): Promise<string
 }
 
 
+export type BannerReview =
+  | { type: "send" }
+  | { type: "comment"; text: string }
+  | { type: "cancel" };
+
+export type ReviewBannerDeps = {
+  selectChoice?: () => Promise<string | null>;
+};
+
 // Mostra o banner (o prompt de verdade que vai pro Claude Code) antes de
-// disparar, e deixa enviar do jeito que está (Enter) ou anexar um
-// comentário extra que vira parte do banner. Retorna null = cancelou
-// (Ctrl+D), "" = mandar como está, string não-vazia = comentário a anexar.
-export function reviewBanner(body: string): string | null {
+// disparar, e deixa escolher: enviar como está, anexar um comentário
+// extra, ou cancelar. Usa o menu de seta (não prompt() puro) porque o
+// prompt() do Bun retorna null tanto pro Enter vazio quanto pro Ctrl+D —
+// não dá pra distinguir "confirmar" de "cancelar" só pelo valor.
+export async function reviewBanner(body: string, deps: ReviewBannerDeps = {}): Promise<BannerReview> {
   console.error("\n--- banner que será enviado pro Claude Code ---");
   console.error(body);
   console.error("--- fim do banner ---\n");
-  return prompt("Enviar assim? [Enter confirma] ou digite um comentário extra pra anexar (Ctrl+D cancela):");
+
+  const selectChoice = deps.selectChoice ?? (() => selectFromMenu("O que fazer com esse banner?", [
+    { value: "send", label: "Enviar assim" },
+    { value: "comment", label: "Anexar um comentário extra" },
+    { value: "cancel", label: "Cancelar" },
+  ]));
+  const choice = await selectChoice();
+
+  if (choice === "comment") {
+    const text = prompt("Comentário a anexar:")?.trim() ?? "";
+    return { type: "comment", text };
+  }
+  if (choice === "send") return { type: "send" };
+  return { type: "cancel" };
 }
 
 export function promptForRepo(question: string): string | null {

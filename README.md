@@ -91,9 +91,9 @@ flux — modo interativo (sem argumentos). Qual comando?
 ```
 
 **Prévia do banner antes de disparar.** Com terminal interativo (e sem `--dry`), antes de abrir o
-Claude Code a CLI mostra o banner completo que vai ser enviado e deixa você mandar como está
-(Enter), anexar um comentário extra ao banner, ou cancelar (Ctrl+D). `--yes`/`-y` pula essa prévia
-— útil pra quem já confia no fluxo e não quer o passo extra toda vez.
+Claude Code a CLI mostra o banner completo que vai ser enviado e um menu de seta com três opções:
+enviar como está (Enter no primeiro item), anexar um comentário extra ao banner, ou cancelar.
+`--yes`/`-y` pula essa prévia — útil pra quem já confia no fluxo e não quer o passo extra toda vez.
 
 **Rodar numa outra máquina, via SSH.** `--remote <alias>` reencaminha o comando inteiro pra um
 alias já configurado no seu `~/.ssh/config` — herda o terminal atual do outro lado, como se você
