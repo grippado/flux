@@ -88,7 +88,8 @@ Neste comando, especificamente:
 
 ## Análise: só o reviewer holístico
 
-Rodar **uma única Task** com `subagent_type: <HOLISTIC>`, passando:
+Rodar **uma única Task** com `subagent_type: <HOLISTIC>`; no Codex, despachar um subagente nativo
+genérico com a fonte de instruções L1 validada por `codex-compat.md`, passando:
 - O diff / conteúdo / texto do alvo resolvido
 - Instrução de modo read-only: **não sugerir commits, não editar arquivos, não postar — só analisar**
 - Para PR: título, número, repo, branches (se disponíveis)

@@ -1,0 +1,40 @@
+# Roda os checks de contrato do repo em toda PR e em todo push para a main.
+#
+# Os dois scripts abaixo cobrem pontos cegos do `claude plugin validate`, que
+# valida cada manifesto isoladamente e nunca a relação entre eles nem o texto
+# dos shared/. Até aqui eles só rodavam quando o autor lembrava de rodá-los na
+# mão, o que degrada para zero na primeira contribuição de terceiro.
+#
+# check-manifests.sh   — version e name iguais nos cinco manifests.
+# check-codex-agent-contract.sh — as frases que sustentam o adaptador Codex
+#   continuam nos shared/. É um canário anti-deleção, não uma prova das
+#   invariantes: apagar a seção falha, reescrevê-la preservando a regra também
+#   falha, e inverter a regra mantendo a frase passa. Está em CI justamente
+#   porque um canário que ninguém executa não avisa nada.
+name: checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Checks de contrato
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: check-manifests
+        run: scripts/check-manifests.sh
+
+      - name: check-codex-agent-contract
+        run: scripts/check-codex-agent-contract.sh
