@@ -3,7 +3,7 @@ export type CanonicalHarness = typeof CANONICAL_HARNESSES[number];
 
 export type HarnessResolution = {
   harness: string;
-  source: "flag" | "env" | "manifesto" | "override" | "deteccao";
+  source: "flag" | "env" | "manifesto" | "override" | "deteccao" | "default";
   override?: string;
 };
 
@@ -53,10 +53,12 @@ export function resolveHarness(input: ResolveHarnessInput): HarnessResolution {
     return { harness: input.preferredHarness, source: "manifesto" };
   }
 
-  throw new Error(
-    "[flux] nao foi possivel determinar o harness. Passe --harness <claude|cursor|codex> ou defina FLUX_HARNESS."
-  );
+  return { harness: "claude", source: "default" };
 }
+
+export const DEFAULT_HARNESS_WARNING =
+  '[flux] nenhum harness declarado; assumindo "claude". ' +
+  "Declare com --harness <claude|cursor|codex>, FLUX_HARNESS ou preferred_harness no manifesto.";
 
 export function harnessInstallHint(harness: string): string {
   if (harness === "claude") {

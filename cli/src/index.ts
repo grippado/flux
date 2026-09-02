@@ -1,6 +1,6 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
-import { resolveHarness, harnessInstallHint, CANONICAL_HARNESSES } from "./harness.ts";
+import { resolveHarness, harnessInstallHint, CANONICAL_HARNESSES, DEFAULT_HARNESS_WARNING } from "./harness.ts";
 import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
 import { runPreflight } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
@@ -286,6 +286,7 @@ async function runVerb(opts: {
     process.exit(1);
   }
   const { harness, source: harnessSource, override: harnessOverride } = harnessResolution;
+  if (harnessSource === "default") console.error(DEFAULT_HARNESS_WARNING);
   const invocationOpts = { safe, harness, claudeCmd: harnessOverride };
 
   let body = buildPromptBody(ctx, verb, args, { harness, harnessSource });

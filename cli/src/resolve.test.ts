@@ -338,13 +338,32 @@ describe("resolveHarness: cascata flag -> env -> manifesto -> erro", () => {
     }
   });
 
-  it("lanca erro quando nenhum degrau resolve", () => {
+  it("cai em claude com source default quando nenhum degrau resolve", () => {
     const savedCmd = process.env["FLUX_CLAUDE_CMD"];
     const savedHarness = process.env["FLUX_HARNESS"];
     delete process.env["FLUX_CLAUDE_CMD"];
     delete process.env["FLUX_HARNESS"];
     try {
-      expect(() => resolveHarness({ harness: null, preferredHarness: null })).toThrow();
+      const result = resolveHarness({ harness: null, preferredHarness: null });
+      expect(result.harness).toBe("claude");
+      expect(result.source).toBe("default");
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+      if (savedHarness !== undefined) process.env["FLUX_HARNESS"] = savedHarness;
+    }
+  });
+
+  it("degrau default perde para todos os outros", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    const savedHarness = process.env["FLUX_HARNESS"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_HARNESS"];
+    try {
+      expect(resolveHarness({ harness: "codex", preferredHarness: null }).source).toBe("flag");
+      expect(resolveHarness({ harness: null, preferredHarness: "cursor" }).source).toBe("manifesto");
+      expect(
+        resolveHarness({ harness: null, preferredHarness: null, override: "scc" }).source
+      ).toBe("override");
     } finally {
       if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
       if (savedHarness !== undefined) process.env["FLUX_HARNESS"] = savedHarness;
