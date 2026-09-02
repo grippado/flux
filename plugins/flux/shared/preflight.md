@@ -237,11 +237,13 @@ Tipos de requisito:
 
 > **Exceção Codex.** Quando a sessão é Codex, este passo resolve e verifica uma fonte de instruções
 > legível, não um nome no registry. Aplicar literalmente "Adaptador de instruções de agente" em
-> [`codex-compat.md`](codex-compat.md): override do repo, path explícito configurado, depois
-> `${FLUX_ROOT}/agents/pr-reviewer.md`. Um `holistic_reviewer` que seja apenas nome (como
-> `arco-pr-reviewer`) não prova que há arquivo nem agente registrado. Declarar essa tentativa como
-> degradação e só anunciar/invocar a fonte que foi realmente lida pelo subagente nativo. As regras
-> abaixo, sobre `subagent_type`, continuam para Claude Code e Cursor.
+> [`codex-compat.md`](codex-compat.md): `holistic_reviewer` do manifesto (somente se for path
+> explícito e legível), override do checkout (`.claude/agents/reviewer.md`, depois
+> `.cursor/agents/reviewer.md`), depois `${FLUX_ROOT}/agents/pr-reviewer.md`. Um
+> `holistic_reviewer` que seja apenas nome (como `arco-pr-reviewer`) não prova que há arquivo nem
+> agente registrado. Declarar essa tentativa como degradação e só anunciar/invocar a fonte que foi
+> realmente lida pelo subagente nativo. As regras abaixo, sobre `subagent_type`, continuam para
+> Claude Code e Cursor.
 
 Este passo existe porque a falha mais perigosa da família é resolver um nome de agente e invocá-lo
 sem checar se ele existe. Quando isso acontece, ou a invocação falha no meio do trabalho, ou o
@@ -355,6 +357,7 @@ que o banner precisa ser.
 | `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | o sub-passo **1a-kit** (`${FLUX_ROOT}/shared/review-agents.md`), que roda mesmo quando a cascata de L2 não chega ao degrau do kit. **Na escrita: não implementado** (LAB-71) |
 | `kit nao avaliado` | o casamento daquele kit **dependeria** de `files`/`any_of` — ele não declara `repos`, ou declara e não casou por ele — e não há checkout local para testar. Nunca "casa por arquivo": o que não pôde ser testado não passou nem falhou | idem |
 | `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4, 5 ou 6 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
+| `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) |
 
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
 encheria de ruído o banner de toda máquina que não usa kit. Só os quatro estados de kit acima são

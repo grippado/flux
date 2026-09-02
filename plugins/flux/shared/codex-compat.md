@@ -46,11 +46,12 @@ registrada e não deve ser passado como se fosse. Nesta seção, portanto, toda 
 `subagent_type: <AGENT>` nos contratos compartilhados é substituída pelo procedimento abaixo.
 
 1. A main resolve uma **fonte de instruções**, isto é, um arquivo regular e legível de agent. Para
-   L1, a ordem é: override canônico do checkout (`.claude/agents/reviewer.md`, depois
-   `.cursor/agents/reviewer.md`), `holistic_reviewer` do manifesto **somente se for um path
-   explícito e legível**, e `${FLUX_ROOT}/agents/pr-reviewer.md`. Para L2 e L3, é o arquivo já
-   encontrado por `review-agents.md`. Nunca derive um path de um nome nem procure por semelhança.
-2. Se uma fonte configurada não existir, registrar a tentativa em `degradacoes:`. No caso de L1,
+   L1, a ordem é: `holistic_reviewer` do manifesto **somente se for um path explícito e legível**,
+   override do checkout (`.claude/agents/reviewer.md`, depois `.cursor/agents/reviewer.md`), e
+   `${FLUX_ROOT}/agents/pr-reviewer.md`. Para L2 e L3, é o arquivo já encontrado por
+   `review-agents.md`. Nunca derive um path de um nome nem procure por semelhança.
+2. Se uma fonte configurada não existir, registrar a tentativa em `degradacoes:` com o token
+   `fonte L1 por nome` da tabela de tokens canônicos do `preflight.md`. No caso de L1,
    o genérico da família é um fallback explícito e válido; se ele também não existir, é `hard` e o
    elo aborta. Para L2/L3 e para papéis sem genérico correspondente (answerer, prospector e
    reviewer de documento), fonte ausente ou ilegível significa lente/capacidade indisponível, sem

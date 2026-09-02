@@ -145,8 +145,9 @@ Achou → seguir para o passo 1a-bis. Não achou → **ausente**.
 > nativo genérico lê. Validar que é arquivo regular e legível, passar seu path absoluto no prompt e
 > registrar esse path como a lente resolvida. Não consultar nem exigir `name:`/`subagent_type`; eles
 > pertencem aos registries de Claude/Cursor. A resolução e o fallback de L1 continuam em
-> `codex-compat.md`; L2 e L3 sem arquivo legível seguem `inalcancavel`, nunca são cobertos por um
-> agente genérico sem as instruções da lente.
+> `codex-compat.md`; L2 e L3 sem arquivo continuam `ausente` pelo passo 1a; arquivo presente e
+> ilegível (permissão, não-regular) é `inalcancavel`. Em nenhum dos dois casos a lente é coberta
+> por um genérico sem as instruções.
 
 **Achar o arquivo não basta, e tratar como se bastasse é a falha silenciosa mais cara deste
 contrato.** O que se resolve no passo 1a é um **caminho**; o que a Task tool aceita é um **nome
