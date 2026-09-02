@@ -285,11 +285,12 @@ async function runVerb(opts: {
     console.error(err instanceof Error ? err.message : String(err));
     process.exit(1);
   }
-  const { harness, source: harnessSource } = harnessResolution;
+  const { harness, source: harnessSource, override: harnessOverride } = harnessResolution;
+  const invocationOpts = { safe, harness, claudeCmd: harnessOverride };
 
   let body = buildPromptBody(ctx, verb, args, { harness, harnessSource });
-  const invocation = resolveInvocation({ safe, harness });
-  let command = buildCommand(body, { safe, harness });
+  const invocation = resolveInvocation(invocationOpts);
+  let command = buildCommand(body, invocationOpts);
 
   if (dry) {
     console.log(command);
@@ -304,23 +305,24 @@ async function runVerb(opts: {
     }
     if (review.type === "comment" && review.text) {
       body = `${body}\n\n---\nComentário adicional do usuário:\n${review.text}`;
-      command = buildCommand(body, { safe, harness });
+      command = buildCommand(body, invocationOpts);
     }
   }
 
   const binary = invocation.split(" ")[0]!;
-  if (!commandExists(binary)) {
+  if (harnessSource !== "override" && !commandExists(binary)) {
     const hint = harnessInstallHint(harness);
     console.error(`[flux] ${binary} não encontrado no PATH.`);
     console.error(`Instale o harness "${harness}": ${hint}`);
     process.exit(1);
   }
 
-  if (harness !== "claude" && openNew) {
+  const supportsNewTab = harness === "claude" || harnessSource === "override";
+  if (!supportsNewTab && openNew) {
     console.error(`[flux] --new não é suportado para o harness "${harness}" ainda. Rodando na aba atual.`);
   }
 
-  if (!openNew || harness !== "claude") {
+  if (!openNew || !supportsNewTab) {
     const exitCode = runHere({ command, body, invocation });
     process.exit(exitCode);
   }

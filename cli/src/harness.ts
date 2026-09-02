@@ -3,19 +3,29 @@ export type CanonicalHarness = typeof CANONICAL_HARNESSES[number];
 
 export type HarnessResolution = {
   harness: string;
-  source: "flag" | "env" | "manifesto" | "deteccao";
+  source: "flag" | "env" | "manifesto" | "override" | "deteccao";
+  override?: string;
 };
+
+export const UNKNOWN_HARNESS = "desconhecido";
 
 export type ResolveHarnessInput = {
   harness: string | null;
   preferredHarness: string | null;
+  override?: string | null;
 };
 
 export function resolveHarness(input: ResolveHarnessInput): HarnessResolution {
-  if (input.harness && process.env["FLUX_CLAUDE_CMD"]) {
+  const override = input.override ?? process.env["FLUX_CLAUDE_CMD"];
+
+  if (input.harness && override) {
     throw new Error(
       "[flux] --harness e FLUX_CLAUDE_CMD nao podem ser usados ao mesmo tempo. Remova um dos dois."
     );
+  }
+
+  if (override) {
+    return { harness: UNKNOWN_HARNESS, source: "override", override };
   }
 
   if (input.harness) {

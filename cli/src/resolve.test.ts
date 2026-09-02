@@ -4,7 +4,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { resolveContext } from "./resolve.ts";
 import { buildPrompt, buildCommand, resolveInvocation } from "./prompt.ts";
-import { resolveHarness } from "./harness.ts";
+import { resolveHarness, UNKNOWN_HARNESS } from "./harness.ts";
 import { SUPPORTED_VERBS, TICKET_PATTERN, LINEAR_URL_PATTERN } from "./index.ts";
 
 let tmpDir: string;
@@ -374,6 +374,45 @@ describe("resolveHarness: cascata flag -> env -> manifesto -> erro", () => {
       if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
       if (savedHarness !== undefined) process.env["FLUX_HARNESS"] = savedHarness;
     }
+  });
+
+  it("override resolve sozinho, sem flag nem env nem manifesto", () => {
+    const result = resolveHarness({ harness: null, preferredHarness: null, override: "scc arco" });
+    expect(result.source).toBe("override");
+    expect(result.override).toBe("scc arco");
+    expect(result.harness).toBe(UNKNOWN_HARNESS);
+  });
+
+  it("override vence env e manifesto sem declarar o harness deles", () => {
+    const result = resolveHarness({ harness: null, preferredHarness: "cursor", override: "scc" });
+    expect(result.source).toBe("override");
+    expect(result.harness).toBe(UNKNOWN_HARNESS);
+    expect(result.harness).not.toBe("cursor");
+  });
+
+  it("override lido do FLUX_CLAUDE_CMD quando nao vem por parametro", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    process.env["FLUX_CLAUDE_CMD"] = "scc";
+    try {
+      const result = resolveHarness({ harness: null, preferredHarness: null });
+      expect(result.source).toBe("override");
+      expect(result.override).toBe("scc");
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+      else delete process.env["FLUX_CLAUDE_CMD"];
+    }
+  });
+
+  it("override com flag explicita continua sendo conflito", () => {
+    expect(() =>
+      resolveHarness({ harness: "claude", preferredHarness: null, override: "scc" })
+    ).toThrow();
+  });
+
+  it("override nao passa por validacao de harness canonico", () => {
+    const result = resolveHarness({ harness: null, preferredHarness: null, override: "qualquer-wrapper" });
+    expect(result.source).toBe("override");
+    expect(result.override).toBe("qualquer-wrapper");
   });
 });
 

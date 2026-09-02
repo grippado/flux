@@ -54,7 +54,7 @@ export function buildPrompt(ctx: ResolvedContext, verb: string, args: string, op
 export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string, opts: PromptBodyOpts = {}): string {
   const lines: string[] = [];
   const harness = opts.harness ?? "claude";
-  const harnessSource = opts.harnessSource ?? "deteccao";
+  const harnessSource = opts.harnessSource ?? "desconhecido";
 
   lines.push(`--- PREFLIGHT RESOLVIDO (flux-cli v${CLI_VERSION}) ---`);
   lines.push(`perfil: ${ctx.profile}`);
