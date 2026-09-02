@@ -319,7 +319,8 @@ Resumo do contrato:
 
 - **Passo 1 (review-agents.md):** descobrir specialists do repo a partir de `SPECIALISTS_ROOT`. Fallback gracioso se não houver. Com `--solo`, pular este passo.
 
-- **Passo 2 (review-agents.md):** rodar em paralelo via Task tool:
+- **Passo 2 (review-agents.md):** rodar em paralelo via Task tool (ou delegação nativa com fonte de
+  instruções validada no Codex, conforme `codex-compat.md`):
   - **2a — Holístico:** Task com `subagent_type: <HOLISTIC>` com os inputs base. Guardar como `HOLISTIC_REPORT`.
   - **2b — Specialists:** Task com o orquestrador de specialists (repo-owner ou reviewer local) com diff + metadados + threads. Guardar como `AGENT_REPORT`. (Pulado se `--solo` ou se não houver specialists.)
 

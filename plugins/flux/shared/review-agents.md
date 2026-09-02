@@ -141,6 +141,13 @@ Achou → seguir para o passo 1a-bis. Não achou → **ausente**.
 
 ### 1a-bis — O arquivo existir não é o mesmo que o agente ser invocável
 
+> **Exceção Codex:** no Codex, o arquivo é precisamente a fonte de instruções que o subagente
+> nativo genérico lê. Validar que é arquivo regular e legível, passar seu path absoluto no prompt e
+> registrar esse path como a lente resolvida. Não consultar nem exigir `name:`/`subagent_type`; eles
+> pertencem aos registries de Claude/Cursor. A resolução e o fallback de L1 continuam em
+> `codex-compat.md`; L2 e L3 sem arquivo legível seguem `inalcancavel`, nunca são cobertos por um
+> agente genérico sem as instruções da lente.
+
 **Achar o arquivo não basta, e tratar como se bastasse é a falha silenciosa mais cara deste
 contrato.** O que se resolve no passo 1a é um **caminho**; o que a Task tool aceita é um **nome
 registrado** (`subagent_type`). Um não vira o outro sozinho.
@@ -213,7 +220,9 @@ exatamente isso.
 **Não improvisar com `general-purpose` carregando o corpo do specialist como prompt.** É tentador e
 parece equivalente, mas não é: o resultado deixa de ser comparável com o de uma execução normal, e o
 banner passaria a mentir de um jeito mais difícil de detectar. Registrar a degradação e seguir com o
-que existe.
+que existe. A única exceção é o adaptador Codex documentado acima: ali a delegação nativa genérica
+é o mecanismo oficial, recebe um **path validado** e lê o arquivo integralmente; não é um fallback
+silencioso nem uma cópia parcial de instruções.
 
 **O que fazer com a informação, no fechamento do elo:** um `inalcançável` é acionável e um `ausente`
 não é. Ausente pede `${FLUX_CMD}equip --agents-only` (criar a suite). Inalcançável **não pede criar
@@ -367,6 +376,11 @@ em `disponível` é pior: promete uma cobertura que não houve.
 Com `--solo`, pular este passo inteiro e o 2b, independentemente do que exista.
 
 ## Passo 2 — Rodar as lentes (em paralelo, via Task tool ou subagentes nativos do Codex)
+
+No Codex, substituir cada `Task com subagent_type` abaixo por um subagente nativo genérico com a
+fonte de instruções validada no Passo 1/`preflight` e aplicar o contrato de
+`codex-compat.md`. Os despachos, paralelismo, inputs e campos de cobertura são idênticos; só muda o
+mecanismo de endereçar a instrução.
 
 - **2a — L1, holístico.** Task com `subagent_type: <HOLISTIC>` passando os inputs base do comando
   (diff, commits, metadados, checkout, revisões anteriores, threads). Guardar como `HOLISTIC_REPORT`.

@@ -63,9 +63,11 @@ aprovação da OpenAI; até lá, este marketplace Git é o caminho instalável e
 A forma de invocar uma skill é a que o Codex registrar; use `@Flux` ou o nome exibido pela sessão,
 nunca presuma `/flux:`.
 
-O adaptador Codex usa a delegação nativa de subagentes para o fan-out. MCP, vault, Linear, Slack e
-specialists são capacidades opcionais: quando ausentes, o preflight declara a degradação e o Flux
-continua no perfil genérico.
+O adaptador Codex usa a delegação nativa de subagentes para o fan-out. Como o Codex não registra
+os nomes customizados de `subagent_type` de Claude/Cursor, ele resolve arquivos de instrução
+legíveis e entrega o path ao subagente nativo; o banner e a cobertura mostram a fonte que de fato
+rodou. MCP, vault, Linear, Slack e specialists são capacidades opcionais: quando ausentes, o
+preflight declara a degradação e o Flux continua no perfil genérico.
 
 ### CLI
 

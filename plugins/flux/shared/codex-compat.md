@@ -38,6 +38,41 @@ um gate com o usuário.
 O resto do protocolo não muda e não é repetido aqui: vale
 [`fanout-discipline.md`](fanout-discipline.md) como está escrito.
 
+### Adaptador de instruções de agente
+
+Claude Code e Cursor resolvem um agente pelo `subagent_type` que o harness registrou. O Codex
+despacha subagentes nativos genéricos: um nome declarado no manifesto **não é** uma capacidade
+registrada e não deve ser passado como se fosse. Nesta seção, portanto, toda ocorrência de
+`subagent_type: <AGENT>` nos contratos compartilhados é substituída pelo procedimento abaixo.
+
+1. A main resolve uma **fonte de instruções**, isto é, um arquivo regular e legível de agent. Para
+   L1, a ordem é: override canônico do checkout (`.claude/agents/reviewer.md`, depois
+   `.cursor/agents/reviewer.md`), `holistic_reviewer` do manifesto **somente se for um path
+   explícito e legível**, e `${FLUX_ROOT}/agents/pr-reviewer.md`. Para L2 e L3, é o arquivo já
+   encontrado por `review-agents.md`. Nunca derive um path de um nome nem procure por semelhança.
+2. Se uma fonte configurada não existir, registrar a tentativa em `degradacoes:`. No caso de L1,
+   o genérico da família é um fallback explícito e válido; se ele também não existir, é `hard` e o
+   elo aborta. Para L2/L3 e para papéis sem genérico correspondente (answerer, prospector e
+   reviewer de documento), fonte ausente ou ilegível significa lente/capacidade indisponível, sem
+   substituição inventada.
+3. Despachar um subagente nativo genérico por unidade independente, com o path absoluto resolvido
+   e a instrução: ler esse arquivo integralmente antes da análise, obedecer seu contrato de saída,
+   e devolver o resultado estruturado ao orquestrador. O prompt inclui os inputs já resolvidos pela
+   main e proíbe re-resolver agentes, trocar a fonte ou alegar cobertura de uma lente não recebida.
+4. Registrar no rodapé de cobertura o path da fonte e se o despacho retornou. `invocada: sim` só
+   vale quando esse subagente foi de fato despachado; arquivo legível sem despacho continua sendo
+   `invocada: não`.
+
+O nome configurado continua útil como documentação para Claude/Cursor, mas no Codex o identificador
+auditável é o caminho da fonte efetivamente lida. Assim, um manifesto que declare
+`arco-pr-reviewer` sem arquivo correspondente não bloqueia nem finge executar esse agente: o
+banner declara a configuração indisponível e, quando presente, o `pr-reviewer.md` genérico é a
+L1 que realmente rodou.
+
+Esta é uma exceção limitada ao runtime Codex. Não criar cópias, symlinks, registros artificiais nem
+arquivos `commands/` para simular a descoberta dos outros harnesses; Claude Code e Cursor preservam
+exatamente sua resolução por `subagent_type`.
+
 ## Capacidades ausentes
 
 O perfil genérico continua válido sem MCP, vault, Linear, Slack ou specialists. O preflight deve

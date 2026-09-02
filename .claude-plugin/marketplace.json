@@ -12,7 +12,7 @@
       "name": "flux",
       "source": "./plugins/flux",
       "description": "Ciclo de trabalho agêntico para qualquer repo Git: probe, refine, issue, build, peek, review, iterate, land e reply, mais o map e o equip, que preparam a máquina e o repo. Global e context-agnóstico, com o que é específico do seu time vindo de um manifesto, nunca hardcoded.",
-      "version": "1.28.0"
+      "version": "1.29.0"
     }
   ]
 }

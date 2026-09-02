@@ -235,6 +235,14 @@ Tipos de requisito:
 
 ## Passo 3 — Resolver e VERIFICAR o agente holístico
 
+> **Exceção Codex.** Quando a sessão é Codex, este passo resolve e verifica uma fonte de instruções
+> legível, não um nome no registry. Aplicar literalmente "Adaptador de instruções de agente" em
+> [`codex-compat.md`](codex-compat.md): override do repo, path explícito configurado, depois
+> `${FLUX_ROOT}/agents/pr-reviewer.md`. Um `holistic_reviewer` que seja apenas nome (como
+> `arco-pr-reviewer`) não prova que há arquivo nem agente registrado. Declarar essa tentativa como
+> degradação e só anunciar/invocar a fonte que foi realmente lida pelo subagente nativo. As regras
+> abaixo, sobre `subagent_type`, continuam para Claude Code e Cursor.
+
 Este passo existe porque a falha mais perigosa da família é resolver um nome de agente e invocá-lo
 sem checar se ele existe. Quando isso acontece, ou a invocação falha no meio do trabalho, ou o
 modelo improvisa um parecer inline fora do contrato de saída.
