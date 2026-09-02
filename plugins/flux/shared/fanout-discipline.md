@@ -178,6 +178,7 @@ Cada elo declara a sua, mas o padrão é este:
 | `flux:map` | **Duas unidades, e as duas por repo.** *Levantamento*: um agente por repo apurando as três lentes e os hashes. *Despacho*: um subagente rodando `${FLUX_CMD}equip <slug> --from-map` por repo, só para os consertos aceitos no gate (Forma 2, acima) | `general-purpose` |
 | `flux:build` | O motor de execução do repo inteiro (a main mantém o board de execução) | `general-purpose` |
 | `flux:equip` | Detecção de stack, leitura de L3 e autoria (suite e motor), em paralelo quando independentes — a main fica com gates, destino e registro | `general-purpose` |
+| `flux:probe` | **Duas unidades.** *Coleta*: um alvo de telemetria por prospector, o da fonte que aquele alvo carimbou (fontes diferentes vão no mesmo bloco). *Cruzamento*: um repo por prospector. A síntese cross-fonte é fan-in e fica na main | `<SENTRY_PROSPECTOR>` / `<DATADOG_PROSPECTOR>` / specialists |
 | `flux:issue` (prospecção) | **Um repo** por prospector | specialists / `Explore` |
 | `flux:issue` (criação) | **Uma candidata** por agente, em levas de até 3, blockers primeiro | `issue-creator` (sonnet) |
 | `flux:reply` | **Um repo** por prospector + o answerer | `<SLACK_PROSPECTOR>` / `<SLACK_ANSWERER>` |

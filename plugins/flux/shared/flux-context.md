@@ -165,6 +165,18 @@ com o reviewer de outro time sem que nada acuse o problema.
     "base": "~/code"
   },
   "secrets_file": "~/.secrets",
+  "telemetry": {
+    "sentry": {
+      "org": "acme-org",
+      "cli": "sentry",
+      "projects": { "web-monorepo": ["acme-web-home", "acme-web-shop"], "payments": "payments-front" }
+    },
+    "datadog": {
+      "site": "datadoghq.com",
+      "token_env": "DD_USER_ACCESS_TOKEN",
+      "services": { "payments": "payments-api*", "web-monorepo": ["home", "auth-app"] }
+    }
+  },
   "quality_gate": {
     "provider": "sonarcloud",
     "host": "https://sonarcloud.io",
@@ -345,6 +357,31 @@ com o reviewer de outro time sem que nada acuse o problema.
 > (`exec_fallback` e `write_destinations`), por edição cirúrgica, depois de mostrar o diff. Um
 > manifesto regenerado por nós perderia ordem de campos, comentários e qualquer chave que a família
 > ainda não conheça — e este é o arquivo que governa o comportamento de todos os elos.
+- `telemetry` — bloco opcional que declara as **fontes de telemetria de produção** do contexto,
+  consumidas pelo `flux:probe`. É um mapa **por provider**, e não um provider só, porque o caso comum
+  não é escolher entre rastreador de erro e observabilidade de backend: é ter os dois, cobrindo lados
+  diferentes da mesma falha. Todo o bloco é opcional, e cada provider é opcional dentro dele.
+
+  Chaves comuns a qualquer provider: `prospector` (o agente que o elo despacha para aquela fonte;
+  ausente → o da família, `sentry-prospector` ou `datadog-prospector`; ausente esse →
+  `general-purpose`, com a perda declarada) e `token_env` / `secrets_file` (nome da variável com o
+  token e onde procurá-la, mesmas regras de manuseio dos demais `*_token_env`, em
+  `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do token").
+
+  - **`sentry`**: `org` (o subdomínio de `https://<org>.sentry.io`), `cli` (nome do binário, default
+    `sentry`) e `projects`, o mapa `{ "<slug do repo>": "<projeto>" | ["<p1>", "<p2>"] }`.
+  - **`datadog`**: `site` (default `datadoghq.com`; a org europeia usa `datadoghq.eu`, e há outras) e
+    `services`, o mapa `{ "<slug do repo>": "<serviço>" | ["<s1>", "<s2>"] }`, onde um valor
+    terminado em `*` casa por prefixo.
+
+  **`projects` e `services` são o mesmo campo com dois nomes**, e é o que mais paga do bloco: o elo os
+  lê **ao contrário** para derivar qual repo cruzar com um sinal. O nome na fonte quase nunca é o nome
+  do repo — no Sentry costuma ser um nome que o produto abandonou anos atrás, e no Datadog o repo
+  publica vários serviços com sufixo (`-worker`, `-consumer`, `-grpc`), o que torna o prefixo com `*`
+  a forma honesta de declarar a família inteira sem listar workers que nascem e morrem. Sem o campo, o
+  elo **pergunta** o repo, oferecendo os `repos` do perfil; **nunca** infere por semelhança de nome,
+  que é como um dossiê acaba cruzando o código errado.
+
 - `quality_gate` — bloco opcional para diagnóstico de gates de qualidade externos via API (todo
   o sub-bloco é opcional):
   - `provider`: `"sonarcloud"` ou `"sonarqube"`. **Ausente = sem consulta** (degradação declarada
@@ -389,6 +426,10 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
   `flux:review`/`flux:peek` aborta só naquele alvo).
 - `linear_token_env` = `LINEAR_API_KEY`; `secrets_file` = `~/.secrets`. Sem a variável no ambiente e
   sem a linha no arquivo, o gate de transporte do `flux:issue` fica em **MCP** e diz isso no banner.
+- `telemetry` = ausente; o `flux:probe` deriva o que der da URL do alvo (a org, no Sentry; a query e a
+  janela, no Datadog), pergunta o repo do cruzamento e declara as duas coisas no banner. Sem o bloco e
+  sem alvo em forma de URL, ele aborta pedindo o que falta em vez de adivinhar. Prospectors = os da
+  família (`sentry-prospector`, `datadog-prospector`).
 - `quality_gate` = ausente (sem consulta à API de quality gates; gate externo é tratado como
   pendência humana com degradação declarada — ver `${FLUX_ROOT}/shared/quality-gate-api.md`).
 
