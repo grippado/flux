@@ -189,7 +189,7 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
       const cmd = buildPrompt(ctx, "review", 'arg "com aspas"', { harness: "claude" });
 
       expect(cmd).toContain('\\"com aspas\\"');
-      expect(cmd.startsWith('claude --dangerously-skip-permissions "')).toBe(true);
+      expect(cmd.startsWith('claude --dangerously-skip-permissions -- "')).toBe(true);
     } finally {
       if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
     }
@@ -201,10 +201,10 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
     try {
       const ctx = await resolveContext({ cwd: tmpDir });
       const body = "corpo";
-      expect(buildCommand(body, { harness: "claude" })).toStartWith('claude --dangerously-skip-permissions "');
-      expect(buildCommand(body, { harness: "claude", safe: true })).toStartWith('claude "');
-      expect(buildCommand(body, { harness: "claude", claudeCmd: "scc" })).toStartWith('scc "');
-      expect(buildPrompt(ctx, "review", "x", { harness: "claude", safe: true }).startsWith('claude "')).toBe(true);
+      expect(buildCommand(body, { harness: "claude" })).toStartWith('claude --dangerously-skip-permissions -- "');
+      expect(buildCommand(body, { harness: "claude", safe: true })).toStartWith('claude -- "');
+      expect(buildCommand(body, { harness: "claude", claudeCmd: "scc" })).toStartWith('scc -- "');
+      expect(buildPrompt(ctx, "review", "x", { harness: "claude", safe: true }).startsWith('claude -- "')).toBe(true);
     } finally {
       if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
     }
@@ -216,7 +216,7 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
     try {
       const body = "corpo";
       expect(buildCommand(body, { harness: "cursor" })).toStartWith("cursor agent --print");
-      expect(buildCommand(body, { harness: "cursor" })).toEndWith('"corpo"');
+      expect(buildCommand(body, { harness: "cursor" })).toEndWith('-- "corpo"');
       expect(buildCommand(body, { harness: "cursor" })).toContain("--force");
       expect(buildCommand(body, { harness: "cursor", safe: true })).not.toContain("--force");
     } finally {
@@ -231,7 +231,7 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
       for (const harness of ["claude", "cursor", "codex"]) {
         for (const safe of [true, false]) {
           const opts = { harness, safe };
-          expect(buildCommand("corpo", opts)).toBe(`${resolveInvocation(opts)} "corpo"`);
+          expect(buildCommand("corpo", opts)).toBe(`${resolveInvocation(opts)} -- "corpo"`);
         }
       }
     } finally {
@@ -245,7 +245,7 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
     try {
       const body = "corpo";
       expect(buildCommand(body, { harness: "codex" })).toStartWith("codex exec");
-      expect(buildCommand(body, { harness: "codex" })).toEndWith('"corpo"');
+      expect(buildCommand(body, { harness: "codex" })).toEndWith('-- "corpo"');
       expect(buildCommand(body, { harness: "codex" })).toContain("--dangerously-bypass-approvals-and-sandbox");
       expect(buildCommand(body, { harness: "codex", safe: true })).not.toContain("--dangerously-bypass-approvals-and-sandbox");
     } finally {

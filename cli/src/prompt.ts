@@ -39,7 +39,7 @@ export function resolveInvocation(opts: CommandOptions = {}): string {
 }
 
 export function buildCommand(body: string, opts: CommandOptions = {}): string {
-  return `${resolveInvocation(opts)} "${escapeForArgv(body)}"`;
+  return `${resolveInvocation(opts)} -- "${escapeForArgv(body)}"`;
 }
 
 export type PromptBodyOpts = {
