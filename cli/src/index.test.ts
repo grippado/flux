@@ -158,10 +158,11 @@ describe("reviewBanner: previa do banner antes de disparar o Claude Code", () =>
 describe("flux --dry: nunca aciona a previa do banner (reviewBanner), mesmo com TTY", () => {
   it("--dry imprime o comando e retorna sem chamar prompt()", () => {
     const dir = mkdtempSync(join(tmpdir(), "flux-dry-no-review-"));
+    const { FLUX_CLAUDE_CMD: _dropped, ...cleanEnv } = process.env;
     const out = execFileSync(
       "bun",
-      ["run", join(import.meta.dir, "index.ts"), "peek", "--repo", "flux", "--dry"],
-      { cwd: dir, encoding: "utf8", input: "" },
+      ["run", join(import.meta.dir, "index.ts"), "peek", "--repo", "flux", "--dry", "--harness", "claude"],
+      { cwd: dir, encoding: "utf8", input: "", env: { ...cleanEnv } },
     );
     expect(out).toContain("/flux:peek --repo flux");
   });

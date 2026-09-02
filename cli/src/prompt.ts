@@ -19,24 +19,56 @@ function escapeForArgv(s: string): string {
 export type CommandOptions = {
   safe?: boolean;
   claudeCmd?: string;
+  harness?: string;
 };
 
 export function resolveInvocation(opts: CommandOptions = {}): string {
+  const harness = opts.harness ?? "claude";
   const override = opts.claudeCmd ?? process.env["FLUX_CLAUDE_CMD"];
   if (override) return override;
+
+  if (harness === "cursor") {
+    const permFlags = opts.safe ? "" : " --force";
+    return `cursor agent --print${permFlags}`;
+  }
+  if (harness === "codex") {
+    const permFlags = opts.safe ? "" : " --dangerously-bypass-approvals-and-sandbox";
+    return `codex exec${permFlags}`;
+  }
   return opts.safe ? "claude" : "claude --dangerously-skip-permissions";
 }
 
 export function buildCommand(body: string, opts: CommandOptions = {}): string {
-  return `${resolveInvocation(opts)} "${escapeForArgv(body)}"`;
+  const harness = opts.harness ?? "claude";
+  const escaped = escapeForArgv(body);
+  const override = opts.claudeCmd ?? process.env["FLUX_CLAUDE_CMD"];
+  if (override) return `${override} "${escaped}"`;
+
+  if (harness === "cursor") {
+    const permFlags = opts.safe ? "" : " --force";
+    return `cursor agent "${escaped}" --print${permFlags}`;
+  }
+  if (harness === "codex") {
+    const permFlags = opts.safe ? "" : " --dangerously-bypass-approvals-and-sandbox";
+    return `codex exec "${escaped}"${permFlags}`;
+  }
+  const prefix = opts.safe ? "claude" : "claude --dangerously-skip-permissions";
+  return `${prefix} "${escaped}"`;
 }
+
+export type PromptBodyOpts = {
+  harness?: string;
+  harnessSource?: string;
+};
 
 export function buildPrompt(ctx: ResolvedContext, verb: string, args: string, opts: CommandOptions = {}): string {
-  return buildCommand(buildPromptBody(ctx, verb, args), opts);
+  return buildCommand(buildPromptBody(ctx, verb, args, opts), opts);
 }
 
-export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string): string {
+export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string, opts: PromptBodyOpts = {}): string {
   const lines: string[] = [];
+  const harness = opts.harness ?? "claude";
+  const harnessSource = opts.harnessSource ?? "deteccao";
 
   lines.push(`--- PREFLIGHT RESOLVIDO (flux-cli v${CLI_VERSION}) ---`);
   lines.push(`perfil: ${ctx.profile}`);
@@ -46,6 +78,8 @@ export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string
   lines.push(`flux_root_source: ${ctx.flux_root_source}`);
   lines.push(`exec_command: ${ctx.exec_command}`);
   lines.push(`exec_fallback: ${ctx.exec_fallback ?? "ausente"}`);
+  lines.push(`harness: ${harness}`);
+  lines.push(`harness_source: ${harnessSource}`);
   lines.push(`lentes:`);
   lines.push(`  l2_paths: ${ctx.lenses.l2_paths.length > 0 ? ctx.lenses.l2_paths.join(", ") : "ausente"}`);
   lines.push(`  l3_paths: ${ctx.lenses.l3_paths.length > 0 ? ctx.lenses.l3_paths.join(", ") : "ausente"}`);
@@ -53,7 +87,7 @@ export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string
     lines.push(`avisos:`);
     for (const w of ctx.warnings) lines.push(`  - ${w}`);
   }
-  lines.push(`flux_cmd: /flux: (Claude-only v0; revalide com a forma que sua sessao expoe)`);
+  lines.push(`flux_cmd: /flux: (session_revalidation_required)`);
   lines.push(ADVISORY_SENTENCE);
   lines.push(`--- FIM PREFLIGHT RESOLVIDO ---`);
   lines.push(`${FLUX_CMD_PREFIX}${verb} ${args}`);
