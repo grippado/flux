@@ -470,18 +470,23 @@ Veja a [landing page](https://grippado.github.io/flux/) para instalação, ciclo
 
 ## Contribuindo
 
-Antes de abrir PR, valide os manifests. Este comando pega uma classe de erro que leitura não pega:
+Antes de abrir PR, rode os checks. Eles pegam uma classe de erro que leitura não pega:
 
 ```
 claude plugin validate .              # marketplace
 claude plugin validate ./plugins/flux # plugin + frontmatter de cada skill
 scripts/check-manifests.sh            # version e name iguais nos cinco manifests
+scripts/check-codex-agent-contract.sh # o adaptador Codex continua descrito nos shared/
 ```
 
 Os dois `validate` conferem a forma de cada manifesto isoladamente, e recebem alvos disjuntos, então
 nenhum dos dois enxerga `.cursor-plugin/` nem `.codex-plugin/`. É por isso que o `check-manifests.sh`
 existe: um bump que esquece parte dos cinco passa verde nos dois `validate`, e o mesmo corpo de skills
-chega ao usuário com versão diferente conforme o harness.
+chega ao usuário com versão diferente conforme o harness. O `check-codex-agent-contract.sh` faz o
+mesmo pelo texto dos `shared/`: é um canário que falha se a descrição do adaptador Codex sumir de
+`codex-compat.md`, `preflight.md` ou `review-agents.md`. Os dois scripts rodam em CI
+([`checks.yml`](.github/workflows/checks.yml)) a cada PR, então esquecer de rodá-los aqui custa uma
+ida ao GitHub, não uma regressão publicada.
 
 > **Sempre use aspas na `description` do frontmatter.** Um `: ` (dois-pontos seguido de espaço) num
 > valor YAML sem aspas quebra o parse, e o skill carrega com **metadata vazia**, silenciosamente:
