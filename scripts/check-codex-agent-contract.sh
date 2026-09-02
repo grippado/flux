@@ -10,8 +10,8 @@ REVIEW="$ROOT/plugins/flux/shared/review-agents.md"
 require() {
     local pattern="$1"
     local file="$2"
-    if ! rg -q --fixed-strings "$pattern" "$file"; then
-        echo "check-codex-agent-contract: faltou '$pattern' em ${file#$ROOT/}" >&2
+    if ! grep -qF "$pattern" "$file"; then
+        echo "check-codex-agent-contract: faltou '$pattern' em ${file#"$ROOT"/}" >&2
         exit 1
     fi
 }
