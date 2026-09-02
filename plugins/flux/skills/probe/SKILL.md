@@ -316,7 +316,14 @@ achados**, nunca genéricas:
   ponte entre as duas fontes, e ela só se pergunta depois de ter as duas.
 - **A hipótese bate com o caminho de código?** Veredito explícito contra o que a telemetria sugeriu.
 
-Retorno com `arquivo:linha`, como todo prospector da família. Achado sem âncora não entra.
+Retorno com `arquivo:linha`, como todo prospector da família, **mais o SHA que o subagente de fato leu**
+(`git rev-parse` do ref lido). Achado sem âncora não entra, e âncora sem SHA não vira permalink: as duas
+coisas são pedidas no mesmo prompt porque, separadas, a segunda é sempre a que falta na hora de escrever.
+
+Ao fan-in, **toda** citação de código que entrar na 🔬 Achados de codebase é permalink de blob naquele
+SHA, conforme "Disciplina de links / O caso do código" do `${FLUX_ROOT}/shared/board-template.md`. Um
+board de investigação é justamente o artefato que alguém reabre semanas depois, de outra máquina, e sem
+o checkout: `index.ts:145` nu ali não prova nada a quem lê, e ainda envelhece em silêncio.
 
 ---
 
