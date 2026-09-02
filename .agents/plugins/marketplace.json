@@ -1,0 +1,20 @@
+{
+  "name": "flux",
+  "interface": {
+    "displayName": "Flux"
+  },
+  "plugins": [
+    {
+      "name": "flux",
+      "source": {
+        "source": "local",
+        "path": "./plugins/flux"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

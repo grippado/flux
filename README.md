@@ -48,13 +48,17 @@ Em plano Teams/Enterprise dá para importar o repo em Dashboard → Plugins e di
 
 ### Codex
 
-> **O Flux ainda não está no Plugin Directory do Codex.** Enquanto a listagem não sai, a instalação
-> é por marketplace local, abaixo. Quando ela sair, o caminho passa a ser abrir o Plugin Directory,
-> encontrar `Flux` e selecionar **Install**.
+O Flux já pode ser instalado do marketplace do próprio repositório:
 
-Registre o plugin numa entrada de marketplace local (por exemplo
-`~/.agents/plugins/marketplace.json`) apontando para `./plugins/flux` do seu checkout, e valide o
-manifesto `plugins/flux/.codex-plugin/plugin.json` antes de usar.
+```bash
+codex plugin marketplace add grippado/flux
+codex plugin add flux@flux
+```
+
+Abra uma sessão nova depois da instalação. O repositório fornece o catálogo em
+`.agents/plugins/marketplace.json`, que aponta para o pacote nativo
+`plugins/flux/.codex-plugin/plugin.json`. O catálogo público universal ainda depende da submissão e
+aprovação da OpenAI; até lá, este marketplace Git é o caminho instalável e compartilhável.
 
 A forma de invocar uma skill é a que o Codex registrar; use `@Flux` ou o nome exibido pela sessão,
 nunca presuma `/flux:`.
@@ -334,6 +338,7 @@ flux/
 ├── scripts/install-cursor.sh       instalação no Cursor (copia + prefixa os nomes)
 ├── .claude-plugin/marketplace.json o marketplace do Claude Code (o /plugin add lê este)
 ├── .cursor-plugin/marketplace.json o mesmo, para o Cursor
+├── .agents/plugins/marketplace.json marketplace Git instalável pelo Codex
 └── plugins/flux/                   ← ${FLUX_ROOT} quando instalado
     ├── .claude-plugin/plugin.json  manifesto Claude Code
     ├── .cursor-plugin/plugin.json  manifesto Cursor (mesmo corpo, outro harness)
