@@ -9,9 +9,11 @@
    da ideia ao merge, sem trocar de ferramenta
 ```
 
-[![license](https://img.shields.io/badge/license-MIT-6B7280)](LICENSE) [![claude code](https://img.shields.io/badge/Claude%20Code-plugin-8B5CF6)](#claude-code) [![cursor](https://img.shields.io/badge/Cursor-plugin-3B82F6)](#cursor) [![codex](https://img.shields.io/badge/Codex-plugin-A78BFA)](#codex) [![cli](https://img.shields.io/badge/CLI-terminal-10B981)](#cli)
+[![site](https://img.shields.io/badge/site-grippado.github.io%2Fflux-8B5CF6)](https://grippado.github.io/flux/) [![release](https://img.shields.io/github/v/release/grippado/flux?label=release&color=6B7280)](https://github.com/grippado/flux/releases/latest) [![license](https://img.shields.io/badge/license-MIT-6B7280)](LICENSE) [![claude code](https://img.shields.io/badge/Claude%20Code-plugin-8B5CF6)](#claude-code) [![cursor](https://img.shields.io/badge/Cursor-plugin-3B82F6)](#cursor) [![codex](https://img.shields.io/badge/Codex-plugin-A78BFA)](#codex) [![cli](https://img.shields.io/badge/CLI-terminal-10B981)](#cli)
 
-> Família de comandos **globais e context-agnósticos** que cobre o ciclo inteiro de trabalho num repo: da issue ao código, do código ao review, do review ao merge, do merge à comunicação.
+> Família de comandos **globais e context-agnósticos** que cobre o ciclo inteiro de trabalho num repo: da telemetria de produção ao código, do código ao review, do review ao merge, do merge à comunicação.
+
+**[grippado.github.io/flux](https://grippado.github.io/flux/)** — a landing com o ciclo, a instalação por harness e as versões publicadas. O selo de release acima aponta sempre para a última, sem ninguém precisar lembrar de atualizar este arquivo.
 
 ## Instalação
 
@@ -176,7 +178,7 @@ flux                                  # modo interativo: pergunta comando, alvo,
 Depois de instalar, os verbos ficam disponíveis em qualquer repo Git. No Claude Code, a forma
 é `/flux:peek`; no Cursor, `/flux-peek`; no Codex, use o nome que o Plugin Directory registrar.
 
-**Uma ressalva honesta sobre o Codex:** são **nove** verbos ali, não dez. O `flux:land` é o único
+**Uma ressalva honesta sobre o Codex:** são **dez** verbos ali, não onze. O `flux:land` é o único
 elo que despacha um irmão, e para isso precisa resolver o prefixo de invocação da família — coisa
 que o Codex ainda não expõe de forma verificável. Ele aborta a fase de despacho em vez de degradar
 para uma iteração fora do contrato. Detalhe em
@@ -209,17 +211,18 @@ Dois princípios sustentam isso:
   └──────────────────────────┬──────────────────────────────────────┘
                              ┆ sugeridos antes, exigidos por nada
                              ▼
-        ideia / thread / bug relatado
+        ideia / thread / bug relatado / link de telemetria
                     │
-        ┌───────────┴───────────┐
-        │ (opcional)            │ (direto)
-        ▼                       │
-┌───────────────────────┐       │
-│   flux:refine         │       │  fast SDD numa rodada: PRD + TRD + plano
-│   mede o escopo antes │       │  escopo grande → recusa e propõe o corte
-└───────────┬───────────┘       │
-            └───────────┬───────┘
-                        ▼
+        ┌───────────┼───────────┬───────────┐
+        │(opcional) │(opcional) │ (direto)  │
+        ▼           ▼           │           │
+┌──────────────┐ ┌───────────────────────┐  │
+│ flux:probe   │ │   flux:refine         │  │  probe: o que a telemetria PROVA
+│ dossiê de    │▶│   mede o escopo antes │  │  refine: fast SDD numa rodada
+│ produção     │ │                       │  │  escopo grande → recusa e corta
+└──────┬───────┘ └───────────┬───────────┘  │
+       └─────────────┬───────┴──────────────┘
+                     ▼
         ┌───────────────────────┐
         │   flux:issue          │  fonte livre → issue embasada em código real
         └───────────┬───────────┘
@@ -258,6 +261,20 @@ então a prospecção acontece uma vez só. E ele **mede o escopo antes de traba
 demais para uma rodada é recusado com o corte proposto, em vez de virar um refinamento raso com
 aparência de completo. O contrato do gate é o [`scope-gate.md`](plugins/flux/shared/scope-gate.md).
 
+O [`flux:probe`](plugins/flux/skills/probe/SKILL.md) é o **outro ramo opcional da entrada**, e o único
+que começa antes de existir um pedido. Bug de produção não chega refinável: chega como um link, um
+contador e uma mensagem de erro que descreve o último passo da falha, quase nunca o primeiro. O probe
+agrega os eventos, mede, testa a explicação corrente contra a física dos números e cruza o resultado
+com o código que emite aquele sinal.
+
+Ele lê **duas famílias de fonte, e elas cobrem lados diferentes da mesma falha**. Um rastreador de
+erros entrega o alvo já agrupado, e costuma ver o cliente; uma plataforma de observabilidade não
+agrupa nada (o alvo é uma pergunta, e o agrupamento se constrói na hora), e vê o servidor. Entrando as
+duas na mesma execução, o elo responde a pergunta que nenhuma delas responde sozinha: **o servidor viu
+o que o cliente relatou?** Ausência do lado do servidor fecha meia investigação de uma vez. Ele escreve no **mesmo board** do `refine` e do `issue`, então o
+que ele apurou não é reapurado depois. Quando o dossiê mostra que o pedido é grande, o handoff é para
+o `refine`; quando ele já nomeia as correções, é direto para o `issue`.
+
 Acima do ciclo, e fora dele, moram dois verbos que não tratam de uma entrega:
 
 - [`flux:map`](plugins/flux/skills/map/SKILL.md) — o verbo de **sanidade**. Levanta a instalação inteira nesta máquina (raízes de agents, manifestos, repos, as três lentes de cada um, colisões de nome), grava o índice que os demais elos consomem, e relata o que está torto com a remediação de cada caso. Executando de novo, mostra o **delta**: agents novos, repos novos, suites que quebraram. E não para no diagnóstico: item a item, ele **despacha** o `flux:equip` para consertar o que você aceitar, vários repos em paralelo, reconciliando o índice no fim. É o candidato natural a primeiro comando numa máquina nova.
@@ -276,6 +293,7 @@ ponto para transformar um caso em comunicação embasada, não apenas depois do 
 
 | Comando | Entrada | Saída | Escreve? |
 |---------|---------|-------|----------|
+| [`flux:probe`](plugins/flux/skills/probe/SKILL.md) | alvo(s) de telemetria (Sentry, Datadog) | dossiê quantificado: distribuições, percentis, plausibilidade, cliente contra servidor e o cruzamento com o código | vault; **nunca** cria issue, **nunca** muda estado na fonte |
 | [`flux:refine`](plugins/flux/skills/refine/SKILL.md) | ideia, thread do Slack, bug, ticket | PRD + TRD + plano de slices no board, embasados em código real | vault; **nunca** cria issue |
 | [`flux:issue`](plugins/flux/skills/issue/SKILL.md) | thread do Slack, texto livre, PR | issue de alta qualidade, embasada via specialists | rascunho no vault; cria no Linear só após aprovação |
 | [`flux:build`](plugins/flux/skills/build/SKILL.md) | ticket Linear ou descrição + repo | código + PR draft | sim, via motor do repo |
@@ -303,6 +321,7 @@ degradação e nunca como diagnóstico.
 - **`review` vs `iterate`** — `review` produz o parecer. `iterate` consome pareceres (inclusive de bots e humanos), verifica cada alegação **contra o código real**, aplica o que procede e defende o que não procede.
 - **`build` vs `/workflow` do repo** — `build` é o dispatcher: resolve repo e motor. O `/workflow` do repo é o motor: conhece os próprios testes, gates e padrão de PR. `build` nunca reimplementa motor.
 - **`iterate` vs `land`** — `iterate` fecha **uma** PR. `land` orquestra **N** PRs de uma entrega e delega o merge-ready de cada uma ao `iterate`.
+- **`probe` vs `refine`** — `probe` responde *o que está acontecendo em produção*, medindo eventos. `refine` responde *por que isto importa e por onde começar*, medindo escopo. Um bug de produção passa naturalmente pelos dois, nessa ordem, e os dois escrevem no mesmo board.
 - **`refine` vs `issue`** — `refine` responde *por que isto importa, onde encosta e por onde começar*, e pode **recusar** o pedido por tamanho. `issue` escreve o corpo da issue e a cria no tracker. Rodando os dois, o board é um só e a prospecção não se repete; rodando só o `issue`, nada se perde além do PRD e do TRD.
 
 ## Arquitetura
@@ -322,8 +341,11 @@ flux/
     ├── shared/codex-compat.md      adaptador de delegação nativa e capacidades opcionais
     ├── agents/                      os agentes que a família despacha
     │   ├── pr-reviewer.md          o holístico genérico (default universal)
-    │   └── issue-creator.md        redige e cria issues aprovadas no tracker (sonnet, fan-out)
+    │   ├── issue-creator.md        redige e cria issues aprovadas no tracker (sonnet, fan-out)
+    │   ├── sentry-prospector.md    agrega os eventos de uma issue de telemetria (sonnet, fan-out)
+    │   └── datadog-prospector.md   interroga logs/APM do backend por pergunta (sonnet, fan-out)
     ├── skills/                     ← os verbos (globais, context-agnósticos)
+    │   ├── probe/                  opcional, antes do ciclo: investiga telemetria de produção
     │   ├── refine/                 opcional, antes do ciclo: fast SDD numa rodada
     │   ├── issue/  build/  peek/
     │   ├── review/  iterate/  land/  reply/

@@ -1,7 +1,7 @@
 # Template compartilhado de board (build + iterate + delivery + slack + issue)
 
 > Fonte única do formato de board vivo do vault, referenciada por `/flux:iterate`,
-> `/flux:land`, `/flux:reply`, `/flux:issue` e `/flux:refine`. **Não duplicar este template dentro dos comandos** — cada comando
+> `/flux:land`, `/flux:reply`, `/flux:issue`, `/flux:refine` e `/flux:probe`. **Não duplicar este template dentro dos comandos** — cada comando
 > aponta para cá e só declara os parâmetros específicos dele (naming, gatilho de criação, escopo do painel).
 > Editar o formato do board significa editar ESTE arquivo, e os comandos herdam a mudança.
 
@@ -19,7 +19,7 @@ texto postado no GitHub/Slack, via iterate).
 | **single-PR** | `/flux:iterate` | 1 linha (a PR única) | `flux-iterate` | `YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md` |
 | **multi-PR** | `/flux:land` | N linhas (todas as PRs da entrega) | `flux-land` | `YYYY-MM-DD-HHMM-flux-land-<slug>.md` |
 | **conversa** | `/flux:reply` | N linhas (pendências em aberto do caso) | `thread` | `YYYY-MM-DD-HHMM-flux-reply-<slug-do-caso>.md` |
-| **exploração** | `/flux:issue` + `/flux:refine` | N linhas (as issues candidatas) | `flux-issue` | `YYYY-MM-DD-HHMM-flux-issue-<slug>.md` |
+| **exploração** | `/flux:issue` + `/flux:refine` + `/flux:probe` | N linhas (as issues candidatas) | `flux-issue` | `YYYY-MM-DD-HHMM-flux-issue-<slug>.md` (ou `flux-probe-<slug>`, quando o `probe` abriu) |
 
 > **O nome do arquivo carrega o nome do comando.** O infixo é sempre `flux-<verbo>`, igual ao comando que
 > gerou o board — quem lista o `0-inbox/` sabe de onde cada nota veio sem abrir nenhuma. Os infixos antigos
@@ -46,8 +46,8 @@ texto postado no GitHub/Slack, via iterate).
 
 As **seções, a ordem, a legenda de ícones e a disciplina de carimbo de data são idênticas** nos cinco
 perfis. O que muda é o que o painel lista, o bloco de proveniência (abaixo), as três seções extras do
-perfil conversa (7-ter, 7-quater, 7-quinquies), as duas seções extras do perfil exploração (7-sexies e
-7-septies, que também herda a 7-quater) e a coluna de esforço do perfil execução.
+perfil conversa (7-ter, 7-quater, 7-quinquies), as três seções extras do perfil exploração (7-sexies,
+7-septies e 7-octies, que também herda a 7-quater) e a coluna de esforço do perfil execução.
 
 ### O que o perfil execução herda e o que ele acrescenta
 
@@ -112,12 +112,19 @@ Ele acrescenta duas coisas ao trabalho que o comando já fazia:
 - **As rodadas do gate deixam rastro.** Cada `Editar antes` versiona o rascunho (7-sexies) em vez de
   sobrescrevê-lo, então dá para saber qual versão foi rejeitada e por quê.
 
-**Dois verbos escrevem neste perfil, e o board é do pedido, não do verbo.** O `flux:issue` o abre
+**Três verbos escrevem neste perfil, e o board é do pedido, não do verbo.** O `flux:issue` o abre
 quando vai direto ao corpo da issue; o `flux:refine` o abre antes, quando o pedido ainda precisa de
-PRD, TRD e plano, e acrescenta a 7-septies. Rodando os dois, o board é **um só**: o `flux:refine`
-deixa as candidatas em `🟡 RASCUNHADA` com o dossiê apurado, e o `flux:issue` as encontra pelo
-`source` (Step 1-bis), escreve os corpos e abre o gate de criação sem reprospectar nada. O nome do
-arquivo carrega `flux-issue` nos dois casos, porque é o pedido que ele endereça.
+PRD, TRD e plano, e acrescenta a 7-septies; o `flux:probe` o abre mais cedo ainda, quando o pedido
+chegou como um link de telemetria e ninguém sabe o que ele prova, e acrescenta a 7-octies. Rodando
+mais de um, o board é **um só**: cada verbo deixa as candidatas em `🟡 RASCUNHADA` com o que apurou, e
+o `flux:issue` as encontra pelo `source` (Step 1-bis), escreve os corpos e abre o gate de criação sem
+reprospectar nada.
+
+O nome do arquivo carrega `flux-issue` quando o `issue` ou o `refine` abriu, e `flux-probe` quando o
+`probe` abriu. **O `type` é `flux-issue` nos três casos**, porque o perfil é o mesmo: o nome do arquivo
+diz de onde a nota veio, o `type` diz o que ela é. Um infixo próprio para o `probe` existe porque ele é
+o único dos três que roda **antes de haver pedido** — quem lista o `0-inbox/` precisa distinguir de
+relance um rascunho de issue de uma investigação de produção que ainda pode não virar issue nenhuma.
 
 **Por que este perfil mora em `linear/` e não em `0-inbox/`.** Nos outros quatro, o board é a memória de
 um trabalho cujo produto está fora dele (a PR, a mensagem do Slack). Aqui o produto — o corpo da issue —
@@ -178,8 +185,20 @@ surfaces:                            # TODAS as superfícies do caso, em ordem c
 participants: ["Nome (U...)", "..."]  # união de todas as superfícies
 repos: [...]
 # exploração (issue):
-source: "<permalink do Slack | url da PR | 'texto livre'>"   # chave de identidade deste perfil
+source: "<permalink do Slack | url da PR | url(s) de issue de telemetria | 'texto livre'>"
+                                     # chave de identidade deste perfil; N alvos = lista ordenada,
+                                     # normalizada, separada por espaço (o caso do flux:probe)
 repos: [...]                         # slugs puros
+telemetry:                           # só quando o flux:probe rodou; omitido se não rodou
+  - provider: sentry                 # uma entrada por fonte consultada
+    org: "<org na fonte>"
+    issues: ["<SHORT-ID>", "..."]
+    sample: "<M de C eventos>"       # M < C significa dossiê de amostra (ver 7-octies)
+  - provider: datadog
+    site: "<site>"
+    services: ["<svc>", "..."]
+    window: "<from → to>"            # janela legível, nunca epoch
+    control: "<janela de controle, ou null>"
 labels_propostas: { tipo: "...", application: "...", agent_autonomy: "AFK|HITL", prioridade: N }
 linear_ids: []                       # preenchido após a criação; [] até lá
 execution_status: active             # active ao nascer · done ao criar no Linear
@@ -413,6 +432,7 @@ cronológicas e nenhuma delas de status.
      `descoberta`, `pr-body`. No perfil conversa acrescentam-se: `migração` (o caso mudou de
      superfície), `rascunho` (draft salvo/enviado/invalidado) e `pendência` (aberta ou fechada). No
      perfil exploração acrescentam-se: `prospecção` (fan-out disparado / retorno de um repo),
+     `coleta` (alvo de telemetria agregado pelo `flux:probe`, com o denominador do que voltou),
      `candidata` (aberta, redefinida ou descartada), `linear` (issue criada, com o identificador) e
      `escopo` (veredito do gate de [`scope-gate.md`](scope-gate.md), e toda mudança de faixa entre
      T0 e T1 — a linha diz **quais sinais** mudaram, não só a faixa nova). No perfil execução
@@ -540,6 +560,44 @@ cronológicas e nenhuma delas de status.
    proposto** no lugar do plano (as frentes, o blocker, a fatia que cabe), e o §4 explica a recusa e
    o encaminhamento. O que foi apurado fica na 🔬 Achados — é o que torna a próxima tentativa, já
    cortada, mais barata que a primeira.
+
+7-octies. **🔭 Telemetria** *(perfil exploração, só quando o `flux:probe` rodou)* — o que os eventos de
+   produção **provam**, que é o insumo mais bruto do board e o único que não se reproduz lendo código.
+   Cinco blocos, sempre nesta ordem:
+
+   **Uma subseção por fonte consultada**, e o cabeçalho de cada uma nomeia a fonte e o escopo. Duas
+   fontes na mesma investigação é o caso bom, não o excepcional: uma costuma ver o cliente e a outra o
+   servidor, e é do confronto entre as duas que sai a pergunta mais decisiva do dossiê.
+
+   - **§1 Denominador** — em rastreador de erros: quantos eventos foram agregados de quantos existem,
+     quantas ocorrências individuais há dentro deles, quantos usuários, e a janela
+     (`firstSeen` → `lastSeen`). Em observabilidade: a **janela**, o escopo (serviços, ambiente, filtro)
+     e a janela de controle, porque ali não há universo fechado do qual amostrar. **Abre a seção porque
+     governa tudo abaixo dela**: um percentual de 100 eventos numa issue de 4 mil é uma afirmação sobre
+     a amostra, não sobre o problema, e um número sem janela não é reproduzível.
+   - **§2 Distribuições** — uma linha por tag ou campo relevante, com contagem **e** percentual. Tag
+     com valor único em 100% dos eventos entra sempre: é o que sustenta as frases que mudam
+     direcional ("isto é 100% Android", "isto é 100% na etapa de conversão").
+   - **§3 Números e correlações** — percentis dos campos numéricos, cada um com o seu denominador, e
+     as correlações em **faixa** (lote contra taxa de falha, tamanho contra duração). Faixa e não
+     coeficiente: num n de dezenas, r² dá falsa precisão.
+   - **§4 Plausibilidade** — as contas que confirmam ou **derrubam** a explicação corrente, com a conta
+     à mostra. Quando elas derrubam o que o time acredita hoje, isso sobe para o TL;DR do board: é o
+     achado mais valioso do dossiê e o mais fácil de perder por educação.
+   - **§5 O que a telemetria não diz** — as lacunas, e o que instrumentar para fechar cada uma.
+     Obrigatório e curto. Lacuna não declarada vira conclusão inventada por quem lê a nota depois.
+     **Fonte declarada no perfil e não consultada entra aqui por nome**: "o servidor não viu" e "não
+     perguntei ao servidor" são afirmações diferentes, e só uma delas é um achado.
+
+   **Os achados com veredito não moram aqui**, moram na 🔬 Achados de codebase (7-quater), junto com os
+   dos prospectors de código — é lá que o `flux:issue` procura embasamento, e dois lugares para a mesma
+   coisa faria metade dele ser ignorada. Esta seção guarda a **medição**; a 7-quater guarda a
+   **conclusão** que a medição sustenta.
+
+   > **Por que a telemetria fica depois do refinamento no arquivo.** Mesma lógica da 7-septies: a ordem
+   > de produção é a inversa da ordem no documento. Mede-se antes de refinar e refina-se antes de
+   > escrever o corpo, mas quem abre o board dias depois procura o que vai virar issue, não o caminho
+   > até ela. Insumo mais bruto, posição mais funda.
 
 ## Disciplina de carimbo de data (vale para todos os perfis)
 
