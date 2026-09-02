@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { resolveContext } from "./resolve.ts";
-import { buildPrompt, buildCommand } from "./prompt.ts";
+import { buildPrompt, buildCommand, resolveInvocation } from "./prompt.ts";
 import { resolveHarness } from "./harness.ts";
 import { SUPPORTED_VERBS, TICKET_PATTERN, LINEAR_URL_PATTERN } from "./index.ts";
 
@@ -210,15 +210,30 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
     }
   });
 
-  it("harness cursor monta invocacao com --print apos o prompt", () => {
+  it("harness cursor monta invocacao com o prompt no fim", () => {
     const savedCmd = process.env["FLUX_CLAUDE_CMD"];
     delete process.env["FLUX_CLAUDE_CMD"];
     try {
       const body = "corpo";
-      expect(buildCommand(body, { harness: "cursor" })).toStartWith('cursor agent "');
-      expect(buildCommand(body, { harness: "cursor" })).toContain("--print");
+      expect(buildCommand(body, { harness: "cursor" })).toStartWith("cursor agent --print");
+      expect(buildCommand(body, { harness: "cursor" })).toEndWith('"corpo"');
       expect(buildCommand(body, { harness: "cursor" })).toContain("--force");
       expect(buildCommand(body, { harness: "cursor", safe: true })).not.toContain("--force");
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+    }
+  });
+
+  it("buildCommand deriva de resolveInvocation em todo harness", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    try {
+      for (const harness of ["claude", "cursor", "codex"]) {
+        for (const safe of [true, false]) {
+          const opts = { harness, safe };
+          expect(buildCommand("corpo", opts)).toBe(`${resolveInvocation(opts)} "corpo"`);
+        }
+      }
     } finally {
       if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
     }
@@ -229,7 +244,8 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
     delete process.env["FLUX_CLAUDE_CMD"];
     try {
       const body = "corpo";
-      expect(buildCommand(body, { harness: "codex" })).toStartWith('codex exec "');
+      expect(buildCommand(body, { harness: "codex" })).toStartWith("codex exec");
+      expect(buildCommand(body, { harness: "codex" })).toEndWith('"corpo"');
       expect(buildCommand(body, { harness: "codex" })).toContain("--dangerously-bypass-approvals-and-sandbox");
       expect(buildCommand(body, { harness: "codex", safe: true })).not.toContain("--dangerously-bypass-approvals-and-sandbox");
     } finally {

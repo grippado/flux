@@ -39,21 +39,7 @@ export function resolveInvocation(opts: CommandOptions = {}): string {
 }
 
 export function buildCommand(body: string, opts: CommandOptions = {}): string {
-  const harness = opts.harness ?? "claude";
-  const escaped = escapeForArgv(body);
-  const override = opts.claudeCmd ?? process.env["FLUX_CLAUDE_CMD"];
-  if (override) return `${override} "${escaped}"`;
-
-  if (harness === "cursor") {
-    const permFlags = opts.safe ? "" : " --force";
-    return `cursor agent "${escaped}" --print${permFlags}`;
-  }
-  if (harness === "codex") {
-    const permFlags = opts.safe ? "" : " --dangerously-bypass-approvals-and-sandbox";
-    return `codex exec "${escaped}"${permFlags}`;
-  }
-  const prefix = opts.safe ? "claude" : "claude --dangerously-skip-permissions";
-  return `${prefix} "${escaped}"`;
+  return `${resolveInvocation(opts)} "${escapeForArgv(body)}"`;
 }
 
 export type PromptBodyOpts = {
