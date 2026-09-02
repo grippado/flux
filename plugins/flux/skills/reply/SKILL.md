@@ -212,13 +212,22 @@ Para cada PR/ticket extraído, **derivar e guardar a URL canônica** — ela é 
 
 ### 3a. Convenção de citações (PADRÃO de escrita de rascunho)
 
-Toda referência a **PR** (`#NNNN`) e a **issue do Linear** (`ABC-NNNN`) no rascunho Slack **DEVE** virar hyperlink mrkdwn `<url|texto>`, nunca texto cru. O texto visível permanece a citação curta (`#1077`, `ENG-4308`); só o alvo do link é a URL. Aplicar em **todas** as ocorrências, inclusive repetidas.
+Toda referência a **PR** (`#NNNN`), a **issue do Linear** (`ABC-NNNN`) e a **código** (`arquivo:linha`) no rascunho Slack **DEVE** virar hyperlink mrkdwn `<url|texto>`, nunca texto cru. O texto visível permanece a citação curta (`#1077`, `ENG-4308`, `validateUploadFiles/index.ts:62`); só o alvo do link é a URL. Aplicar em **todas** as ocorrências, inclusive repetidas.
 
 Derivação da URL canônica:
 - **PR** `#NNNN` → `https://github.com/<ORG>/<repo>/pull/NNNN`, onde `<repo>` é o repo ao qual a PR pertence (inferido do contexto; se ambíguo, resolver antes de linkar).
 - **Issue Linear** `ABC-NNNN` → URL Linear canônica da issue.
+- **Código** `arquivo:linha` → permalink de blob no SHA, conforme a seção "Disciplina de links / O caso do código" do `${FLUX_ROOT}/shared/board-template.md`, que é a fonte da regra e não é reescrita aqui. Em resumo operacional: resolver `CODE_SHA` uma vez (`git rev-parse origin/main` no checkout, ou o `head_sha` quando o alvo é uma PR), montar `https://github.com/<ORG>/<repo>/blob/<CODE_SHA>/<path>#L<n>` (range `#L<a>-L<b>`), e **conferir a linha contra aquele SHA** (`git show <CODE_SHA>:<path>`), nunca contra o working tree.
 
 Se a URL não puder ser resolvida com confiança, manter o texto cru **e** registrar como incerteza no board (seção 🔬 Achados).
+
+> **Por que código ganhou parágrafo próprio.** PR e ticket são visivelmente incompletos quando não
+> linkados: `#8470` sem link é obviamente um número solto. Já `` `index.ts:145` `` **parece pronto** —
+> tem o formato de uma referência exata e atravessa a revisão final sem disparar nada. Só que o
+> destinatário no Slack quase nunca tem o checkout aberto, e frequentemente nem tem o repo, então a
+> citação nua transfere para ele o trabalho de encontrar o que você já tinha na mão. É o deslize mais
+> repetido deste elo, e é por isso que ele virou item de verificação (passo 8a) em vez de ficar só
+> escrito aqui.
 
 ### 4. Fan-out: colher fatos de codebase (paralelo)
 
@@ -231,7 +240,7 @@ Um investigador **por repo com checkout**, disparados **em paralelo** via Task t
 
 **Passar ao investigador o que já é sabido**, marcado como base a não re-verificar. Isso muda a qualidade do retorno: o prospector gasta o esforço na fronteira do desconhecido, não reconfirmando o que já está no board.
 
-Cada investigador retorna `ACHADOS` (claim → `confirma|refuta|parcial|sem-evidência` + `arquivo:linha`/PR#) + `LACUNAS`. Repos sem checkout não disparam agent: entram direto como LACUNA.
+Cada investigador retorna `ACHADOS` (claim → `confirma|refuta|parcial|sem-evidência` + `arquivo:linha`/PR#) + `LACUNAS`. **Pedir no prompt o SHA que ele leu** (`git rev-parse` do que foi de fato lido): sem ele a main não monta permalink e cai em citação nua no passo 8a. Repos sem checkout não disparam agent: entram direto como LACUNA.
 
 **Achado novo que contradiz achado antigo:** não sobrescrever em silêncio. O antigo vai para `~~riscado~~` com o motivo e a rodada da queda; o novo entra vivo. Se o achado derrubado sustentava um rascunho já salvo, esse rascunho vira `⚠️ INVALIDADO` (ver `## Casos multi-superfície`).
 
@@ -277,6 +286,22 @@ Veredito: {responder|reagir|nada} — {1 frase do racional}.
 
 Não repetir o rascunho inteiro no chat. O board é a fonte de verdade. Em seguida, ir ao passo 9 (passada interativa) ou entrar no watch (tick de background).
 
+### 8a. Verificação de citações (mecânica, antes de qualquer draft)
+
+**Antes** de oferecer o menu do passo 9 (e, no watch, antes de auto-salvar o draft), varrer o texto do
+rascunho e conferir, uma a uma, que **nenhuma** destas formas aparece fora de um hyperlink:
+
+- `` `<algo>.<ext>:<numero>` `` — citação de código nua.
+- `` `#<numero>` `` ou `#<numero>` solto — PR nua.
+- `[A-Z]{2,5}-\d+` fora de link — ticket nu.
+
+Achou alguma: **resolver o link e reescrever antes de salvar**. Não resolveu (repo sem checkout, SHA
+indisponível): tirar os backticks de citação daquele trecho, dizer em uma frase por que não há link, e
+registrar a lacuna nos 🔬 Achados. Um rascunho não vai para o Slack com citação nua silenciosa.
+
+Esta verificação é da main e não vai para subagente: quem escreveu o texto é quem sabe o que cada
+citação estava tentando provar.
+
 ### 9. Menu de ação (GATE — `${FLUX_ROOT}/shared/hitl.md` —, só na passada interativa)
 
 Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva.
@@ -321,7 +346,7 @@ Parâmetros específicos deste comando:
 
 ### Regra Slack-safe (vale para os blocos de rascunho dentro do board)
 
-Dentro de qualquer bloco de rascunho: nada de headers `#` nem tabelas markdown. Só `*bold*`, `_italic_`, bullets, crase tripla, `>`, `<@ID>` e hyperlinks `<url|texto>`. Toda citação de PR/issue linkada conforme `## Convenção de citações`. O resto do board é markdown normal (é doc interno do vault).
+Dentro de qualquer bloco de rascunho: nada de headers `#` nem tabelas markdown. Só `*bold*`, `_italic_`, bullets, crase tripla, `>`, `<@ID>` e hyperlinks `<url|texto>`. Toda citação de PR, issue **e código** linkada conforme `## Convenção de citações`, e verificada pelo passo 8a. O resto do board é markdown normal (é doc interno do vault).
 
 ## Modo watch (default-on)
 
@@ -368,7 +393,7 @@ Dentro de qualquer bloco de rascunho: nada de headers `#` nem tabelas markdown. 
 
 - **PT-BR com acentuação correta** em todo o conteúdo. Termos técnicos em inglês quando natural.
 - **Sem em-dashes** (—) em qualquer texto que possa ir para o Slack (rascunho, reação) quando `NO_EMDASH == true`. Vírgula, dois-pontos, parênteses no lugar.
-- **Citações viram hyperlink**: toda menção a PR (`#NNNN`) e issue do Linear (`ABC-NNNN`) no rascunho é renderizada como link mrkdwn `<url|texto>` (ver `## Convenção de citações`). Texto cru só quando a URL não puder ser resolvida com confiança.
+- **Citações viram hyperlink**: toda menção a PR (`#NNNN`), issue do Linear (`ABC-NNNN`) **e código** (`arquivo:linha`, permalink de blob no SHA) no rascunho é renderizada como link mrkdwn `<url|texto>` (ver `## Convenção de citações` e o passo 8a). Texto cru só quando a URL não puder ser resolvida com confiança, e sempre com a lacuna declarada.
 - **Resposta no chat é minimalista**: path do board + veredito de 1 linha. Não repetir o rascunho no chat.
 - **Um caso, um board.** Antes de criar, procurar (`## Casos multi-superfície`). Caso espalhado em várias notas é o problema que o board existe para resolver.
 - **O dossiê é o ativo.** Os 🔬 Achados sobrevivem às rodadas e são o insumo direto de `/flux:issue` quando o caso vira issue. Reprospectar o que já está ancorado é desperdício; contradizer sem riscar o antigo é perda de rastro.

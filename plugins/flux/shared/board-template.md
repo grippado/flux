@@ -242,11 +242,42 @@ poupar.
 | **Ticket** | `[{TICKET}](https://linear.app/{LINEAR_ORG}/issue/{TICKET})`. Sem `LINEAR_ORG`, omitir o link, nunca inventar a org |
 | **Issue relacionada / bloqueante** | mesmo formato do ticket, na seção onde ela é citada |
 | **Commit** | `[{sha:0:7}](https://github.com/{owner}/{repo}/commit/{sha})` |
-| **Código** | permalink no SHA: `https://github.com/{owner}/{repo}/blob/{sha}/{path}#L{n}` |
+| **Código** | permalink no SHA: `https://github.com/{owner}/{repo}/blob/{sha}/{path}#L{n}` (range: `#L{a}-L{b}`). Diretório: `.../tree/{sha}/{path}`. Ver "O caso do código" abaixo |
 | **Issue criada** *(exploração)* | mesmo formato do ticket, na coluna `Linear` do painel; `n/d` enquanto a issue não existir |
 | **Board irmão** | wikilink `[[nome-do-arquivo-sem-extensão]]`, para o grafo do vault funcionar |
 | **Thread / mensagem** | o permalink real da superfície, nunca o nome do canal solto |
 | **Worktree / path local** | `` `código inline` ``, sem link (não é clicável e não deve fingir que é) |
+
+### O caso do código, que é o que mais escapa
+
+`arquivo:linha` em backticks **parece** uma citação completa, e é por isso que ele passa: tem o
+formato de uma referência, tem o ar de precisão, e some no meio de um parágrafo bem escrito sem
+disparar nenhum alarme. Mas `index.ts:145` não abre em lugar nenhum. Quem lê de outra máquina, ou
+daqui a três semanas, tem que clonar o repo, achar o arquivo entre os cinco `index.ts` de mesmo nome,
+e torcer para a linha 145 ainda ser aquela. **Numa superfície de chat isso é pior ainda**, porque
+quem lê não tem o checkout e muitas vezes nem tem o repo.
+
+Então, para código, a regra tem três partes, e as três valem em conjunto:
+
+1. **O link é obrigatório, não um enfeite quando sobra tempo.** Toda citação de `arquivo:linha` que
+   afirma alguma coisa sobre o código vira permalink. Vale no board, vale no rascunho de Slack, vale
+   no corpo de uma issue. A única citação que fica nua é a de um path que não existe no repo (um
+   arquivo proposto, um caminho hipotético), e essa não deveria estar em backticks de citação.
+2. **O alvo é um SHA, nunca um nome de branch.** `blob/main/...` aponta para uma linha que muda na
+   próxima entrega, e um permalink que envelhece mal é pior que citação nua: ele leva o leitor com
+   confiança para o lugar errado. Resolver o SHA uma vez, no começo (`git rev-parse origin/main`, ou
+   o `head_sha` da PR quando o alvo é uma PR), e usar o mesmo em todas as citações daquele artefato.
+3. **A linha citada é conferida contra aquele SHA**, não contra o working tree. Um checkout local
+   atrasado numera diferente do remoto, e o permalink sai apontando para outra coisa. Conferir com
+   `git show {sha}:{path} | sed -n '{a},{b}p'` antes de escrever o link.
+
+Na superfície de chat, a mesma regra na sintaxe de lá: `<{url}|{arquivo}:{linha}>` no mrkdwn do
+Slack. O texto visível continua curto (`validateUploadFiles/index.ts:62`); o que muda é só existir
+um alvo por trás dele.
+
+**Sem SHA resolvido, não invente o link.** Nesse caso a citação fica nua **e** o motivo entra como
+lacuna declarada, do mesmo jeito que qualquer outra fonte que não foi alcançada. O que não pode é a
+citação nua passar em silêncio, como se estivesse completa.
 
 **A primeira linha do `🎯 Próximo Movimento` tem que conter o link do alvo da ação.** Se o próximo
 passo é "rodar `${FLUX_CMD}iterate` na PR", o número da PR ali é um link. É a linha que você lê primeiro
