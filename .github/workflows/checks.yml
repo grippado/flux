@@ -38,3 +38,17 @@ jobs:
 
       - name: check-codex-agent-contract
         run: scripts/check-codex-agent-contract.sh
+
+      # Aviso, nunca falha: manifests bumpados sem tag ficam invisiveis ate alguem
+      # notar. O 1.29.1 ficou dias nos manifests sem release. Em PR o bump ainda
+      # nao tem tag por definicao, entao o aviso so faz sentido no push para main.
+      - name: manifest-vs-tag
+        if: github.event_name == 'push'
+        run: |
+          git fetch --tags --quiet
+          manifest="$(jq -r '.version' plugins/flux/.claude-plugin/plugin.json)"
+          tag="$(git tag --list 'v*' --sort=-v:refname | head -1)"
+          echo "manifests em ${manifest}; ultima tag ${tag:-nenhuma}"
+          if [ "v${manifest}" != "${tag}" ]; then
+            echo "::warning title=release pendente::os manifests estao em ${manifest} mas a ultima tag e ${tag:-nenhuma}. Publicar: git tag -a v${manifest} && git push origin v${manifest}"
+          fi
