@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.30.0",
+    "tag": "v1.30.0",
+    "published_at": "2026-09-03T21:31:34Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.30.0",
+    "summary": {
+      "en": "The flux CLI now speaks to three harnesses: --harness picks claude, cursor or codex, resolved through a five-rung cascade, and the invocation is built per harness with forms confirmed against the real binaries. The manifest gains preferred_harness, the CLI gets a README, and the landing gets a /docs page with the CLI in depth and one entry per verb.",
+      "pt": "O flux CLI passa a falar com três harnesses: --harness escolhe claude, cursor ou codex, resolvido por uma cascata de cinco degraus, e a invocação é montada por harness com as formas confirmadas contra os binários reais. O manifesto ganha preferred_harness, o CLI ganha um README, e a landing ganha a página /docs com o CLI em profundidade e uma entrada por verbo."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.28.0",
     "tag": "v1.28.0",
     "published_at": "2026-09-02T13:18:46Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "flux:probe turns a production telemetry link into a quantified dossier: it aggregates events in parallel, tests the current explanation against the physics of the numbers, and cross-references the code that emits each signal. Reading an error tracker and an observability platform together answers what neither answers alone: did the server see what the client reported?",
       "pt": "O flux:probe transforma um link de telemetria de produção em dossiê quantificado: agrega os eventos em paralelo, testa a explicação corrente contra a física dos números e cruza com o código que emite cada sinal. Lendo rastreador de erros e observabilidade juntos, ele responde o que nenhum responde sozinho: o servidor viu o que o cliente relatou?"
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.27.0",
-    "tag": "v1.27.0",
-    "published_at": "2026-08-25T15:56:28Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.27.0",
-    "summary": {
-      "en": "/flux:iterate now defaults to a no-push mode for third-party PRs: it only interacts on GitHub (reply/react/resolve threads), never commits or pushes code unless the user explicitly grants write access via a GATE plus textual confirmation. The guard covers all three code-writing paths: review-thread fixes, red-CI auto-fix, and the --auto executor.",
-      "pt": "O /flux:iterate agora entra em modo no-push por default em PR de terceiro: só interage no GitHub (responder/reagir/resolver threads), nunca commita nem pusha código, a menos que o usuário conceda escrita explicitamente via GATE + confirmação textual. O guard cobre os três caminhos que escrevem código: correções de threads, auto-fix de CI vermelho, e o executor em --auto."
     },
     "changelog_source": "tag_message"
   },
