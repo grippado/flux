@@ -8,12 +8,16 @@ cd "$(dirname "$0")/.."
 
 bun run build
 
-if command -v codesign >/dev/null 2>&1; then
-  codesign --force --sign - flux
-fi
-
 mkdir -p "$HOME/.local/bin"
 cp flux "$HOME/.local/bin/flux"
+
+# A assinatura vai no arquivo que vai rodar, depois do cp: assinar o build e
+# copiar deixava o destino morrendo com exit 137 do mesmo jeito, e so re-assinar
+# ~/.local/bin/flux resolvia (medido em 2026-09-03, na maquina com MDM da LAB-139).
+if command -v codesign >/dev/null 2>&1; then
+  codesign --force --sign - flux
+  codesign --force --sign - "$HOME/.local/bin/flux"
+fi
 
 # Warm-up: em Macs com MDM/EndpointSecurity (JumpCloud + SentinelOne, ver LAB-139),
 # o primeiro exec logo após assinar corre contra um scan assíncrono do daemon de
