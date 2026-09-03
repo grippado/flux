@@ -326,6 +326,11 @@ com o reviewer de outro time sem que nada acuse o problema.
   primeiro, e um terceiro repo sem motor próprio deixaria de cair no modo autônomo para ser executado
   pelo motor de um repo alheio: a pior falha possível aqui, porque ela é silenciosa e produz código.
   Por isso o `equip` grava **na chave do repo**, nunca no `default` e nunca por cima da chave de outro.
+- `preferred_harness` — harness de agente que o **CLI** invoca por default neste contexto: `claude`,
+  `cursor` ou `codex`. É o terceiro degrau da cascata de resolução do `flux` (`FLUX_CLAUDE_CMD` →
+  `--harness` → `FLUX_HARNESS` → **este campo** → `claude` com aviso). Só o CLI o lê: as skills
+  continuam neutras de harness e recebem o resultado já resolvido no bloco `PREFLIGHT RESOLVIDO`, como
+  `harness:` e `harness_source: manifesto`. Ausente → o CLI segue para o degrau seguinte.
 - `no_emdash` — quando `true`, o output que pode ser postado no GitHub não usa travessão/en-dash.
 - `env_vault` — bloco opcional que declara um **cofre de arquivos de ambiente** fora dos repos, para
   que uma worktree recém-criada nasça executável em vez de nascer sem `.env`. Consumido pelo

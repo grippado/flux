@@ -58,6 +58,7 @@
           <li class="sub"><a href="#verbs-cli">Verbs</a></li>
           <li class="sub"><a href="#mechanical">Mechanical subcommands</a></li>
           <li class="sub"><a href="#flags">Flags</a></li>
+          <li class="sub"><a href="#harness">Which harness</a></li>
           <li><a href="#manifest">The context manifest</a></li>
           <li><a href="#resolution">How context is resolved</a></li>
           <li><a href="#preflight">The PREFLIGHT block</a></li>
@@ -175,6 +176,7 @@ flux build LAB-142 --repo flux</code></pre>
         <table>
           <tr><th>flag</th><th>effect</th></tr>
           <tr><td><code>--repo &lt;slug&gt;</code></td><td>target repo. Required when the target is a Linear ticket</td></tr>
+          <tr><td><code>--harness &lt;claude|cursor|codex&gt;</code></td><td>which agent harness to invoke. Value required; an invalid one fails before any resolution</td></tr>
           <tr><td><code>--dry</code></td><td>print the command that would run, and exit. Nothing runs</td></tr>
           <tr><td><code>--safe</code></td><td>drop the permission bypass from the invocation</td></tr>
           <tr><td><code>--new</code></td><td>open in a new terminal tab instead of the current one</td></tr>
@@ -183,6 +185,24 @@ flux build LAB-142 --repo flux</code></pre>
           <tr><td><code>--json</code></td><td>JSON output. Used by the mechanical subcommands</td></tr>
         </table>
         <p><strong><code>--dry</code> is the inspection tool.</strong> It prints the exact command line that would be launched, prompt included. It is how you check what the CLI discovered without spending a session.</p>
+        <h3 id="harness">Which harness</h3>
+        <p>The CLI builds the invocation for three harnesses. Which one is resolved by a cascade, stopping at the first rung that answers:</p>
+        <table>
+          <tr><th>#</th><th>rung</th><th>harness_source</th></tr>
+          <tr><td>1</td><td><code>FLUX_CLAUDE_CMD</code></td><td><code>override</code>: the harness reads <code>desconhecido</code>, because the CLI cannot know what your wrapper is</td></tr>
+          <tr><td>2</td><td><code>--harness</code></td><td><code>flag</code></td></tr>
+          <tr><td>3</td><td><code>FLUX_HARNESS</code></td><td><code>env</code></td></tr>
+          <tr><td>4</td><td><code>preferred_harness</code> in the manifest</td><td><code>manifesto</code></td></tr>
+          <tr><td>5</td><td><code>claude</code>, with a warning on stderr</td><td><code>default</code></td></tr>
+        </table>
+        <p><code>--harness</code> together with <code>FLUX_CLAUDE_CMD</code> is an error: the flag is explicit intent, and asking for both is an ambiguity the CLI will not resolve for you. <code>FLUX_HARNESS</code> and <code>preferred_harness</code> are environment defaults, so the override beats them silently. Rung 5 is not the old silent default: the banner carries <code>harness_source: default</code>, so the skill can tell "chose claude" from "nobody chose".</p>
+        <table>
+          <tr><th>harness</th><th>invocation</th></tr>
+          <tr><td>claude</td><td><code>claude --dangerously-skip-permissions -- "&lt;prompt&gt;"</code></td></tr>
+          <tr><td>cursor</td><td><code>cursor agent --print --force -- "&lt;prompt&gt;"</code></td></tr>
+          <tr><td>codex</td><td><code>codex exec --dangerously-bypass-approvals-and-sandbox -- "&lt;prompt&gt;"</code></td></tr>
+        </table>
+        <p>The <code>--</code> before the prompt is mandatory, not style: the body starts with <code>--- PREFLIGHT RESOLVIDO</code>, and without the separator cursor and codex read that as an option and refuse. <code>--safe</code> drops the permission flag on all three. <code>--new</code> is only supported on claude for now; the other two warn and run in the current tab.</p>
         <p><strong>The banner preview.</strong> Before launching, the CLI shows the block it is about to send and opens a three-option menu: send as is, attach an extra comment, cancel. The comment is appended to the prompt; it is where you add "focus on the date parsing" without rewriting the command. <code>--yes</code> skips it, and it does not appear when <code>stdin</code> is not a TTY.</p>
 
         <h2 id="manifest">The context manifest</h2>
@@ -212,6 +232,7 @@ flux build LAB-142 --repo flux</code></pre>
           <tr><td>exec_fallback</td><td>execution engine per repo, when the repo has no native one</td></tr>
           <tr><td>specialists_root</td><td>path template for the L2 suite, with <code>{repo}</code></td></tr>
           <tr><td>holistic_reviewer</td><td>this context's L1 reviewer</td></tr>
+          <tr><td>preferred_harness</td><td><code>claude</code>, <code>cursor</code> or <code>codex</code>. Fourth rung of the harness cascade; only the CLI reads it</td></tr>
         </table>
         <p><strong>Without a manifest the CLI still works.</strong> The profile becomes <code>generico</code>: the anchor is the <code>cwd</code>, the repos are the subdirectories with a <code>.git</code>, and nothing is persisted to a vault. What is lost is stated in the banner, not discovered halfway.</p>
         <p><code>exec_fallback</code> takes two shapes: a scalar when one command serves every repo, or a map when repos have different engines. Resolution is <strong>repo → <code>default</code> → none</strong>. A map that names neither this repo nor a <code>default</code> sends <code>build</code> to autonomous mode rather than borrowing another repo's engine: running code through the wrong pipeline, silently, is worse than running it through none.</p>
@@ -240,6 +261,8 @@ exec_fallback: acme-engine-payments
 lentes:
   l2_paths: /Users/you/agents/payments
   l3_paths: ausente
+harness: claude
+harness_source: manifesto
 flux_cmd: /flux: (session_revalidation_required)
 --- FIM PREFLIGHT RESOLVIDO ---</code></pre>
         <p><strong>The block is advisory, deliberately.</strong> It is a starting point, not the final truth. <code>session_revalidation_required</code> lists what the skill must re-check from inside the session, because it depends on state the CLI cannot see:</p>
@@ -266,7 +289,8 @@ Host production
         <table>
           <tr><th>variable</th><th>effect</th></tr>
           <tr><td>FLUX_HOME</td><td>path to <code>plugins/flux/</code>. Beats the heuristic. <strong>Set it if you have more than one config dir</strong></td></tr>
-          <tr><td>FLUX_CLAUDE_CMD</td><td>replaces the whole invocation. For pointing at a wrapper of your own</td></tr>
+          <tr><td>FLUX_CLAUDE_CMD</td><td>replaces the whole invocation. For pointing at a wrapper of your own. First rung of the harness cascade</td></tr>
+          <tr><td>FLUX_HARNESS</td><td><code>claude</code>, <code>cursor</code> or <code>codex</code>. Third rung, below <code>--harness</code></td></tr>
           <tr><td>CLAUDE_PLUGIN_ROOT · CURSOR_PLUGIN_ROOT · CODEX_PLUGIN_ROOT</td><td>plugin root, when the harness exports it</td></tr>
           <tr><td>SHELL</td><td>shell used to execute. Default <code>/bin/zsh</code></td></tr>
         </table>
@@ -280,7 +304,7 @@ Host production
         <h3>The binary dies with exit 137 right after install</h3>
         <p>A race with the macOS security daemon (MDM, EndpointSecurity). <code>setup.sh</code> already absorbs it; if it happens outside, wait a few seconds and run again.</p>
         <h3><code>&lt;binary&gt; not found on PATH</code></h3>
-        <p>The harness is not installed, or is installed as a shell function rather than a binary. The check uses <code>/usr/bin/which</code>, which only sees the <code>PATH</code>; shell functions do not appear there even though they work at execution, which uses an interactive shell. If that is your case, use <code>FLUX_CLAUDE_CMD</code>.</p>
+        <p>The resolved harness is not on the <code>PATH</code>. The check uses <code>/usr/bin/which</code>, which only sees binaries; a shell function does not appear there even though it works at execution, which uses an interactive shell. If your <code>claude</code> is a function, point at it with <code>FLUX_CLAUDE_CMD</code>: the guard is skipped when the invocation comes from an override, because the CLI cannot validate a target you dictated. For cursor, the guard checks the <code>cursor</code> binary, not the <code>agent</code> subcommand; probing it live would cost seconds per call, so that stays a known limitation.</p>
 
         <h2 id="cycle">The verbs: the cycle</h2>
         <p>Everything above is what the CLI does <em>before</em> a verb runs. This is what the verbs do. The family is a cycle, and each verb hands off to the next:</p>

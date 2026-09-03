@@ -1,4 +1,5 @@
 import type { ResolvedContext } from "./resolve.ts";
+import { UNKNOWN_HARNESS, type Harness, type HarnessResolution } from "./harness.ts";
 import pkg from "../package.json";
 
 const CLI_VERSION: string = pkg.version;
@@ -17,26 +18,48 @@ function escapeForArgv(s: string): string {
 }
 
 export type CommandOptions = {
+  harness: Harness;
   safe?: boolean;
   claudeCmd?: string;
 };
 
-export function resolveInvocation(opts: CommandOptions = {}): string {
+export function resolveInvocation(opts: CommandOptions): string {
   const override = opts.claudeCmd ?? process.env["FLUX_CLAUDE_CMD"];
   if (override) return override;
-  return opts.safe ? "claude" : "claude --dangerously-skip-permissions";
+
+  switch (opts.harness) {
+    case "claude":
+      return opts.safe ? "claude" : "claude --dangerously-skip-permissions";
+    case "cursor":
+      return opts.safe ? "cursor agent --print" : "cursor agent --print --force";
+    case "codex":
+      return opts.safe ? "codex exec" : "codex exec --dangerously-bypass-approvals-and-sandbox";
+    case UNKNOWN_HARNESS:
+      throw new Error("[flux] harness desconhecido sem FLUX_CLAUDE_CMD: nao ha invocacao a montar.");
+  }
 }
 
-export function buildCommand(body: string, opts: CommandOptions = {}): string {
-  return `${resolveInvocation(opts)} "${escapeForArgv(body)}"`;
+export function buildCommand(body: string, opts: CommandOptions): string {
+  return `${resolveInvocation(opts)} -- "${escapeForArgv(body)}"`;
 }
 
-export function buildPrompt(ctx: ResolvedContext, verb: string, args: string, opts: CommandOptions = {}): string {
-  return buildCommand(buildPromptBody(ctx, verb, args), opts);
+export type PromptBodyOpts = {
+  harness: Harness;
+  harnessSource: HarnessResolution["source"];
+};
+
+export function buildPrompt(
+  ctx: ResolvedContext,
+  verb: string,
+  args: string,
+  opts: CommandOptions & PromptBodyOpts,
+): string {
+  return buildCommand(buildPromptBody(ctx, verb, args, opts), opts);
 }
 
-export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string): string {
+export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string, opts: PromptBodyOpts): string {
   const lines: string[] = [];
+  const { harness, harnessSource } = opts;
 
   lines.push(`--- PREFLIGHT RESOLVIDO (flux-cli v${CLI_VERSION}) ---`);
   lines.push(`perfil: ${ctx.profile}`);
@@ -46,6 +69,8 @@ export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string
   lines.push(`flux_root_source: ${ctx.flux_root_source}`);
   lines.push(`exec_command: ${ctx.exec_command}`);
   lines.push(`exec_fallback: ${ctx.exec_fallback ?? "ausente"}`);
+  lines.push(`harness: ${harness}`);
+  lines.push(`harness_source: ${harnessSource}`);
   lines.push(`lentes:`);
   lines.push(`  l2_paths: ${ctx.lenses.l2_paths.length > 0 ? ctx.lenses.l2_paths.join(", ") : "ausente"}`);
   lines.push(`  l3_paths: ${ctx.lenses.l3_paths.length > 0 ? ctx.lenses.l3_paths.join(", ") : "ausente"}`);
@@ -53,7 +78,7 @@ export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string
     lines.push(`avisos:`);
     for (const w of ctx.warnings) lines.push(`  - ${w}`);
   }
-  lines.push(`flux_cmd: /flux: (Claude-only v0; revalide com a forma que sua sessao expoe)`);
+  lines.push(`flux_cmd: /flux: (session_revalidation_required)`);
   lines.push(ADVISORY_SENTENCE);
   lines.push(`--- FIM PREFLIGHT RESOLVIDO ---`);
   lines.push(`${FLUX_CMD_PREFIX}${verb} ${args}`);

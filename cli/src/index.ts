@@ -1,5 +1,6 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
+import { resolveHarness, harnessInstallHint, assertCanonicalHarness, CANONICAL_HARNESSES, DEFAULT_HARNESS_WARNING } from "./harness.ts";
 import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
 import { runPreflight } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
@@ -36,9 +37,10 @@ function printUsage(): void {
   console.error("Uso: flux resolve [alvo] [--repo <slug>] --json");
   console.error("     flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
   console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
-  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--new] [--remote [alias]] [--yes|-y]");
+  console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--new] [--remote [alias]] [--yes|-y] [--harness <claude|cursor|codex>]");
   console.error("     flux <verbo> ... --remote  (sem alias: pergunta interativamente qual máquina alcançável usar)");
   console.error("     flux <verbo> ... --yes     (pula a prévia do banner antes de disparar o Claude Code)");
+  console.error("     flux <verbo> ... --harness <valor>  (harness de agente; valores: claude, cursor, codex)");
   console.error("");
   console.error(`Verbos suportados: ${SUPPORTED_VERBS.join(", ")}`);
 }
@@ -57,6 +59,7 @@ function parseArgs(argv: string[]): {
   remotePrompt: boolean;
   yes: boolean;
   threads: boolean;
+  harness: string | null;
   rest: string[];
 } {
   const args = [...argv];
@@ -73,6 +76,7 @@ function parseArgs(argv: string[]): {
   let remotePrompt = false;
   let yes = false;
   let threads = false;
+  let harness: string | null = null;
   const rest: string[] = [];
 
   if (args.length > 0) {
@@ -122,6 +126,19 @@ function parseArgs(argv: string[]): {
     } else if (a === "--threads") {
       threads = true;
       i++;
+    } else if (a === "--harness") {
+      if (i + 1 < args.length && !args[i + 1]!.startsWith("--")) {
+        try {
+          harness = assertCanonicalHarness(args[i + 1]!, "--harness");
+        } catch (err) {
+          console.error(err instanceof Error ? err.message : String(err));
+          process.exit(1);
+        }
+        i += 2;
+      } else {
+        console.error(`[flux] --harness requer um valor explícito. Valores canônicos: ${[...CANONICAL_HARNESSES].join(", ")}`);
+        process.exit(1);
+      }
     } else if (!target && !a.startsWith("--")) {
       target = a;
       i++;
@@ -131,7 +148,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, rest };
+  return { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, rest };
 }
 
 async function runResolve(opts: {
@@ -184,6 +201,7 @@ async function runVerb(opts: {
   yes: boolean;
   rest: string[];
   argv: string[];
+  harnessFlag: string | null;
 }): Promise<void> {
   const { verb, target, repo, dry, safe, openNew, yes, rest, argv } = opts;
   let remote = opts.remote;
@@ -256,9 +274,23 @@ async function runVerb(opts: {
   const extraArgs = rest.join(" ");
   const args = [targetArg, repoFlag, extraArgs].filter(Boolean).join(" ").trim();
 
-  let body = buildPromptBody(ctx, verb, args);
-  const invocation = resolveInvocation({ safe });
-  let command = buildCommand(body, { safe });
+  let harnessResolution: { harness: string; source: string };
+  try {
+    harnessResolution = resolveHarness({
+      harness: opts.harnessFlag,
+      preferredHarness: ctx.preferred_harness,
+    });
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
+  const { harness, source: harnessSource, override: harnessOverride } = harnessResolution;
+  if (harnessSource === "default") console.error(DEFAULT_HARNESS_WARNING);
+  const invocationOpts = { safe, harness, claudeCmd: harnessOverride };
+
+  let body = buildPromptBody(ctx, verb, args, { harness, harnessSource });
+  const invocation = resolveInvocation(invocationOpts);
+  let command = buildCommand(body, invocationOpts);
 
   if (dry) {
     console.log(command);
@@ -273,17 +305,24 @@ async function runVerb(opts: {
     }
     if (review.type === "comment" && review.text) {
       body = `${body}\n\n---\nComentário adicional do usuário:\n${review.text}`;
-      command = buildCommand(body, { safe });
+      command = buildCommand(body, invocationOpts);
     }
   }
 
   const binary = invocation.split(" ")[0]!;
-  if (binary === "claude" && !commandExists("claude")) {
-    console.error("claude não encontrado no PATH. Instale via: npm install -g @anthropic-ai/claude-code");
+  if (harnessSource !== "override" && !commandExists(binary)) {
+    const hint = harnessInstallHint(harness);
+    console.error(`[flux] ${binary} não encontrado no PATH.`);
+    console.error(`Instale o harness "${harness}": ${hint}`);
     process.exit(1);
   }
 
-  if (!openNew) {
+  const supportsNewTab = harness === "claude" || harnessSource === "override";
+  if (!supportsNewTab && openNew) {
+    console.error(`[flux] --new não é suportado para o harness "${harness}" ainda. Rodando na aba atual.`);
+  }
+
+  if (!openNew || !supportsNewTab) {
     const exitCode = runHere({ command, body, invocation });
     process.exit(exitCode);
   }
@@ -515,7 +554,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, rest } = parseArgs(argv);
+  const { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, rest } = parseArgs(argv);
 
   if (!subcommand) {
     printUsage();
@@ -565,7 +604,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await runVerb({ verb: subcommand, target, repo, dry, safe, openNew, remote, remotePrompt, yes, rest, argv });
+  await runVerb({ verb: subcommand, target, repo, dry, safe, openNew, remote, remotePrompt, yes, rest, argv, harnessFlag: harness });
 }
 
 if (import.meta.main) {

@@ -204,6 +204,7 @@ flux gather pr https://github.com/owner/repo/pull/8249 --out ./coleta --json
 | flag | efeito |
 |---|---|
 | `--repo <slug>` | repo alvo. Obrigatório quando o alvo é ticket do Linear |
+| `--harness <claude\|cursor\|codex>` | qual harness de agente invocar. Valor obrigatório; inválido falha antes de qualquer resolução |
 | `--dry` | imprime o comando que seria executado e sai. Nada roda |
 | `--safe` | tira o bypass de permissões da invocação |
 | `--new` | abre em aba nova do terminal em vez da atual |
@@ -218,6 +219,34 @@ flux gather pr https://github.com/owner/repo/pull/8249 --out ./coleta --json
 ```bash
 flux review 8249 --repo backoffice --dry
 ```
+
+### `--harness`
+
+O CLI monta a invocação para três harnesses. Qual deles usar é resolvido por uma cascata, parando no primeiro degrau que responde:
+
+| # | degrau | `harness_source` |
+|---|---|---|
+| 1 | `FLUX_CLAUDE_CMD` (ou `claudeCmd`) | `override` — o harness sai como `desconhecido`, porque o CLI não sabe o que o wrapper é |
+| 2 | `--harness` | `flag` |
+| 3 | `FLUX_HARNESS` | `env` |
+| 4 | `preferred_harness` no manifesto | `manifesto` |
+| 5 | `claude`, com aviso em stderr | `default` |
+
+`--harness` junto de `FLUX_CLAUDE_CMD` é erro: flag é intenção explícita, e pedir as duas coisas é ambiguidade que o CLI não resolve por você. `FLUX_HARNESS` e `preferred_harness` são defaults de ambiente, então o override vence os dois sem reclamar.
+
+O degrau 5 não é o default silencioso de antes: o banner carrega `harness_source: default`, então a skill distingue "escolheu claude" de "ninguém escolheu nada".
+
+A invocação por harness, confirmada contra os binários reais:
+
+| harness | invocação | com `--safe` |
+|---|---|---|
+| `claude` | `claude --dangerously-skip-permissions -- "<prompt>"` | `claude -- "<prompt>"` |
+| `cursor` | `cursor agent --print --force -- "<prompt>"` | `cursor agent --print -- "<prompt>"` |
+| `codex` | `codex exec --dangerously-bypass-approvals-and-sandbox -- "<prompt>"` | `codex exec -- "<prompt>"` |
+
+O `--` antes do prompt é obrigatório, não estilo: o corpo começa com `--- PREFLIGHT RESOLVIDO`, e sem o separador o `cursor` e o `codex` leem isso como opção e recusam.
+
+`--new` só é suportado no `claude` (e sob override): ainda não foi apurado como Cursor e Codex abrem aba em macOS. Para os outros dois, o CLI avisa e roda na aba atual.
 
 ### `--safe`
 
@@ -286,6 +315,7 @@ Ele é procurado em `.claude/flux-context.json` ou `.cursor/flux-context.json`, 
 | `exec_fallback` | motor de execução por repo, quando o repo não tem um nativo |
 | `specialists_root` | template de caminho para a suite L2, com `{repo}` |
 | `holistic_reviewer` | o reviewer L1 deste contexto |
+| `preferred_harness` | `claude`, `cursor` ou `codex`. Quarto degrau da cascata de harness; só o CLI o lê |
 
 **Sem manifesto o CLI funciona.** O perfil vira `generico`: a âncora é o `cwd`, os repos são os subdiretórios com `.git`, e nada é persistido em vault. O que se perde é declarado no banner, não descoberto no meio do caminho.
 
@@ -371,8 +401,8 @@ exec_fallback: acme-engine-payments
 lentes:
   l2_paths: /Users/voce/agents/payments
   l3_paths: ausente
-avisos:
-  - ...
+harness: claude
+harness_source: manifesto
 flux_cmd: /flux: (session_revalidation_required)
 --- FIM PREFLIGHT RESOLVIDO ---
 ```
@@ -427,7 +457,8 @@ Se você usa mais de uma conta ou contexto na máquina remota, envolva a chamada
 | variável | efeito |
 |---|---|
 | `FLUX_HOME` | caminho do `plugins/flux/`. Vence a heurística. **Defina se você tem mais de um config dir** |
-| `FLUX_CLAUDE_CMD` | substitui a invocação inteira. Serve para apontar a um wrapper próprio |
+| `FLUX_CLAUDE_CMD` | substitui a invocação inteira. Serve para apontar a um wrapper próprio. É o primeiro degrau da cascata de harness |
+| `FLUX_HARNESS` | `claude`, `cursor` ou `codex`. Terceiro degrau da cascata, abaixo de `--harness` |
 | `CLAUDE_PLUGIN_ROOT` / `CURSOR_PLUGIN_ROOT` / `CODEX_PLUGIN_ROOT` | raiz do plugin, quando o harness a exporta |
 | `SHELL` | shell usado para executar. Default `/bin/zsh` |
 
@@ -505,7 +536,9 @@ Corrida com o daemon de segurança do macOS (MDM e EndpointSecurity). O `setup.s
 
 ### `<binário> não encontrado no PATH`
 
-O harness não está instalado, ou está instalado como função de shell e não como binário. Note que a verificação usa `/usr/bin/which`, que só enxerga o `PATH` — funções de shell não aparecem ali, embora funcionem na execução, que usa shell interativo. Se for o seu caso, use `FLUX_CLAUDE_CMD`.
+O harness resolvido não está no `PATH`. A verificação usa `/usr/bin/which`, que só enxerga binários — uma função de shell não aparece ali, embora funcione na execução, que usa shell interativo. Se o seu `claude` é uma função, aponte-a por `FLUX_CLAUDE_CMD`: a guarda é pulada quando a invocação vem de override, porque o CLI não tem como validar um alvo que você ditou.
+
+Para o `cursor`, a guarda confere só o binário `cursor`, não o subcomando `agent`. Um `cursor` que é só o launcher do editor passa na guarda e falha na execução. Sondar `cursor agent --version` custaria segundos por invocação, então isso fica como limitação conhecida.
 
 ---
 

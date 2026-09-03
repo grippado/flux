@@ -14,6 +14,7 @@ export interface FluxManifest {
   linear_org?: string;
   no_emdash?: boolean;
   repos?: string[];
+  preferred_harness?: string;
   [key: string]: unknown;
 }
 
@@ -30,6 +31,7 @@ export interface ResolvedContext {
   flux_root_source: string;
   exec_command: string;
   exec_fallback: string | null;
+  preferred_harness: string | null;
   lenses: Lens;
   warnings: string[];
 }
@@ -388,6 +390,7 @@ export async function resolveContext(opts: {
   const profile = manifest?.name ?? "generico";
   const execCommand = manifest?.exec_command ?? "workflow";
   const execFallback = resolveExecFallback(manifest, effectiveRepoSlug);
+  const preferredHarness = typeof manifest?.preferred_harness === "string" ? manifest.preferred_harness : null;
 
   const repoCheckout = effectiveRepoSlug
     ? (() => {
@@ -409,6 +412,7 @@ export async function resolveContext(opts: {
     flux_root_source: fluxRootSource,
     exec_command: execCommand,
     exec_fallback: execFallback,
+    preferred_harness: preferredHarness,
     lenses: { l2_paths: l2Paths, l3_paths: l3Paths },
     warnings,
   };

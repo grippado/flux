@@ -3,7 +3,8 @@ import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { resolveContext } from "./resolve.ts";
-import { buildPrompt, buildCommand } from "./prompt.ts";
+import { buildPrompt, buildCommand, resolveInvocation } from "./prompt.ts";
+import { resolveHarness, UNKNOWN_HARNESS } from "./harness.ts";
 import { SUPPORTED_VERBS, TICKET_PATTERN, LINEAR_URL_PATTERN } from "./index.ts";
 
 let tmpDir: string;
@@ -174,60 +175,115 @@ describe("resolve: shape do JSON --json", () => {
 describe("prompt: contem frase advisory e escape de aspas", () => {
   it("contem a frase advisory obrigatoria", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "meu-repo");
+    const cmd = buildPrompt(ctx, "review", "meu-repo", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("ADVISORY");
     expect(cmd).toContain("revalida barato");
   });
 
-  it("escapa aspas duplas no argv", async () => {
-    const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", 'arg "com aspas"');
+  it("escapa aspas duplas no argv (harness claude)", async () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    try {
+      const ctx = await resolveContext({ cwd: tmpDir });
+      const cmd = buildPrompt(ctx, "review", 'arg "com aspas"', { harness: "claude" });
 
-    expect(cmd).toContain('\\"com aspas\\"');
-    expect(cmd.startsWith('claude --dangerously-skip-permissions "')).toBe(true);
+      expect(cmd).toContain('\\"com aspas\\"');
+      expect(cmd.startsWith('claude --dangerously-skip-permissions -- "')).toBe(true);
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+    }
   });
 
-  it("bypass e o default; --safe remove; FLUX_CLAUDE_CMD sobrepoe", async () => {
-    const ctx = await resolveContext({ cwd: tmpDir });
-    const body = "corpo";
-    expect(buildCommand(body)).toStartWith('claude --dangerously-skip-permissions "');
-    expect(buildCommand(body, { safe: true })).toStartWith('claude "');
-    expect(buildCommand(body, { claudeCmd: "scc" })).toStartWith('scc "');
-    expect(buildPrompt(ctx, "review", "x", { safe: true }).startsWith('claude "')).toBe(true);
+  it("bypass e o default para harness claude; --safe remove; FLUX_CLAUDE_CMD sobrepoe", async () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    try {
+      const ctx = await resolveContext({ cwd: tmpDir });
+      const body = "corpo";
+      expect(buildCommand(body, { harness: "claude" })).toStartWith('claude --dangerously-skip-permissions -- "');
+      expect(buildCommand(body, { harness: "claude", safe: true })).toStartWith('claude -- "');
+      expect(buildCommand(body, { harness: "claude", claudeCmd: "scc" })).toStartWith('scc -- "');
+      expect(buildPrompt(ctx, "review", "x", { harness: "claude", harnessSource: "flag", safe: true  }).startsWith('claude -- "')).toBe(true);
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+    }
+  });
+
+  it("harness cursor monta invocacao com o prompt no fim", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    try {
+      const body = "corpo";
+      expect(buildCommand(body, { harness: "cursor" })).toStartWith("cursor agent --print");
+      expect(buildCommand(body, { harness: "cursor" })).toEndWith('-- "corpo"');
+      expect(buildCommand(body, { harness: "cursor" })).toContain("--force");
+      expect(buildCommand(body, { harness: "cursor", safe: true })).not.toContain("--force");
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+    }
+  });
+
+  it("buildCommand deriva de resolveInvocation em todo harness", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    try {
+      for (const harness of ["claude", "cursor", "codex"] as const) {
+        for (const safe of [true, false]) {
+          const opts = { harness, safe };
+          expect(buildCommand("corpo", opts)).toBe(`${resolveInvocation(opts)} -- "corpo"`);
+        }
+      }
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+    }
+  });
+
+  it("harness codex monta invocacao com codex exec", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    try {
+      const body = "corpo";
+      expect(buildCommand(body, { harness: "codex" })).toStartWith("codex exec");
+      expect(buildCommand(body, { harness: "codex" })).toEndWith('-- "corpo"');
+      expect(buildCommand(body, { harness: "codex" })).toContain("--dangerously-bypass-approvals-and-sandbox");
+      expect(buildCommand(body, { harness: "codex", safe: true })).not.toContain("--dangerously-bypass-approvals-and-sandbox");
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+    }
   });
 
   it("escapa subshell $(...) no argv", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "$(rm -rf /)");
+    const cmd = buildPrompt(ctx, "review", "$(rm -rf /)", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("\\$(");
   });
 
   it("escapa backtick no argv", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "`id`");
+    const cmd = buildPrompt(ctx, "review", "`id`", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("\\`");
   });
 
   it("escapa backslash no argv", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "path\\to\\file");
+    const cmd = buildPrompt(ctx, "review", "path\\to\\file", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("\\\\");
   });
 
   it("contem linha flux_cmd no bloco preflight", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "meu-repo");
+    const cmd = buildPrompt(ctx, "review", "meu-repo", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("flux_cmd:");
   });
 
   it("contem delimitadores de bloco preflight", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "build", "meu-repo");
+    const cmd = buildPrompt(ctx, "build", "meu-repo", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("PREFLIGHT RESOLVIDO");
     expect(cmd).toContain("FIM PREFLIGHT RESOLVIDO");
@@ -235,9 +291,147 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
 
   it("termina com o slash-command do verbo", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "refine", "meu-repo");
+    const cmd = buildPrompt(ctx, "refine", "meu-repo", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("/flux:refine meu-repo");
+  });
+});
+
+describe("resolveHarness: cascata flag -> env -> manifesto -> erro", () => {
+  it("flag vence env quando ambos presentes", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    process.env["FLUX_HARNESS"] = "codex";
+    try {
+      const result = resolveHarness({ harness: "cursor", preferredHarness: null });
+      expect(result.harness).toBe("cursor");
+      expect(result.source).toBe("flag");
+    } finally {
+      delete process.env["FLUX_HARNESS"];
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+    }
+  });
+
+  it("env resolve quando flag ausente", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    process.env["FLUX_HARNESS"] = "codex";
+    try {
+      const result = resolveHarness({ harness: null, preferredHarness: null });
+      expect(result.harness).toBe("codex");
+      expect(result.source).toBe("env");
+    } finally {
+      delete process.env["FLUX_HARNESS"];
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+    }
+  });
+
+  it("preferred_harness resolve quando flag e env ausentes", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    try {
+      const result = resolveHarness({ harness: null, preferredHarness: "cursor" });
+      expect(result.harness).toBe("cursor");
+      expect(result.source).toBe("manifesto");
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+    }
+  });
+
+  it("cai em claude com source default quando nenhum degrau resolve", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    const savedHarness = process.env["FLUX_HARNESS"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_HARNESS"];
+    try {
+      const result = resolveHarness({ harness: null, preferredHarness: null });
+      expect(result.harness).toBe("claude");
+      expect(result.source).toBe("default");
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+      if (savedHarness !== undefined) process.env["FLUX_HARNESS"] = savedHarness;
+    }
+  });
+
+  it("degrau default perde para todos os outros", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    const savedHarness = process.env["FLUX_HARNESS"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    delete process.env["FLUX_HARNESS"];
+    try {
+      expect(resolveHarness({ harness: "codex", preferredHarness: null }).source).toBe("flag");
+      expect(resolveHarness({ harness: null, preferredHarness: "cursor" }).source).toBe("manifesto");
+      expect(
+        resolveHarness({ harness: null, preferredHarness: null, override: "scc" }).source
+      ).toBe("override");
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+      if (savedHarness !== undefined) process.env["FLUX_HARNESS"] = savedHarness;
+    }
+  });
+
+  it("lanca erro com FLUX_CLAUDE_CMD e --harness simultaneos", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    process.env["FLUX_CLAUDE_CMD"] = "my-cmd";
+    try {
+      expect(() => resolveHarness({ harness: "claude", preferredHarness: null })).toThrow();
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+      else delete process.env["FLUX_CLAUDE_CMD"];
+    }
+  });
+
+  it("rejeita valor canonico invalido no env", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    const savedHarness = process.env["FLUX_HARNESS"];
+    delete process.env["FLUX_CLAUDE_CMD"];
+    process.env["FLUX_HARNESS"] = "invalid-harness";
+    try {
+      expect(() => resolveHarness({ harness: null, preferredHarness: null })).toThrow();
+    } finally {
+      delete process.env["FLUX_HARNESS"];
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+      if (savedHarness !== undefined) process.env["FLUX_HARNESS"] = savedHarness;
+    }
+  });
+
+  it("override resolve sozinho, sem flag nem env nem manifesto", () => {
+    const result = resolveHarness({ harness: null, preferredHarness: null, override: "scc arco" });
+    expect(result.source).toBe("override");
+    expect(result.override).toBe("scc arco");
+    expect(result.harness).toBe(UNKNOWN_HARNESS);
+  });
+
+  it("override vence env e manifesto sem declarar o harness deles", () => {
+    const result = resolveHarness({ harness: null, preferredHarness: "cursor", override: "scc" });
+    expect(result.source).toBe("override");
+    expect(result.harness).toBe(UNKNOWN_HARNESS);
+    expect(result.harness).not.toBe("cursor");
+  });
+
+  it("override lido do FLUX_CLAUDE_CMD quando nao vem por parametro", () => {
+    const savedCmd = process.env["FLUX_CLAUDE_CMD"];
+    process.env["FLUX_CLAUDE_CMD"] = "scc";
+    try {
+      const result = resolveHarness({ harness: null, preferredHarness: null });
+      expect(result.source).toBe("override");
+      expect(result.override).toBe("scc");
+    } finally {
+      if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
+      else delete process.env["FLUX_CLAUDE_CMD"];
+    }
+  });
+
+  it("override com flag explicita continua sendo conflito", () => {
+    expect(() =>
+      resolveHarness({ harness: "claude", preferredHarness: null, override: "scc" })
+    ).toThrow();
+  });
+
+  it("override nao passa por validacao de harness canonico", () => {
+    const result = resolveHarness({ harness: null, preferredHarness: null, override: "qualquer-wrapper" });
+    expect(result.source).toBe("override");
+    expect(result.override).toBe("qualquer-wrapper");
   });
 });
 
