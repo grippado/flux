@@ -1,6 +1,6 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
-import { resolveHarness, harnessInstallHint, CANONICAL_HARNESSES, DEFAULT_HARNESS_WARNING } from "./harness.ts";
+import { resolveHarness, harnessInstallHint, assertCanonicalHarness, CANONICAL_HARNESSES, DEFAULT_HARNESS_WARNING } from "./harness.ts";
 import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
 import { runPreflight } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
@@ -128,13 +128,12 @@ function parseArgs(argv: string[]): {
       i++;
     } else if (a === "--harness") {
       if (i + 1 < args.length && !args[i + 1]!.startsWith("--")) {
-        const val = args[i + 1]!;
-        const valid: string[] = [...CANONICAL_HARNESSES];
-        if (!valid.includes(val)) {
-          console.error(`[flux] --harness: valor inválido "${val}". Valores canônicos: ${valid.join(", ")}`);
+        try {
+          harness = assertCanonicalHarness(args[i + 1]!, "--harness");
+        } catch (err) {
+          console.error(err instanceof Error ? err.message : String(err));
           process.exit(1);
         }
-        harness = val;
         i += 2;
       } else {
         console.error(`[flux] --harness requer um valor explícito. Valores canônicos: ${[...CANONICAL_HARNESSES].join(", ")}`);

@@ -175,7 +175,7 @@ describe("resolve: shape do JSON --json", () => {
 describe("prompt: contem frase advisory e escape de aspas", () => {
   it("contem a frase advisory obrigatoria", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "meu-repo");
+    const cmd = buildPrompt(ctx, "review", "meu-repo", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("ADVISORY");
     expect(cmd).toContain("revalida barato");
@@ -204,7 +204,7 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
       expect(buildCommand(body, { harness: "claude" })).toStartWith('claude --dangerously-skip-permissions -- "');
       expect(buildCommand(body, { harness: "claude", safe: true })).toStartWith('claude -- "');
       expect(buildCommand(body, { harness: "claude", claudeCmd: "scc" })).toStartWith('scc -- "');
-      expect(buildPrompt(ctx, "review", "x", { harness: "claude", safe: true }).startsWith('claude -- "')).toBe(true);
+      expect(buildPrompt(ctx, "review", "x", { harness: "claude", harnessSource: "flag", safe: true  }).startsWith('claude -- "')).toBe(true);
     } finally {
       if (savedCmd !== undefined) process.env["FLUX_CLAUDE_CMD"] = savedCmd;
     }
@@ -228,7 +228,7 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
     const savedCmd = process.env["FLUX_CLAUDE_CMD"];
     delete process.env["FLUX_CLAUDE_CMD"];
     try {
-      for (const harness of ["claude", "cursor", "codex"]) {
+      for (const harness of ["claude", "cursor", "codex"] as const) {
         for (const safe of [true, false]) {
           const opts = { harness, safe };
           expect(buildCommand("corpo", opts)).toBe(`${resolveInvocation(opts)} -- "corpo"`);
@@ -255,35 +255,35 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
 
   it("escapa subshell $(...) no argv", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "$(rm -rf /)");
+    const cmd = buildPrompt(ctx, "review", "$(rm -rf /)", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("\\$(");
   });
 
   it("escapa backtick no argv", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "`id`");
+    const cmd = buildPrompt(ctx, "review", "`id`", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("\\`");
   });
 
   it("escapa backslash no argv", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "path\\to\\file");
+    const cmd = buildPrompt(ctx, "review", "path\\to\\file", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("\\\\");
   });
 
   it("contem linha flux_cmd no bloco preflight", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "review", "meu-repo");
+    const cmd = buildPrompt(ctx, "review", "meu-repo", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("flux_cmd:");
   });
 
   it("contem delimitadores de bloco preflight", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "build", "meu-repo");
+    const cmd = buildPrompt(ctx, "build", "meu-repo", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("PREFLIGHT RESOLVIDO");
     expect(cmd).toContain("FIM PREFLIGHT RESOLVIDO");
@@ -291,7 +291,7 @@ describe("prompt: contem frase advisory e escape de aspas", () => {
 
   it("termina com o slash-command do verbo", async () => {
     const ctx = await resolveContext({ cwd: tmpDir });
-    const cmd = buildPrompt(ctx, "refine", "meu-repo");
+    const cmd = buildPrompt(ctx, "refine", "meu-repo", { harness: "claude", harnessSource: "flag", harnessSource: "flag"  });
 
     expect(cmd).toContain("/flux:refine meu-repo");
   });

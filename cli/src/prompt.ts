@@ -1,4 +1,5 @@
 import type { ResolvedContext } from "./resolve.ts";
+import { UNKNOWN_HARNESS, type Harness, type HarnessResolution } from "./harness.ts";
 import pkg from "../package.json";
 
 const CLI_VERSION: string = pkg.version;
@@ -17,44 +18,48 @@ function escapeForArgv(s: string): string {
 }
 
 export type CommandOptions = {
+  harness: Harness;
   safe?: boolean;
   claudeCmd?: string;
-  harness?: string;
 };
 
-export function resolveInvocation(opts: CommandOptions = {}): string {
-  const harness = opts.harness ?? "claude";
+export function resolveInvocation(opts: CommandOptions): string {
   const override = opts.claudeCmd ?? process.env["FLUX_CLAUDE_CMD"];
   if (override) return override;
 
-  if (harness === "cursor") {
-    const permFlags = opts.safe ? "" : " --force";
-    return `cursor agent --print${permFlags}`;
+  switch (opts.harness) {
+    case "claude":
+      return opts.safe ? "claude" : "claude --dangerously-skip-permissions";
+    case "cursor":
+      return opts.safe ? "cursor agent --print" : "cursor agent --print --force";
+    case "codex":
+      return opts.safe ? "codex exec" : "codex exec --dangerously-bypass-approvals-and-sandbox";
+    case UNKNOWN_HARNESS:
+      throw new Error("[flux] harness desconhecido sem FLUX_CLAUDE_CMD: nao ha invocacao a montar.");
   }
-  if (harness === "codex") {
-    const permFlags = opts.safe ? "" : " --dangerously-bypass-approvals-and-sandbox";
-    return `codex exec${permFlags}`;
-  }
-  return opts.safe ? "claude" : "claude --dangerously-skip-permissions";
 }
 
-export function buildCommand(body: string, opts: CommandOptions = {}): string {
+export function buildCommand(body: string, opts: CommandOptions): string {
   return `${resolveInvocation(opts)} -- "${escapeForArgv(body)}"`;
 }
 
 export type PromptBodyOpts = {
-  harness?: string;
-  harnessSource?: string;
+  harness: Harness;
+  harnessSource: HarnessResolution["source"];
 };
 
-export function buildPrompt(ctx: ResolvedContext, verb: string, args: string, opts: CommandOptions = {}): string {
+export function buildPrompt(
+  ctx: ResolvedContext,
+  verb: string,
+  args: string,
+  opts: CommandOptions & PromptBodyOpts,
+): string {
   return buildCommand(buildPromptBody(ctx, verb, args, opts), opts);
 }
 
-export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string, opts: PromptBodyOpts = {}): string {
+export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string, opts: PromptBodyOpts): string {
   const lines: string[] = [];
-  const harness = opts.harness ?? "claude";
-  const harnessSource = opts.harnessSource ?? "desconhecido";
+  const { harness, harnessSource } = opts;
 
   lines.push(`--- PREFLIGHT RESOLVIDO (flux-cli v${CLI_VERSION}) ---`);
   lines.push(`perfil: ${ctx.profile}`);
