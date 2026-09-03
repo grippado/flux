@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Flux documentation: the CLI in depth, and the verbs of the family.">
+  <title>Flux — Docs</title>
+  <link rel="icon" href="dark-fill.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="light-fill.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="favicon-32.png" sizes="32x32">
+  <link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .flux-mark{background:url("dark-fill.svg") center/contain no-repeat;font-size:0;color:transparent}html[data-theme=light] .flux-mark{background-image:url("light-fill.svg")}
+    .flux-glyph{display:inline-block;width:17px;height:17px;vertical-align:-3px;margin-right:8px;background:url("dark-outline.svg") center/contain no-repeat}html[data-theme=light] .flux-glyph{background-image:url("light-outline.svg")}.footer-brand{display:inline-flex;align-items:center}
+    .docs{display:grid;grid-template-columns:240px 1fr;gap:64px;padding:56px 0 110px;align-items:start}
+    .docs-nav{position:sticky;top:24px;font-size:.86rem}.docs-nav .eyebrow{margin:0 0 10px}.docs-nav ul{list-style:none;margin:0 0 26px;padding:0}.docs-nav li{margin:0}.docs-nav a{display:block;padding:5px 10px;border-left:2px solid var(--line);color:var(--muted);text-decoration:none;line-height:1.4}.docs-nav a:hover{color:var(--ink)}.docs-nav a.active{color:var(--violet);border-color:var(--violet)}.docs-nav .sub a{padding-left:22px;font-size:.8rem}
+    .docs-body{min-width:0;max-width:760px}.docs-body h1{font-size:clamp(2.4rem,4vw,3.4rem);margin-bottom:14px}.docs-body h2{font-size:1.9rem;letter-spacing:-.02em;margin:72px 0 14px;padding-top:20px;border-top:1px solid var(--line)}.docs-body h2:first-of-type{border-top:0;margin-top:34px}.docs-body h3{font-size:1.2rem;margin:36px 0 10px;letter-spacing:-.01em}.docs-body p,.docs-body li{color:var(--muted)}.docs-body p{max-width:none}.docs-body strong{color:var(--ink)}.docs-body a{color:var(--violet)}
+    .docs-body pre{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow:auto;font-size:.8rem;line-height:1.65;color:var(--ink)}.docs-body code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em}.docs-body p code,.docs-body li code,.docs-body td code{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--ink)}
+    .docs-body table{width:100%;border-collapse:collapse;font-size:.86rem;margin:14px 0 22px;display:block;overflow-x:auto}.docs-body th{text-align:left;color:var(--violet);font-size:.7rem;text-transform:uppercase;letter-spacing:.12em;padding:8px 10px;border-bottom:1px solid var(--line)}.docs-body td{padding:9px 10px;border-bottom:1px solid var(--line);color:var(--muted);vertical-align:top}.docs-body td:first-child{color:var(--ink);white-space:nowrap}
+    .callout{border:1px solid color-mix(in srgb,var(--violet),var(--line) 55%);border-left:3px solid var(--violet);background:var(--panel);border-radius:10px;padding:14px 18px;margin:18px 0;font-size:.9rem}.callout p{margin:0}.callout b{color:var(--violet)}
+    .lens{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:18px 0}.lens div{border:1px solid var(--line);background:var(--panel);border-radius:12px;padding:14px 16px}.lens b{display:block;color:var(--violet);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px}.lens span{font-size:.86rem;color:var(--muted)}
+    .cycle{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:18px 0 26px;font-family:ui-monospace,Menlo,monospace;font-size:.82rem}.cycle a{border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 11px;text-decoration:none;color:var(--ink)}.cycle a.opt{border-style:dashed;color:var(--muted)}.cycle i{color:var(--muted);font-style:normal}
+    .verb{border:1px solid var(--line);background:var(--panel);border-radius:14px;padding:22px 24px;margin:18px 0}.verb h3{margin:0 0 8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}.verb h3 code{background:none;border:0;padding:0;font-size:1.05rem}.verb .tag{font-size:.6rem}.verb dl{display:grid;grid-template-columns:110px 1fr;gap:6px 14px;font-size:.82rem;margin:14px 0 0;padding-top:14px;border-top:1px solid var(--line)}.verb dt{color:var(--violet);font-weight:700}.verb dd{margin:0;color:var(--muted)}.verb.todo{border-style:dashed;opacity:.75}
+    .tag{font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;font-weight:800;padding:3px 7px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}.tag.setup{border-color:var(--violet);color:var(--violet)}.tag.optional{border-style:dashed;border-color:var(--violet);color:var(--violet)}.tag.draft{border-color:var(--green);color:var(--green)}
+    .docs-hero{padding:56px 0 0}.docs-hero .lede{max-width:640px}
+    @media(max-width:900px){.docs{grid-template-columns:1fr;gap:30px}.docs-nav{position:static;display:flex;flex-wrap:wrap;gap:0 18px}.docs-nav ul{margin:0 0 10px}.lens{grid-template-columns:1fr}.verb dl{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Flux home"><span class="flux-mark" aria-hidden="true"></span><span>flux</span></a>
+    <nav aria-label="Main navigation">
+      <a href="index.html#install">Install</a>
+      <a href="docs.html" style="color:var(--ink)">Docs</a>
+      <a href="index.html#contribute">Contribute</a>
+    </nav>
+    <div class="header-actions">
+      <button id="theme" class="icon-button" type="button" aria-label="Toggle color theme">☼</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="docs-hero">
+      <p class="eyebrow">Documentation</p>
+      <h1>The CLI, in depth. <span class="muted">Then the verbs.</span></h1>
+      <p class="lede">The landing page tells you what Flux is. This page tells you how it resolves where you are, what it puts in front of the agent, and what each verb does with it.</p>
+    </section>
+
+    <div class="docs">
+      <aside class="docs-nav" aria-label="Docs navigation">
+        <p class="eyebrow">CLI</p>
+        <ul>
+          <li><a href="#why">Why a CLI</a></li>
+          <li><a href="#install">Install</a></li>
+          <li><a href="#model">Mental model</a></li>
+          <li><a href="#usage">Usage</a></li>
+          <li class="sub"><a href="#verbs-cli">Verbs</a></li>
+          <li class="sub"><a href="#mechanical">Mechanical subcommands</a></li>
+          <li class="sub"><a href="#flags">Flags</a></li>
+          <li><a href="#manifest">The context manifest</a></li>
+          <li><a href="#resolution">How context is resolved</a></li>
+          <li><a href="#preflight">The PREFLIGHT block</a></li>
+          <li><a href="#remote">Running remotely</a></li>
+          <li><a href="#env">Environment variables</a></li>
+          <li><a href="#troubleshooting">Troubleshooting</a></li>
+        </ul>
+        <p class="eyebrow">Verbs</p>
+        <ul>
+          <li><a href="#cycle">The cycle</a></li>
+          <li class="sub"><a href="#v-issue">issue</a></li>
+          <li class="sub"><a href="#v-build">build</a></li>
+          <li class="sub"><a href="#v-review">review · peek</a></li>
+          <li class="sub"><a href="#v-iterate">iterate</a></li>
+          <li class="sub"><a href="#v-land">land</a></li>
+          <li class="sub"><a href="#v-reply">reply</a></li>
+          <li><a href="#v-setup">Setup verbs</a></li>
+          <li class="sub"><a href="#v-map">map</a></li>
+          <li class="sub"><a href="#v-equip">equip</a></li>
+          <li><a href="#v-optional">Optional verbs</a></li>
+          <li class="sub"><a href="#v-refine">refine</a></li>
+          <li class="sub"><a href="#v-probe">probe</a></li>
+        </ul>
+      </aside>
+
+      <article class="docs-body">
+
+        <h2 id="why">Why a CLI</h2>
+        <p>A skill runs <strong>inside</strong> a session. It does not choose the directory the session was born in, it cannot see which binaries are on the PATH, and finding that out costs tool calls that eat the context the work needed.</p>
+        <p>The CLI runs <strong>before</strong> the session and has the environment. It answers, for free, three questions the skill would answer expensively:</p>
+        <ol>
+          <li><strong>Where am I?</strong> Which repo, which context manifest applies, where the checkouts live.</li>
+          <li><strong>What exists on this machine?</strong> Which review agents are installed, whether <code>gh</code> is available, whether the vault exists.</li>
+          <li><strong>What is missing?</strong> If a hard requirement of the verb is absent, the CLI aborts <strong>before</strong> a whole session is spent discovering that mid-work.</li>
+        </ol>
+        <p>The answers go into the first prompt as a block of text. The skill reads the block instead of investigating.</p>
+        <div class="callout"><p><b>Design note.</b> The family has a harness-neutrality rule: skills may not name a product or assume which agent they run in. The CLI is the explicit exception, because it runs before the session and the environment is precisely what it has to offer.</p></div>
+
+        <h2 id="install">Install</h2>
+        <p>The CLI lives in <code>cli/</code> inside the Flux repository and compiles to a single binary with Bun.</p>
+<pre><code>cd cli
+bun run setup</code></pre>
+        <p>That runs <code>bun build --compile</code>, re-signs the binary, and installs it to <code>~/.local/bin/flux</code>. Make sure <code>~/.local/bin</code> is on your <code>PATH</code>. Bun is needed to compile; at runtime the binary depends on neither Bun nor Node.</p>
+        <p><strong>Why the re-signing step exists:</strong> on Macs under MDM with EndpointSecurity (JumpCloud, SentinelOne and the like), Bun's default ad-hoc signature is rejected. <code>setup.sh</code> runs <code>codesign --force --sign -</code> and then warms the binary up, because the first exec right after signing races an asynchronous scan by the security daemon and can die with <code>exit 137</code> with nothing wrong with the binary. The script absorbs that race there, not the first time you actually need the command.</p>
+<pre><code>flux                  # interactive mode
+flux resolve --json   # print the resolved context</code></pre>
+
+        <h2 id="model">Mental model</h2>
+        <p>Three layers, and the distinction matters because error messages speak in these terms:</p>
+        <table>
+          <tr><th>layer</th><th>what it is</th><th>provided by</th></tr>
+          <tr><td>CLI</td><td>the <code>flux</code> binary: resolves context and launches</td><td><code>cli/</code></td></tr>
+          <tr><td>Skills</td><td>the verbs (<code>flux:review</code>, <code>flux:build</code>, …), in Markdown</td><td><code>plugins/flux/skills/</code></td></tr>
+          <tr><td>Agents</td><td>the reviewers and specialists the skills dispatch</td><td>your machine and your repos</td></tr>
+        </table>
+        <p>The CLI <strong>implements no verb</strong>. It builds the prompt that invokes the verb's skill and gets out of the way. Type the same prompt by hand inside a session and you get the same result; the CLI only spares you the discovery.</p>
+        <p>Agents live at three levels the CLI calls <strong>lenses</strong>:</p>
+        <div class="lens">
+          <div><b>L1</b><span>The holistic reviewer. One, looking at the whole change.</span></div>
+          <div><b>L2</b><span>The specialist suite <strong>on your machine</strong> for that repo, installed by you.</span></div>
+          <div><b>L3</b><span>Agents versioned <strong>inside</strong> the repo, maintained by its team.</span></div>
+        </div>
+        <p>The CLI discovers L2 and L3 and reports which it found. When a repo has neither, <code>flux equip</code> exists to create the L2.</p>
+
+        <h2 id="usage">Usage</h2>
+        <h3 id="verbs-cli">Verbs</h3>
+<pre><code>flux &lt;verb&gt; [target] [--repo &lt;slug&gt;] [flags]</code></pre>
+        <table>
+          <tr><th>verb</th><th>what it does</th></tr>
+          <tr><td>review</td><td>formal review of a PR or doc (specialists + holistic reviewer), persisted to the vault</td></tr>
+          <tr><td>peek</td><td>quick read-only glance at a PR, diff or doc; does not persist, does not post</td></tr>
+          <tr><td>refine</td><td>PRD and plan in one round, from an idea, thread or bug</td></tr>
+          <tr><td>issue</td><td>creates a code-grounded issue from any source</td></tr>
+          <tr><td>build</td><td>implements a ticket and delivers a draft PR</td></tr>
+          <tr><td>iterate</td><td>closes the loop on a PR: threads, CI, push</td></tr>
+          <tr><td>land</td><td>orchestrates a multi-PR delivery to merge</td></tr>
+          <tr><td>reply</td><td>follows a Slack case, grounded in code</td></tr>
+          <tr><td>map</td><td>surveys the family's installation on this machine</td></tr>
+          <tr><td>equip</td><td>equips a repo with an execution engine and specialists</td></tr>
+        </table>
+        <p><strong>With no arguments</strong>, <code>flux</code> opens an interactive mode that asks for the verb (a menu with each one's description), the target, the repo, and whether to run on another machine. It assembles the equivalent <code>argv</code> and follows the same path as always. It only opens when <code>stdin</code> is a TTY; inside a script, <code>flux</code> with no arguments prints the usage and exits.</p>
+<pre><code>flux                              # interactive
+flux peek                         # glance at the current working tree
+flux peek 8249                    # glance at PR #8249 of the cwd repo
+flux review 8249 --repo backoffice
+flux build LAB-142 --repo flux</code></pre>
+        <p>The target is passed to the verb uninterpreted, with one exception: <strong>a Linear ticket requires <code>--repo</code></strong>. A <code>LAB-142</code> does not say which repo the work happens in, and the CLI refuses rather than guess.</p>
+
+        <h3 id="mechanical">Mechanical subcommands</h3>
+        <p>Three subcommands <strong>open no session</strong>: they print JSON and exit. The skills consume them, and you use them to debug.</p>
+        <p><code>flux resolve --json</code> prints the resolved context and nothing else. It is the command for "why does flux think I am in this profile?".</p>
+<pre><code>{
+  "profile": "personal",
+  "manifest_path": "/Users/you/www/personal/.claude/flux-context.json",
+  "anchor": "/Users/you/www/personal/flux",
+  "flux_root": "/Users/you/.claude/plugins/cache/flux/flux/1.29.1/plugins/flux",
+  "flux_root_source": "env:FLUX_HOME",
+  "exec_command": "workflow",
+  "exec_fallback": "flux-engine-flux",
+  "lenses": { "l2_paths": ["/Users/you/agents/personal/flux"], "l3_paths": [] },
+  "warnings": []
+}</code></pre>
+        <p><code>flux preflight &lt;verb&gt; [target] --json</code> runs the full check for a specific verb: hard and soft requirements, holistic reviewer, capability level. Each verb declares what it needs. A missing hard requirement aborts; a missing soft one degrades, and the CLI states what is lost.</p>
+        <table>
+          <tr><th>level</th><th>when</th></tr>
+          <tr><td>FULL-tentativo</td><td>manifest present and specialists found</td></tr>
+          <tr><td>REDUCED</td><td>local checkout present, without the two above</td></tr>
+          <tr><td>THIN</td><td>no local checkout</td></tr>
+          <tr><td>UNAVAILABLE</td><td>a hard requirement is missing</td></tr>
+        </table>
+        <p><code>FULL</code> is <em>tentative</em> because the CLI sees the disk, not the session: it knows the agent file exists, not whether the harness registered it as invokable. The skill confirms that from inside.</p>
+        <p><code>flux gather pr &lt;n|URL&gt; --json</code> collects a PR through <code>gh</code>: metadata, diff, and with <code>--threads</code> the review threads. Only verbs that answer threads ask for them.</p>
+
+        <h3 id="flags">Flags</h3>
+        <table>
+          <tr><th>flag</th><th>effect</th></tr>
+          <tr><td><code>--repo &lt;slug&gt;</code></td><td>target repo. Required when the target is a Linear ticket</td></tr>
+          <tr><td><code>--dry</code></td><td>print the command that would run, and exit. Nothing runs</td></tr>
+          <tr><td><code>--safe</code></td><td>drop the permission bypass from the invocation</td></tr>
+          <tr><td><code>--new</code></td><td>open in a new terminal tab instead of the current one</td></tr>
+          <tr><td><code>--remote [alias]</code></td><td>run on another machine over SSH. Without an alias, asks which</td></tr>
+          <tr><td><code>--yes</code> / <code>-y</code></td><td>skip the banner preview</td></tr>
+          <tr><td><code>--json</code></td><td>JSON output. Used by the mechanical subcommands</td></tr>
+        </table>
+        <p><strong><code>--dry</code> is the inspection tool.</strong> It prints the exact command line that would be launched, prompt included. It is how you check what the CLI discovered without spending a session.</p>
+        <p><strong>The banner preview.</strong> Before launching, the CLI shows the block it is about to send and opens a three-option menu: send as is, attach an extra comment, cancel. The comment is appended to the prompt; it is where you add "focus on the date parsing" without rewriting the command. <code>--yes</code> skips it, and it does not appear when <code>stdin</code> is not a TTY.</p>
+
+        <h2 id="manifest">The context manifest</h2>
+        <p><code>flux-context.json</code> declares <strong>the context of a workspace</strong>: where the repos live, which vault to use, which Linear organization, which agents exist. It is looked up at <code>.claude/flux-context.json</code> or <code>.cursor/flux-context.json</code>, walking up the directory tree from the anchor.</p>
+<pre><code>{
+  "name": "acme",
+  "workspace_root": "~/www/acme",
+  "repos": ["api-gateway", "web-monorepo", "payments"],
+  "vault_root": "~/.notes",
+  "vault_context": "acme",
+  "linear_org": "acme-eng",
+  "no_emdash": true,
+  "exec_command": "workflow",
+  "exec_fallback": { "payments": "acme-engine-payments", "default": "acme-implement" },
+  "specialists_root": "~/agents/{repo}/repo-owner.md",
+  "holistic_reviewer": "acme:reviewer"
+}</code></pre>
+        <table>
+          <tr><th>field</th><th>purpose</th></tr>
+          <tr><td>name</td><td>profile name, shown in the banner</td></tr>
+          <tr><td>workspace_root</td><td>where checkouts live. Without it, the manifest's directory</td></tr>
+          <tr><td>repos</td><td>known slugs, used to validate and suggest</td></tr>
+          <tr><td>vault_root · vault_context</td><td>where verbs persist boards and reports</td></tr>
+          <tr><td>linear_org</td><td>turns <code>LAB-142</code> into a clickable URL</td></tr>
+          <tr><td>no_emdash</td><td>forbids em-dashes in text bound for GitHub</td></tr>
+          <tr><td>exec_command</td><td>name of the repos' native execution command</td></tr>
+          <tr><td>exec_fallback</td><td>execution engine per repo, when the repo has no native one</td></tr>
+          <tr><td>specialists_root</td><td>path template for the L2 suite, with <code>{repo}</code></td></tr>
+          <tr><td>holistic_reviewer</td><td>this context's L1 reviewer</td></tr>
+        </table>
+        <p><strong>Without a manifest the CLI still works.</strong> The profile becomes <code>generico</code>: the anchor is the <code>cwd</code>, the repos are the subdirectories with a <code>.git</code>, and nothing is persisted to a vault. What is lost is stated in the banner, not discovered halfway.</p>
+        <p><code>exec_fallback</code> takes two shapes: a scalar when one command serves every repo, or a map when repos have different engines. Resolution is <strong>repo → <code>default</code> → none</strong>. A map that names neither this repo nor a <code>default</code> sends <code>build</code> to autonomous mode rather than borrowing another repo's engine: running code through the wrong pipeline, silently, is worse than running it through none.</p>
+
+        <h2 id="resolution">How context is resolved</h2>
+        <h3>The anchor is the target, not the cwd</h3>
+<pre><code>cd ~
+flux build LAB-142 --repo flux</code></pre>
+        <p>That has to find the profile of the workspace where <code>flux</code> lives, not your home's. So: parse the target first, without opening anything; the anchor is the checkout of <code>--repo</code> when given, else the <code>cwd</code>; the manifest is found walking up from the anchor.</p>
+        <p>When the slug does not resolve nearby, the CLI <strong>scans the known manifests</strong> for one that claims it (through the <code>repos</code> field, or by having <code>&lt;workspace_root&gt;/&lt;slug&gt;/.git</code>). One claims it: that whole profile is adopted, with a warning. More than one: it asks. None: it anchors on the <code>cwd</code> and warns.</p>
+<pre><code>slug "flux" resolved by scanning manifests (not by a nearby manifest) — check the context is right</code></pre>
+        <h3>FLUX_ROOT: where the skills live</h3>
+        <p>The CLI needs the contract files (<code>shared/*.md</code>) to check hard requirements. In order: <code>$FLUX_HOME</code> if set and existing; the harness plugin variables (<code>CLAUDE_PLUGIN_ROOT</code>, <code>CURSOR_PLUGIN_ROOT</code>, <code>CODEX_PLUGIN_ROOT</code>); and a <strong>heuristic</strong> that scans <code>~/.claude*</code> and <code>~/.cursor</code> for <code>plugins/cache/flux/flux/&lt;version&gt;/</code> and picks the highest version.</p>
+        <p>The heuristic warns, because it can pick the wrong cache when you have more than one account or config dir. If you do, <strong>set <code>FLUX_HOME</code> explicitly</strong>. That rung exists for exactly that.</p>
+
+        <h2 id="preflight">The PREFLIGHT block</h2>
+        <p>The CLI's product. It goes at the top of the prompt, and the skill reads it instead of investigating:</p>
+<pre><code>--- PREFLIGHT RESOLVIDO (flux-cli v1.29.1) ---
+perfil: acme
+manifesto: /Users/you/www/acme/.claude/flux-context.json
+ancora: /Users/you/www/acme/payments
+flux_root: /Users/you/.claude/plugins/cache/flux/flux/1.29.1/plugins/flux
+flux_root_source: env:FLUX_HOME
+exec_command: workflow
+exec_fallback: acme-engine-payments
+lentes:
+  l2_paths: /Users/you/agents/payments
+  l3_paths: ausente
+flux_cmd: /flux: (session_revalidation_required)
+--- FIM PREFLIGHT RESOLVIDO ---</code></pre>
+        <p><strong>The block is advisory, deliberately.</strong> It is a starting point, not the final truth. <code>session_revalidation_required</code> lists what the skill must re-check from inside the session, because it depends on state the CLI cannot see:</p>
+        <table>
+          <tr><th>field</th><th>why the CLI does not decide it</th></tr>
+          <tr><td>flux_cmd</td><td>the invokable form (<code>/flux:review</code> or <code>/flux-review</code>) depends on the harness</td></tr>
+          <tr><td>adddir_cmd</td><td>same</td></tr>
+          <tr><td>holistic_verification</td><td>the CLI sees the agent file on disk, not its registration as invokable</td></tr>
+          <tr><td>capability_level</td><td>because it depends on the previous one</td></tr>
+        </table>
+        <p>A CLI that asserted those four would be lying with the appearance of precision. It asserts what it measured and marks the rest.</p>
+
+        <h2 id="remote">Running remotely</h2>
+<pre><code>flux review 8249 --repo backoffice --remote worzix
+flux review 8249 --repo backoffice --remote          # asks which</code></pre>
+        <p>Without an alias, the CLI reads the <code>Host</code> entries of <code>~/.ssh/config</code>, <strong>tests which are reachable now</strong>, and shows only those in a menu. A machine can be opted out with a comment right above its <code>Host</code> block:</p>
+<pre><code># flux:ignore
+Host production
+  HostName ...</code></pre>
+        <p>It is for machines that sit in <code>~/.ssh/config</code> for deploy convenience and where an agent harness must <strong>never</strong> run.</p>
+        <p><strong>Two known traps.</strong> <code>--remote</code> builds <code>ssh -t &lt;host&gt; zsh -lic 'flux ...'</code> and does <strong>not <code>cd</code></strong>: the session is born in the remote <code>$HOME</code>. So the manifest may not be found walking up from there, and <code>FLUX_ROOT</code> is resolved by the heuristic on the remote, which can hit another config dir's cache. If you use more than one account or context on the remote, wrap the call in a shell function that does an explicit <code>cd</code> and passes <code>FLUX_HOME</code> and <code>FLUX_CLAUDE_CMD</code>.</p>
+
+        <h2 id="env">Environment variables</h2>
+        <table>
+          <tr><th>variable</th><th>effect</th></tr>
+          <tr><td>FLUX_HOME</td><td>path to <code>plugins/flux/</code>. Beats the heuristic. <strong>Set it if you have more than one config dir</strong></td></tr>
+          <tr><td>FLUX_CLAUDE_CMD</td><td>replaces the whole invocation. For pointing at a wrapper of your own</td></tr>
+          <tr><td>CLAUDE_PLUGIN_ROOT · CURSOR_PLUGIN_ROOT · CODEX_PLUGIN_ROOT</td><td>plugin root, when the harness exports it</td></tr>
+          <tr><td>SHELL</td><td>shell used to execute. Default <code>/bin/zsh</code></td></tr>
+        </table>
+        <p><strong><code>FLUX_CLAUDE_CMD</code> and shell functions.</strong> The CLI executes through <code>[$SHELL, "-i", "-c", ...]</code>, an <strong>interactive</strong> shell. Your <code>.zshrc</code> is loaded, so <strong>shell functions work</strong> as the target. It is the mechanism to route the session through a wrapper of your own: pick an account, export variables, whatever it is. The CLI does not validate an override's target, because it cannot: whoever dictated the invocation knows what it is.</p>
+
+        <h2 id="troubleshooting">Troubleshooting</h2>
+        <h3>The resolved profile is wrong</h3>
+        <p>Run <code>flux resolve --json</code> and look at <code>anchor</code> and <code>manifest_path</code>. If the anchor is in the wrong place, you either forgot <code>--repo</code> or the manifest is not where you think. A "scanning manifests" warning means the slug was found by wide search and is worth checking.</p>
+        <h3><code>flux_root_source: heuristica-cli</code></h3>
+        <p>The CLI guessed where the skills live. It works, but can hit the wrong cache with more than one config dir. Set <code>FLUX_HOME</code>.</p>
+        <h3>The binary dies with exit 137 right after install</h3>
+        <p>A race with the macOS security daemon (MDM, EndpointSecurity). <code>setup.sh</code> already absorbs it; if it happens outside, wait a few seconds and run again.</p>
+        <h3><code>&lt;binary&gt; not found on PATH</code></h3>
+        <p>The harness is not installed, or is installed as a shell function rather than a binary. The check uses <code>/usr/bin/which</code>, which only sees the <code>PATH</code>; shell functions do not appear there even though they work at execution, which uses an interactive shell. If that is your case, use <code>FLUX_CLAUDE_CMD</code>.</p>
+
+        <h2 id="cycle">The verbs: the cycle</h2>
+        <p>Everything above is what the CLI does <em>before</em> a verb runs. This is what the verbs do. The family is a cycle, and each verb hands off to the next:</p>
+        <div class="cycle">
+          <a href="#v-issue">issue</a><i>→</i><a href="#v-build">build</a><i>→</i><a href="#v-review">review · peek</a><i>→</i><a href="#v-iterate">iterate</a><i>→</i><a href="#v-land">land</a><i>→</i><a href="#v-reply">reply</a>
+        </div>
+        <p>Two verbs sit <strong>outside</strong> the cycle and prepare the ground (<a href="#v-setup">map, equip</a>); two are <strong>optional</strong> detours (<a href="#v-optional">refine, probe</a>). Every verb opens its output with a <strong>profile banner</strong> declaring which lenses it found and what degraded, so a reduced run can never pass for a full one.</p>
+        <div class="callout"><p><b>Every entry has the same shape.</b> What it takes, what it produces, where it writes, what it never does, and where it hands off. The full contract of each verb is its <code>SKILL.md</code>; this is the navigable layer over it.</p></div>
+
+        <div class="verb" id="v-issue">
+          <h3><code>flux:issue</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/issue/SKILL.md" style="font-size:.78rem;font-weight:500">SKILL.md ↗</a></h3>
+          <p>Turns any source (a Slack thread, free text, a PR) into a high-quality issue, grounded in real code by the repo's specialists, with link discipline and correct writing. Writes a reviewable draft to the vault and only creates in Linear after you approve.</p>
+          <dl>
+            <dt>Takes</dt><dd>a thread, a text, a PR</dd>
+            <dt>Produces</dt><dd>issue body with code-grounded evidence (<code>file:line</code>, verdicts: confirms / partial / refutes / no evidence)</dd>
+            <dt>Writes</dt><dd>vault board; Linear only after the human gate</dd>
+            <dt>Gates</dt><dd>creation in Linear</dd>
+            <dt>Hands off to</dt><dd><code>flux:build &lt;ticket&gt;</code></dd>
+          </dl>
+        </div>
+
+        <div class="verb" id="v-build">
+          <h3><code>flux:build</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/build/SKILL.md" style="font-size:.78rem;font-weight:500">SKILL.md ↗</a></h3>
+          <p>The execution link. Takes a ticket and a repo, resolves <strong>which execution engine that repo has</strong>, and dispatches. It does not implement the task: it resolves repo and engine, loads context, and delegates. Before dispatching it <strong>measures scope</strong> from what is already on screen, and offers a cut when the task will not fit one run.</p>
+          <dl>
+            <dt>Takes</dt><dd>a ticket or a description, plus a repo</dd>
+            <dt>Produces</dt><dd>code and a draft PR, through the repo's engine</dd>
+            <dt>Engine</dt><dd>native (<code>.claude/commands/workflow.md</code>) → <code>exec_fallback</code> from the manifest → autonomous mode</dd>
+            <dt>Gates</dt><dd>scope, when the task reads as too large for one run</dd>
+            <dt>Hands off to</dt><dd><code>flux:review</code> or <code>flux:peek</code> on the PR</dd>
+          </dl>
+        </div>
+
+        <div class="verb" id="v-review">
+          <h3><code>flux:review</code> <span class="muted">·</span> <code>flux:peek</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/review/SKILL.md" style="font-size:.78rem;font-weight:500">review ↗</a> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/peek/SKILL.md" style="font-size:.78rem;font-weight:500">peek ↗</a></h3>
+          <p><strong>review</strong> is the formal one: holistic reviewer plus the repo's specialists, reconciled, with the canonical text badges (<code>request-change</code>, <code>breaking-change</code>, <code>question</code>, <code>suggestion</code>, <code>praise</code>, <code>note</code>), persisted to the vault and posted to GitHub. <strong>peek</strong> is the quick glance: holistic reviewer only, printed in chat, nothing persisted, nothing posted.</p>
+          <dl>
+            <dt>Takes</dt><dd>a PR, a branch, a diff, a doc, a path</dd>
+            <dt>Produces</dt><dd>findings with <code>file:line</code> citations; review also produces a decision</dd>
+            <dt>Writes</dt><dd>review: vault and GitHub. peek: nothing</dd>
+            <dt>Hands off to</dt><dd><code>flux:iterate</code> on the PR</dd>
+          </dl>
+        </div>
+
+        <div class="verb" id="v-iterate">
+          <h3><code>flux:iterate</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/iterate/SKILL.md" style="font-size:.78rem;font-weight:500">SKILL.md ↗</a></h3>
+          <p>The active sibling of review. Closes the loop on <strong>one</strong> PR: reads the open threads, verifies every claim against the real code, applies what holds, replies, reacts, resolves, commits, pushes, and reconciles the PR title and description with what the round decided. By default it stays alive watching CI and new bot rounds until the PR settles. <code>--dry</code> drafts the replies read-only and saves them to the vault.</p>
+          <p>Before any of that comes the <strong>base-integration gate</strong>: a PR that no longer merges with its base is a PR nobody writes on, and its green CI is a false signal. Mechanical conflicts are resolved; semantic ones (same function, same test, a migration, a contract) always wait for a human, even under <code>--auto</code>.</p>
+          <dl>
+            <dt>Takes</dt><dd>one PR</dd>
+            <dt>Produces</dt><dd>threads verified, fixes applied, replies posted, CI watched, a board in the vault</dd>
+            <dt>Writes</dt><dd>a dedicated worktree for the PR branch, never the main tree; GitHub, on your own PR. Someone else's PR is <code>no-push</code> by default: interaction only, unless you ask and confirm in text</dd>
+            <dt>Never</dt><dd>approves, merges, force-pushes without lease, resolves a thread marked <code>needs-discussion</code>, or renames a title's ticket prefix</dd>
+            <dt>Hands off to</dt><dd><code>flux:land</code> when the PR is one of several, or the human merge</dd>
+          </dl>
+        </div>
+
+        <div class="verb" id="v-land">
+          <h3><code>flux:land</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/land/SKILL.md" style="font-size:.78rem;font-weight:500">SKILL.md ↗</a></h3>
+          <p>The layer above review and iterate. Sees the <strong>set of PRs</strong> of one feature spread across repos and drives all of them to merge-ready, in the right order and without regression: discovers them, orders them by dependency, validates regression with the specialists, keeps each one merge-ready by delegating to <code>flux:iterate</code>, and emits a <strong>go / no-go</strong>. It assumes the PRs already exist; creating them is <code>flux:build</code>'s job.</p>
+          <dl>
+            <dt>Takes</dt><dd>an issue or feature that maps to several PRs</dd>
+            <dt>Produces</dt><dd>merge order, blocking graph, regression verdict per PR, go/no-go, a delivery board with one child iterate board per PR</dd>
+            <dt>Writes</dt><dd>through each PR's iterate, in that PR's worktree; the delivery board in the vault</dd>
+            <dt>Never</dt><dd>merges. The go/no-go is a recommendation; the merge is yours. Never runs an iterate inline: one PR is one subagent, and the main context only orchestrates</dd>
+            <dt>Hands off to</dt><dd>the human merge, then <code>flux:reply</code> to communicate</dd>
+          </dl>
+        </div>
+
+        <div class="verb" id="v-reply">
+          <h3><code>flux:reply</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/reply/SKILL.md" style="font-size:.78rem;font-weight:500">SKILL.md ↗</a></h3>
+          <p>Follows a <strong>case</strong> of work on Slack, grounded in the codebase. The unit is the case, not the thread: a discussion rarely stays where it started, it leaves the helpdesk, becomes a DM, and comes back as a thread in a team channel. The board follows it across every surface instead of leaving each move as an orphan note. Fact-gathering goes to one prospector per repo, in parallel; writing goes to an answerer.</p>
+          <dl>
+            <dt>Takes</dt><dd>a Slack permalink (thread, DM, channel)</dd>
+            <dt>Produces</dt><dd>a reply drafted from verified facts, and a live board with the open items, who holds each one, and where</dd>
+            <dt>Writes</dt><dd>the board in the vault; a <strong>draft</strong> in Slack, only after you choose it</dd>
+            <dt>Never</dt><dd>sends a message. Sending is yours, in Slack, after reviewing the draft. Reacting only through the menu you chose</dd>
+            <dt>Hands off to</dt><dd><code>flux:issue</code> when the case produces work, or <code>flux:land</code> when it tracks a delivery</dd>
+          </dl>
+        </div>
+
+        <h2 id="v-setup">Setup verbs <span class="tag setup">setup</span></h2>
+        <p>Two verbs sit outside the cycle. They are what you do <em>to</em> a machine or a repo so that the cycle can run with every lens and without falling into autonomous mode.</p>
+
+        <div class="verb" id="v-map">
+          <h3><code>flux:map</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/map/SKILL.md" style="font-size:.78rem;font-weight:500">SKILL.md ↗</a></h3>
+          <p>The sanity verb. Answers the question no other verb has the scope to answer: <strong>what does this machine have, and what is broken?</strong> Surveys the agent roots, the context manifests, the known repos, the three lenses of each one, and <code>name:</code> collisions, and writes the index the other verbs consume. Run it again and it shows what changed since last time. Suggested before anything, required by nothing.</p>
+          <dl>
+            <dt>Takes</dt><dd>nothing (the machine), or <code>--repo</code> to narrow</dd>
+            <dt>Produces</dt><dd>inventory, delta since the last run, and an integrity report with one-click remediation</dd>
+            <dt>Writes</dt><dd>the agents index, after a gate. Repairs are dispatched to <code>flux:equip</code>, accepted one by one, never applied by map itself</dd>
+            <dt>Never</dt><dd>writes inside any checkout, or invokes a repo agent to "see if it works"</dd>
+            <dt>Flags</dt><dd><code>--dry</code> report only · <code>--apply</code> skips the index gate, and only that · <code>--no-fix</code> report with the remediation commands printed, nothing offered</dd>
+          </dl>
+        </div>
+
+        <div class="verb" id="v-equip">
+          <h3><code>flux:equip</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/equip/SKILL.md" style="font-size:.78rem;font-weight:500">SKILL.md ↗</a></h3>
+          <p>Equips a repo with the two things the other verbs consume but do not produce: the <strong>execution engine</strong> (L0) that <code>flux:build</code> dispatches to, and the <strong>local specialist suite</strong> (L2) that review, iterate and land reconcile. Diagnoses first, then writes only what is missing. Everything goes through the write-destination contract, never inside the target checkout, and writing to the manifest is an action with its own gate.</p>
+          <dl>
+            <dt>Takes</dt><dd>a repo, optionally <code>--engine-only</code>, <code>--agents-only</code>, <code>--from-kit</code>, <code>--expose-l3</code></dd>
+            <dt>Produces</dt><dd>an engine command and/or a specialist suite, authored by reading the repo's real stack, scripts and conventions</dd>
+            <dt>Writes</dt><dd>to the approved destination on <strong>your</strong> machine; <code>exec_fallback</code> and <code>write_destinations</code> in the manifest only after their own gate</dd>
+            <dt>Never</dt><dd>writes inside the target repo, overwrites what exists, or runs any task</dd>
+            <dt>Hands off to</dt><dd><code>flux:build</code> if there was work waiting; nothing if it was maintenance</dd>
+          </dl>
+        </div>
+
+        <h2 id="v-optional">Optional verbs <span class="tag optional">optional</span></h2>
+        <p>Two detours before <code>flux:issue</code>. Neither is required: whoever does not need to refine or investigate goes straight to the issue.</p>
+
+        <div class="verb" id="v-refine">
+          <h3><code>flux:refine</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/refine/SKILL.md" style="font-size:.78rem;font-weight:500">SKILL.md ↗</a></h3>
+          <p>Refinement in one round, a fast SDD. Takes the same input as <code>flux:issue</code> (an idea, a thread, a bug) and produces, before the issue body, the three artifacts a feature needs to be sliced well: a PRD, a TRD and a plan of vertical slices, all grounded in the real code. It <strong>measures scope before working</strong>: what does not fit one round is refused, and you get the proposed cut instead of a shallow refinement that would circulate as a spec.</p>
+          <dl>
+            <dt>Takes</dt><dd>an idea, a thread, a bug; optionally <code>--repo</code>, repeatable for two</dd>
+            <dt>Produces</dt><dd>PRD, TRD, ordered slices, on the same board <code>flux:issue</code> consumes; or a reasoned refusal with the cut</dd>
+            <dt>Writes</dt><dd>vault only</dd>
+            <dt>Never</dt><dd>creates an issue, writes code, or refines a red scope "just a little"</dd>
+            <dt>Hands off to</dt><dd><code>flux:issue</code>, which reads the board and writes the issue bodies</dd>
+          </dl>
+        </div>
+
+        <div class="verb" id="v-probe">
+          <h3><code>flux:probe</code> <a href="https://github.com/grippado/flux/blob/main/plugins/flux/skills/probe/SKILL.md" style="font-size:.78rem;font-weight:500">SKILL.md ↗</a></h3>
+          <p>Investigates production telemetry (Sentry and Datadog) and returns a <strong>quantified dossier</strong>: aggregates the targets in parallel, tests the current explanation against the physics of the numbers, confronts the client side with the server side, and crosses it with the real code through the specialists. Writes to the same board <code>flux:issue</code> consumes.</p>
+          <dl>
+            <dt>Takes</dt><dd>Sentry issue URLs, Datadog queries; <code>--window</code>, <code>--sample</code>, <code>--service</code> to shape the collection</dd>
+            <dt>Produces</dt><dd>distributions, percentiles, correlations, the plausibility tests that separate the real cause from the one the title suggests</dd>
+            <dt>Writes</dt><dd>vault only</dd>
+            <dt>Never</dt><dd>changes state at the source (no resolving, assigning, commenting), posts to Slack, or concludes from a single event</dd>
+            <dt>Hands off to</dt><dd><code>flux:issue</code></dd>
+          </dl>
+          <p class="muted" style="font-size:.82rem;margin:14px 0 0"><code>probe</code> is a verb of the family but not of the CLI: <code>flux probe</code> is not a subcommand. Invoke it from inside a session as <code>/flux:probe</code>.</p>
+        </div>
+
+      </article>
+    </div>
+  </main>
+
+  <footer class="site-footer wrap"><span class="footer-brand"><span class="flux-glyph" aria-hidden="true"></span>© 2026 Flux · MIT</span><span>Made for the work between idea and merge.</span><a href="https://github.com/grippado/flux">GitHub ↗</a></footer>
+  <script>
+    const theme=document.getElementById('theme');
+    function setTheme(v){document.documentElement.dataset.theme=v;theme.textContent=v==='dark'?'☼':'◐';try{localStorage.setItem('flux-theme',v)}catch{}}
+    let saved='dark';try{saved=localStorage.getItem('flux-theme')||'dark'}catch{}
+    setTheme(saved);theme.addEventListener('click',()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark'));
+    const links=[...document.querySelectorAll('.docs-nav a')];const heads=links.map(a=>document.querySelector(a.getAttribute('href'))).filter(Boolean);
+    const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){links.forEach(l=>l.classList.toggle('active',l.getAttribute('href')==='#'+e.target.id))}})},{rootMargin:'-20% 0px -70% 0px'});
+    heads.forEach(h=>io.observe(h));
+  </script>
+</body>
+</html>
