@@ -33,13 +33,17 @@ entregar o contexto sozinho. Antes de propor o título, checar:
 ```markdown
 ## Embasamento no código
 
-- **{claim/ponto}** — `confirma`: [`caminho/arquivo.ts:42`]({permalink}) {o que o código mostra}.
-- **{outro ponto}** — `parcial`: [`outro.ts:88`]({permalink}) {o que bate e o que não bate}.
-- **{ponto sem prova}** — `sem-evidência`: {o que não deu pra verificar e por quê}.
+- **{claim/ponto}** (`confirma`): [`caminho/arquivo.ts:42`]({permalink}) {o que o código mostra}.
+- **{outro ponto}** (`parcial`): [`outro.ts:88`]({permalink}) {o que bate e o que não bate}.
+- **{ponto sem prova}** (`sem-evidência`): {o que não deu pra verificar e por quê}.
 ```
 
 Regra: todo `confirma`/`refuta`/`parcial` tem `arquivo:linha` como **permalink** (nada de citação nua).
 Sem citação, é `sem-evidência`. Isso ancora o "O que fazer" e o "Critério de aceite" em código real.
+
+O gabarito acima é **copiado para dentro da issue**, então ele não usa travessão nem en-dash: sob um
+perfil com `no_emdash`, um travessão no gabarito barra a criação da issue no guard, e o erro aparece
+longe daqui. A prosa deste arquivo, que não vai para a issue, segue livre.
 
 ## Seções por tipo
 
