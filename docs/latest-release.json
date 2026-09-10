@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.30.1",
+    "tag": "v1.30.1",
+    "published_at": "2026-09-10T14:56:18Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.30.1",
+    "summary": {
+      "en": "The code-grounding template block is copied verbatim into the issue that flux:issue creates, and its em dash separator made the write guard reject the issue under a no_emdash profile, with the error surfacing far from its cause. The separator is now parentheses in the template block only; the file's own prose is untouched, since the em dash rule covers published text and not internal docs.",
+      "pt": "O gabarito de embasamento no código é copiado verbatim para dentro da issue que o flux:issue cria, e seu travessão fazia o guard de escrita recusar a issue sob um perfil no_emdash, com o erro aparecendo longe da causa. O separador agora é parênteses só no bloco do gabarito; a prosa do próprio arquivo fica intacta, já que a regra de travessão vale para texto publicado e não para doc interno."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.30.0",
     "tag": "v1.30.0",
     "published_at": "2026-09-03T21:31:34Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "The flux CLI now speaks to three harnesses: --harness picks claude, cursor or codex, resolved through a five-rung cascade, and the invocation is built per harness with forms confirmed against the real binaries. The manifest gains preferred_harness, the CLI gets a README, and the landing gets a /docs page with the CLI in depth and one entry per verb.",
       "pt": "O flux CLI passa a falar com três harnesses: --harness escolhe claude, cursor ou codex, resolvido por uma cascata de cinco degraus, e a invocação é montada por harness com as formas confirmadas contra os binários reais. O manifesto ganha preferred_harness, o CLI ganha um README, e a landing ganha a página /docs com o CLI em profundidade e uma entrada por verbo."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.28.0",
-    "tag": "v1.28.0",
-    "published_at": "2026-09-02T13:18:46Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.28.0",
-    "summary": {
-      "en": "flux:probe turns a production telemetry link into a quantified dossier: it aggregates events in parallel, tests the current explanation against the physics of the numbers, and cross-references the code that emits each signal. Reading an error tracker and an observability platform together answers what neither answers alone: did the server see what the client reported?",
-      "pt": "O flux:probe transforma um link de telemetria de produção em dossiê quantificado: agrega os eventos em paralelo, testa a explicação corrente contra a física dos números e cruza com o código que emite cada sinal. Lendo rastreador de erros e observabilidade juntos, ele responde o que nenhum responde sozinho: o servidor viu o que o cliente relatou?"
     },
     "changelog_source": "tag_message"
   },
