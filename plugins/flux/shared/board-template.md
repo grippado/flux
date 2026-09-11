@@ -637,3 +637,18 @@ de data (`updated:` no frontmatter, a linha "Última atualização"/TLDR e o tim
 rola junto a cada atualização e a cada tick do watch. Um board com painel novo e data velha confunde quem
 acompanha. Tick sem novidade substantiva: ainda rola a data (sinaliza "vivo, checado agora"), mas não cria
 linha nova na Timeline de Eventos Relevantes.
+
+**Todo carimbo de data vem de um `date` real, nunca de inferência.** Antes de nascer o board
+(`YYYY-MM-DD-HHMM` do nome do arquivo) e antes de cada rolagem de `updated:`, rodar
+`date "+%Y-%m-%d %H:%M %z"` (bash) e usar o valor literal — o comando já resolve o fuso da própria
+máquina, então nunca hardcodar um offset. Quem escreve o board não infere "agora": lê o relógio uma
+vez por escrita e propaga o mesmo valor para o `HHMM` do nome (só na criação), `updated:`, a linha
+"Última atualização"/TLDR e o timestamp do título do painel — as quatro leituras do mesmo instante
+não podem divergir entre si.
+
+> **Por que isto é regra, e não boa prática implícita.** Sem uma leitura determinística, um board
+> nasceu com o nome `2026-09-11-2046-flux-iterate-...md` (20:46) e `updated: "2026-09-11 21:03"`
+> enquanto o horário real de escrita era 17:55 — um drift de quase 3h, o exato offset de fuso de
+> quem escreveu (o padrão de quem lê UTC e rotula como local). O board nasce de uma instrução em
+> linguagem natural para um agente; sem o `date` explícito, "agora" vira estimativa, e a estimativa
+> erra pelo fuso.
