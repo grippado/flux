@@ -211,8 +211,8 @@ tags: [board, <build|iterate|delivery|slack|issue-draft>, orchestration]
 provenance:
   machine: "<hostname -s>"            # piso mínimo, sem depender de env var de instalação pessoal
   invocation: "<comando que gerou este board, ex: '/flux:build flux LAB-149'>"
-  generator: "<verbo: flux-build | flux-iterate | flux-land | flux-issue | flux-reply>"
-  captured_at: "<ISO8601 com timezone>"
+  generator: "<verbo que abriu o board: flux-build | flux-iterate | flux-land | flux-issue | flux-reply | flux-probe | flux-refine>"
+  captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
 ---
 ```
 
@@ -228,10 +228,15 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
   ferramentas pessoais do tipo `/context-save`) não existe pra quem instala o plugin do zero.
   `hostname -s` sozinho já basta como identificador de máquina.
 - **`invocation`**: o comando/skill que gerou o board, literal (ex.: `/flux:build flux LAB-149`).
-- **`generator`**: o verbo canônico (`flux-build`, `flux-iterate`, `flux-land`, `flux-issue`,
-  `flux-reply`) — não o nome livre do comando, pra ficar filtrável.
-- **`captured_at`**: mesma disciplina de relógio real do resto do board (ver Disciplina de carimbo de
-  data) — uma leitura, não estimativa.
+- **`generator`**: **o verbo que efetivamente abriu o board** — não o `type` canônico, que no perfil
+  exploração é sempre `flux-issue` mesmo quando quem abriu foi o `flux:probe` ou o `flux:refine` (ver
+  `probe/SKILL.md`, "O infixo é `flux-probe` porque é o verbo que abriu o board"). `generator` segue
+  essa mesma regra: registra quem abriu, não o `type`. Por isso o enum inclui `flux-probe` e
+  `flux-refine` além dos cinco verbos que já geram board diretamente.
+- **`captured_at`**: **mesmo formato e mesma leitura de `updated:`** (`date "+%Y-%m-%d %H:%M %z"`, ver
+  Disciplina de carimbo de data) — uma leitura só, nunca estimativa, e nunca ISO8601: a disciplina de
+  relógio deste arquivo não produz ISO8601, e inventar uma conversão de cabeça é o mesmo modo de falha
+  que a Disciplina de carimbo de data existe para eliminar.
 
 Board antigo sem este bloco continua válido: o campo é aditivo, e ferramentas que o leem devem tratar
 ausência como "não informado", nunca como erro.

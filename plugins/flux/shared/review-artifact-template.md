@@ -78,7 +78,7 @@ provenance:
   machine: "<hostname -s>"            # ver board-template.md, seção "Bloco provenance"
   invocation: "<comando que gerou esta review, ex: '/flux:review 5'>"
   generator: "flux-review"
-  captured_at: "<ISO8601 com timezone>"
+  captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `date:`, ver board-template.md
 ---
 ```
 
