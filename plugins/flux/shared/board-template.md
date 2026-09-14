@@ -208,8 +208,33 @@ scope: cabe                          # cabe | cabe-raso | nao-cabe  (só quando 
                                      # veredito de T1, ver scope-gate.md — omitido se ele não rodou)
 # todos os perfis:
 tags: [board, <build|iterate|delivery|slack|issue-draft>, orchestration]
+provenance:
+  machine: "<hostname -s>"            # piso mínimo, sem depender de env var de instalação pessoal
+  invocation: "<comando que gerou este board, ex: '/flux:build flux LAB-149'>"
+  generator: "<verbo: flux-build | flux-iterate | flux-land | flux-issue | flux-reply>"
+  captured_at: "<ISO8601 com timezone>"
 ---
 ```
+
+## Bloco `provenance` (todos os perfis)
+
+Todo board nasce com o bloco `provenance` acima, resolvido no Step 0 de cada elo (o mesmo passo que já
+resolve o contexto), e gravado uma vez, no nascimento do board — nunca recalculado nos ticks
+seguintes. Ele é o que permite associar um board de volta à sessão/máquina que o produziu, algo que
+hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do usuário).
+
+- **`machine`**: `hostname -s`. Não depende de nenhuma env var de convenção pessoal de instalação —
+  este repo é distribuído publicamente, e uma env var como `$DOTFILES_AI_MACHINE` (usada por
+  ferramentas pessoais do tipo `/context-save`) não existe pra quem instala o plugin do zero.
+  `hostname -s` sozinho já basta como identificador de máquina.
+- **`invocation`**: o comando/skill que gerou o board, literal (ex.: `/flux:build flux LAB-149`).
+- **`generator`**: o verbo canônico (`flux-build`, `flux-iterate`, `flux-land`, `flux-issue`,
+  `flux-reply`) — não o nome livre do comando, pra ficar filtrável.
+- **`captured_at`**: mesma disciplina de relógio real do resto do board (ver Disciplina de carimbo de
+  data) — uma leitura, não estimativa.
+
+Board antigo sem este bloco continua válido: o campo é aditivo, e ferramentas que o leem devem tratar
+ausência como "não informado", nunca como erro.
 
 > **`source` é a chave de identidade do perfil exploração**, como `surfaces` é a do perfil conversa.
 > Antes de criar board novo, procurar um board cujo `source` case com o alvo em `<VAULT_ROOT>/0-inbox/`

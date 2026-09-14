@@ -74,8 +74,18 @@ date: "{YYYY-MM-DD}"
 counts: { request-change: N, breaking-change: N, question: N, suggestion: N, praise: N, note: N }
 pipeline: "flux:review (holistico {HOLISTIC} + specialists {lista}, reconciliados)"
 tags: [pr-review, {repo-slug}, {area-opcional}, {ticket-slug}]
+provenance:
+  machine: "<hostname -s>"            # ver board-template.md, seção "Bloco provenance"
+  invocation: "<comando que gerou esta review, ex: '/flux:review 5'>"
+  generator: "flux-review"
+  captured_at: "<ISO8601 com timezone>"
 ---
 ```
+
+O bloco `provenance` segue a mesma disciplina do `board-template.md` (ver lá, seção "Bloco
+`provenance` (todos os perfis)") — mesmos campos, mesmo `hostname -s` como piso, sem depender de env
+var de instalação pessoal. O perfil doc herda o bloco sem alteração (não é uma das diferenças listadas
+abaixo).
 
 ### Corpo
 
