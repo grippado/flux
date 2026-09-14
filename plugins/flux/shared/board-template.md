@@ -208,8 +208,38 @@ scope: cabe                          # cabe | cabe-raso | nao-cabe  (só quando 
                                      # veredito de T1, ver scope-gate.md — omitido se ele não rodou)
 # todos os perfis:
 tags: [board, <build|iterate|delivery|slack|issue-draft>, orchestration]
+provenance:
+  machine: "<hostname -s>"            # piso mínimo, sem depender de env var de instalação pessoal
+  invocation: "<comando que gerou este board, ex: '/flux:build flux LAB-149'>"
+  generator: "<verbo que abriu o board: flux-build | flux-iterate | flux-land | flux-issue | flux-reply | flux-probe | flux-refine>"
+  captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
 ---
 ```
+
+## Bloco `provenance` (todos os perfis)
+
+Todo board nasce com o bloco `provenance` acima, resolvido no Step 0 de cada elo (o mesmo passo que já
+resolve o contexto), e gravado uma vez, no nascimento do board — nunca recalculado nos ticks
+seguintes. Ele é o que permite associar um board de volta à sessão/máquina que o produziu, algo que
+hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do usuário).
+
+- **`machine`**: `hostname -s`. Não depende de nenhuma env var de convenção pessoal de instalação —
+  este repo é distribuído publicamente, e uma env var como `$DOTFILES_AI_MACHINE` (usada por
+  ferramentas pessoais do tipo `/context-save`) não existe pra quem instala o plugin do zero.
+  `hostname -s` sozinho já basta como identificador de máquina.
+- **`invocation`**: o comando/skill que gerou o board, literal (ex.: `/flux:build flux LAB-149`).
+- **`generator`**: **o verbo que efetivamente abriu o board** — não o `type` canônico, que no perfil
+  exploração é sempre `flux-issue` mesmo quando quem abriu foi o `flux:probe` ou o `flux:refine` (ver
+  `probe/SKILL.md`, "O infixo é `flux-probe` porque é o verbo que abriu o board"). `generator` segue
+  essa mesma regra: registra quem abriu, não o `type`. Por isso o enum inclui `flux-probe` e
+  `flux-refine` além dos cinco verbos que já geram board diretamente.
+- **`captured_at`**: **mesmo formato e mesma leitura de `updated:`** (`date "+%Y-%m-%d %H:%M %z"`, ver
+  Disciplina de carimbo de data) — uma leitura só, nunca estimativa, e nunca ISO8601: a disciplina de
+  relógio deste arquivo não produz ISO8601, e inventar uma conversão de cabeça é o mesmo modo de falha
+  que a Disciplina de carimbo de data existe para eliminar.
+
+Board antigo sem este bloco continua válido: o campo é aditivo, e ferramentas que o leem devem tratar
+ausência como "não informado", nunca como erro.
 
 > **`source` é a chave de identidade do perfil exploração**, como `surfaces` é a do perfil conversa.
 > Antes de criar board novo, procurar um board cujo `source` case com o alvo em `<VAULT_ROOT>/0-inbox/`
