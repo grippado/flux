@@ -47,6 +47,13 @@ explicit approval. A command may draft; you decide whether it is sent.
 
 It does not write inside a repository you are only reviewing.
 
+Board and review artifacts written to your vault carry a small `provenance` block: the machine's
+short hostname (`hostname -s`), the literal command you invoked, and a local timestamp. This never
+leaves your machine on its own, the same as everything else on this page, but a hostname can be
+identifying (a person's name, an asset tag), and vaults are sometimes synced or shared beyond the
+machine that wrote them. If that matters to you, treat it like any other content of your vault: edit
+or strip it before sharing.
+
 ## The website
 
 The page at `grippado.github.io/flux` is static and served by GitHub Pages. It
