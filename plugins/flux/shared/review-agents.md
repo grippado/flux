@@ -449,6 +449,20 @@ O `FINAL_REPORT` resultante segue o mesmo formato de output do reviewer holísti
 reconciliado abre com o banner-imagem do badge** (ver `${FLUX_ROOT}/shared/review-legend.md` — Banner do
 badge: é imagem `[![...]...]`, nunca link de texto `[...]()`, senão sai sem cor na PR).
 
+### Modo de reverificação por thread
+
+Quando o consumidor pede um veredito sobre threads já abertas, em vez de findings novos do diff, usa
+o mesmo fan-out e as mesmas regras de precedência deste Passo 3 com a unidade de trabalho explícita
+`thread_id` (o NODE ID da `reviewThread`). Cada lente recebe, por thread, `thread_id`, `databaseId`,
+comentário original, réplica do autor e o estado atual do código; devolve por `thread_id`:
+`{veredito: PROCEDE|PROCEDE_PARCIALMENTE|NAO_PROCEDE, fundamento com arquivo:linha, commit_url|null,
+justificativa|null}`.
+
+Na reconciliação, relatórios sobre o mesmo `thread_id` são a mesma unidade: aplicar união, precedência
+por domínio e os desempates deste Passo 3, preservando a proveniência. O resultado contém exatamente
+uma entrada por thread selecionada e preserva `thread_id` e `databaseId`, para que o consumidor possa
+responder e, quando aplicável, chamar `resolveReviewThread` sem tentar derivar o ID GraphQL do ID REST.
+
 ## Passo 4 — Cobertura (substitui a seção Benchmark)
 
 O comando anexa ao artefato um rodapé de proveniência (não um comparativo):

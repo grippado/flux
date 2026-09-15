@@ -282,8 +282,9 @@ gh api graphql -f query='
           isOutdated
           path
           line
-          comments(first: 50) {
+          comments(first: 100) {
             nodes { databaseId url author { login } createdAt body }
+            pageInfo { hasNextPage endCursor }
           }
         }
       }
@@ -292,10 +293,11 @@ gh api graphql -f query='
 }'
 ```
 
-**`comments(first: 50)`, não `first: 1`.** A rodada 2 (Passo 4b abaixo) precisa saber se o autor da
-PR respondeu depois da última postagem do reviewer, e essa pergunta exige a cadeia inteira do thread,
-não só o primeiro comentário. Guardar de cada thread, além do que já se guardava, a lista completa
-`comments` (ordem cronológica, cada item com `databaseId`, `url`, `author.login`, `createdAt`, `body`).
+**Cadeia completa de comentários, não só a primeira página.** A rodada 2 (Passo 4b abaixo) precisa
+saber se o autor da PR respondeu depois da última postagem do reviewer. Guardar `pageInfo` e, para
+cada thread cujo `hasNextPage` seja `true`, paginar `comments` pelo `id` da `reviewThread` e pelo
+`endCursor` até `hasNextPage == false`, concatenando as páginas em ordem cronológica. Só então guardar
+a lista completa `comments` (cada item com `databaseId`, `url`, `author.login`, `createdAt`, `body`).
 
 Para comentários com body truncado (> 200 chars), buscar o body completo via REST:
 
@@ -364,15 +366,13 @@ findings novos, verificar se a alegação original da thread **ainda procede** c
 contra o código real", aqui aplicado a threads antigas em vez de comentários novos):
 
 - **2a — Holístico:** Task com `subagent_type: <HOLISTIC>`, passando o lote inteiro de `SELF_THREADS`
-  (comentário original + réplica do autor da PR + `databaseId` + `url`) junto com o diff atual, o
-  checkout e `HEAD_SHA`. Pedir, por `databaseId`: `{veredito: PROCEDE|PROCEDE_PARCIALMENTE|NAO_PROCEDE,
-  fundamento com arquivo:linha citando o estado ATUAL do código, commit que corrigiu (se a réplica do
-  autor citar um SHA, ou se identificável comparando o diff), justificativa quando NAO_PROCEDE}`.
-  Guardar como `SELF_HOLISTIC_REPORT`.
+  (incluindo `thread_id`, comentário original + réplica do autor da PR + `databaseId` + `url`) junto
+  com o diff atual, o checkout e `HEAD_SHA`. Pedir o veredito estruturado definido pelo modo de
+  reverificação por thread do Passo 3 de `review-agents.md`. Guardar como `SELF_HOLISTIC_REPORT`.
 - **2b — Specialists:** mesma descoberta e mesmo fan-out do Passo 4 (pulado com `--solo` ou sem
   specialists), com o mesmo pedido de veredito. Guardar como `SELF_AGENT_REPORT`.
-- Reconciliar os dois em `REVERIFICATION_REPORT` pelo Passo 3 de `review-agents.md` (união, dedup por
-  `databaseId`, precedência por domínio, specialist vence o holístico em ponto de domínio específico).
+- Reconciliar os dois em `REVERIFICATION_REPORT` pelo modo de reverificação por thread do Passo 3 de
+  `review-agents.md`.
 
 **3. Gerar um achado por thread verificada.** Cada entrada de `REVERIFICATION_REPORT` vira um finding
 normal em `## 🔎 Findings` (Passo 6), numerado na mesma sequência dos findings do Passo 4 — não uma
@@ -388,8 +388,8 @@ lista à parte. Mapeamento de veredito para badge (vocabulário fechado de
 O corpo do finding cita `arquivo:linha` do estado atual (permalink no `HEAD_SHA`, mesma disciplina do
 Passo 6), linka a **thread original** pelo `url` já coletado em `PR_THREADS`, e, quando houver commit
 que corrigiu, linka `https://github.com/{owner}/{repo}/commit/{sha}`. Guardar a lista consolidada
-como `REOPEN_CANDIDATES` = `[{databaseId, url, veredito, commit_url|null, justificativa|null, autor_pr}]`,
-consumida pelo Step 8b.
+como `REOPEN_CANDIDATES` = `[{thread_id, databaseId, url, veredito, commit_url|null, justificativa|null,
+autor_pr}]`, consumida pelo Step 8b.
 
 **4. Recapitulação.** Logo após `## 📊 Painel de findings` (Passo 6), acrescentar a lista (não uma
 tabela nova — a regra de ouro do painel permanece valendo) `## 🔁 Threads reverificadas`, um item por
@@ -578,7 +578,7 @@ ações independentes sobre coisas diferentes (review nova vs. threads antigas).
 Só existe quando `REOPEN_CANDIDATES` não está vazio (Passo 4b). **Usa exatamente os três comandos do
 Passo 7 de `${FLUX_ROOT}/skills/iterate/SKILL.md` — reply via `pulls/{n}/comments/<databaseId>/replies`,
 reação via `pulls/comments/<databaseId>/reactions`, resolve via a mutation GraphQL
-`resolveReviewThread` (NODE id `PRRT_...`, não o `databaseId`) — inclusive a mesma cautela de zsh
+`resolveReviewThread` (usar `thread_id`, o NODE id `PRRT_...`, não o `databaseId`) — inclusive a mesma cautela de zsh
 (processar um id por vez; passar a lista inteira concatenada devolve `NOT_FOUND`). Não redigitar os
 comandos aqui: o que este passo acrescenta é só a decisão de QUANDO usar cada um**, conforme o veredito
 do Passo 4b:
