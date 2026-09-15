@@ -145,7 +145,7 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 - Não aprovar nem mergear (`gh pr review --approve`, `gh pr merge`)
 - Não escrever em lugar nenhum exceto: o arquivo final no vault; e (opcionalmente) a review da PR via `gh api` no Step 8; e, no modo "aplicar correções", os arquivos de código + commit na branch da PR própria.
 
-**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via GATE (`${FLUX_ROOT}/shared/hitl.md`), a ação pós-review. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Nunca agir sem o usuário escolher uma opção positiva.
+**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via GATE (`${FLUX_ROOT}/shared/hitl.md`), a ação pós-review. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Em PR de terceiros, quando o Passo 4b encontrou threads próprias reverificadas, o menu do Step 8b ganha uma opção extra (8b-bis) para responder + reagir + resolver essas threads. Nunca agir sem o usuário escolher uma opção positiva.
 
 ## Inputs aceitos
 
@@ -282,8 +282,9 @@ gh api graphql -f query='
           isOutdated
           path
           line
-          comments(first: 1) {
+          comments(first: 100) {
             nodes { databaseId url author { login } createdAt body }
+            pageInfo { hasNextPage endCursor }
           }
         }
       }
@@ -291,6 +292,12 @@ gh api graphql -f query='
   }
 }'
 ```
+
+**Cadeia completa de comentários, não só a primeira página.** A rodada 2 (Passo 4b abaixo) precisa
+saber se o autor da PR respondeu depois da última postagem do reviewer. Guardar `pageInfo` e, para
+cada thread cujo `hasNextPage` seja `true`, paginar `comments` pelo `id` da `reviewThread` e pelo
+`endCursor` até `hasNextPage == false`, concatenando as páginas em ordem cronológica. Só então guardar
+a lista completa `comments` (cada item com `databaseId`, `url`, `author.login`, `createdAt`, `body`).
 
 Para comentários com body truncado (> 200 chars), buscar o body completo via REST:
 
@@ -307,7 +314,9 @@ gh api repos/$REPO_FULL/issues/$PR_NUMBER/comments \
 
 Descarte os ecos de bot (CI, sincronização de ticket, reviewer automático que só informa que não achou nada) e trate o restante como parte do material de review, no mesmo pé das threads. Um review que ignora esses comentários reporta cobertura que não teve.
 
-Guardar como `PR_THREADS` (dois conjuntos: `open` + `resolved`). Se a query GraphQL falhar (rate limit, permissão), continuar com `PR_THREADS = null` e avisar no chat.
+Guardar como `PR_THREADS` (dois conjuntos: `open` + `resolved`), com a lista `comments` inteira de
+cada thread (não só o primeiro). Se a query GraphQL falhar (rate limit, permissão), continuar com
+`PR_THREADS = null` e avisar no chat (o Passo 4b abaixo também fica pulado nesse caso).
 
 ### 4. Análise: holístico + specialists reconciliados
 
@@ -327,6 +336,76 @@ Resumo do contrato:
 - **Passo 3 (review-agents.md):** reconciliar `HOLISTIC_REPORT` + `AGENT_REPORT` num único `FINAL_REPORT` (união, dedup por chave `(arquivo, linha/bloco, tema)`, precedência por domínio, mapeamento de severidade para badges conforme `review-legend.md`).
 
 O `FINAL_REPORT` segue o formato `SUMARIO / COMENTARIOS / CHECKLIST / VEREDITO / STATUS / PRIORIDADE`, já com badges textuais.
+
+### 4b. Reverificar threads próprias com réplica pendente (rodada 2+)
+
+Roda **na mesma passada** do Passo 4, sem substituí-lo: o Passo 4 continua achando findings novos
+introduzidos desde a rodada anterior, e este passo é adicional, cobrindo o que a rodada anterior já
+apontou. Pular quando `PR_THREADS == null` (a query do 3b falhou) ou quando não há threads abertas.
+
+**1. Selecionar `SELF_THREADS`.** Filtrar `PR_THREADS.open` pelas duas condições, ambas necessárias:
+
+- o `author.login` do **primeiro comentário** da thread é a conta autenticada (`ME`, calculado no
+  passo 3) — é assim que uma thread aberta por `<HOLISTIC>` aparece no GitHub, já que o Passo 8b posta
+  sempre sob a conta autenticada. Times que publiquem o holístico sob um login de bot próprio estendem
+  este critério comparando também contra esse login, quando o perfil o declarar;
+- há, na lista `comments` da thread, pelo menos um comentário do **autor da PR** (`author.login ==`
+  autor da PR, do passo 3) com `createdAt` **posterior** ao `createdAt` do último comentário de `ME`
+  na mesma thread. É a "réplica desde a última postagem do reviewer" que o critério de aceite pede:
+  sem ela, a thread está simplesmente aguardando o autor, não pronta pra reverificação.
+
+Threads que não passam nas duas condições seguem no fluxo normal (podem ainda virar contexto para o
+Passo 3b do cross-reference, mas não entram neste passo). `SELF_THREADS` vazio → pular o resto deste
+passo, seguir para o Passo 5.
+
+**2. Verificar cada `SELF_THREADS` contra o HEAD atual.** Mesmo mecanismo de fan-out do
+`${FLUX_ROOT}/shared/review-agents.md` já usado no Passo 4 — **não duplicar a lógica de descoberta
+nem de reconciliação, referenciar**. A diferença é só o que se pede a cada lente: em vez de achar
+findings novos, verificar se a alegação original da thread **ainda procede** contra o código atual
+(mesmo princípio do Passo 3 do `${FLUX_ROOT}/skills/iterate/SKILL.md` — "verificar a alegação
+contra o código real", aqui aplicado a threads antigas em vez de comentários novos):
+
+- **2a — Holístico:** Task com `subagent_type: <HOLISTIC>`, passando o lote inteiro de `SELF_THREADS`
+  (incluindo `thread_id`, comentário original + réplica do autor da PR + `databaseId` + `url`) junto
+  com o diff atual, o checkout e `HEAD_SHA`. Pedir o veredito estruturado definido pelo modo de
+  reverificação por thread do Passo 3 de `review-agents.md`. Guardar como `SELF_HOLISTIC_REPORT`.
+- **2b — Specialists:** mesma descoberta e mesmo fan-out do Passo 4 (pulado com `--solo` ou sem
+  specialists), com o mesmo pedido de veredito. Guardar como `SELF_AGENT_REPORT`.
+- Reconciliar os dois em `REVERIFICATION_REPORT` pelo modo de reverificação por thread do Passo 3 de
+  `review-agents.md`.
+
+**3. Gerar um achado por thread verificada.** Cada entrada de `REVERIFICATION_REPORT` vira um finding
+normal em `## 🔎 Findings` (Passo 6), numerado na mesma sequência dos findings do Passo 4 — não uma
+lista à parte. Mapeamento de veredito para badge (vocabulário fechado de
+`${FLUX_ROOT}/shared/review-legend.md`, nenhum badge novo é criado):
+
+| veredito | badge do finding | por quê |
+|---|---|---|
+| `PROCEDE` (correção confirmada) | `praise` | boa prática: o apontamento foi endereçado e a correção se sustenta no código atual |
+| `PROCEDE_PARCIALMENTE` | `question` | falta algo; trava até o autor completar ou esclarecer |
+| `NAO_PROCEDE` | `note` | registra a divergência sem virar bloqueio; a justificativa é o que embasa manter a thread aberta |
+
+O corpo do finding cita `arquivo:linha` do estado atual (permalink no `HEAD_SHA`, mesma disciplina do
+Passo 6), linka a **thread original** pelo `url` já coletado em `PR_THREADS`, e, quando houver commit
+que corrigiu, linka `https://github.com/{owner}/{repo}/commit/{sha}`. Guardar a lista consolidada
+como `REOPEN_CANDIDATES` = `[{thread_id, databaseId, url, veredito, commit_url|null, justificativa|null,
+autor_pr}]`, consumida pelo Step 8b.
+
+**4. Recapitulação.** Logo após `## 📊 Painel de findings` (Passo 6), acrescentar a lista (não uma
+tabela nova — a regra de ouro do painel permanece valendo) `## 🔁 Threads reverificadas`, um item por
+`REOPEN_CANDIDATES`:
+
+```markdown
+## 🔁 Threads reverificadas
+
+> Threads próprias, abertas na rodada anterior, com réplica do autor desde então. Reverificadas
+> contra o HEAD atual nesta rodada.
+
+- [[#f{n} · {rótulo}|f{n}]] — [thread original]({url}) → **{PROCEDE|PROCEDE PARCIALMENTE|NAO PROCEDE}**{, corrigido em [`{sha:0:7}`]({commit_url})}.
+```
+
+`SELF_THREADS` vazio → omitir a seção inteira (não escrever "nenhuma", ela só existe quando há o que
+recapitular).
 
 ### 5. Computar nome do arquivo
 
@@ -365,13 +444,14 @@ Path completo: `<VAULT_ROOT>/0-inbox/{filename}`
 
 Montar o artefato seguindo o **perfil PR** de `${FLUX_ROOT}/shared/review-artifact-template.md`
 — fonte única do formato (frontmatter, linha de metadados, e as seções 🎯 Veredito & prioridades →
-📊 Painel de findings → 🔎 Findings → 📎 Escopo → ✅ Ação → 🔗 Cobertura), com a **disciplina de links**,
-as **regras de escrita** e a **regra de ouro do painel**. Tradução de STATUS e cálculo de `size_*` também
-vivem lá.
+📊 Painel de findings → 🔁 Threads reverificadas (quando houver `REOPEN_CANDIDATES`) → 🔎 Findings →
+📎 Escopo → ✅ Ação → 🔗 Cobertura), com a **disciplina de links**, as **regras de escrita** e a
+**regra de ouro do painel**. Tradução de STATUS e cálculo de `size_*` também vivem lá.
 
 Preencher com os dados coletados (`PR_URL`, `COMMIT_URL`, `TICKET_URL`, `HEAD_SHA`, `IS_OWN_PR`, tabela
 de arquivos, threads/reviews anteriores) + o `FINAL_REPORT` (SUMARIO, COMENTARIOS, CHECKLIST, VEREDITO,
-STATUS, PRIORIDADE). Ao montar:
+STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificação, já incorporados ao
+`FINAL_REPORT` pelo Passo 4b-3, mais a seção recapitulativa do 4b-4). Ao montar:
 
 - Cada finding em `## 🔎 Findings` tem header curto e estável (`### f{n} · {rótulo}`), alvo dos
   wikilinks internos (`[[#f{n} · {rótulo}|f{n}]]`; âncora de Pandoc `{#fN}` não resolve no Obsidian,
@@ -382,6 +462,8 @@ STATUS, PRIORIDADE). Ao montar:
   e a legenda colorida.
 - `## 🎯 Veredito & prioridades` no topo, com cada prioridade linkando pro `#fN` e pro código.
 - Frontmatter enriquecido: `pr_url`, `ticket_url`, `head_sha`, `counts` e `status` (vocabulário novo).
+  `reverified_threads` entra só quando o Passo 4b rodou (com o tamanho de `REOPEN_CANDIDATES`);
+  sem Passo 4b, omitir o campo.
 
 Gravar com a Write tool no caminho calculado (Step 5). Quando `VAULT_ROOT` não estiver definido (perfil
 genérico sem `--save`): imprimir o artefato no chat em vez de gravar; com `--save <dir>`, gravar em
@@ -435,11 +517,14 @@ Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
   1. `Prioridades + praise (Recomendado)` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline. Padrão histórico do usuário.`
   2. `Só prioridades` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE inline. Sem praise.`
   3. `Tudo` — descrição: `Posta todos os comentários do review (request-change, breaking-change, question, suggestion, praise) inline. note nunca vai.`
-  4. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
+  4. **(só quando `REOPEN_CANDIDATES` não está vazio)** `Responder threads reverificadas` — descrição: `Para cada thread própria reaberta com réplica pendente (Passo 4b): posta réplica + reação 👍/👎 + resolve via GraphQL a que procedeu; mantém aberta, com a justificativa, a que não procedeu. Independente de postar review nova.`
+  5. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
 
 > A opção "Recomendado" é a primeira e tem `(Recomendado)` no label.
 > Para rascunhar réplicas às threads abertas da PR, use `${FLUX_CMD}iterate <pr> --dry` (montar com o
 > `FLUX_CMD` do preflight, não com `/flux:` literal).
+> A opção 4 só entra no menu quando o Passo 4b produziu `REOPEN_CANDIDATES`; sem reverificação nesta
+> rodada, o menu tem só as opções 1/2/3 + "Não postar", como antes.
 
 Se o usuário escolher uma opção positiva (1, 2 ou 3), montar a review e postar via `gh api`:
 
@@ -483,6 +568,33 @@ Review postada: {html_url}
 ```
 
 Se o usuário escolher "Não postar" ou cancelar a question, apenas terminar (sem mensagem extra).
+
+Se o usuário escolher a opção 4 (`Responder threads reverificadas`), seguir para **8b-bis** abaixo —
+nada impede escolher 4 numa rodada seguinte depois de já ter postado com 1/2/3 noutra, já que são
+ações independentes sobre coisas diferentes (review nova vs. threads antigas).
+
+#### 8b-bis. Fechar as threads reverificadas do Passo 4b
+
+Só existe quando `REOPEN_CANDIDATES` não está vazio (Passo 4b). **Usa exatamente os três comandos do
+Passo 7 de `${FLUX_ROOT}/skills/iterate/SKILL.md` — reply via `pulls/{n}/comments/<databaseId>/replies`,
+reação via `pulls/comments/<databaseId>/reactions`, resolve via a mutation GraphQL
+`resolveReviewThread` (usar `thread_id`, o NODE id `PRRT_...`, não o `databaseId`) — inclusive a mesma cautela de zsh
+(processar um id por vez; passar a lista inteira concatenada devolve `NOT_FOUND`). Não redigitar os
+comandos aqui: o que este passo acrescenta é só a decisão de QUANDO usar cada um**, conforme o veredito
+do Passo 4b:
+
+| veredito | réplica | reação | resolve? |
+|---|---|---|---|
+| `PROCEDE` | confirma a correção, cita `arquivo:linha` do estado atual e o commit (`commit_url`, se houver) | 👍 (`+1`) | **sim** |
+| `PROCEDE_PARCIALMENTE` | reconhece o que foi corrigido e nomeia o que falta, sem fechar o assunto | 👍 (`+1`) | **não** — fica aberta, pendente do restante |
+| `NAO_PROCEDE` | defende por que a thread segue aberta, com a `justificativa` do Passo 4b | 👎 (`-1`) | **não** — fica aberta, com a justificativa registrada |
+
+Réplica sempre em PT-BR, com acentuação correta, sem em-dash quando `NO_EMDASH == true`. Ao final,
+responder no chat:
+
+```
+Threads reverificadas: {n} procedem (resolvidas) · {n} parciais (mantidas abertas) · {n} não procedem (mantidas abertas, com justificativa).
+```
 
 #### 8c. Aplicar correções (modo PR própria)
 

@@ -8,6 +8,14 @@
 > Isto substitui o antigo pipeline `--agents-on` / benchmark mode: os agentes agora rodam **por
 > default**, e em vez de *comparar* baseline vs agents o fluxo **reconcilia** as duas revisões numa só.
 
+> **Este contrato serve dois usos, não só um.** O `flux:review` (Passo 4) e o `flux:iterate` (Passo 3)
+> despacham as mesmas lentes pela mesma mecânica para achar findings **novos**. O `flux:review`
+> (Passo 4b) despacha as mesmas lentes, pela mesma descoberta e pela mesma reconciliação, para uma
+> pergunta diferente: **uma alegação já feita antes ainda procede contra o código de agora?** Muda o
+> que se pede a cada lente (veredito sobre um ponto antigo, não achado sobre o diff inteiro); não muda
+> como se descobre quem responde nem como as respostas se reconciliam. Um consumidor novo pede o
+> mesmo dos dois jeitos: descoberta e reconciliação vivem aqui, o resto é específico de quem despacha.
+
 ## Princípio
 
 Toda review madura soma **três lentes**, e elas são cumulativas: nenhuma substitui a outra.
@@ -440,6 +448,20 @@ O `FINAL_REPORT` resultante segue o mesmo formato de output do reviewer holísti
 `SUMARIO / COMENTARIOS / CHECKLIST / VEREDITO / STATUS / PRIORIDADE`). **O corpo de cada finding
 reconciliado abre com o banner-imagem do badge** (ver `${FLUX_ROOT}/shared/review-legend.md` — Banner do
 badge: é imagem `[![...]...]`, nunca link de texto `[...]()`, senão sai sem cor na PR).
+
+### Modo de reverificação por thread
+
+Quando o consumidor pede um veredito sobre threads já abertas, em vez de findings novos do diff, usa
+o mesmo fan-out e as mesmas regras de precedência deste Passo 3 com a unidade de trabalho explícita
+`thread_id` (o NODE ID da `reviewThread`). Cada lente recebe, por thread, `thread_id`, `databaseId`,
+comentário original, réplica do autor e o estado atual do código; devolve por `thread_id`:
+`{veredito: PROCEDE|PROCEDE_PARCIALMENTE|NAO_PROCEDE, fundamento com arquivo:linha, commit_url|null,
+justificativa|null}`.
+
+Na reconciliação, relatórios sobre o mesmo `thread_id` são a mesma unidade: aplicar união, precedência
+por domínio e os desempates deste Passo 3, preservando a proveniência. O resultado contém exatamente
+uma entrada por thread selecionada e preserva `thread_id` e `databaseId`, para que o consumidor possa
+responder e, quando aplicável, chamar `resolveReviewThread` sem tentar derivar o ID GraphQL do ID REST.
 
 ## Passo 4 — Cobertura (substitui a seção Benchmark)
 

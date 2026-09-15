@@ -72,6 +72,7 @@ status: "{approved | approved-with-suggestions | approved-with-questions | reque
 head_sha: "{sha completo do head}"
 date: "{YYYY-MM-DD}"
 counts: { request-change: N, breaking-change: N, question: N, suggestion: N, praise: N, note: N }
+reverified_threads: {N ou omitir quando o Passo 4b não rodou}  # quantas threads próprias foram reverificadas nesta rodada
 pipeline: "flux:review (holistico {HOLISTIC} + specialists {lista}, reconciliados)"
 tags: [pr-review, {repo-slug}, {area-opcional}, {ticket-slug}]
 provenance:
@@ -119,6 +120,18 @@ linkam pro finding `#fN` e pro código.)
 |---|-------|-------|--------|-----------|
 | [[#f1 · footer só publicado\|f1]] | [![question]({img})]({link}) | [`RecordEdit/index.tsx:74`]({permalink}) | footer só publicado | trava até responder |
 | [[#f2 · fidelidade do mock\|f2]] | [![suggestion]({img})]({link}) | [`...test.tsx:96`]({permalink}) | mock perde fidelidade | não |
+
+## 🔁 Threads reverificadas
+
+> Só entra quando o `flux:review` reverificou threads próprias (rodada anterior) com réplica pendente
+> do autor da PR (`${FLUX_ROOT}/skills/review/SKILL.md`, Passo 4b). Achado da reverificação é finding
+> normal, numerado junto com os demais em `## 🔎 Findings` — esta seção é só a recapitulação
+> rastreável por thread, **não** uma segunda tabela de findings (a regra de ouro do painel continua
+> valendo). Sem reverificação nesta rodada, omitir a seção inteira.
+
+- [[#f3 · correção confirmada\|f3]] — [thread original](https://github.com/acme/repo/pull/790#discussion_r123) → **PROCEDE**, corrigido em [`a1b2c3d`](https://github.com/acme/repo/commit/a1b2c3d...).
+- [[#f4 · correção parcial\|f4]] — [thread original](https://github.com/acme/repo/pull/790#discussion_r124) → **PROCEDE PARCIALMENTE**.
+- [[#f5 · alegação original mantida\|f5]] — [thread original](https://github.com/acme/repo/pull/790#discussion_r125) → **NAO PROCEDE**.
 
 ## 🔎 Findings
 
