@@ -8,6 +8,14 @@
 > Isto substitui o antigo pipeline `--agents-on` / benchmark mode: os agentes agora rodam **por
 > default**, e em vez de *comparar* baseline vs agents o fluxo **reconcilia** as duas revisões numa só.
 
+> **Este contrato serve dois usos, não só um.** O `flux:review` (Passo 4) e o `flux:iterate` (Passo 3)
+> despacham as mesmas lentes pela mesma mecânica para achar findings **novos**. O `flux:review`
+> (Passo 4b) despacha as mesmas lentes, pela mesma descoberta e pela mesma reconciliação, para uma
+> pergunta diferente: **uma alegação já feita antes ainda procede contra o código de agora?** Muda o
+> que se pede a cada lente (veredito sobre um ponto antigo, não achado sobre o diff inteiro); não muda
+> como se descobre quem responde nem como as respostas se reconciliam. Um consumidor novo pede o
+> mesmo dos dois jeitos: descoberta e reconciliação vivem aqui, o resto é específico de quem despacha.
+
 ## Princípio
 
 Toda review madura soma **três lentes**, e elas são cumulativas: nenhuma substitui a outra.
