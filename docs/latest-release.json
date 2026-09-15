@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.31.0",
+    "tag": "v1.31.0",
+    "published_at": "2026-09-15T21:24:30Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.31.0",
+    "summary": {
+      "en": "✨ release: v1.31.0 — reverificar threads próprias abertas na rodada 2",
+      "pt": "✨ release: v1.31.0 — reverificar threads próprias abertas na rodada 2"
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.30.3",
     "tag": "v1.30.3",
     "published_at": "2026-09-14T18:59:49Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "Boards and reviews now record which session and machine wrote them.",
       "pt": "Boards e reviews agora registram qual sessão e máquina os escreveu."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.30.2",
-    "tag": "v1.30.2",
-    "published_at": "2026-09-11T23:15:29Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.30.2",
-    "summary": {
-      "en": "🔖 release: v1.30.2: carimbo de data dos boards vem de date real",
-      "pt": "🔖 release: v1.30.2: carimbo de data dos boards vem de date real"
     },
     "changelog_source": "tag_message"
   },
