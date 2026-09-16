@@ -320,8 +320,19 @@ de `${FLUX_ROOT}/shared/board-template.md` (`type: flux-build`).
 
 1. **Path:** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-build-<repo-slug>-<slug-do-ticket>.md`.
    **Anunciar o path no chat** na criação, como fazem os outros elos.
-2. **Frontmatter:** `repo`, `ticket`, `engine`, `engine_kind` (`nativo`/`fallback`), `worktree`,
-   `branch`, `pr: null`.
+2. **Frontmatter:** herda o bloco comum aos cinco perfis do `board-template.md` inteiro (`title`,
+   `date`, `updated`, `type: flux-build`, `context`, `pending_organize: true`, `tags: [board, build,
+   orchestration]` e `provenance` com `machine`/`invocation`/`generator: "flux-build"`/`captured_at`),
+   mais os campos específicos do perfil execução: `repo`, `ticket`, `engine`, `engine_kind`
+   (`nativo`/`fallback`), `worktree`, `branch`, `pr: null`, `scope`, `iterate_board: null`. Montar o
+   frontmatter olhando a seção **Frontmatter** do `board-template.md` diretamente, nunca só esta lista
+   resumida — ela existe para nomear a diferença, não para substituir o gabarito completo.
+   > **`provenance.generator` não é opcional.** Sem ele, o board fica de fora de qualquer indexação de
+   > sessão do dia que dependa desse campo (ex.: o painel "sessões de hoje" de um vault Obsidian que
+   > filtra por `generator?.startsWith("flux-")`) — o arquivo continua listado no inbox geral, mas some
+   > da lista que mais importa para quem acompanha o build em andamento. Achado em produção: um board de
+   > `flux:build` nasceu só com `machine`/`invocation` em `provenance`, sem `generator` nem
+   > `captured_at`, e não apareceu nas sessões do dia até a correção manual.
 3. **Painel:** uma linha por etapa do motor, todas nascendo `⏳ pendente`:
    `contexto lido · plano · implementação · checks · PR`. Um motor nativo com etapas próprias
    sobrescreve essa lista pelas dele, quando as declarar no retorno.
