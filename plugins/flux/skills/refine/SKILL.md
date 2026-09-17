@@ -87,7 +87,7 @@ saber com que lente ele foi apurado.
 
 **A linha `escopo` aparece no primeiro banner com o veredito de T0** e é **reemitida com o de T1**,
 quando ele existir. Um banner que mostrasse só o T0 e nunca fosse corrigido é pior que nenhum: o
-número que vale é o apurado. Quando o Caminho grill resolve o sinal duro e reaplica o T0 (ver "Step 2
+número que vale é o apurado. Quando o Caminho grill resolve o sinal duro e produz o T0 intermediário (ver "Step 2
 — T0" e "Caminho grill", abaixo), a linha `escopo` é reemitida mais uma vez ali, com os sinais entre
 parênteses já mostrando o sinal resolvido — é o mesmo princípio, aplicado ao veredito intermediário
 que o grill produz antes do T1.
@@ -108,7 +108,7 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:refine`
 | `--repo <slug>` | Fixa o repo alvo em vez de inferir do pedido. Repetível para dois repos. |
 | `--dry` | Roda T0 e o diagnóstico, imprime o veredito de escopo e o plano de prospecção, e **para**. Nada é prospectado, nada é escrito. |
 | `--no-prd` | Pula o PRD e produz só TRD + plano. Para pedido cujo "porquê" já está decidido e escrito. |
-| `--grill` | Quando o sinal duro "decisão de produto em aberto sem dono" dispara o gate de escopo (ou explicitamente, sobre um pedido que carregue esse mesmo tipo de gap), busca evidência real de alternativas e abre um GATE para o usuário decidir, em vez de ir direto para o Caminho vermelho. Ver "Step 2 — T0" e "Caminho grill", abaixo. Num pedido já 🟢 ou 🟡 é sempre no-op declarado. |
+| `--grill` | Documenta a intenção no comando. O Caminho grill (ver "Step 2 — T0", abaixo) já roda automaticamente sempre que o único motivo do 🔴 é o sinal duro "decisão de produto em aberto sem dono" — com ou sem esta flag. Passá-la não muda o comportamento em nenhum caso: fora daquele gatilho específico, é ignorada em silêncio. Incompatível com `--dry` (ver "Step 2 — T0"): sob `--dry`, o Caminho grill não roda, com ou sem `--grill`. |
 
 **Não existe flag que force um escopo 🔴 a ser refinado.** O motivo está em
 `${FLUX_ROOT}/shared/scope-gate.md`, "Vermelho no `flux:refine` não tem override": a saída é cortar o
@@ -170,86 +170,84 @@ recusar antes de a pergunta importar. A pergunta acontece no Step 3, quando ela 
 Aplicar `${FLUX_ROOT}/shared/scope-gate.md`, tempo **T0**, lendo só o `REQUEST`. **Sem nenhuma
 chamada de agente** — é leitura de texto, e o contrato proíbe medir com fan-out.
 
-- **🔴 já em T0, e "decisão de produto em aberto sem dono" é o ÚNICO sinal duro presente** (ou
-  `--grill` foi passado explicitamente sobre um pedido com esse mesmo tipo de gap, mesmo que o gate
-  não tenha disparado por ele) → **Caminho grill**, abaixo, em vez de ir direto para o Caminho
-  vermelho. Sinal duro **acompanhado** de outro sinal duro, mesmo sendo um deles a decisão em aberto,
-  segue direto para o Caminho vermelho: os outros sinais duros (≥3 repos, migração irreversível,
-  contrato público quebrado) não têm ramo de grill, e evidência de alternativa não resolve um pedido
-  que também precisa mexer em três repos.
-- **🔴 já em T0, por qualquer outro motivo** (outro sinal duro sozinho, decisão em aberto acompanhada
-  de outro sinal duro, ou ≥2 sinais moles) → ir direto para o **Caminho vermelho**, abaixo. Não abrir
-  board, não prospectar. Um pedido que bate 🔴 na entrada não encolhe com apuração.
-- **🟢 ou 🟡, com `--grill` passado** → sempre no-op, mesmo que o pedido mencione uma escolha em
-  aberto no texto. `--grill` só abre o gap que o próprio gate de escopo já identificou como sinal
-  duro; ele não inventa um gate sobre um pedido que já cabe. Declarar o no-op numa linha do banner
-  (junto a `degradacoes:`) e seguir o fluxo normal, abaixo.
-- **🟢 ou 🟡, sem `--grill`** → emitir o banner com a linha `escopo` e seguir.
+- **🔴 já em T0, e removendo o sinal duro "decisão de produto em aberto sem dono" o veredito deixaria
+  de ser 🔴** (ou seja: esse sinal é a única coisa segurando o vermelho, sem outro sinal duro
+  concorrente e com no máximo 1 sinal mole) → **Caminho grill**, abaixo, em vez de ir direto para o
+  Caminho vermelho. Com `--dry`, ver a ressalva logo adiante: o grill não roda mesmo neste caso.
+- **🔴 já em T0, por qualquer outro motivo** (o sinal da decisão em aberto acompanhado de outro sinal
+  duro, outro sinal duro sozinho, ou ≥2 sinais moles) → ir direto para o **Caminho vermelho**, abaixo.
+  Não abrir board, não prospectar. Um pedido que bate 🔴 na entrada não encolhe com apuração.
+- **🟢 ou 🟡** → emitir o banner com a linha `escopo` e seguir o fluxo normal, abaixo. `--grill`,
+  presente ou não, não muda nada aqui (ver a tabela de flags).
 
-O veredito de T0 é **provisório** em todos os quatro casos acima e será reemitido em T1 — inclusive
-quando o Caminho grill resolveu o sinal duro e reaplicou o T0 (ver item 4 do Caminho grill, abaixo).
+O veredito de T0 é **provisório** em todos os três casos acima e será reemitido em T1 — inclusive
+quando o Caminho grill resolveu o sinal duro e produziu o T0 intermediário (ver item 4 do Caminho
+grill, abaixo).
 
-Com `--dry`, parar aqui: imprimir o veredito, os sinais lidos e quais repos seriam prospectados. Isto
-vale também com `--grill` presente: `--grill --dry` imprime que o Caminho grill dispararia, as
-alternativas que ele levantaria e a evidência de cada uma, mas **não abre o GATE e não escreve nada**
-— mesmo contrato de `--dry` sozinho ("nada é prospectado, nada é escrito"), só que agora aplicado
-também ao passo de evidência do grill.
+**Com `--dry`, parar aqui, sempre — inclusive quando o primeiro bullet acima dispararia o Caminho
+grill.** Imprimir o veredito, os sinais lidos, e que o Caminho grill seria o próximo passo (nomeando
+o gap, sem buscar evidência nem abrir GATE). Nada é prospectado, nada é escrito, nada é perguntado.
 
 ### Caminho grill — decidir com evidência antes de recusar
 
-Disparado por 🔴 em T0 no sinal duro "decisão de produto em aberto sem dono", ou por `--grill`
-passado explicitamente sobre um pedido que carrega esse mesmo tipo de gap: uma escolha não tomada, e
-o pedido não nomeia quem a toma. Sem esse gap específico, `--grill` cai no no-op descrito acima —
-grill nunca inventa uma decisão em aberto que o pedido não tem.
+Disparado por 🔴 em T0 quando "decisão de produto em aberto sem dono" é a única coisa segurando o
+vermelho (critério exato no bullet acima): uma escolha não tomada, e o pedido não nomeia quem a toma.
 
 1. **Nomear o gap**, exatamente como o Caminho vermelho nomearia: qual escolha está em aberto e por
    que o pedido não decide sozinho.
-2. **Buscar evidência real por alternativa**, sem prospecção completa (isto não é o Step 4, e não
-   dispara fan-out): grep no(s) repo(s) do domínio citados no pedido por uma ferramenta ou padrão
-   equivalente já existente, e checar doc relacionado quando houver (`shared/`, README, ADR
-   referenciado). Cada alternativa levantada carrega a evidência que a sustenta (`arquivo:linha` ou
-   caminho de doc); na ausência de achado, a alternativa entra como "sem evidência forte encontrada"
-   — **nunca inventar motivo** para preencher a lacuna.
+2. **Buscar evidência real por alternativa.** As alternativas em si vêm do que o próprio `REQUEST` já
+   menciona ou implica — grill nunca inventa uma alternativa que o pedido não sugeriu. Para cada uma,
+   buscar evidência real, sem prospecção completa (isto não é o Step 4, e não dispara fan-out): grep
+   no(s) repo(s) do domínio citados no pedido por uma ferramenta ou padrão equivalente já existente, e
+   checar doc relacionado quando houver (`shared/`, README, ADR referenciado). Achou, a alternativa
+   carrega a evidência (`arquivo:linha` ou caminho de doc); não achou, ela entra como "sem evidência
+   forte encontrada" — **nunca inventar motivo** para preencher a lacuna. O GATE do item 3 abre do
+   mesmo jeito nos dois casos: mesmo com todas as alternativas sem evidência, é informação real (nenhum
+   precedente existe) que o usuário decide com mais contexto do que tinha antes.
 
    **Sem repo resolvido, ou sem checkout local.** O Step 1 permite chegar ao T0 sem `TARGET_REPOS`
    (pedido cru, repo ainda não perguntado — a pergunta só acontece no Step 3), e `checkout_local` é
-   `soft` no frontmatter deste skill. Nos dois casos o grep deste passo simplesmente não tem onde
-   rodar: **todas** as alternativas entram como "sem evidência forte encontrada" (não é erro, é o
-   resultado correto quando não há terreno pra apurar), e a ausência de repo/checkout vira token em
-   `degradacoes:` no banner (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) — o mesmo tratamento que
-   qualquer outro `soft` ausente já recebe, mesmo este passo não passando pelo fan-out de
-   `review-agents.md`.
+   `soft` no frontmatter deste skill. Nos dois casos o grep simplesmente não tem onde rodar: todas as
+   alternativas caem no caso "sem evidência forte encontrada" acima, e a ausência de repo/checkout é
+   declarada em prosa junto de `degradacoes:` no banner (`${FLUX_ROOT}/shared/preflight.md`, Passo 5)
+   — mesmo tratamento que qualquer outro `soft` ausente recebe, mesmo este passo não passando pelo
+   fan-out de `review-agents.md`.
 3. **Abrir um GATE** (`${FLUX_ROOT}/shared/hitl.md`, "Como perguntar" — protocolo não repetido aqui):
    uma opção por alternativa, com a evidência (ou a ausência dela) na descrição, e a saída inócua
-   ("nenhuma das opções, seguir para a recusa") por último. Quando a evidência apontar uma alternativa
-   com mais força, ela é a recomendada e leva `(Recomendado)` no label, como todo gate da família; sem
-   uma alternativa claramente mais forte, nenhuma opção leva o label, e a ordem segue a da apuração.
+   ("nenhuma das opções, seguir para a recusa") por último. A primeira opção é sempre a recomendada e
+   leva `(Recomendado)` no label, como todo gate da família (`hitl.md` não abre exceção pra isso):
+   quando a evidência apontar uma alternativa com mais força, é ela; sem uma mais forte, a primeira
+   na ordem de apuração.
 4. **Usuário escolhe uma alternativa** → primeiro garantir que o board de exploração existe: se o
-   Caminho grill chegou até aqui antes do Step 3 ter rodado, **executar o Step 3 agora** (abrir ou
-   retomar o board, antes de gravar) — é a mesma disciplina do Step 3, só antecipada porque a decisão
-   precisa de um lugar para ficar. Registrar a decisão como linha nova na Timeline de Eventos do board
-   (perfil exploração, `${FLUX_ROOT}/shared/board-template.md`), tipo `decisão`, citando a opção
-   escolhida e a evidência que a sustentou. Não criar seção nova no board: o campo já existe para
-   isto. Sem `VAULT_ROOT` (perfil genérico), a mesma degradação do Step 3 se aplica: a decisão sai só
-   no chat, declarada no banner.
+   Caminho grill chegou até aqui antes do Step 3 ter rodado, **abrir ou retomar o board agora** (só
+   essa parte do Step 3 — a pergunta de repo, quando o Step 3 tiver uma, continua adiada para quando
+   o fluxo normal chegar lá de verdade; o grill nunca antecipa essa pergunta). Registrar duas linhas
+   novas na Timeline de Eventos do board (perfil exploração, `${FLUX_ROOT}/shared/board-template.md`):
+   tipo `decisão`, citando a opção escolhida e a evidência que a sustentou; e tipo `escopo`, com o
+   veredito de T0 mudando de 🔴 para o que ele vira a seguir. Não criar seção nova no board: os dois
+   tipos já existem para isto. Sem `VAULT_ROOT` (perfil genérico), a mesma degradação do Step 3 se
+   aplica: as duas linhas saem só no chat, declaradas no banner.
 
    Incorporar a decisão ao `REQUEST` (como adendo, não como substituição) antes de prosseguir — é o
    que impede o T1, mais adiante, de reler o `REQUEST` original e achar o mesmo gap de novo. O sinal
    duro que disparou o gate está resolvido — **reaplicar o gate de escopo normalmente** a partir daqui
-   (T0 imediato e, depois, T1), com os sinais moles restantes ainda valendo. O pedido pode sair 🟢, 🟡
-   ou 🔴 de novo, por motivo diferente, e nesse caso o fluxo normal do skill (seguir, ou Caminho
-   vermelho de novo) se aplica sem mudança nenhuma — reemitindo a linha `escopo` do banner com o novo
-   veredito, como qualquer reavaliação de T0.
-5. **Usuário escolhe "nenhuma das opções"** → cai no Caminho vermelho normal (recusa), sem fatiar. Se
-   o Step 3 já rodou (item 4 acima chegou a abrir board antes desta escolha), o board fica com a
-   tentativa registrada; se não, nenhum board nasce, igual a qualquer outra recusa em T0. Grill
-   ofereceu evidência; não decidiu por ninguém, e recusar continua sendo um resultado legítimo.
+   (T0 intermediário e, depois, T1), com os sinais moles restantes ainda valendo. Pela própria
+   definição do bullet que disparou o grill (sem outro sinal duro, no máximo 1 mole), este T0
+   intermediário não pode dar 🔴 de novo por conta própria — só o T1, mais adiante, com sinais
+   medidos em vez de estimados, ou um sinal novo que o próprio adendo da decisão introduza (ex.: a
+   alternativa escolhida implica um terceiro repo). Reemitir a linha `escopo` do banner com o veredito
+   do T0 intermediário.
+5. **Usuário escolhe "nenhuma das opções"** → cai no Caminho vermelho normal (recusa), sem fatiar.
+   Nenhum board nasce (o item 4, que abriria board, não roda nesta escolha), igual a qualquer outra
+   recusa em T0. Grill ofereceu evidência; não decidiu por ninguém, e recusar continua sendo um
+   resultado legítimo.
 
 **Fora de escopo deste ramo:** grill nunca decide sozinho, o gate sempre para e espera o usuário; não
 substitui os specialists de código do Step 4 (a busca aqui é rasa, focada só na alternativa que
 falta, não é a prospecção embasada do resto do artefato); não é um modo de review de PR; e não
-encadeia fatia-por-fatia sozinho — resolvida a decisão, este elo devolve ao T0/T1 normal e para ali,
-como qualquer outro caminho do skill.
+encadeia fatia-por-fatia sozinho. Resolvida a decisão, o Caminho grill em si termina ali — o que segue
+é o fluxo normal do skill a partir do T0 intermediário (seguir adiante, ou Caminho vermelho de novo),
+exatamente como qualquer pedido que nunca passou pelo grill.
 
 ---
 

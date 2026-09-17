@@ -178,9 +178,12 @@ que falha visivelmente, em worktree, sem produzir documento que engane ninguém 
 acima proíbe. A diferença é o que cada um faz com o vermelho: forçar refinaria um pedido que ainda não
 cabe, produzindo o artefato raso descrito acima; grill **resolve, antes de medir de novo**, o sinal
 duro específico "decisão de produto em aberto sem dono" — buscando evidência de alternativas e
-abrindo um GATE (`${FLUX_ROOT}/shared/hitl.md`) para o usuário decidir — e só então reaplica o gate de
-escopo (T0, e depois T1) sobre o pedido já sem aquele gap. O pedido pode continuar 🔴 depois disso,
-por outro sinal, e cai na recusa normal.
+abrindo um GATE (`${FLUX_ROOT}/shared/hitl.md`) para o usuário decidir — e só então remede o gate de
+escopo (o **T0 intermediário**, e depois T1) sobre o pedido já sem aquele gap. Pela própria condição
+de disparo (esse sinal como único duro, com no máximo 1 mole), o T0 intermediário não pode dar 🔴 de
+novo sozinho; quem pode é o T1, com sinais medidos, ou um sinal novo que a própria decisão introduza
+(ex.: a alternativa escolhida implica um terceiro repo) — e aí cai na recusa normal, como qualquer
+outro 🔴.
 
 A carve-out vale só para esse único sinal: os outros três sinais duros (≥3 repos, migração
 irreversível, contrato público quebrado) não têm ramo de grill, porque nenhuma evidência de
@@ -222,7 +225,8 @@ e o que os contém:
   o usuário rebate em uma linha, não recomeça.
 - **Falso verde** — um pedido curto que esconde trabalho grande ("só trocar o provider de auth").
   Nenhum sinal textual pega isso. Quem pega é o T1, com a prospecção na mão, e é por isso que o
-  `flux:refine` roda o gate **duas vezes** em vez de confiar no T0.
+  `flux:refine` roda o gate **duas vezes** em vez de confiar no T0 (três, quando o Caminho grill
+  insere o T0 intermediário — ver "O Caminho grill do `flux:refine`", abaixo).
 - **Limiares errados** — os números (3 repos, 8 slices, 3 diretórios) vieram de um caso real e de
   uma leitura da família, não de uma amostra. Eles vão estar errados para alguém. Por isso a
   invariante 3 existe: sem o registro de cada disparo e de cada dispensa, não há como corrigi-los
