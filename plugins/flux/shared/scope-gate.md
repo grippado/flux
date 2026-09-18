@@ -51,7 +51,7 @@ Nem todo consumidor tem os dois tempos:
 
 | consumidor | tempos | por quê |
 |---|---|---|
-| `flux:refine` | T0 **e** T1 | ele **produz** a apuração, então tem um antes e um depois |
+| `flux:refine` | T0 **e** T1, mais um **T0 intermediário** quando o Caminho grill resolve o sinal duro "decisão de produto em aberto sem dono" e remede antes do T1 | ele **produz** a apuração, então tem um antes e um depois; o grill insere um "antes" a mais, sem criar um terceiro tempo novo — é o mesmo T0, medido de novo com um sinal a menos |
 | `flux:build` | passe único | ele **recebe** o embasamento pronto no corpo da issue (Step 2-ter), então os dois insumos chegam juntos e não há intervalo entre eles |
 
 Um consumidor de passe único aplica a tabela inteira de uma vez. Não existe "meio gate".
@@ -124,7 +124,7 @@ sai como texto vago é um verde mentiroso.
 |---|---|---|
 | 🟢 | roda a rodada inteira | despacha direto |
 | 🟡 | roda e **declara por nome** o que ficou de fora do artefato | abre gate oferecendo fatiar, com **corte proposto** |
-| 🔴 | **recusa**, e entrega o pré-refinamento | abre gate com o corte proposto e a fatia 1 recomendada |
+| 🔴 | **recusa**, e entrega o pré-refinamento — exceto no caso coberto por "O Caminho grill do `flux:refine`", abaixo | abre gate com o corte proposto e a fatia 1 recomendada |
 
 ### O gate propõe o corte, não só sinaliza
 
@@ -172,6 +172,25 @@ No `flux:build` é diferente, e lá o override existe (`--no-slice`): despachar 
 que falha visivelmente, em worktree, sem produzir documento que engane ninguém depois. A dispensa
 **vira evento no board**, com os sinais que o gate tinha apurado.
 
+### O Caminho grill do `flux:refine` — resolver o sinal, não forçar o gate
+
+`--grill` (`${FLUX_ROOT}/skills/refine/SKILL.md`, "Caminho grill") **não é** o override que a seção
+acima proíbe. A diferença é o que cada um faz com o vermelho: forçar refinaria um pedido que ainda não
+cabe, produzindo o artefato raso descrito acima; grill **resolve, antes de medir de novo**, o sinal
+duro específico "decisão de produto em aberto sem dono" — buscando evidência de alternativas e
+abrindo um GATE (`${FLUX_ROOT}/shared/hitl.md`) para o usuário decidir — e só então remede o gate de
+escopo (o **T0 intermediário**, e depois T1) sobre o pedido já sem aquele gap. Pela própria condição
+de disparo (esse sinal como único duro, com no máximo 1 mole), o T0 intermediário não pode dar 🔴 de
+novo sozinho; quem pode é o T1, com sinais medidos, ou um sinal novo que a própria decisão introduza
+(ex.: a alternativa escolhida implica um terceiro repo) — e aí cai na recusa normal, como qualquer
+outro 🔴.
+
+A carve-out vale só para esse único sinal: os outros três sinais duros (≥3 repos, migração
+irreversível, contrato público quebrado) não têm ramo de grill, porque nenhuma evidência de
+alternativa resolve um pedido que precisa mexer em três repos. E vale só quando ele é o **único**
+sinal duro presente — acompanhado de qualquer outro sinal duro, ou com ≥2 sinais moles, o pedido segue
+para a recusa normal como sempre.
+
 ## Como o veredito é declarado
 
 Elo que roda este gate acrescenta **uma linha ao banner de perfil**
@@ -206,7 +225,8 @@ e o que os contém:
   o usuário rebate em uma linha, não recomeça.
 - **Falso verde** — um pedido curto que esconde trabalho grande ("só trocar o provider de auth").
   Nenhum sinal textual pega isso. Quem pega é o T1, com a prospecção na mão, e é por isso que o
-  `flux:refine` roda o gate **duas vezes** em vez de confiar no T0.
+  `flux:refine` roda o gate **duas vezes** em vez de confiar no T0 (três, quando o Caminho grill
+  insere o T0 intermediário — ver "O Caminho grill do `flux:refine`", acima).
 - **Limiares errados** — os números (3 repos, 8 slices, 3 diretórios) vieram de um caso real e de
   uma leitura da família, não de uma amostra. Eles vão estar errados para alguém. Por isso a
   invariante 3 existe: sem o registro de cada disparo e de cada dispensa, não há como corrigi-los
