@@ -80,6 +80,7 @@ provenance:
   invocation: "<comando que gerou esta review, ex: '/flux:review 5'>"
   generator: "flux-review"
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `date:`, ver board-template.md
+  session_sources: ["<path do .jsonl>", "..."]  # ver board-template.md, seção "Bloco provenance"; [] quando não há candidato
 ---
 ```
 
