@@ -213,6 +213,7 @@ provenance:
   invocation: "<comando que gerou este board, ex: '/flux:build flux LAB-149'>"
   generator: "<verbo que abriu o board: flux-build | flux-iterate | flux-land | flux-issue | flux-reply | flux-probe | flux-refine>"
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
+  session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
 ---
 ```
 
@@ -237,6 +238,24 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
   Disciplina de carimbo de data) — uma leitura só, nunca estimativa, e nunca ISO8601: a disciplina de
   relógio deste arquivo não produz ISO8601, e inventar uma conversão de cabeça é o mesmo modo de falha
   que a Disciplina de carimbo de data existe para eliminar.
+- **`session_sources`**: lista de **paths absolutos** para as transcripts de sessão (`.jsonl`)
+  candidatas a terem gerado este board — mesmo campo e mesmo formato de valor (path absoluto, não
+  UUID solto) que o `/context-save` do usuário já grava, e que permite a um pipeline de leitura
+  externo linkar a nota à sessão que a produziu. Resolvido no mesmo Step 0:
+  1. Localizar o diretório de transcripts do `cwd` atual em `~/.claude/projects/<cwd-codificado>/`,
+     usando a mesma codificação de path que o Claude Code usa para nomear esse diretório (`/` vira
+     `-`, prefixado com `-Users-...`).
+  2. Listar os `.jsonl` desse diretório com mtime nas últimas 48h.
+  3. Descartar os que já estejam referenciados em alguma nota `.md` do vault — o identificador de
+     cada transcript é o próprio nome do arquivo sem extensão (um UUID), e como esse UUID é
+     substring do path absoluto que uma nota anterior teria gravado em `session_sources`, o teste é
+     `grep -rl "<uuid-do-arquivo>" <VAULT_ROOT>`. `VAULT_ROOT` vem do perfil de contexto resolvido no
+     Step 0 (ver `flux-context.md`); este repo não hardcoda o path do vault de ninguém.
+  4. Gravar o **path absoluto completo** de cada `.jsonl` restante como item da lista, na ordem em
+     que foram encontrados — múltiplos candidatos não exigem desempate manual, viram lista, igual ao
+     precedente do `/context-save`.
+  5. Nenhum candidato (perfil genérico sem `VAULT_ROOT`, `cwd` sem diretório de transcripts, ou todos
+     já referenciados): gravar `session_sources: []`.
 
 Board antigo sem este bloco continua válido: o campo é aditivo, e ferramentas que o leem devem tratar
 ausência como "não informado", nunca como erro.
