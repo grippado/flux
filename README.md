@@ -267,11 +267,15 @@ então a prospecção acontece uma vez só. E ele **mede o escopo antes de traba
 demais para uma rodada é recusado com o corte proposto, em vez de virar um refinamento raso com
 aparência de completo. O contrato do gate é o [`scope-gate.md`](plugins/flux/shared/scope-gate.md).
 
-Quando o único motivo do 🔴 é uma decisão de produto em aberto sem dono, o **Caminho grill** entra no
-lugar da recusa seca: busca evidência real de alternativas (precedente no código, ferramenta
-equivalente já existente, doc relacionado) e abre um gate para você decidir, em vez de só nomear o
-gap. A decisão fica registrada na Timeline do board, e o escopo é medido de novo a partir dali. Roda
-automaticamente sempre que o gatilho bate; `--grill` só documenta a intenção no comando.
+Quando o gatilho "decisão de produto em aberto sem dono" do
+[`scope-gate.md`](plugins/flux/shared/scope-gate.md) é o único sinal duro do 🔴, sem outro sinal duro
+concorrente e com no máximo 1 sinal mole, o **Caminho grill** entra no lugar da recusa seca: busca
+evidência real das alternativas que o pedido sugere (precedente no código, ferramenta equivalente já
+existente, doc relacionado) e abre um gate para você decidir; sem alternativa sugerida, ele nomeia o
+gap e segue para o Caminho vermelho normal, sem gate. A decisão fica registrada na Timeline do board
+(ou só no chat, em perfil sem `VAULT_ROOT`), e o escopo é medido de novo a partir dali. Roda
+automaticamente sempre que o gatilho bate, exceto sob `--dry`, que para no veredito e só nomeia o
+gap; `--grill` só documenta a intenção no comando.
 
 O [`flux:probe`](plugins/flux/skills/probe/SKILL.md) é o **outro ramo opcional da entrada**, e o único
 que começa antes de existir um pedido. Bug de produção não chega refinável: chega como um link, um
