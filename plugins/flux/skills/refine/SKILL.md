@@ -108,7 +108,7 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:refine`
 | `--repo <slug>` | Fixa o repo alvo em vez de inferir do pedido. Repetível para dois repos. |
 | `--dry` | Roda T0 e o diagnóstico, imprime o veredito de escopo e o plano de prospecção, e **para**. Nada é prospectado, nada é escrito. |
 | `--no-prd` | Pula o PRD e produz só TRD + plano. Para pedido cujo "porquê" já está decidido e escrito. |
-| `--grill` | Documenta a intenção no comando. O Caminho grill (ver "Step 2 — T0", abaixo) já roda automaticamente sempre que o único motivo do 🔴 é o sinal duro "decisão de produto em aberto sem dono" — com ou sem esta flag. Passá-la não muda o comportamento em nenhum caso: fora daquele gatilho específico, é ignorada em silêncio. Incompatível com `--dry` (ver "Step 2 — T0"): sob `--dry`, o Caminho grill não roda, com ou sem `--grill`. |
+| `--grill` | Documenta a intenção no comando. O Caminho grill (ver "Step 2 — T0", abaixo) já roda automaticamente sempre que o único motivo do 🔴 é o sinal duro "decisão de produto em aberto sem dono" — com ou sem esta flag. Passá-la não muda o comportamento em nenhum caso; quando o pedido não bate esse gatilho, ela vira no-op e isso é **declarado no banner** (junto a `degradacoes:`), para o usuário saber que pediu grill e nada foi grelhado. Sob `--dry`, o Caminho grill não roda, com ou sem `--grill` (ver "Step 2 — T0"). |
 
 **Não existe flag que force um escopo 🔴 a ser refinado.** O motivo está em
 `${FLUX_ROOT}/shared/scope-gate.md`, "Vermelho no `flux:refine` não tem override": a saída é cortar o
@@ -178,7 +178,8 @@ chamada de agente** — é leitura de texto, e o contrato proíbe medir com fan-
   duro, outro sinal duro sozinho, ou ≥2 sinais moles) → ir direto para o **Caminho vermelho**, abaixo.
   Não abrir board, não prospectar. Um pedido que bate 🔴 na entrada não encolhe com apuração.
 - **🟢 ou 🟡** → emitir o banner com a linha `escopo` e seguir o fluxo normal, abaixo. `--grill`,
-  presente ou não, não muda nada aqui (ver a tabela de flags).
+  presente ou não, não muda o comportamento aqui; presente, é no-op declarado em `degradacoes:` (ver
+  a tabela de flags).
 
 O veredito de T0 é **provisório** em todos os três casos acima e será reemitido em T1 — inclusive
 quando o Caminho grill resolveu o sinal duro e produziu o T0 intermediário (ver item 4 do Caminho
@@ -195,29 +196,39 @@ vermelho (critério exato no bullet acima): uma escolha não tomada, e o pedido 
 
 1. **Nomear o gap**, exatamente como o Caminho vermelho nomearia: qual escolha está em aberto e por
    que o pedido não decide sozinho.
-2. **Buscar evidência real por alternativa.** As alternativas em si vêm do que o próprio `REQUEST` já
-   menciona ou implica — grill nunca inventa uma alternativa que o pedido não sugeriu. Para cada uma,
-   buscar evidência real, sem prospecção completa (isto não é o Step 4, e não dispara fan-out): grep
-   no(s) repo(s) do domínio citados no pedido por uma ferramenta ou padrão equivalente já existente, e
-   checar doc relacionado quando houver (`shared/`, README, ADR referenciado). Achou, a alternativa
-   carrega a evidência (`arquivo:linha` ou caminho de doc); não achou, ela entra como "sem evidência
-   forte encontrada" — **nunca inventar motivo** para preencher a lacuna. O GATE do item 3 abre do
-   mesmo jeito nos dois casos: mesmo com todas as alternativas sem evidência, é informação real (nenhum
-   precedente existe) que o usuário decide com mais contexto do que tinha antes.
+2. **Identificar as alternativas.** Vêm do que o próprio `REQUEST` já menciona ou implica — grill
+   nunca inventa uma alternativa que o pedido não sugeriu. **O pedido não sugere nenhuma** (o sinal
+   duro é lido de um `REQUEST` que só declara a escolha em aberto, sem nomear os lados — ex.:
+   "precisamos decidir como fazer auth"): não há o que grelhar. Nomear o gap (item 1) e seguir direto
+   para o **Caminho vermelho**, como qualquer outro 🔴 em T0. Um GATE sem alternativa nenhuma para
+   oferecer não é gate (`${FLUX_ROOT}/shared/hitl.md`, "a última opção é sempre a saída inócua... um
+   gate sem porta de saída não é um gate, é um pedágio" — aqui sobraria só a porta de saída).
 
-   **Sem repo resolvido, ou sem checkout local.** O Step 1 permite chegar ao T0 sem `TARGET_REPOS`
-   (pedido cru, repo ainda não perguntado — a pergunta só acontece no Step 3), e `checkout_local` é
-   `soft` no frontmatter deste skill. Nos dois casos o grep simplesmente não tem onde rodar: todas as
-   alternativas caem no caso "sem evidência forte encontrada" acima, e a ausência de repo/checkout é
-   declarada em prosa junto de `degradacoes:` no banner (`${FLUX_ROOT}/shared/preflight.md`, Passo 5)
-   — mesmo tratamento que qualquer outro `soft` ausente recebe, mesmo este passo não passando pelo
-   fan-out de `review-agents.md`.
+   **Havendo alternativas, buscar evidência real por cada uma.** Despachar **um** subagente `Explore`
+   (prompt auto-contido com as alternativas e os repos do domínio citados no pedido) — é um despacho
+   único, não o fan-out por repo do Step 4, mas ainda assim é "investigar código", que
+   `${FLUX_ROOT}/shared/fanout-discipline.md` não deixa a main fazer diretamente. Pedir: grep no(s)
+   repo(s) do domínio por uma ferramenta ou padrão equivalente já existente, e checar doc relacionado
+   quando houver (`shared/`, README, ADR referenciado). Dois rótulos possíveis por alternativa, e eles
+   não são o mesmo fato:
+   - **achou** → a alternativa carrega a evidência (`arquivo:linha` ou caminho de doc);
+   - **procurou e não achou** → "sem precedente encontrado" — é informação real, o usuário decide
+     sabendo que não há caso equivalente no código;
+   - **não teve onde procurar** (sem `TARGET_REPOS` resolvido — o Step 1 permite chegar ao T0 assim,
+     pedido cru, repo ainda não perguntado — ou sem `checkout_local`, `soft` no frontmatter deste
+     skill) → "não apurável, sem repo/checkout" — não é a mesma coisa que "procurei e não achei", e o
+     rótulo certo vai na **descrição da opção do gate** (item 3), não só no banner: o usuário decide
+     pelo efeito descrito, não pelo que está em `degradacoes:`.
+
+   **Nunca inventar motivo** para preencher a lacuna de nenhum dos dois casos de ausência. A ausência
+   de repo/checkout também é declarada em `degradacoes:` no banner (`${FLUX_ROOT}/shared/preflight.md`,
+   Passo 5) — mesmo tratamento que qualquer outro `soft` ausente recebe.
 3. **Abrir um GATE** (`${FLUX_ROOT}/shared/hitl.md`, "Como perguntar" — protocolo não repetido aqui):
    uma opção por alternativa, com a evidência (ou a ausência dela) na descrição, e a saída inócua
    ("nenhuma das opções, seguir para a recusa") por último. A primeira opção é sempre a recomendada e
    leva `(Recomendado)` no label, como todo gate da família (`hitl.md` não abre exceção pra isso):
    quando a evidência apontar uma alternativa com mais força, é ela; sem uma mais forte, a primeira
-   na ordem de apuração.
+   na ordem em que o `REQUEST` as menciona.
 4. **Usuário escolhe uma alternativa** → primeiro garantir que o board de exploração existe: se o
    Caminho grill chegou até aqui antes do Step 3 ter rodado, **abrir ou retomar o board agora** (só
    essa parte do Step 3 — a pergunta de repo, quando o Step 3 tiver uma, continua adiada para quando
@@ -240,7 +251,10 @@ vermelho (critério exato no bullet acima): uma escolha não tomada, e o pedido 
 5. **Usuário escolhe "nenhuma das opções"** → cai no Caminho vermelho normal (recusa), sem fatiar.
    Nenhum board nasce (o item 4, que abriria board, não roda nesta escolha), igual a qualquer outra
    recusa em T0. Grill ofereceu evidência; não decidiu por ninguém, e recusar continua sendo um
-   resultado legítimo.
+   resultado legítimo. **A evidência levantada não se perde**: as alternativas apuradas (com ou sem
+   achado) entram no pré-refinamento que a recusa já entrega (`${FLUX_ROOT}/shared/scope-gate.md`, "A
+   recusa é útil, ou não é recusa", item 2 — "o que já foi apurado até ali") como uma alternativa
+   descartada a mais, não um passo perdido.
 
 **Fora de escopo deste ramo:** grill nunca decide sozinho, o gate sempre para e espera o usuário; não
 substitui os specialists de código do Step 4 (a busca aqui é rasa, focada só na alternativa que

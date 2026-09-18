@@ -124,7 +124,7 @@ sai como texto vago é um verde mentiroso.
 |---|---|---|
 | 🟢 | roda a rodada inteira | despacha direto |
 | 🟡 | roda e **declara por nome** o que ficou de fora do artefato | abre gate oferecendo fatiar, com **corte proposto** |
-| 🔴 | **recusa**, e entrega o pré-refinamento — exceto quando "decisão de produto em aberto sem dono" é o único sinal duro, caso em que o Caminho grill resolve o gap antes de recusar (ver seção abaixo) | abre gate com o corte proposto e a fatia 1 recomendada |
+| 🔴 | **recusa**, e entrega o pré-refinamento — exceto no caso coberto por "O Caminho grill do `flux:refine`", abaixo | abre gate com o corte proposto e a fatia 1 recomendada |
 
 ### O gate propõe o corte, não só sinaliza
 
@@ -226,7 +226,7 @@ e o que os contém:
 - **Falso verde** — um pedido curto que esconde trabalho grande ("só trocar o provider de auth").
   Nenhum sinal textual pega isso. Quem pega é o T1, com a prospecção na mão, e é por isso que o
   `flux:refine` roda o gate **duas vezes** em vez de confiar no T0 (três, quando o Caminho grill
-  insere o T0 intermediário — ver "O Caminho grill do `flux:refine`", abaixo).
+  insere o T0 intermediário — ver "O Caminho grill do `flux:refine`", acima).
 - **Limiares errados** — os números (3 repos, 8 slices, 3 diretórios) vieram de um caso real e de
   uma leitura da família, não de uma amostra. Eles vão estar errados para alguém. Por isso a
   invariante 3 existe: sem o registro de cada disparo e de cada dispensa, não há como corrigi-los
