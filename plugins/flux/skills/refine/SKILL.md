@@ -240,10 +240,15 @@ vermelho (critério exato no bullet acima): uma escolha não tomada, e o pedido 
    aplica: as duas linhas saem só no chat, declaradas no banner.
 
    Incorporar a decisão ao `REQUEST` (como adendo, não como substituição) antes de prosseguir — é o
-   que impede o T1, mais adiante, de reler o `REQUEST` original e achar o mesmo gap de novo. O sinal
-   duro que disparou o gate está resolvido — **reaplicar o gate de escopo normalmente** a partir daqui
-   (T0 intermediário e, depois, T1), com os sinais moles restantes ainda valendo. Pela própria
-   definição do bullet que disparou o grill (sem outro sinal duro, no máximo 1 mole), este T0
+   que impede o T1, mais adiante, de reler o `REQUEST` original e achar o mesmo gap de novo. Marcar
+   também, internamente (não é campo do `REQUEST` visível ao usuário, é estado da rodada), que este
+   pedido **passou pelo Caminho grill** — é o que decide, lá na frente, se o Caminho vermelho pode
+   encadear fatia-por-fatia em vez de só fechar oferecendo a fatia 1 (ver "Caminho vermelho — a
+   recusa", "Encadeamento fatia-por-fatia").
+
+   O sinal duro que disparou o gate está resolvido — **reaplicar o gate de escopo normalmente** a
+   partir daqui (T0 intermediário e, depois, T1), com os sinais moles restantes ainda valendo. Pela
+   própria definição do bullet que disparou o grill (sem outro sinal duro, no máximo 1 mole), este T0
    intermediário não pode dar 🔴 de novo por conta própria — só o T1, mais adiante, com sinais
    medidos em vez de estimados, ou um sinal novo que o próprio adendo da decisão introduza (ex.: a
    alternativa escolhida implica um terceiro repo). Reemitir a linha `escopo` do banner com o veredito
@@ -258,10 +263,12 @@ vermelho (critério exato no bullet acima): uma escolha não tomada, e o pedido 
 
 **Fora de escopo deste ramo:** grill nunca decide sozinho, o gate sempre para e espera o usuário; não
 substitui os specialists de código do Step 4 (a busca aqui é rasa, focada só na alternativa que
-falta, não é a prospecção embasada do resto do artefato); não é um modo de review de PR; e não
-encadeia fatia-por-fatia sozinho. Resolvida a decisão, o Caminho grill em si termina ali — o que segue
-é o fluxo normal do skill a partir do T0 intermediário (seguir adiante, ou Caminho vermelho de novo),
-exatamente como qualquer pedido que nunca passou pelo grill.
+falta, não é a prospecção embasada do resto do artefato); não é um modo de review de PR; e **o grill
+em si não encadeia fatia-por-fatia** — resolvida a decisão, o Caminho grill termina ali. Quem pode
+encadear, condicionalmente e mais adiante, é o Caminho vermelho, se o T1 ainda sair 🔴 (ver seção
+"Encadeamento fatia-por-fatia" lá). Fora isso, o fluxo normal do skill segue a partir do T0
+intermediário (seguir adiante, ou Caminho vermelho sem encadeamento), exatamente como qualquer pedido
+que nunca passou pelo grill.
 
 ---
 
@@ -396,44 +403,6 @@ reprospectar, vai escrever os corpos e abrir o gate de criação.
 Sem `VAULT_ROOT`, imprimir o artefato no chat e apontar `${FLUX_CMD}issue "<REQUEST>"`, avisando que
 sem board a prospecção **será refeita** — é a perda concreta de não ter vault, e ela tem que ser dita.
 
-### Encadeamento fatia-por-fatia (só quando o Caminho grill cortou o pedido)
-
-Dispara **só** quando o Caminho grill rodou (item 4 dele) e o T0/T1 que ele produziu caiu em corte de
-**2 ou mais fatias** pelo fatiamento normal de `${FLUX_ROOT}/shared/scope-gate.md`. Um refinamento
-que nunca passou pelo grill, ou que passou e resolveu num artefato único (🟢/🟡 sem corte), termina
-neste Step 8 como sempre terminou: aponta `${FLUX_CMD}issue` e para.
-
-1. **Teto duro de 8 fatias** (o mesmo limiar de "`>8 slices previstas`" de `scope-gate.md`, seção
-   "Sinais moles"). Corte com mais de 8 fatias: o encadeamento automático **não roda nenhuma**. O
-   refino em si já aconteceu normalmente (o corte é o resultado dele); o que não acontece é despachar
-   as fatias sozinho. Devolver o corte inteiro para o usuário decidir na mão, nomeando cada fatia,
-   exatamente como o Caminho vermelho já faz quando não encadeia.
-
-2. **Até 8, o encadeamento roda**, uma fatia de cada vez, **sequencial, nunca paralelo** — o mesmo
-   princípio do item 2 do Caminho grill ao buscar evidência: uma fatia pode mudar o que a próxima
-   decide, então rodar em paralelo destruiria essa dependência. A ordem é a do **grafo de bloqueio**
-   das fatias (`#2 ⟵ bloqueada por #1`, ver Step 7): blockers primeiro. Para cada fatia, repetir os
-   Steps 2 a 8 **deste mesmo skill**, com `REQUEST` = o texto da fatia. Cada rodada abre o próprio
-   board (perfil exploração, `${FLUX_ROOT}/shared/board-template.md`), e os boards ficam linkados
-   entre si por wikilink: o board da fatia N grava `[[<nome do board da fatia N-1>]]` e, ao terminar,
-   o board da fatia N-1 grava `[[<nome do board da fatia N>]]` de volta.
-
-3. **Gate de confirmação a partir da 4ª fatia.** As três primeiras fatias rodam direto, sem perguntar
-   nada. Antes de despachar a **4ª** (e só nesse ponto — não a cada fatia adicional depois dela), abrir
-   um GATE (`${FLUX_ROOT}/shared/hitl.md`, "Como perguntar", protocolo não repetido aqui) perguntando
-   se o encadeamento continua com as fatias restantes ou para ali. A pergunta é feita **uma vez**, ao
-   cruzar o limiar:
-   - **"continuar"** → segue o loop normal até o fim ou até o teto de 8, sem novo gate.
-   - **"parar"** → as fatias já rodadas ficam com seus boards e PRs normalmente; as fatias restantes
-     entram nomeadas no handoff, no mesmo formato que o corte proposto do Caminho vermelho usa, para o
-     usuário rodar na mão depois.
-
-4. **O encadeamento nunca troca de verbo.** Cada rodada é `/flux:refine` chamando a si mesmo, nunca
-   `${FLUX_CMD}issue` sozinho — a regra "aponta, não despacha" (abaixo) vale para o elo seguinte na
-   cadeia, não entre rodadas do mesmo elo. Ao final de todas as fatias encadeadas (rodaram todas, ou
-   pararam no teto de 8, ou pararam no gate por escolha do usuário), o handoff aponta
-   `${FLUX_CMD}issue` **uma única vez**, cobrindo todos os boards gerados nesta rodada de encadeamento.
-
 ### Por que aponta e não despacha
 
 Despachar um irmão obriga a resolver `${FLUX_CMD}` **e verificá-lo** (Passo 1b do preflight), e hoje
@@ -442,6 +411,11 @@ verificável, como está registrado em `${FLUX_ROOT}/shared/codex-compat.md`. Um
 tem motivo para pagar esse preço: ele termina com um artefato que o usuário quer ler antes de
 prosseguir. Apontar mantém o verbo disponível nos três harnesses e respeita a regra da família de que
 **nenhum elo chama o próximo sozinho**.
+
+**Exceção única: o encadeamento fatia-por-fatia do Caminho vermelho** (ver "Caminho vermelho — a
+recusa", abaixo). Ali o elo se reinvoca a si mesmo, não a um irmão, e paga o mesmo custo do
+`flux:land` — resolver e verificar `${FLUX_CMD}` — antes de fazer isso. Fora daquele caso específico,
+a regra acima vale sem exceção.
 
 ---
 
@@ -471,11 +445,64 @@ o §3 substituído pelo corte proposto e o §4 explicando a recusa; `execution_s
 candidatas que chegaram a se formar em `🔒 BLOQUEIA`, com a causa. O trabalho apurado **não se perde**
 — ele é o que torna a próxima tentativa, já cortada, mais barata que a primeira.
 
-Fechar oferecendo a fatia, com o comando pronto:
+**Por padrão, fechar oferecendo a fatia 1**, com o comando pronto:
 
 ```
 ${FLUX_CMD}refine "<a fatia 1 proposta>"
 ```
+
+Isto é o fim do Caminho vermelho **exceto** no caso coberto pela seção seguinte.
+
+### Encadeamento fatia-por-fatia (só quando o pedido veio do Caminho grill)
+
+Este 🔴 pode, num caso específico e estreito, encadear as fatias sozinho em vez de só oferecer a
+fatia 1. As três condições são **todas** necessárias:
+
+1. o `REQUEST` que chegou até aqui **passou pelo Caminho grill** (marcado no item 4 dele) — um 🔴 que
+   nunca passou pelo grill nunca encadeia, sempre fecha oferecendo só a fatia 1, como sempre fez;
+2. este 🔴 é o **T1** reavaliado depois da decisão do grill (nunca o T0 intermediário — pela própria
+   definição do Caminho grill, ele não pode dar 🔴 sozinho ali, só por sinal novo do adendo ou pelos
+   sinais medidos do T1);
+3. o corte proposto tem **2 ou mais fatias**.
+
+Faltando qualquer uma das três, segue o fechamento padrão acima. Dadas as três:
+
+1. **Resolver e verificar `${FLUX_CMD}`** (o mesmo Passo 1b do preflight que o `flux:land` já aplica
+   antes de se reinvocar — não duplicar a lógica aqui, aplicar). Não verificável nesta sessão: **não
+   encadear**, cair no fechamento padrão (oferecer a fatia 1), com a degradação declarada no banner —
+   é a mesma saída inócua de sempre, só não automática.
+2. **Teto duro de 8 fatias** (o mesmo limiar de "`>8 slices previstas`" de `scope-gate.md`, seção
+   "Sinais moles"). Corte com mais de 8 fatias: o encadeamento **não roda nenhuma fatia** — cai no
+   fechamento padrão, com o corte inteiro nomeado. Corte com 8 ou menos, segue para o item 3.
+3. **Encadear sequencial, nunca paralelo** — uma fatia pode mudar o que a próxima decide (mesmo
+   princípio do item 2 do Caminho grill ao buscar evidência), então paralelo destruiria essa
+   dependência. Ordem: a do **grafo de bloqueio** das fatias (`#2 ⟵ bloqueada por #1`, Step 7),
+   blockers primeiro. Para cada fatia, repetir os **Steps 0 a 8 deste mesmo skill**, com `REQUEST` =
+   o texto da fatia — é uma rodada nova e completa, não uma continuação (banner próprio, board
+   próprio, T0/T1 próprios). **Uma fatia encadeada nunca encadeia de novo**, mesmo que ela própria
+   caia nas três condições acima: fecha oferecendo a fatia 1 dela normalmente. Isso evita recursão
+   sem limite de profundidade — o teto de 8 é sobre a cadeia que começou aqui, não cumulativo entre
+   níveis.
+4. **Fatia que sai 🔴 por conta própria** (motivo dela, não relacionado à decisão original do grill):
+   a cadeia **para ali**. As fatias já rodadas ficam com seus boards normalmente (o `/flux:refine`
+   não abre PR — isso é do `${FLUX_CMD}build`, mais adiante); as fatias que não rodaram entram
+   nomeadas no handoff final, junto com a causa da parada.
+5. **Cada board de fatia linka o anterior e o seguinte** pelo campo "Board irmão" já existente em
+   `${FLUX_ROOT}/shared/board-template.md`, "Disciplina de links" — não um campo novo. A fatia 1
+   também linka o board de origem (o que o grill abriu no item 4 dele).
+6. **Gate de confirmação a partir da 4ª fatia.** As três primeiras rodam direto, sem perguntar nada.
+   Antes de despachar a 4ª (só nesse ponto, não de novo depois): abrir um GATE
+   (`${FLUX_ROOT}/shared/hitl.md`, "Como perguntar", protocolo não repetido aqui) perguntando se
+   continua com as fatias restantes ou para ali.
+   - **"continuar"** → segue até o fim ou até o teto de 8, sem novo gate.
+   - **"parar"** → as já rodadas ficam com seus boards; as restantes entram nomeadas no handoff, no
+     mesmo formato que o corte proposto normal usa.
+7. **Handoff único ao final** (rodou tudo, parou no teto, parou no gate, ou parou numa fatia 🔴): as
+   rodadas **intermediárias** da cadeia não emitem o Step 8 item 4 (o `${FLUX_CMD}issue <board>`
+   de cada uma) — só a **última** rodada da cadeia (ou o ponto de parada) emite o handoff final,
+   cobrindo todos os boards gerados. Cada rodada intermediária ainda faz o resto do próprio Step 8
+   (escrever a 7-septies, rolar o carimbo, `execution_status`) normalmente — só o item 4 (o aviso no
+   chat) fica suprimido até a última.
 
 ---
 
@@ -492,9 +519,12 @@ ${FLUX_CMD}refine "<a fatia 1 proposta>"
   de novo, com um sinal duro a menos, antes de qualquer PRD, TRD ou plano de slices ter sido escrito.
   A regra continua proibindo reabrir o PRD, o TRD ou o plano de slices depois de escritos; não proíbe
   o gate se resolver via `--grill` antes de qualquer um deles existir. Pelo mesmo motivo, o
-  encadeamento fatia-por-fatia do Step 8 também não é uma segunda rodada: é a orquestração de **N
-  execuções completas e independentes** deste skill, uma por fatia, cada uma com o próprio PRD, TRD e
-  plano nascendo do zero — nunca uma iteração voltando a mexer no artefato de uma fatia já fechada.
+  encadeamento fatia-por-fatia do Caminho vermelho também não é uma segunda rodada: é a orquestração
+  de **N execuções completas e independentes** deste skill, uma por fatia, cada uma com o próprio
+  PRD, TRD e plano nascendo do zero — nunca uma iteração voltando a mexer no artefato de uma fatia já
+  fechada. Gravar o wikilink de "Board irmão" no board da fatia anterior, depois que o dela já foi
+  fechado, não conta como reabrir esse artefato: é metadado de navegação entre dois artefatos
+  distintos, não uma edição do PRD/TRD/plano que ele já produziu.
 - **O gate mede tamanho, nunca valor.** Recusa nomeia sinais, nunca julga o mérito do pedido.
 - PT-BR com acentuação correta; EN no código. Sem em-dash no que puder ir para fora quando
   `NO_EMDASH == true` (o board é doc interno do vault; travessão liberado lá).
