@@ -56,9 +56,10 @@ localizada.
 ### 1b — `FLUX_CMD`
 
 Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR dentro de subagente;
-o `flux:map`, que despacha o equip por repo; e os elos com watch, `flux:iterate` e `flux:reply`, que
-reinvocam a si mesmos pelo `prompt` do `ScheduleWakeup` — despacho pelo mesmo mecanismo e com o mesmo
-risco) precisa escrever o **nome invocável** do irmão. Esse nome é montado pelo harness a partir
+o `flux:map`, que despacha o equip por repo; os elos com watch, `flux:iterate` e `flux:reply`, que
+reinvocam a si mesmos pelo `prompt` do `ScheduleWakeup`; e o `flux:refine`, que reinvoca a si mesmo,
+sequencial e sem subagente, no encadeamento fatia-por-fatia do Caminho vermelho — mesmo mecanismo e
+mesmo risco dos dois anteriores) precisa escrever o **nome invocável** do irmão. Esse nome é montado pelo harness a partir
 do nome do plugin e do verbo, não por nós: o mesmo `skills/iterate/SKILL.md` vira `/flux:iterate`
 num harness e pode virar outra coisa em outro.
 

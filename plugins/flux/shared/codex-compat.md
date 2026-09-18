@@ -117,7 +117,11 @@ diferença é o que importa aqui:
   remediações são impressas para o usuário rodar à mão. Continua sendo um verbo útil, com uma metade a
   menos e a perda declarada no banner.
 
-Os demais funcionam normalmente.
+Os demais funcionam normalmente. **Exceção parcial: o `flux:refine`.** Sem `FLUX_CMD`, o verbo inteiro
+continua funcionando (T0/T1, PRD, TRD, plano, Caminho grill); só o encadeamento fatia-por-fatia do
+Caminho vermelho degrada, porque ele também se reinvoca a si mesmo — sem verificar, cai no fechamento
+padrão de sempre (oferecer a fatia 1), com a perda declarada no banner. Não é indisponibilidade do
+verbo, é uma capacidade dele a menos.
 
 A oferta de Bootstrap de specialists (`review`, `iterate`, `land` e `build`) **não** entra nesta
 conta, e o motivo mudou: sem `FLUX_CMD`, a oferta **imprime a instrução e não executa**. Ela deixa de
