@@ -396,6 +396,44 @@ reprospectar, vai escrever os corpos e abrir o gate de criação.
 Sem `VAULT_ROOT`, imprimir o artefato no chat e apontar `${FLUX_CMD}issue "<REQUEST>"`, avisando que
 sem board a prospecção **será refeita** — é a perda concreta de não ter vault, e ela tem que ser dita.
 
+### Encadeamento fatia-por-fatia (só quando o Caminho grill cortou o pedido)
+
+Dispara **só** quando o Caminho grill rodou (item 4 dele) e o T0/T1 que ele produziu caiu em corte de
+**2 ou mais fatias** pelo fatiamento normal de `${FLUX_ROOT}/shared/scope-gate.md`. Um refinamento
+que nunca passou pelo grill, ou que passou e resolveu num artefato único (🟢/🟡 sem corte), termina
+neste Step 8 como sempre terminou: aponta `${FLUX_CMD}issue` e para.
+
+1. **Teto duro de 8 fatias** (o mesmo limiar de "`>8 slices previstas`" de `scope-gate.md`, seção
+   "Sinais moles"). Corte com mais de 8 fatias: o encadeamento automático **não roda nenhuma**. O
+   refino em si já aconteceu normalmente (o corte é o resultado dele); o que não acontece é despachar
+   as fatias sozinho. Devolver o corte inteiro para o usuário decidir na mão, nomeando cada fatia,
+   exatamente como o Caminho vermelho já faz quando não encadeia.
+
+2. **Até 8, o encadeamento roda**, uma fatia de cada vez, **sequencial, nunca paralelo** — o mesmo
+   princípio do item 2 do Caminho grill ao buscar evidência: uma fatia pode mudar o que a próxima
+   decide, então rodar em paralelo destruiria essa dependência. A ordem é a do **grafo de bloqueio**
+   das fatias (`#2 ⟵ bloqueada por #1`, ver Step 7): blockers primeiro. Para cada fatia, repetir os
+   Steps 2 a 8 **deste mesmo skill**, com `REQUEST` = o texto da fatia. Cada rodada abre o próprio
+   board (perfil exploração, `${FLUX_ROOT}/shared/board-template.md`), e os boards ficam linkados
+   entre si por wikilink: o board da fatia N grava `[[<nome do board da fatia N-1>]]` e, ao terminar,
+   o board da fatia N-1 grava `[[<nome do board da fatia N>]]` de volta.
+
+3. **Gate de confirmação a partir da 4ª fatia.** As três primeiras fatias rodam direto, sem perguntar
+   nada. Antes de despachar a **4ª** (e só nesse ponto — não a cada fatia adicional depois dela), abrir
+   um GATE (`${FLUX_ROOT}/shared/hitl.md`, "Como perguntar", protocolo não repetido aqui) perguntando
+   se o encadeamento continua com as fatias restantes ou para ali. A pergunta é feita **uma vez**, ao
+   cruzar o limiar:
+   - **"continuar"** → segue o loop normal até o fim ou até o teto de 8, sem novo gate.
+   - **"parar"** → as fatias já rodadas ficam com seus boards e PRs normalmente; as fatias restantes
+     entram nomeadas no handoff, no mesmo formato que o corte proposto do Caminho vermelho usa, para o
+     usuário rodar na mão depois.
+
+4. **O encadeamento nunca troca de verbo.** Cada rodada é `/flux:refine` chamando a si mesmo, nunca
+   `${FLUX_CMD}issue` sozinho — a regra "aponta, não despacha" (abaixo) vale para o elo seguinte na
+   cadeia, não entre rodadas do mesmo elo. Ao final de todas as fatias encadeadas (rodaram todas, ou
+   pararam no teto de 8, ou pararam no gate por escolha do usuário), o handoff aponta
+   `${FLUX_CMD}issue` **uma única vez**, cobrindo todos os boards gerados nesta rodada de encadeamento.
+
 ### Por que aponta e não despacha
 
 Despachar um irmão obriga a resolver `${FLUX_CMD}` **e verificá-lo** (Passo 1b do preflight), e hoje
@@ -453,7 +491,10 @@ ${FLUX_CMD}refine "<a fatia 1 proposta>"
   T0/T1 depois da decisão do usuário não é uma segunda rodada: é o mesmo gate de escopo sendo medido
   de novo, com um sinal duro a menos, antes de qualquer PRD, TRD ou plano de slices ter sido escrito.
   A regra continua proibindo reabrir o PRD, o TRD ou o plano de slices depois de escritos; não proíbe
-  o gate se resolver via `--grill` antes de qualquer um deles existir.
+  o gate se resolver via `--grill` antes de qualquer um deles existir. Pelo mesmo motivo, o
+  encadeamento fatia-por-fatia do Step 8 também não é uma segunda rodada: é a orquestração de **N
+  execuções completas e independentes** deste skill, uma por fatia, cada uma com o próprio PRD, TRD e
+  plano nascendo do zero — nunca uma iteração voltando a mexer no artefato de uma fatia já fechada.
 - **O gate mede tamanho, nunca valor.** Recusa nomeia sinais, nunca julga o mérito do pedido.
 - PT-BR com acentuação correta; EN no código. Sem em-dash no que puder ir para fora quando
   `NO_EMDASH == true` (o board é doc interno do vault; travessão liberado lá).
