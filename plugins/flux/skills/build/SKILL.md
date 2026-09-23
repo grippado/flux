@@ -51,6 +51,7 @@ escopo: {🟢 cabe | 🟡 cabe raso | 🔴 nao cabe} ({sinais lidos})
 lentes: L1 n/a · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 motor: {nativo <cmd> | exec_fallback <cmd> | autonomo}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+carimbo: {harness} | flux:build@{flux_version}
 ```
 ````
 

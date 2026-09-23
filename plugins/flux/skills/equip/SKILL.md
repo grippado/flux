@@ -67,6 +67,7 @@ lentes: L1 n/a · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcanca
 motor: {nativo <cmd> | exec_fallback <cmd> | ausente}
 destino: {path canonico aprovado | nao resolvido}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+carimbo: {harness} | flux:equip@{flux_version}
 ```
 ````
 

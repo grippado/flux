@@ -53,6 +53,33 @@ localizada.
 > `${FLUX_ROOT}` de cada elo depender de qual plugin foi instalado por último. `FLUX_ROOT` continua
 > sendo uma raiz só, a do flux, e parando na primeira que existir.
 
+### 1a-harness — `HARNESS` e `FLUX_VERSION`
+
+Derivados no mesmo passo, para que o bloco `provenance` dos artefatos e o carimbo do banner
+incluam o contexto de execução verificável.
+
+**`HARNESS`** — determinado pelo candidato que resolveu `FLUX_ROOT`:
+
+| candidato que resolveu | `HARNESS` |
+|---|---|
+| 1 — `${CLAUDE_PLUGIN_ROOT}` | `claude-code` |
+| 2 — `${CURSOR_PLUGIN_ROOT}` | `cursor` |
+| 3 — `${CODEX_PLUGIN_ROOT}` | `codex` |
+| 4, 5, 6 | `unknown` |
+
+O candidato 4 (marcador `.codex-plugin/plugin.json`) não identifica o harness com confiança: toda
+instalação da família inclui os três manifests (`.claude-plugin/`, `.cursor-plugin/`,
+`.codex-plugin/`), portanto a presença do arquivo não confirma Codex. A regra de verificabilidade do
+Passo 1a vale aqui da mesma forma — harness só é nomeado quando o candidato é uma variável que o
+harness de fato define. Na prática, o Codex resolve pela cascata pelo candidato 4 (porque
+`CODEX_PLUGIN_ROOT` raramente é exposto pela sessão), e portanto terá `HARNESS = unknown` na maioria
+das instalações — isso é degradação declarada, não defeito.
+
+**`FLUX_VERSION`** — ler o campo `version` de `${FLUX_ROOT}/.claude-plugin/plugin.json`. Os cinco
+manifests declaram a mesma versão (verificado por `scripts/check-manifests.sh`); ler um só é
+suficiente. Se o arquivo não existir, estiver ilegível ou o campo `version` estiver ausente:
+`FLUX_VERSION = unknown`.
+
 ### 1b — `FLUX_CMD`
 
 Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR dentro de subagente;
@@ -339,6 +366,7 @@ cercas ```` ``` ```` fazem parte do que se emite, não são formatação deste d
 perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
 lentes: L1 {agente} · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 degradacoes: {lista dos soft ausentes e o que se perde com cada um | nenhuma}
+carimbo: {harness} | flux:{verbo}@{flux_version}
 ```
 ````
 
