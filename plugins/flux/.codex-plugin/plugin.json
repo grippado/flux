@@ -25,13 +25,7 @@
     "longDescription": "Flux is a shared family of eleven workflows that carries work from production telemetry to refinement, issue, code, quick look, review, iteration, landing, and reply, plus map and equip, which sit outside the cycle: map surveys the installation on your machine and dispatches the repairs you accept, equip prepares a repository. Claude Code, Cursor, and Codex use the same skills, agents, and contracts through native harness adapters.",
     "developerName": "Gabriel Gripp",
     "category": "Developer Tools",
-    "capabilities": [
-      "Interactive",
-      "Read",
-      "Write",
-      "CodeReview",
-      "MultiAgent"
-    ],
+    "capabilities": ["Interactive", "Read", "Write", "CodeReview", "MultiAgent"],
     "websiteURL": "https://github.com/grippado/flux",
     "privacyPolicyURL": "https://github.com/grippado/flux/blob/main/PRIVACY.md",
     "termsOfServiceURL": "https://github.com/grippado/flux/blob/main/LICENSE",

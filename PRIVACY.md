@@ -50,12 +50,13 @@ It does not write inside a repository you are only reviewing.
 Board and review artifacts written to your vault carry a small `provenance` block: the machine's
 short hostname (`hostname -s`), the literal command you invoked, a local timestamp, and, when a
 vault context is configured, the paths of the session transcript files (`.jsonl` under
-`~/.claude/projects/`) that produced the note. The block also includes the name of the harness that
-ran the command, the plug-in version, and a compact stamp (`harness | flux:verb@version`); all of
-this is written only to local files and pull request descriptions, and nothing is sent anywhere. A hostname or a transcript path can be identifying (a person's
-name, an asset tag, a local username in the path), and vaults are sometimes synced or shared beyond
-the machine that wrote them. If that matters to you, treat it like any other content of your vault:
-edit or strip it before sharing.
+`~/.claude/projects/`) that produced the note. The block also includes the name of the harness
+that ran the command, the plug-in version, and a compact stamp (`harness | flux:verb@version`).
+This never leaves your machine on its own, the same as everything else on this page, but a
+hostname or a transcript path can be identifying (a person's name, an asset tag, a local username
+in the path), and vaults are sometimes synced or shared beyond the machine that wrote them. If
+that matters to you, treat it like any other content of your vault: edit or strip it before
+sharing.
 
 ## The website
 

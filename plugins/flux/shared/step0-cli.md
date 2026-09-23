@@ -29,6 +29,12 @@ mensagem já montada.
 - `degradations[]` → entram verbatim na linha `degradacoes:` do banner (Passo 5), somadas às
   degradações que só a sessão enxerga.
 - `capability_level_hint` → provisório; o nível definitivo sai da revalidação abaixo.
+- `HARNESS` e `FLUX_VERSION` (campos do banner e do bloco `provenance`) **não chegam prontos no
+  JSON** e são derivados localmente: `HARNESS` é lido de `flux_root_source` pela tabela de
+  `preflight.md §1a-harness` (`env:CLAUDE_PLUGIN_ROOT` → `claude-code`,
+  `env:CURSOR_PLUGIN_ROOT` → `cursor`, `env:CODEX_PLUGIN_ROOT` → `codex`, qualquer outra fonte
+  incluindo `env:FLUX_HOME` → `unknown`); `FLUX_VERSION` é lido do campo `version` de
+  `${flux_root}/.claude-plugin/plugin.json` — a mesma regra do Passo 1a-harness do preflight.
 
 Revalidar **apenas** o que `session_revalidation_required` lista — tipicamente 4 itens, todos
 introspecção de sessão que nenhum processo externo pode fazer (preflight.md, 3-bis):

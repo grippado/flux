@@ -89,7 +89,7 @@ provenance:
 
 O bloco `provenance` segue a mesma disciplina do `board-template.md` (ver lá, seção "Bloco
 `provenance` (todos os perfis)") — mesmos campos, mesmo `hostname -s` como piso, sem depender de env
-var de instalação pessoal. Inclui agora `harness`, `flux_version` e `stamp`, com a mesma origem e
+var de instalação pessoal. Inclui `harness`, `flux_version` e `stamp`, com a mesma origem e
 degradação descritas naquela seção. O perfil doc herda o bloco sem alteração (não é uma das
 diferenças listadas abaixo).
 
