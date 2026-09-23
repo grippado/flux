@@ -377,6 +377,7 @@ flux/
     ├── review-legend.md           badges canônicos dos findings
     ├── review-artifact-template.md formato do artefato de review no vault
     ├── review-body-template.md    formato do corpo da review postada no GitHub
+    ├── pr-attribution.md          carimbo flux:<verbo>@<versão> na linha de atribuição da PR
     ├── issue-template.md          formato da issue do flux:issue
     ├── board-template.md          formato do board vivo (execução / iterate / delivery / conversa)
     ├── worktree-discipline.md     todo fluxo que escreve opera em worktree dedicado

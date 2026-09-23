@@ -19,14 +19,14 @@ equivalente no artefato público.
 
 ## Formato
 
-A linha de atribuição tem duas partes separadas pelo primeiro ` | ` (espaço, barra vertical, espaço):
+A linha de atribuição tem duas partes separadas pelo ` | ` que abre a lista de pares (espaço, barra vertical, espaço):
 
 ```
 🤖 Generated with <atribuição do harness> | <par>, <par>, ...
 ```
 
-- **Atribuição do harness**: tudo o que vem antes do primeiro ` | `. Quando o harness escreveu a
-  linha, é o texto dele, preservado byte a byte (inclusive o link markdown, como
+- **Atribuição do harness**: tudo o que vem antes do ` | ` que abre a lista de pares. Quando o
+  harness escreveu a linha, é o texto dele, preservado byte a byte (inclusive o link markdown, como
   `[Claude Code](https://claude.com/claude-code)`).
 - **Par**: `flux:<verbo>@<versão>`, com `<verbo>` o verbo que agiu sobre a PR (`build`, `iterate`) e
   `<versão>` o `FLUX_VERSION` do preflight. Usa `flux:` literal, pela mesma exceção que vale para o
@@ -35,38 +35,42 @@ A linha de atribuição tem duas partes separadas pelo primeiro ` | ` (espaço, 
 - **Pares acumulam**, separados por `, `, na ordem de primeira aparição:
   `🤖 Generated with [Claude Code](https://claude.com/claude-code) | flux:build@1.34.0, flux:iterate@1.35.0`.
 
+**Reconhecimento da lista de pares**: a lista é reconhecida como tal quando **todos** os itens depois
+do **último** ` | ` da linha casam o padrão `flux:[a-z-]+@\S+`, com trim em cada item antes da
+comparação. Quando isso não acontece (sem ` | `, ou com um ` | ` que faz parte do texto do harness e
+não precede pares), a linha é tratada como sem lista e o passo 2 acrescenta ` | P`. Por exemplo, se o
+harness escreveu `🤖 Generated with X | texto livre`, os itens depois do ` | ` não casam o padrão,
+então é passo 2.
+
 ## Algoritmo (idempotente)
 
 Entrada: o body atual da PR (sempre lido do remoto, nunca regerado) e o par `P = flux:<verbo>@<versão>`.
 
-1. **Localizar a linha**: a **última** linha do body que começa com `🤖 Generated with`. A última,
-   porque um body pode citar outra PR ou colar um trecho que contém a mesma frase, e a atribuição
-   própria é sempre a do rodapé.
-2. **Linha existe e não tem ` | `** → acrescentar ` | P` ao fim dela.
-3. **Linha existe e tem ` | `** → separar a lista de pares depois do primeiro ` | ` por `, `. Se `P`
-   já está na lista (comparação exata de string), **não editar nada**. Senão, acrescentar `, P` ao fim.
-4. **Linha não existe** (Cursor, Codex, ou body escrito sem atribuição) → acrescentar ao fim do body,
-   depois de uma linha em branco, `🤖 Generated with <nome> | P`, com `<nome>` da tabela abaixo.
+1. **Localizar a linha**: a **última** linha do body que começa com `🤖 Generated with`,
+   considerando apenas linhas fora de bloco de código cercado (` ``` ` ou `~~~`) e fora de blockquote
+   (`>`): um exemplo de atribuição citado no body, como numa PR que documenta o próprio formato, não
+   pode ser carimbado nem impedir a criação do rodapé.
+2. **Linha existe e a lista de pares não é reconhecida** (sem ` | `, ou com ` | ` que pertence ao
+   texto do harness) → acrescentar ` | P` ao fim dela.
+3. **Linha existe e a lista de pares é reconhecida** → separar a lista depois do **último** ` | ` por
+   `, `. Se `P` já está na lista (comparação exata de string), **não editar nada**. Senão, acrescentar
+   `, P` ao fim.
+4. **Linha não existe** (harness que não escreve a linha, ou body escrito sem atribuição, ou toda
+   linha `🤖 Generated with` encontrada está dentro de cerca ou blockquote) → acrescentar ao fim do
+   body, depois de uma linha em branco, `🤖 Generated with <nome> | P`, com `<nome>` =
+   `HARNESS_LABEL` (`${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness).
 
 A comparação do passo 3 é por **par inteiro**: `flux:iterate@1.34.0` e `flux:iterate@1.35.0` são pares
 diferentes, e os dois ficam. É o que permite ver que duas versões do mesmo verbo passaram pela PR.
-Rodar o algoritmo duas vezes com o mesmo par produz o mesmo body.
+Rodar o algoritmo duas vezes com o mesmo par produz o mesmo body — inclusive quando foi o passo 2 que
+inseriu o ` | P` na rodada anterior: a próxima rodada reconhece a lista (único item casa
+`flux:[a-z-]+@\S+`) e o passo 3 encontra `P` já presente.
 
 ### O nome do harness na linha própria
 
-Só entra quando o harness não escreveu a linha (passo 4). Vem de `HARNESS`, resolvido no preflight:
-
-| `HARNESS` | `<nome>` |
-|---|---|
-| `claude-code` | `Claude Code` |
-| `cursor` | `Cursor` |
-| `codex` | `Codex` |
-| `unknown` | `AI agent` |
-
-Com `HARNESS = unknown`, a linha **não nomeia produto**: a regra de verificabilidade do Passo 1a do
-preflight proíbe nomear harness que não foi verificado, e o texto de uma PR pública é o pior lugar para
-um nome adivinhado. `AI agent` é verdade em qualquer harness. O `unknown` literal também não entra,
-porque na PR ele se lê como defeito e não como degradação declarada; a degradação já está no banner.
+Só entra quando o harness não escreve a linha (passo 4). Vem de `HARNESS_LABEL`, resolvido no
+preflight (`${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness), que mapeia o `HARNESS` para o nome
+legível com a justificativa de `AI agent` (degradação declarada, não produto não verificado).
 
 Com `FLUX_VERSION = unknown`, o par sai `flux:<verbo>@unknown`. Não omitir o par: a versão ilegível é
 informação, e o verbo continua rastreável.

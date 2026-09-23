@@ -521,7 +521,11 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    main, depois do retorno do motor, e não o motor: o body é criado pelo motor do repo (nativo,
    `exec_fallback` ou autônomo), e nenhum deles é obrigado a conhecer esta regra. Editar depois da
    criação funciona com qualquer um. Se o motor já tiver carimbado, o algoritmo é idempotente e a
-   edição vira no-op. Motor sem PR (`pr: null`) → nada a carimbar.
+   edição vira no-op. Motor sem PR (`pr: null`) → nada a carimbar. `PR_NUMBER` e `REPO_FULL` são
+   parseados da URL de PR devolvida pelo motor (`github.com/<owner>/<repo>/pull/<n>`); `SCRATCH` é o
+   diretório temporário da sessão (mesmo conceito do `flux:iterate`); `IS_OWN_PR` é conferido com
+   `gh api user -q .login` contra o autor da PR — normalmente verdadeiro, pois o motor abriu a PR com
+   a conta autenticada; se não for, não carimbar.
 3. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.

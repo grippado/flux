@@ -590,7 +590,8 @@ git push origin <headRefName>
 > Thread resolvida com CI verde e título/descrição mentindo é entrega pela metade.
 
 Roda **depois do push** (título e descrição descrevem o estado que está no remoto, não o intermediário),
-em toda rodada que mudou algo que eles afirmam. **Nunca roda em `--dry`.** Título e descrição são
+em toda rodada que mudou algo que eles afirmam, e, para o carimbo de atribuição, em toda passada que
+pushou. **Nunca roda em `--dry`.** Título e descrição são
 reconciliados na **mesma passada**, porque descasá-los é pior que deixar os dois velhos: título novo com
 descrição velha faz o leitor duvidar de qual dos dois está certo.
 
@@ -604,7 +605,8 @@ descrição velha faz o leitor duvidar de qual dos dois está certo.
    esteja contradita por (a) evidência no estado atual da branch, com `arquivo:linha`, ou (b) decisão
    fechada numa thread desta rodada, com link da thread. **Proibido "melhorar" redação, reorganizar
    seções ou reescrever o que apenas envelheceu de estilo.** Sem par de evidência, não é drift: é gosto,
-   e não se toca.
+   e não se toca. Exceção única: o carimbo de atribuição (subseção abaixo), que não é afirmação da
+   descrição.
 3. **Nunca reescrever o body inteiro.** Sempre `gh pr view --json body` primeiro e editar **sobre** o
    texto atual, cirurgicamente. Gerar descrição do zero apaga trabalho humano (contexto que o autor
    escreveu à mão, links de PRs irmãs, checklist que o revisor marcou) e é a falha mais cara possível
@@ -702,7 +704,8 @@ só diz **quando** o carimbo entra.
 
 - **1ª passada (interativa):** o diff da descrição entra no plano do passo 6, resumido como "N afirmações
   da descrição contraditas pelo estado atual" mais o antes/depois do título, quando houver. A opção 1 da
-  confirmação passa a cobrir a reconciliação dos dois.
+  confirmação passa a cobrir a reconciliação dos dois. O carimbo de atribuição **não entra no plano**:
+  é consequência mecânica do push aprovado, e a opção que autoriza o push já o autoriza.
 - **Rodadas de watch (`--auto`):** aplica sozinha, com os três guardrails valendo igual, e registra no
   board. Watch não relaxa o rigor, aqui como em qualquer outro passo.
 - Se **nenhuma** afirmação estiver refutada, não editar nada e não tocar no bloco gerenciado só para
