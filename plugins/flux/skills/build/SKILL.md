@@ -31,6 +31,7 @@ Onde ele fica no ciclo:
 **Orçamento de contexto (leitura sob demanda, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
 **Gate de escopo (o que decide se a task é despachada inteira):** `${FLUX_ROOT}/shared/scope-gate.md`
 **Gates com o usuário:** `${FLUX_ROOT}/shared/hitl.md`
+**Carimbo de atribuição no corpo da PR (Step 4):** `${FLUX_ROOT}/shared/pr-attribution.md`
 **Contrato de vertical slice (o que é uma fatia):** `${FLUX_ROOT}/shared/issue-template.md`, seção **Decomposição (vertical slices)**
 
 ## Banner de perfil — gabarito (copiar VERBATIM)
@@ -515,13 +516,19 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 
    **Aqui e não antes**: quem pediu um build quer código, e uma entrevista sobre ferramental antes do
    trabalho é ruído. As duas ofertas cabem num gate só quando as duas faltas existirem.
-2. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
+2. **Carimbar a PR.** Se o motor abriu PR, aplicar o carimbo `flux:build@<FLUX_VERSION>` na linha
+   `🤖 Generated with ...` do body, seguindo `${FLUX_ROOT}/shared/pr-attribution.md`. Quem aplica é a
+   main, depois do retorno do motor, e não o motor: o body é criado pelo motor do repo (nativo,
+   `exec_fallback` ou autônomo), e nenhum deles é obrigado a conhecer esta regra. Editar depois da
+   criação funciona com qualquer um. Se o motor já tiver carimbado, o algoritmo é idempotente e a
+   edição vira no-op. Motor sem PR (`pr: null`) → nada a carimbar.
+3. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.
-3. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
+4. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
    vai para `done` quando a PR nasce, e o board do `${FLUX_CMD}iterate` assume dali. Gravar
    `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
-4. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
+5. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
    válido e é o que torna a falha investigável depois. Não apagar o board.
 
 Ao final, o resultado é o do motor (tipicamente PR draft + CI monitorado). Feche apontando o próximo elo, escolhendo **um**:
