@@ -27,6 +27,7 @@ Roda independente dos outros. Pensado para PRs com rodadas de bot reviewer, mas 
 **Disciplina de worktree (escrever sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
 **Gate de integração com a base (OBRIGATÓRIO — 1º gate, antes do CI):** `${FLUX_ROOT}/shared/merge-conflict-gate.md`
 **Diagnóstico de quality gates externos via API (consultar antes de classificar gate Sonar):** `${FLUX_ROOT}/shared/quality-gate-api.md`
+**Carimbo de atribuição no corpo da PR (passo 8a):** `${FLUX_ROOT}/shared/pr-attribution.md`
 **Disciplina de fan-out (OBRIGATÓRIA — verificação e execução em subagente):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Disciplina de comentários em código (OBRIGATÓRIA — não comentar sem pedido):** `${FLUX_ROOT}/shared/code-comment-discipline.md`
 **Orçamento de contexto (leitura sob demanda, um root por sessão, delegação):** `${FLUX_ROOT}/shared/context-budget.md`
@@ -589,7 +590,8 @@ git push origin <headRefName>
 > Thread resolvida com CI verde e título/descrição mentindo é entrega pela metade.
 
 Roda **depois do push** (título e descrição descrevem o estado que está no remoto, não o intermediário),
-em toda rodada que mudou algo que eles afirmam. **Nunca roda em `--dry`.** Título e descrição são
+em toda rodada que mudou algo que eles afirmam, e, para o carimbo de atribuição, em toda passada que
+pushou. **Nunca roda em `--dry`.** Título e descrição são
 reconciliados na **mesma passada**, porque descasá-los é pior que deixar os dois velhos: título novo com
 descrição velha faz o leitor duvidar de qual dos dois está certo.
 
@@ -603,7 +605,8 @@ descrição velha faz o leitor duvidar de qual dos dois está certo.
    esteja contradita por (a) evidência no estado atual da branch, com `arquivo:linha`, ou (b) decisão
    fechada numa thread desta rodada, com link da thread. **Proibido "melhorar" redação, reorganizar
    seções ou reescrever o que apenas envelheceu de estilo.** Sem par de evidência, não é drift: é gosto,
-   e não se toca.
+   e não se toca. Exceção única: o carimbo de atribuição (subseção abaixo), que não é afirmação da
+   descrição.
 3. **Nunca reescrever o body inteiro.** Sempre `gh pr view --json body` primeiro e editar **sobre** o
    texto atual, cirurgicamente. Gerar descrição do zero apaga trabalho humano (contexto que o autor
    escreveu à mão, links de PRs irmãs, checklist que o revisor marcou) e é a falha mais cara possível
@@ -636,7 +639,8 @@ gh pr edit $PR_NUMBER --repo $REPO_FULL --title '<titulo novo>'
 #### Duas zonas, tratadas de forma diferente
 
 - **Zona autoral** (a prosa da descrição): edição cirúrgica só nas afirmações refutadas. Preservar voz,
-  estrutura de seções, tabelas e o trailer `🤖 Generated with [Claude Code]`. Quando a mudança inverte
+  estrutura de seções, tabelas e o trailer `🤖 Generated with [Claude Code]` (que só muda pelo carimbo
+  abaixo). Quando a mudança inverte
   uma decisão, **não apagar o desenho antigo em silêncio**: reescrever para o desenho vigente e registrar
   a virada no bloco gerenciado (abaixo). Quem chega na PR depois precisa entender por que mudou.
 - **Bloco gerenciado** (append no fim, antes do trailer): tabela mantida pelo flow, delimitada por
@@ -679,15 +683,33 @@ registrar no board: linha na Timeline de Eventos Relevantes com tipo `pr-body` e
 Verbosa dizendo **qual afirmação** foi corrigida e **com que evidência** (não basta "descrição
 atualizada"). Emitir o evento Slack `descricao-reconciliada` se o feed estiver configurado.
 
+#### Carimbo de atribuição
+
+Toda passada que **pushou commit** nesta PR (passo 8 rodou) aplica o carimbo `flux:iterate@<FLUX_VERSION>`
+na linha `🤖 Generated with ...`, seguindo `${FLUX_ROOT}/shared/pr-attribution.md` (formato, algoritmo
+idempotente, nome do harness quando a linha não existe, guardrails). Este passo não redefine nada disso:
+só diz **quando** o carimbo entra.
+
+- Roda **mesmo sem drift**: o carimbo não é afirmação da descrição, então a regra "nenhuma afirmação
+  refutada, não editar nada" do Gate abaixo não o bloqueia. Também não entra no changelog gerenciado.
+- Passada que não pushou (só respondeu threads, `--dry`, modo degradado do gate de integração) **não**
+  carimba: o iterate não mudou o código da PR, então não tem o que atribuir.
+- Nas rodadas de watch, o par já presente torna a edição um no-op (diff vazio, sem `gh pr edit`). É o que
+  garante que várias rodadas na mesma versão não repitam o par.
+- Quando a reconciliação da descrição também roda nesta passada, aplicar o carimbo no mesmo
+  `-after.md` e publicar os dois num único `gh pr edit`.
+- Mesmo guard de autoria: PR de terceiro não recebe carimbo.
+
 #### Gate
 
 - **1ª passada (interativa):** o diff da descrição entra no plano do passo 6, resumido como "N afirmações
   da descrição contraditas pelo estado atual" mais o antes/depois do título, quando houver. A opção 1 da
-  confirmação passa a cobrir a reconciliação dos dois.
+  confirmação passa a cobrir a reconciliação dos dois. O carimbo de atribuição **não entra no plano**:
+  é consequência mecânica do push aprovado, e a opção que autoriza o push já o autoriza.
 - **Rodadas de watch (`--auto`):** aplica sozinha, com os três guardrails valendo igual, e registra no
   board. Watch não relaxa o rigor, aqui como em qualquer outro passo.
 - Se **nenhuma** afirmação estiver refutada, não editar nada e não tocar no bloco gerenciado só para
-  rolar data. Descrição sem drift é descrição correta, e título ainda preciso é título que fica como está
+  rolar data (o carimbo de atribuição, acima, é a única edição que independe de drift). Descrição sem drift é descrição correta, e título ainda preciso é título que fica como está
   (é comum a descrição precisar de conserto e o título não: são barras diferentes).
 
 ### 9. Resposta no chat

@@ -42,7 +42,7 @@ localizada.
 
 > **A família não sabe em qual harness roda, e não deve saber.** Os candidatos nomeados acima são a
 > única menção a harness específico em todo o flux, com exceção da seção 1a-harness abaixo, que
-> deriva `HARNESS` e `FLUX_VERSION` do candidato que resolveu. Nomear um harness aqui só é
+> deriva `HARNESS`, `HARNESS_LABEL` e `FLUX_VERSION` do candidato que resolveu. Nomear um harness aqui só é
 > legítimo quando o candidato é **verificável**: uma variável que a sessão de fato define, ou um
 > marcador que existe no disco. Um candidato que nomeia um produto sem ter como confirmar a raiz
 > não resolve nada e transforma este passo numa lista de boas intenções. Tudo abaixo deste passo
@@ -81,6 +81,20 @@ exclusividade deixar de valer — por exemplo, um Cursor que exporte `CLAUDE_PLU
 compatibilidade — o candidato 1 resolveria primeiro e o artefato sairia carimbado `claude-code`
 mesmo rodando no Cursor. A degradação não seria declarada porque o candidato resolveu normalmente:
 o carimbo seria silenciosamente incorreto.
+
+**`HARNESS_LABEL`** — nome legível do harness para uso em texto público (corpo de PR, rodapé de
+atribuição):
+
+| `HARNESS` | `HARNESS_LABEL` |
+|---|---|
+| `claude-code` | `Claude Code` |
+| `cursor` | `Cursor` |
+| `codex` | `Codex` |
+| `unknown` | `AI agent` |
+
+Com `HARNESS = unknown`, o label é `AI agent`: nomear produto não verificado num texto público seria
+incorreto, e o valor `unknown` cru se lê como defeito em vez de degradação declarada. `AI agent` é
+verdade em qualquer harness.
 
 **`FLUX_VERSION`** — ler o campo `version` do primeiro arquivo que existir entre
 `${FLUX_ROOT}/.claude-plugin/plugin.json`, `${FLUX_ROOT}/.cursor-plugin/plugin.json` e
