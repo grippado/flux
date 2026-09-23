@@ -31,6 +31,7 @@ em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
 perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN}
 prospector: {agente} · answerer: {agente}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+carimbo: {harness} | flux:reply@{flux_version}
 ```
 ````
 

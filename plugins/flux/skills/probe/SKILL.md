@@ -80,6 +80,7 @@ perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|R
 fontes: {provider} {escopo} {cobertura} [· {provider} {escopo} {cobertura}]
 lentes: L1 n/a · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+carimbo: {harness} | flux:probe@{flux_version}
 ```
 ````
 

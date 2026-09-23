@@ -87,6 +87,7 @@ perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|R
 lentes: L1 n/a · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 destino: {path canonico aprovado | nao resolvido}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+carimbo: {harness} | flux:map@{flux_version}
 ```
 ````
 

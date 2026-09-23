@@ -51,6 +51,7 @@ escopo: {🟢 cabe | 🟡 cabe raso | 🔴 nao cabe} ({sinais lidos})
 lentes: L1 n/a · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 motor: {nativo <cmd> | exec_fallback <cmd> | autonomo}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+carimbo: {harness} | flux:build@{flux_version}
 ```
 ````
 
@@ -323,7 +324,7 @@ de `${FLUX_ROOT}/shared/board-template.md` (`type: flux-build`).
 2. **Frontmatter:** herda o bloco comum aos cinco perfis do `board-template.md` inteiro (`title`,
    `date`, `updated`, `type: flux-build`, `context`, `pending_organize: true`, `tags: [board, build,
    orchestration]` e `provenance` com `machine`/`invocation`/`generator: "flux-build"`/`captured_at`/
-   `session_sources`),
+   `session_sources`, `harness`, `flux_version`, `stamp`),
    mais os campos específicos do perfil execução: `repo`, `ticket`, `engine`, `engine_kind`
    (`nativo`/`fallback`), `worktree`, `branch`, `pr: null`, `scope`, `iterate_board: null`. Montar o
    frontmatter olhando a seção **Frontmatter** do `board-template.md` diretamente, nunca só esta lista

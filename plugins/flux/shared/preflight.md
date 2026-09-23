@@ -41,17 +41,52 @@ Se nenhum resolver, é `UNAVAILABLE`: abortar informando que a instalação da f
 localizada.
 
 > **A família não sabe em qual harness roda, e não deve saber.** Os candidatos nomeados acima são a
-> única menção a harness específico em todo o flux. Nomear um harness aqui só é legítimo quando o
-> candidato é **verificável**: uma variável que a sessão de fato define, ou um marcador que existe
-> no disco. Um candidato que nomeia um produto sem ter como confirmar a raiz não resolve nada e
-> transforma este passo numa lista de boas intenções. Tudo abaixo deste passo é escrito contra
-> `${FLUX_ROOT}` e `${FLUX_CMD}`, nunca contra o nome de um produto.
+> única menção a harness específico em todo o flux, com exceção da seção 1a-harness abaixo, que
+> deriva `HARNESS` e `FLUX_VERSION` do candidato que resolveu. Nomear um harness aqui só é
+> legítimo quando o candidato é **verificável**: uma variável que a sessão de fato define, ou um
+> marcador que existe no disco. Um candidato que nomeia um produto sem ter como confirmar a raiz
+> não resolve nada e transforma este passo numa lista de boas intenções. Tudo abaixo deste passo
+> é escrito contra `${FLUX_ROOT}` e `${FLUX_CMD}`, nunca contra o nome de um produto.
 
 > **Um kit não entra nesta cascata.** Um kit é um plugin com raiz própria
 > (`${FLUX_ROOT}/shared/kit-format.md`), e a raiz dele é resolvida à parte, no Passo 1d. Acrescentá-lo
 > aqui faria um plugin instalado poder virar a raiz da família e redefinir `shared/` calado — e faria o
 > `${FLUX_ROOT}` de cada elo depender de qual plugin foi instalado por último. `FLUX_ROOT` continua
 > sendo uma raiz só, a do flux, e parando na primeira que existir.
+
+### 1a-harness — `HARNESS` e `FLUX_VERSION`
+
+Derivados no mesmo passo, para que o bloco `provenance` dos artefatos e o carimbo do banner
+incluam o contexto de execução verificável.
+
+**`HARNESS`** — determinado pelo candidato que resolveu `FLUX_ROOT`:
+
+| candidato que resolveu | `HARNESS` |
+|---|---|
+| 1 — `${CLAUDE_PLUGIN_ROOT}` | `claude-code` |
+| 2 — `${CURSOR_PLUGIN_ROOT}` | `cursor` |
+| 3 — `${CODEX_PLUGIN_ROOT}` | `codex` |
+| 4, 5, 6 | `unknown` |
+
+O candidato 4 (marcador `.codex-plugin/plugin.json`) não identifica o harness com confiança: toda
+instalação da família inclui os três manifests (`.claude-plugin/`, `.cursor-plugin/`,
+`.codex-plugin/`), portanto a presença do arquivo não confirma Codex. A regra de verificabilidade do
+Passo 1a vale aqui da mesma forma — harness só é nomeado quando o candidato é uma variável que o
+harness de fato define. Na prática, o Codex resolve pela cascata pelo candidato 4 (porque
+`CODEX_PLUGIN_ROOT` raramente é exposto pela sessão), e portanto terá `HARNESS = unknown` na maioria
+das instalações — isso é degradação declarada, não defeito.
+
+O mapeamento pressupõe que cada variável de ambiente é exclusiva do harness que a define. Se essa
+exclusividade deixar de valer — por exemplo, um Cursor que exporte `CLAUDE_PLUGIN_ROOT` para
+compatibilidade — o candidato 1 resolveria primeiro e o artefato sairia carimbado `claude-code`
+mesmo rodando no Cursor. A degradação não seria declarada porque o candidato resolveu normalmente:
+o carimbo seria silenciosamente incorreto.
+
+**`FLUX_VERSION`** — ler o campo `version` do primeiro arquivo que existir entre
+`${FLUX_ROOT}/.claude-plugin/plugin.json`, `${FLUX_ROOT}/.cursor-plugin/plugin.json` e
+`${FLUX_ROOT}/.codex-plugin/plugin.json` (os três declaram a mesma versão, verificado por CI).
+Se nenhum existir, estiver ilegível ou o campo `version` estiver ausente:
+`FLUX_VERSION = unknown`.
 
 ### 1b — `FLUX_CMD`
 
@@ -101,6 +136,11 @@ resolução que faltou.
 fechamento, sugestão de próximo elo, texto ao lado de um menu — usa `${FLUX_CMD}`. O `/flux:` literal
 só é aceitável em prosa interna que o usuário nunca lê (comentário de arquitetura, tabela de
 referência entre shareds).
+
+**Exceção: `stamp` e a linha `carimbo:` do banner usam `flux:` literal**, porque o stamp é um
+identificador para consulta e indexação (ex.: `claude-code | flux:review@1.34.0`), não um comando
+para digitar. A regra de escrita com `${FLUX_CMD}` governa comandos; o stamp governa rastros de
+auditoria — os dois têm propósitos diferentes e formatos diferentes.
 
 > **Por que a distinção importa.** A linha de fechamento não é decoração: ela existe para o usuário
 > digitar o próximo comando. Escrever ali a forma de outro harness manda alguém digitar um comando
@@ -339,6 +379,7 @@ cercas ```` ``` ```` fazem parte do que se emite, não são formatação deste d
 perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
 lentes: L1 {agente} · L2 {lista|ausente|inalcancavel} · L3 {lista|ausente|inalcancavel}
 degradacoes: {lista dos soft ausentes e o que se perde com cada um | nenhuma}
+carimbo: {harness} | flux:{verbo}@{flux_version}
 ```
 ````
 
@@ -359,6 +400,8 @@ que o banner precisa ser.
 | `kit nao avaliado` | o casamento daquele kit **dependeria** de `files`/`any_of` — ele não declara `repos`, ou declara e não casou por ele — e não há checkout local para testar. Nunca "casa por arquivo": o que não pôde ser testado não passou nem falhou | idem |
 | `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4, 5 ou 6 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
 | `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) |
+| `harness nao verificavel` | `HARNESS = unknown`: nenhum dos candidatos 1–3 resolveu `FLUX_ROOT`, portanto o harness não pôde ser identificado — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
+| `versao ilegivel` | `FLUX_VERSION = unknown`: nenhum dos três manifests (`plugin.json`) foi lido com sucesso ou o campo `version` estava ausente — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
 
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
 encheria de ruído o banner de toda máquina que não usa kit. Só os quatro estados de kit acima são
@@ -395,8 +438,8 @@ acompanham oferta e também não abortam.
 > função. Foi observado nos elos — o único que acertava era o único que carregava o gabarito.
 > Ao mudar o formato aqui, propagar para **todos** os verbos de `skills/`.
 
-> **Por que a cerca é obrigatória, e não estilo.** As três linhas são separadas por quebra simples.
-> Em markdown, quebra simples não quebra linha: as três viram um parágrafo corrido, `perfil` e
+> **Por que a cerca é obrigatória, e não estilo.** As quatro linhas são separadas por quebra simples.
+> Em markdown, quebra simples não quebra linha: as quatro viram um parágrafo corrido, `perfil` e
 > `degradacoes` grudam numa frase só, e o banner perde exatamente o que o justifica, que é ser lido
 > de relance. Já aconteceu em produção. Emitir as linhas soltas e confiar no renderizador **não
 > funciona** — em nenhum dos harnesses.
@@ -446,6 +489,7 @@ perfil: generico · nivel: THIN · holistico: pr-reviewer
 lentes: L1 pr-reviewer · L2 ausente (perfil sem specialists_root) · L3 ausente (repo sem agents de review)
 degradacoes: sem checkout local (contexto arquitetural nao verificavel; findings dependentes de
 contexto saem como question); sem vault (parecer nao persiste)
+carimbo: claude-code | flux:review@1.34.0
 ```
 
 Exemplo num repo que tem suite própria mas nenhuma suite curada:
@@ -455,6 +499,7 @@ perfil: pessoal · nivel: REDUCED · holistico: pr-reviewer
 lentes: L1 pr-reviewer · L2 ausente (sem suite curada para 'aiterm') · L3 ausente (repo sem agents de review)
 degradacoes: sem specialists (scouters e auditors de dominio nao rodam; a review cobre o
 cross-cutting mas nao os padroes especificos do repo) — rode /flux:equip --agents-only
+carimbo: claude-code | flux:review@1.34.0
 ```
 
 > **Os dois blocos acima são output renderizado, não gabarito.** Por isso o comando neles aparece

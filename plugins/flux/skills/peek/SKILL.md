@@ -110,6 +110,7 @@ Imprimir diretamente no chat, sem gravar em arquivo. **O banner de perfil é a p
 ```
 perfil: {nome|generico} · nivel: {REDUCED|THIN} · holistico: {agente} · specialists: nenhum
 degradacoes: {soft ausentes e o que se perde | nenhuma}
+carimbo: {harness} | flux:peek@{flux_version}
 
 ## Parecer: {alvo}
 
@@ -130,7 +131,15 @@ look é o relance rápido; o formato completo (painel, permalinks, ação) é do
 - Sem seção `## Decisão` formal, sem checklist, sem cobertura de specialists.
 - Se `LOOK_REPORT` vier vazio (sem findings): imprimir só o `SUMARIO` com a conclusão do subagent.
 
-**Com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-flux-peek-{alvo-slug}.md` além de imprimir no chat. Não persiste no vault automaticamente (escolha explícita do usuário).
+**Com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-flux-peek-{alvo-slug}.md` além de
+imprimir no chat. O arquivo inclui um frontmatter com bloco `provenance` herdado de
+`${FLUX_ROOT}/shared/board-template.md` (seção "Bloco `provenance` (todos os perfis)"), contendo
+os oito campos: `machine` (`hostname -s`), `invocation` (comando literal), `generator: "flux-peek"`,
+`captured_at` (timestamp ISO), `session_sources` (paths dos `.jsonl` de sessão, ou `[]` quando
+`VAULT_ROOT` não está resolvido), `harness`, `flux_version` e `stamp` (`<harness> | flux:peek@<flux_version>`).
+Só o bloco `provenance` é herdado; campos de board como `type`, `context` e `pending_organize`
+não fazem sentido fora do vault e não são incluídos. Não persiste no vault automaticamente
+(escolha explícita do usuário).
 
 ## Pipeline leve de doc (target = URL de Google Docs / Drive)
 

@@ -37,6 +37,7 @@ em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
 perfil: {nome do manifesto | generico}{ (ancora: alvo <path>)} · nivel: {FULL|REDUCED|THIN} · holistico: {agente}
 specialists: {lista|nenhum}
 degradacoes: {soft ausentes e o que se perde com cada um | nenhuma}
+carimbo: {harness} | flux:issue@{flux_version}
 ```
 ````
 

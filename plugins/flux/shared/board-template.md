@@ -214,6 +214,9 @@ provenance:
   generator: "<verbo que abriu o board: flux-build | flux-iterate | flux-land | flux-issue | flux-reply | flux-probe | flux-refine>"
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
   session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
+  harness: "<claude-code | cursor | codex | unknown>"
+  flux_version: "<versão do manifesto lida de ${FLUX_ROOT}/.claude-plugin/plugin.json, ou unknown>"
+  stamp: "<harness> | flux:<verbo>@<flux_version>"
 ---
 ```
 
@@ -257,8 +260,19 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
   5. Nenhum candidato (perfil genérico sem `VAULT_ROOT`, `cwd` sem diretório de transcripts, ou todos
      já referenciados): gravar `session_sources: []`.
 
-Board antigo sem este bloco continua válido: o campo é aditivo, e ferramentas que o leem devem tratar
-ausência como "não informado", nunca como erro.
+- **`harness`**: o harness que resolveu `FLUX_ROOT` — `claude-code`, `cursor`, `codex` ou `unknown`
+  quando o candidato que resolveu não é verificável (candidatos 4, 5 ou 6 da cascata do Passo 1a do
+  preflight). Ver `${FLUX_ROOT}/shared/preflight.md`, seção "1a-harness — `HARNESS` e `FLUX_VERSION`".
+- **`flux_version`**: o campo `version` de `${FLUX_ROOT}/.claude-plugin/plugin.json`, ou `unknown`
+  se o arquivo não existir ou a leitura falhar. Os cinco manifests são sincronizados por CI.
+- **`stamp`**: string de auditoria pronta para query — `<harness> | flux:<verbo>@<flux_version>`,
+  onde `<verbo>` é o verbo que abriu o board (mesma lógica de `generator`, que usa hífen:
+  `flux-build` → verbo `build`; stamp usa dois-pontos: `flux:build@1.34.0`). É redundante de
+  propósito: a surface `provenance->>'stamp'` agrupa artefatos por ferramenta+versão sem exigir
+  parsing de `generator` e `flux_version` separados.
+
+Board antigo sem este bloco continua válido: os campos são aditivos, e ferramentas que os leem devem
+tratar ausência como "não informado", nunca como erro.
 
 > **`source` é a chave de identidade do perfil exploração**, como `surfaces` é a do perfil conversa.
 > Antes de criar board novo, procurar um board cujo `source` case com o alvo em `<VAULT_ROOT>/0-inbox/`
