@@ -56,9 +56,23 @@ Entrada: o body atual da PR (sempre lido do remoto, nunca regerado) e o par `P =
    `, `. Se `P` já está na lista (comparação exata de string), **não editar nada**. Senão, acrescentar
    `, P` ao fim.
 4. **Linha não existe** (harness que não escreve a linha, ou body escrito sem atribuição, ou toda
-   linha `🤖 Generated with` encontrada está dentro de cerca ou blockquote) → acrescentar ao fim do
-   body, depois de uma linha em branco, `🤖 Generated with <nome> | P`, com `<nome>` =
-   `HARNESS_LABEL` (`${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness).
+   linha `🤖 Generated with` encontrada está dentro de cerca ou blockquote) → localizar o **último
+   parágrafo não vazio** do body. Se ele for um trailer isolado — uma linha só, casando
+   `^Co-Authored-By: .+ <\S+@\S+>$` — **inserir antes dele**, com uma linha em branco de cada lado:
+   `🤖 Generated with <nome> | P`, com `<nome>` = `HARNESS_LABEL`
+   (`${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness). Senão, acrescentar ao fim do body, depois
+   de uma linha em branco, o mesmo rodapé.
+
+   > **Por que este desvio existe.** Um motor de execução pode terminar o corpo da PR com
+   > `Co-Authored-By: <modelo> <noreply@<domínio>>` como o **último parágrafo isolado**, exigência de
+   > quem escreveu aquele body para que a linha siga reconhecível como trailer Git
+   > (`git interpret-trailers --parse --no-divider`) — é o caso do `pr-creator` do plugin `core` do
+   > `arco-ai-plugins`. Acrescentar sempre no fim absoluto, sem olhar o que já está lá, quebra essa
+   > invariante de um motor alheio: o carimbo do flux passaria a ser o último parágrafo, e o trailer
+   > deixaria de ser reconhecido como tal. O flux não pode presumir a convenção de todo motor que
+   > despacha, mas pode reconhecer o formato de trailer mais comum e não pisar nele. Achado em
+   > produção: PR #520 de `arco-ai-plugins`, carimbada pelo `flux:build` depois do
+   > `Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>` do `core:implement-task`.
 
 A comparação do passo 3 é por **par inteiro**: `flux:iterate@1.34.0` e `flux:iterate@1.35.0` são pares
 diferentes, e os dois ficam. É o que permite ver que duas versões do mesmo verbo passaram pela PR.
@@ -95,7 +109,9 @@ presente) → não chamar `gh pr edit`.
 - **Só PR própria.** Mesmo guard de autoria do `flux:iterate` (`IS_OWN_PR`): em PR de terceiro o
   carimbo não entra, nem como sugestão em comentário. A atribuição de uma PR alheia não é do flux.
 - **Só a linha de atribuição.** O carimbo não reescreve, move nem reformata nada fora da linha
-  localizada no passo 1 (ou do rodapé acrescentado no passo 4).
+  localizada no passo 1 (ou do rodapé acrescentado no passo 4). Inserir antes de um trailer final
+  (passo 4) também não move o trailer: ele continua o último parágrafo, só ganha um vizinho novo
+  acima.
 - **Não é drift.** Aplicar o carimbo não conta como reconciliação de descrição: não entra no changelog
   gerenciado do `flux:iterate`, não rola data, não emite evento de descrição reconciliada.
 - **Sem travessão.** Os separadores são ` | ` e `, `, o que mantém a linha válida com `NO_EMDASH`.
