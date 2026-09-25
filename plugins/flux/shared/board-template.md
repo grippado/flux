@@ -216,6 +216,8 @@ provenance:
   session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
   harness: "<claude-code | cursor | codex | unknown>"
   flux_version: "<versão do manifesto lida de ${FLUX_ROOT}/.claude-plugin/plugin.json, ou unknown>"
+  model: "<autorreportado pelo harness, ou unknown>"
+  effort: "<autorreportado pelo harness, ou unknown>"
   stamp: "<harness> | flux:<verbo>@<flux_version>"
 ---
 ```
@@ -265,6 +267,10 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
   preflight). Ver `${FLUX_ROOT}/shared/preflight.md`, seção "1a-harness — `HARNESS` e `FLUX_VERSION`".
 - **`flux_version`**: o campo `version` de `${FLUX_ROOT}/.claude-plugin/plugin.json`, ou `unknown`
   se o arquivo não existir ou a leitura falhar. Os cinco manifests são sincronizados por CI.
+- **`model`** e **`effort`**: autorreportados pelo próprio harness (ver `${FLUX_ROOT}/shared/preflight.md`,
+  seção "1a-harness"), nunca inferidos pelo LLM sobre si mesmo. Sem uma afirmação explícita do
+  harness no contexto da sessão, os dois ficam `unknown` — mesma honestidade-de-ausência do resto
+  deste bloco: campo `unknown` é sinal verificado como indisponível, não esquecimento.
 - **`stamp`**: string de auditoria pronta para query — `<harness> | flux:<verbo>@<flux_version>`,
   onde `<verbo>` é o verbo que abriu o board (mesma lógica de `generator`, que usa hífen:
   `flux-build` → verbo `build`; stamp usa dois-pontos: `flux:build@1.34.0`). É redundante de

@@ -83,15 +83,17 @@ provenance:
   session_sources: ["<path do .jsonl>", "..."]  # ver board-template.md, seção "Bloco provenance"; [] quando não há candidato
   harness: "<claude-code | cursor | codex | unknown>"
   flux_version: "<versão do manifesto, ou unknown>"
+  model: "<autorreportado pelo harness, ou unknown>"
+  effort: "<autorreportado pelo harness, ou unknown>"
   stamp: "<harness> | flux:review@<flux_version>"
 ---
 ```
 
 O bloco `provenance` segue a mesma disciplina do `board-template.md` (ver lá, seção "Bloco
 `provenance` (todos os perfis)") — mesmos campos, mesmo `hostname -s` como piso, sem depender de env
-var de instalação pessoal. Inclui `harness`, `flux_version` e `stamp`, com a mesma origem e
-degradação descritas naquela seção. O perfil doc herda o bloco sem alteração (não é uma das
-diferenças listadas abaixo).
+var de instalação pessoal. Inclui `harness`, `flux_version`, `model`, `effort` e `stamp`, com a
+mesma origem e degradação descritas naquela seção. O perfil doc herda o bloco sem alteração (não é
+uma das diferenças listadas abaixo).
 
 ### Corpo
 

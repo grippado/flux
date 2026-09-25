@@ -54,7 +54,7 @@ localizada.
 > `${FLUX_ROOT}` de cada elo depender de qual plugin foi instalado por último. `FLUX_ROOT` continua
 > sendo uma raiz só, a do flux, e parando na primeira que existir.
 
-### 1a-harness — `HARNESS` e `FLUX_VERSION`
+### 1a-harness — `HARNESS`, `FLUX_VERSION`, `MODEL` e `EFFORT`
 
 Derivados no mesmo passo, para que o bloco `provenance` dos artefatos e o carimbo do banner
 incluam o contexto de execução verificável.
@@ -101,6 +101,23 @@ verdade em qualquer harness.
 `${FLUX_ROOT}/.codex-plugin/plugin.json` (os três declaram a mesma versão, verificado por CI).
 Se nenhum existir, estiver ilegível ou o campo `version` estiver ausente:
 `FLUX_VERSION = unknown`.
+
+**`MODEL`** e **`EFFORT`** — diferente de `HARNESS`, não há variável de ambiente nem marcador em
+disco que os exponha, e a exclusividade que sustenta a cascata acima não existe aqui: não há
+`${CLAUDE_MODEL}` ou equivalente para checar. O único sinal é o próprio harness se autoidentificando
+no contexto que ele injeta na sessão — por exemplo, a linha em que o Claude Code declara o model que
+está rodando. Isso é autorrelato do harness, não verificação por script, então a barra é mais estrita
+que a de `HARNESS`: só resolve quando o contexto contém uma **afirmação explícita e inequívoca**
+feita pelo harness sobre si mesmo (nunca uma inferência do LLM sobre o próprio model ou esforço a
+partir do próprio comportamento). Sem essa afirmação: `MODEL = unknown` e `EFFORT = unknown`.
+
+Na prática, `EFFORT` sai `unknown` na maioria das invocações de hoje: os verbos `flux:` de primeira
+ordem não são subagentes despachados com um nível de esforço configurado, e nenhum harness afirma
+esse nível para a sessão principal — mesma degradação declarada que `HARNESS = unknown` já é na
+maioria das instalações Codex (nota acima).
+
+Os dois campos **não entram** na cascata de resolução de `FLUX_ROOT` nem afetam `HARNESS` ou
+`FLUX_CMD` — são metadado adicional do mesmo passo, não uma nova cascata.
 
 ### 1b — `FLUX_CMD`
 
