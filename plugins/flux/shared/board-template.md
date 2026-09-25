@@ -264,7 +264,7 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
 
 - **`harness`**: o harness que resolveu `FLUX_ROOT` — `claude-code`, `cursor`, `codex` ou `unknown`
   quando o candidato que resolveu não é verificável (candidatos 4, 5 ou 6 da cascata do Passo 1a do
-  preflight). Ver `${FLUX_ROOT}/shared/preflight.md`, seção "1a-harness — `HARNESS` e `FLUX_VERSION`".
+  preflight). Ver `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness.
 - **`flux_version`**: o campo `version` de `${FLUX_ROOT}/.claude-plugin/plugin.json`, ou `unknown`
   se o arquivo não existir ou a leitura falhar. Os cinco manifests são sincronizados por CI.
 - **`model`** e **`effort`**: autorreportados pelo próprio harness (ver `${FLUX_ROOT}/shared/preflight.md`,

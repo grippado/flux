@@ -5,7 +5,7 @@
 > (passo 8a, depois do push). **Não duplicar esta lógica** nos comandos: apontar para cá e declarar só
 > em que momento o carimbo é aplicado.
 >
-> Complementa `${FLUX_ROOT}/shared/preflight.md`, seção "1a-harness — `HARNESS` e `FLUX_VERSION`",
+> Complementa `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness,
 > que é quem resolve os dois valores usados aqui. Este shared **não** resolve harness nem versão: ele
 > só diz como escrevê-los na PR.
 

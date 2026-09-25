@@ -35,6 +35,9 @@ mensagem já montada.
   `env:CURSOR_PLUGIN_ROOT` → `cursor`, `env:CODEX_PLUGIN_ROOT` → `codex`, qualquer outra fonte
   incluindo `env:FLUX_HOME` → `unknown`); `FLUX_VERSION` é lido do campo `version` de
   `${flux_root}/.claude-plugin/plugin.json` — a mesma regra do Passo 1a-harness do preflight.
+- `MODEL` e `EFFORT` também não vêm no JSON e o CLI não tem como obtê-los: são resolvidos pela
+  sessão, pela regra de autorrelato do harness em `preflight.md §1a-harness` (sem afirmação
+  explícita do harness sobre si mesmo, `unknown`).
 
 Revalidar **apenas** o que `session_revalidation_required` lista — tipicamente 4 itens, todos
 introspecção de sessão que nenhum processo externo pode fazer (preflight.md, 3-bis):
