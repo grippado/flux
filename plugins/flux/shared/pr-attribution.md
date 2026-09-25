@@ -57,11 +57,13 @@ Entrada: o body atual da PR (sempre lido do remoto, nunca regerado) e o par `P =
    `, P` ao fim.
 4. **Linha não existe** (harness que não escreve a linha, ou body escrito sem atribuição, ou toda
    linha `🤖 Generated with` encontrada está dentro de cerca ou blockquote) → localizar o **último
-   parágrafo não vazio** do body. Se ele for um trailer isolado — uma linha só, casando
-   `^Co-Authored-By: .+ <\S+@\S+>$` — **inserir antes dele**, com uma linha em branco de cada lado:
-   `🤖 Generated with <nome> | P`, com `<nome>` = `HARNESS_LABEL`
-   (`${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness). Senão, acrescentar ao fim do body, depois
-   de uma linha em branco, o mesmo rodapé.
+   parágrafo não vazio** do body, fora de bloco de código cercado e de blockquote. Se **toda** linha
+   desse parágrafo casar `^[A-Za-z][A-Za-z-]*: .+$` (chave sem distinção de maiúsculas, espaço e `\r`
+   finais descartados antes de comparar) e **pelo menos uma** casar a chave `co-authored-by` — um
+   trailer isolado, de um ou mais coautores — **inserir antes dele**, com uma linha em branco de cada
+   lado, preservando o terminador de linha que o body já usa: `🤖 Generated with <nome> | P`, com
+   `<nome>` = `HARNESS_LABEL` (`${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness). Senão,
+   acrescentar ao fim do body, depois de uma linha em branco, o mesmo rodapé.
 
    > **Por que este desvio existe.** Um motor de execução pode terminar o corpo da PR com
    > `Co-Authored-By: <modelo> <noreply@<domínio>>` como o **último parágrafo isolado**, exigência de
