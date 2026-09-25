@@ -134,9 +134,10 @@ look é o relance rápido; o formato completo (painel, permalinks, ação) é do
 **Com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-flux-peek-{alvo-slug}.md` além de
 imprimir no chat. O arquivo inclui um frontmatter com bloco `provenance` herdado de
 `${FLUX_ROOT}/shared/board-template.md` (seção "Bloco `provenance` (todos os perfis)"), contendo
-os oito campos: `machine` (`hostname -s`), `invocation` (comando literal), `generator: "flux-peek"`,
+os dez campos: `machine` (`hostname -s`), `invocation` (comando literal), `generator: "flux-peek"`,
 `captured_at` (timestamp ISO), `session_sources` (paths dos `.jsonl` de sessão, ou `[]` quando
-`VAULT_ROOT` não está resolvido), `harness`, `flux_version` e `stamp` (`<harness> | flux:peek@<flux_version>`).
+`VAULT_ROOT` não está resolvido), `harness`, `flux_version`, `model`, `effort` e `stamp`
+(`<harness> | flux:peek@<flux_version>`).
 Só o bloco `provenance` é herdado; campos de board como `type`, `context` e `pending_organize`
 não fazem sentido fora do vault e não são incluídos. Não persiste no vault automaticamente
 (escolha explícita do usuário).

@@ -42,7 +42,9 @@ localizada.
 
 > **A família não sabe em qual harness roda, e não deve saber.** Os candidatos nomeados acima são a
 > única menção a harness específico em todo o flux, com exceção da seção 1a-harness abaixo, que
-> deriva `HARNESS`, `HARNESS_LABEL` e `FLUX_VERSION` do candidato que resolveu. Nomear um harness aqui só é
+> deriva `HARNESS`, `HARNESS_LABEL` e `FLUX_VERSION` do candidato que resolveu, e `MODEL`/`EFFORT` por
+> autorrelato do harness (mecanismo diferente, ver abaixo — não vêm do candidato que resolveu
+> `FLUX_ROOT`). Nomear um harness aqui só é
 > legítimo quando o candidato é **verificável**: uma variável que a sessão de fato define, ou um
 > marcador que existe no disco. Um candidato que nomeia um produto sem ter como confirmar a raiz
 > não resolve nada e transforma este passo numa lista de boas intenções. Tudo abaixo deste passo
@@ -54,7 +56,7 @@ localizada.
 > `${FLUX_ROOT}` de cada elo depender de qual plugin foi instalado por último. `FLUX_ROOT` continua
 > sendo uma raiz só, a do flux, e parando na primeira que existir.
 
-### 1a-harness — `HARNESS` e `FLUX_VERSION`
+### 1a-harness — `HARNESS`, `FLUX_VERSION`, `MODEL` e `EFFORT`
 
 Derivados no mesmo passo, para que o bloco `provenance` dos artefatos e o carimbo do banner
 incluam o contexto de execução verificável.
@@ -101,6 +103,44 @@ verdade em qualquer harness.
 `${FLUX_ROOT}/.codex-plugin/plugin.json` (os três declaram a mesma versão, verificado por CI).
 Se nenhum existir, estiver ilegível ou o campo `version` estiver ausente:
 `FLUX_VERSION = unknown`.
+
+**`MODEL`** e **`EFFORT`** — diferente de `HARNESS`, não há variável de ambiente nem marcador em
+disco que os exponha, e a exclusividade que sustenta a cascata acima não existe aqui: não há
+`${CLAUDE_MODEL}` ou equivalente para checar. O único sinal é o próprio harness se autoidentificando
+no contexto que ele injeta na sessão — por exemplo, a linha em que o Claude Code declara o model que
+está rodando. Isso é autorrelato do harness, não verificação por script, então a barra é mais estrita
+que a de `HARNESS`: só resolve quando o contexto contém uma **afirmação explícita e inequívoca**
+feita pelo harness sobre si mesmo (nunca uma inferência do LLM sobre o próprio model ou esforço a
+partir do próprio comportamento). Sem essa afirmação: `MODEL = unknown` e `EFFORT = unknown`.
+
+**Fonte válida da afirmação: só o system prompt do harness.** "O contexto que a sessão injeta" não é
+qualquer coisa que apareça na conversa — CLAUDE.md, mensagem do usuário, prompt de um orquestrador ou
+saída de tool podem conter a frase "você está rodando o model X" sem que isso seja o harness falando
+de si mesmo. A afirmação só conta quando vem do próprio system prompt/system-reminder que o harness
+injeta na sessão, nunca de conteúdo de usuário, de repo ou de tool.
+
+**Formato do valor: verbatim do harness, preferindo o identificador exato ao nome de exibição.**
+Quando o harness declarar os dois (ex.: "Sonnet 5" e o ID `claude-sonnet-5`), gravar o ID — é o que
+permite agrupar `provenance->>'model'` entre artefatos sem normalização. Sem ID declarado, gravar o
+nome de exibição verbatim. `EFFORT` segue a mesma regra: verbatim do que o harness afirmar (não existe
+enum canônico entre harnesses hoje).
+
+**São os de quem grava o artefato, nunca os de um subagente despachado.** Num elo que despacha
+holístico e specialists como subagentes (`${FLUX_ROOT}/shared/review-agents.md`), cada um pode rodar
+com model/effort diferente do orquestrador — a config de roteamento de quem invoca pode mandar review
+para um tier diferente, por exemplo. `MODEL`/`EFFORT` descrevem a **sessão que resolveu o Step 0 e
+gravou o `provenance`**, não a mistura de subagentes que produziu o conteúdo. Um campo que tentasse
+descrever "todos os models envolvidos" precisaria de uma lista, não um valor escalar, e esse não é o
+problema que este passo resolve — fica para quem, no futuro, quiser rastrear proveniência por
+subagente.
+
+Na prática, `EFFORT` sai `unknown` na maioria das invocações de hoje: os verbos `flux:` de primeira
+ordem não são subagentes despachados com um nível de esforço configurado, e nenhum harness afirma
+esse nível para a sessão principal — mesma honestidade-de-ausência que o resto do bloco `provenance`
+já pratica (**não** vira token de banner: ver "Tokens canônicos de `degradacoes:`" no Passo 5, abaixo).
+
+Os dois campos **não entram** na cascata de resolução de `FLUX_ROOT` nem afetam `HARNESS` ou
+`FLUX_CMD` — são metadado adicional do mesmo passo, não uma nova cascata.
 
 ### 1b — `FLUX_CMD`
 
@@ -420,6 +460,14 @@ que o banner precisa ser.
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
 encheria de ruído o banner de toda máquina que não usa kit. Só os quatro estados de kit acima são
 acionáveis, e só o que é acionável se declara.
+
+**`MODEL = unknown` e `EFFORT = unknown` não geram token e não vão a `degradacoes:`**, pelo mesmo
+critério do kit ausente: nenhum harness afirma `EFFORT` para a sessão principal hoje, então o token
+apareceria em praticamente todo banner emitido — ruído, não sinal acionável. A honestidade-de-ausência
+dos dois campos vive só no valor `unknown` gravado no `provenance` do artefato (Passo 1a-harness
+acima), não no banner. Diferente de `harness nao verificavel`/`versao ilegivel`, que **são** token:
+`HARNESS`/`FLUX_VERSION` têm candidato verificável por variável/arquivo, então `unknown` ali é sinal
+de que a cascata falhou — informação rara e acionável, que vale aparecer de relance.
 
 Os três tokens de índice (`L3 stale`, `indice ausente`, `indice stale`) acompanham a oferta
 correspondente (`${FLUX_CMD}equip <repo> --expose-l3`, `${FLUX_CMD}map`) e **nenhum deles aborta**: os
