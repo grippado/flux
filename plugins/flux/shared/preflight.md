@@ -111,10 +111,19 @@ que a de `HARNESS`: só resolve quando o contexto contém uma **afirmação expl
 feita pelo harness sobre si mesmo (nunca uma inferência do LLM sobre o próprio model ou esforço a
 partir do próprio comportamento). Sem essa afirmação: `MODEL = unknown` e `EFFORT = unknown`.
 
+**São os de quem grava o artefato, nunca os de um subagente despachado.** Num elo que despacha
+holístico e specialists como subagentes (`${FLUX_ROOT}/shared/review-agents.md`), cada um pode rodar
+com model/effort diferente do orquestrador — a config de roteamento de quem invoca pode mandar review
+para um tier diferente, por exemplo. `MODEL`/`EFFORT` descrevem a **sessão que resolveu o Step 0 e
+gravou o `provenance`**, não a mistura de subagentes que produziu o conteúdo. Um campo que tentasse
+descrever "todos os models envolvidos" precisaria de uma lista, não um valor escalar, e esse não é o
+problema que este passo resolve — fica para quem, no futuro, quiser rastrear proveniência por
+subagente.
+
 Na prática, `EFFORT` sai `unknown` na maioria das invocações de hoje: os verbos `flux:` de primeira
 ordem não são subagentes despachados com um nível de esforço configurado, e nenhum harness afirma
-esse nível para a sessão principal — mesma degradação declarada que `HARNESS = unknown` já é na
-maioria das instalações Codex (nota acima).
+esse nível para a sessão principal — mesma honestidade-de-ausência que o resto do bloco `provenance`
+já pratica (**não** vira token de banner: ver "Tokens canônicos de `degradacoes:`" no Passo 5, abaixo).
 
 Os dois campos **não entram** na cascata de resolução de `FLUX_ROOT` nem afetam `HARNESS` ou
 `FLUX_CMD` — são metadado adicional do mesmo passo, não uma nova cascata.
@@ -437,6 +446,14 @@ que o banner precisa ser.
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
 encheria de ruído o banner de toda máquina que não usa kit. Só os quatro estados de kit acima são
 acionáveis, e só o que é acionável se declara.
+
+**`MODEL = unknown` e `EFFORT = unknown` não geram token e não vão a `degradacoes:`**, pelo mesmo
+critério do kit ausente: nenhum harness afirma `EFFORT` para a sessão principal hoje, então o token
+apareceria em praticamente todo banner emitido — ruído, não sinal acionável. A honestidade-de-ausência
+dos dois campos vive só no valor `unknown` gravado no `provenance` do artefato (Passo 1a-harness
+acima), não no banner. Diferente de `harness nao verificavel`/`versao ilegivel`, que **são** token:
+`HARNESS`/`FLUX_VERSION` têm candidato verificável por variável/arquivo, então `unknown` ali é sinal
+de que a cascata falhou — informação rara e acionável, que vale aparecer de relance.
 
 Os três tokens de índice (`L3 stale`, `indice ausente`, `indice stale`) acompanham a oferta
 correspondente (`${FLUX_CMD}equip <repo> --expose-l3`, `${FLUX_CMD}map`) e **nenhum deles aborta**: os

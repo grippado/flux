@@ -268,9 +268,12 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
 - **`flux_version`**: o campo `version` de `${FLUX_ROOT}/.claude-plugin/plugin.json`, ou `unknown`
   se o arquivo não existir ou a leitura falhar. Os cinco manifests são sincronizados por CI.
 - **`model`** e **`effort`**: autorreportados pelo próprio harness (ver `${FLUX_ROOT}/shared/preflight.md`,
-  seção "1a-harness"), nunca inferidos pelo LLM sobre si mesmo. Sem uma afirmação explícita do
-  harness no contexto da sessão, os dois ficam `unknown` — mesma honestidade-de-ausência do resto
-  deste bloco: campo `unknown` é sinal verificado como indisponível, não esquecimento.
+  seção 1a-harness), nunca inferidos pelo LLM sobre si mesmo. São os da **sessão que grava este
+  bloco**, não os de um subagente que ela tenha despachado no meio do trabalho (ex.: os specialists
+  de `review-agents.md` podem rodar com outro model/effort). Sem uma afirmação explícita do harness
+  no contexto da sessão, os dois ficam `unknown` — mesma honestidade-de-ausência do resto deste
+  bloco: campo `unknown` é sinal verificado como indisponível, não esquecimento. Não gera token no
+  banner de degradação (ver `preflight.md`, "Tokens canônicos de `degradacoes:`").
 - **`stamp`**: string de auditoria pronta para query — `<harness> | flux:<verbo>@<flux_version>`,
   onde `<verbo>` é o verbo que abriu o board (mesma lógica de `generator`, que usa hífen:
   `flux-build` → verbo `build`; stamp usa dois-pontos: `flux:build@1.34.0`). É redundante de
