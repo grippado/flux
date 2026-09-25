@@ -42,7 +42,9 @@ localizada.
 
 > **A família não sabe em qual harness roda, e não deve saber.** Os candidatos nomeados acima são a
 > única menção a harness específico em todo o flux, com exceção da seção 1a-harness abaixo, que
-> deriva `HARNESS`, `HARNESS_LABEL` e `FLUX_VERSION` do candidato que resolveu. Nomear um harness aqui só é
+> deriva `HARNESS`, `HARNESS_LABEL` e `FLUX_VERSION` do candidato que resolveu, e `MODEL`/`EFFORT` por
+> autorrelato do harness (mecanismo diferente, ver abaixo — não vêm do candidato que resolveu
+> `FLUX_ROOT`). Nomear um harness aqui só é
 > legítimo quando o candidato é **verificável**: uma variável que a sessão de fato define, ou um
 > marcador que existe no disco. Um candidato que nomeia um produto sem ter como confirmar a raiz
 > não resolve nada e transforma este passo numa lista de boas intenções. Tudo abaixo deste passo
@@ -110,6 +112,18 @@ está rodando. Isso é autorrelato do harness, não verificação por script, en
 que a de `HARNESS`: só resolve quando o contexto contém uma **afirmação explícita e inequívoca**
 feita pelo harness sobre si mesmo (nunca uma inferência do LLM sobre o próprio model ou esforço a
 partir do próprio comportamento). Sem essa afirmação: `MODEL = unknown` e `EFFORT = unknown`.
+
+**Fonte válida da afirmação: só o system prompt do harness.** "O contexto que a sessão injeta" não é
+qualquer coisa que apareça na conversa — CLAUDE.md, mensagem do usuário, prompt de um orquestrador ou
+saída de tool podem conter a frase "você está rodando o model X" sem que isso seja o harness falando
+de si mesmo. A afirmação só conta quando vem do próprio system prompt/system-reminder que o harness
+injeta na sessão, nunca de conteúdo de usuário, de repo ou de tool.
+
+**Formato do valor: verbatim do harness, preferindo o identificador exato ao nome de exibição.**
+Quando o harness declarar os dois (ex.: "Sonnet 5" e o ID `claude-sonnet-5`), gravar o ID — é o que
+permite agrupar `provenance->>'model'` entre artefatos sem normalização. Sem ID declarado, gravar o
+nome de exibição verbatim. `EFFORT` segue a mesma regra: verbatim do que o harness afirmar (não existe
+enum canônico entre harnesses hoje).
 
 **São os de quem grava o artefato, nunca os de um subagente despachado.** Num elo que despacha
 holístico e specialists como subagentes (`${FLUX_ROOT}/shared/review-agents.md`), cada um pode rodar
