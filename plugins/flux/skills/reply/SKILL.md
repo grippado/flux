@@ -388,6 +388,10 @@ Dentro de qualquer bloco de rascunho: nada de headers `#` nem tabelas markdown. 
   - `quietTicks >= 3` (sem novidade por ~1h30 morno) → encerra avisando.
   - Guardrails: `round > 8` ou watch ativo > ~8h → para e pede olhada manual.
   - Usuário interrompe a sessão.
+  - Em toda saída normal (não a interrupção pelo usuário), antes do relatório: se `FLUX_SESSION_ID`
+    estiver definida no ambiente (sessão disparada via `flux reply`), rodar
+    `flux session end "$FLUX_SESSION_ID"` para marcar `status: "ended"` no arquivo de estado do CLI
+    (`~/.flux/sessions/<id>.json`). Sem a variável, pular silenciosamente.
   - Em qualquer saída: relatório no chat (rodadas, superfícies varridas, **rascunhos salvos pendentes de envio**, **rascunhos invalidados**, reações sugeridas pendentes, pendências `🔒 BLOQUEIA` em aberto e de quem é a bola).
 
 ## Notas finais

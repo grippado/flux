@@ -69,6 +69,7 @@ export type LaunchRequest = {
   command: string;
   body: string;
   invocation: string;
+  sessionId?: string;
 };
 
 const SHELL_METACHAR_PATTERN = /[;&|`\n<>]|\$\(/;
@@ -85,9 +86,10 @@ export function shellQuoteArg(s: string): string {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
-export function buildShellCmd(invocation: string, filePath: string): string {
+export function buildShellCmd(invocation: string, filePath: string, sessionId?: string): string {
   assertSafeInvocation(invocation);
-  return `${invocation} -- "$(cat ${shellQuoteArg(filePath)})"`;
+  const sessionExport = sessionId ? `export FLUX_SESSION_ID=${shellQuoteArg(sessionId)} && ` : "";
+  return `${sessionExport}${invocation} -- "$(cat ${shellQuoteArg(filePath)})"`;
 }
 
 export type HereDeps = {
@@ -107,7 +109,7 @@ export function runHere(req: LaunchRequest, deps: HereDeps = {}): number {
   const shell = deps.shell ?? process.env["SHELL"] ?? "/bin/zsh";
 
   const filePath = writeFile(req.body);
-  const shellCmd = buildShellCmd(req.invocation, filePath);
+  const shellCmd = buildShellCmd(req.invocation, filePath, req.sessionId);
   return spawn([shell, "-i", "-c", shellCmd]);
 }
 
@@ -232,7 +234,7 @@ export async function launchClaude(req: LaunchRequest, deps: LaunchDeps = {}): P
   let script: string;
   if (termProgram === "iTerm.app" || termProgram === "Apple_Terminal") {
     const filePath = writeFile(req.body);
-    const shellCmd = buildShellCmd(req.invocation, filePath);
+    const shellCmd = buildShellCmd(req.invocation, filePath, req.sessionId);
     if (termProgram === "iTerm.app") {
       script = buildITermScript(shellCmd);
     } else {

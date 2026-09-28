@@ -5,6 +5,7 @@ import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliase
 import { runPreflight } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
+import { generateSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
@@ -37,6 +38,7 @@ function printUsage(): void {
   console.error("Uso: flux resolve [alvo] [--repo <slug>] --json");
   console.error("     flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
   console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
+  console.error("     flux session end <id>  (ou defina FLUX_SESSION_ID no ambiente e omita <id>)");
   console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--new] [--remote [alias]] [--yes|-y] [--harness <claude|cursor|codex>]");
   console.error("     flux <verbo> ... --remote  (sem alias: pergunta interativamente qual máquina alcançável usar)");
   console.error("     flux <verbo> ... --yes     (pula a prévia do banner antes de disparar o Claude Code)");
@@ -322,12 +324,22 @@ async function runVerb(opts: {
     console.error(`[flux] --new não é suportado para o harness "${harness}" ainda. Rodando na aba atual.`);
   }
 
+  const sessionId = generateSessionId();
+  writeSessionFile({
+    sessionId,
+    verb,
+    pid: process.pid,
+    terminalApp: process.env["TERM_PROGRAM"] ?? "desconhecido",
+    startedAt: new Date().toISOString(),
+    status: "running",
+  });
+
   if (!openNew || !supportsNewTab) {
-    const exitCode = runHere({ command, body, invocation });
+    const exitCode = runHere({ command, body, invocation, sessionId });
     process.exit(exitCode);
   }
 
-  await launchClaude({ command, body, invocation });
+  await launchClaude({ command, body, invocation, sessionId });
 }
 
 export type MenuItem = { value: string; label: string; hint?: string };
@@ -596,6 +608,25 @@ async function main(): Promise<void> {
     });
     process.stdout.write(JSON.stringify(result, null, 2) + "\n");
     process.exit(result.status === "abort" ? 3 : 0);
+  }
+
+  if (subcommand === "session") {
+    if (target === "end") {
+      const id = rest[0] ?? process.env["FLUX_SESSION_ID"] ?? null;
+      if (!id) {
+        console.error("Uso: flux session end <id>  (ou defina FLUX_SESSION_ID no ambiente)");
+        process.exit(2);
+      }
+      const ok = markSessionEnded(id);
+      if (!ok) {
+        console.error(`[flux] sessão "${id}" não encontrada em ${sessionsDir()}`);
+        process.exit(1);
+      }
+      console.log(`[flux] sessão "${id}" marcada como encerrada.`);
+      return;
+    }
+    console.error("Uso: flux session end <id>");
+    process.exit(2);
   }
 
   if (!isSupportedVerb(subcommand)) {
