@@ -134,13 +134,13 @@ Alvo de ticket Linear requer --repo. Exemplo: flux build LAB-142 --repo <slug-do
 
 ### `chain`: encadear elos
 
-O verbo `chain` encadeia elos por artefato, separados por `>`. No shell, o `>` é redirecionamento: sem aspas, o shell cria um arquivo chamado `iterate` e o `flux` nunca vê o chain. Por isso o chain **vai sempre entre aspas**:
+O verbo `chain` encadeia elos por artefato, separados por `>`. No shell, o `>` é redirecionamento: sem aspas, o shell cria (ou sobrescreve) um arquivo chamado `iterate`, e o `flux` recebe só `chain review 65`: o `>iterate` some antes de chegar a ele. Por isso o chain **vai sempre entre aspas**:
 
 ```bash
 flux chain 'review>iterate' 65
 ```
 
-O parse do chain no CLI **ainda não está implementado**: `chain` não está entre os verbos suportados, e `flux chain ...` responde "Verbo desconhecido". Hoje o chain roda como skill, dentro do harness (`/flux:chain review>iterate 65`, onde as aspas não são necessárias). A gramática e o contrato estão em [`shared/chain.md`](../plugins/flux/shared/chain.md).
+O parse do chain no CLI **ainda não está implementado**: `chain` não está entre os verbos suportados, e `flux chain ...` responde "Verbo desconhecido". Hoje o chain roda como skill, dentro do harness (`/flux:chain review>iterate 65`, onde as aspas não são necessárias), e executa só `review>iterate`. A gramática e o contrato estão em [`shared/chain.md`](../plugins/flux/shared/chain.md).
 
 ---
 
