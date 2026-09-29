@@ -64,6 +64,19 @@ describe("assertSafeInvocation: rejeita metacaractere de shell em FLUX_CLAUDE_CM
   });
 });
 
+describe("buildShellCmd: propaga FLUX_SESSION_ID como prefixo de ambiente do processo", () => {
+  it("com sessionId: antepoe FLUX_SESSION_ID=<id> sem 'export' (nao vaza pro shell da aba)", () => {
+    const cmd = buildShellCmd("claude", "/tmp/prompt.txt", "abc-12345678");
+    expect(cmd).toBe(`FLUX_SESSION_ID='abc-12345678' claude -- "$(cat '/tmp/prompt.txt')"`);
+    expect(cmd).not.toContain("export");
+  });
+
+  it("sem sessionId: comando fica identico ao que era antes (sem prefixo nenhum)", () => {
+    const cmd = buildShellCmd("claude", "/tmp/prompt.txt");
+    expect(cmd).toBe(`claude -- "$(cat '/tmp/prompt.txt')"`);
+  });
+});
+
 describe("buildITermScript: estrutura AppleScript correta", () => {
   it("menciona iTerm2 e write text", () => {
     const script = buildITermScript("claude hello");

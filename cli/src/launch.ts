@@ -1,6 +1,7 @@
 import { mkdtempSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 import { tmpdir, homedir } from "os";
+import { markSessionEnded } from "./session.ts";
 
 export function escapeAppleScript(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -88,8 +89,8 @@ export function shellQuoteArg(s: string): string {
 
 export function buildShellCmd(invocation: string, filePath: string, sessionId?: string): string {
   assertSafeInvocation(invocation);
-  const sessionExport = sessionId ? `export FLUX_SESSION_ID=${shellQuoteArg(sessionId)} && ` : "";
-  return `${sessionExport}${invocation} -- "$(cat ${shellQuoteArg(filePath)})"`;
+  const sessionEnv = sessionId ? `FLUX_SESSION_ID=${shellQuoteArg(sessionId)} ` : "";
+  return `${sessionEnv}${invocation} -- "$(cat ${shellQuoteArg(filePath)})"`;
 }
 
 export type HereDeps = {
@@ -224,6 +225,7 @@ export async function launchClaude(req: LaunchRequest, deps: LaunchDeps = {}): P
     process.stderr.write(
       "aviso: não foi possível abrir aba automaticamente — execute o comando acima\n",
     );
+    if (req.sessionId) markSessionEnded(req.sessionId);
   };
 
   if (!isAvailable()) {
