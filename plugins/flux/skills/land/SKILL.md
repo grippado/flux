@@ -193,7 +193,7 @@ Se nenhuma PR acionável, avise e termine.
 ### 2. Grafo de ordem + locks
 
 - Classifique cada PR por **camada** (backend/api, bff, frontend, infra) e por issue.
-- Detecte dependências de deploy (quem consome contrato de quem) e monte a **ordem de merge** por toposort cross-repo: ordene por camada (produtor de contrato antes de consumidor) e, dentro da camada, respeite as arestas de bloqueio que a **issue do tracker** declarar (no Linear, as relações `blocks` / `blockedBy` que o `get_issue` devolve em `relations`; em outros trackers, a relação equivalente). Não havendo relação declarada, o grafo é só o de camadas — nunca inventar aresta a partir de prosa da descrição. Ciclo detectado não se desempata por adivinhação — reporte as PRs envolvidas e peça a ordem ao usuário.
+- Detecte dependências de deploy (quem consome contrato de quem) e monte a **ordem de merge** por toposort cross-repo: ordene por camada (produtor de contrato antes de consumidor) e, dentro da camada, respeite as arestas de bloqueio que a **issue do tracker** declarar (no Linear, as relações `blocks` / `blockedBy`, que a leitura da issue devolve em `relations` e `inverseRelations` (`${FLUX_ROOT}/shared/api-first.md`; no MCP, `get_issue`); em outros trackers, a relação equivalente). Não havendo relação declarada, o grafo é só o de camadas — nunca inventar aresta a partir de prosa da descrição. Ciclo detectado não se desempata por adivinhação — reporte as PRs envolvidas e peça a ordem ao usuário.
 - Fontes de **lock**:
   - **base branch empilhado**: `baseRefName != main` → a PR base entra antes (garantido pelo próprio base).
   - **acoplamento de contrato**: descoberto na fase 3 (ex.: backend gatilho por último).

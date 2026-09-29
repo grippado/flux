@@ -30,7 +30,7 @@ Para no primeiro "não". Cada degrau que falha tem um destino declarado.
    e, faltando lá, do `secrets_file` (default `~/.secrets`, `KEY=value`). Regras de manuseio em
    `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do token". Ausente nos dois: **gate de
    token ausente** (abaixo). **Nunca cai para MCP em silêncio.**
-2. **O token autentica?** Uma query barata de identidade. Falhou: MCP.
+2. **O token autentica?** Uma query barata de identidade (`{ viewer { id name } }` no Linear). Status diferente de `200` **ou payload com `errors`**: MCP, porque GraphQL costuma devolver falha de auth com `200`. Na leitura, este degrau e o seguinte se fundem na própria query de leitura, que prova as duas coisas em um request só.
 3. **O token enxerga o alvo?** Para leitura, a própria query de leitura é a sonda: alvo nulo ou erro de
    escopo cai para MCP. Para escrita, é a query que resolve os identificadores do destino.
 4. **O token escreve?** Só para escrita. Não existe dry run de mutation, então o teste é um **canário**:
@@ -59,16 +59,18 @@ Sem `AskUserQuestion` no harness, vira menu numerado na mesma ordem, com a degra
 o elo segue por MCP nesta execução, sem gravar preferência, e o banner sai com `transporte mcp (<canal>:
 sem token)`. É descida declarada, não silenciosa; a pergunta fica para a próxima execução interativa.
 
-**Cache da preferência.** `<REPO_PATH>/.claude/cache/flux-<canal>-transport.json`, um por canal e não
-por verbo (para `linear`, o nome canônico é o legado `flux-issue-linear-transport.json`): a escolha é da máquina e do serviço, e um opt-out feito no `issue` vale para o `build`.
+**Cache da preferência.** Para `linear`, o nome normativo é o legado `flux-issue-linear-transport.json`; o modelo
+`flux-<canal>-transport.json` vale só para canais futuros. Fica em `<REPO_PATH>/.claude/cache/` (um por
+canal, não por verbo): a escolha é da máquina e do serviço, e um opt-out feito no `issue` vale para o `build`.
 
 ```json
 { "transport": "mcp", "reason": "usuário optou por não configurar <TOKEN_VAR>" }
 ```
 
 **Onde vive.** Preferência de máquina, não de repo, mas gravada no repo-alvo por não haver outro lugar
-neutro. Harness sem a convenção `.claude/`, ou elo sem `REPO_PATH` (o `land` roda em workspace): sem
-cache, e o gate pergunta a cada execução interativa. **Nunca no `flux-context.json`**: esse manifesto
+neutro. Elo sem `REPO_PATH` (o `land` roda em workspace) usa `<WORKSPACE_ROOT>/.claude/cache/`; ele não
+enxerga o opt-out gravado no repo pelo `issue` e pergunta uma vez por workspace. Harness sem a convenção
+`.claude/`: sem cache, e a opção 2 vale só para esta execução, com o texto da opção dizendo isso. **Nunca no `flux-context.json`**: esse manifesto
 só é escrito pelo `flux:equip`, e empurrar a preferência para ele quebra a invariante de escritor único
 (`${FLUX_ROOT}/shared/flux-context.md`, "Só um elo escreve este arquivo"). O cache não passa pelo gate
 de destino de escrita: é preferência de transporte, não artefato de trabalho.
@@ -89,7 +91,7 @@ Ausência de token nunca vira o motivo `sem token` sozinha: ela abre o gate, e o
 **desfecho** (`opt-out` se o usuário escolheu MCP, `sem token` só se o setup guiado falhou ou não havia
 interação possível). Um cache-hit de `"mcp"` sai como `opt-out`: é a mesma escolha, relembrada, e o
 banner não pode apagá-la fingindo omissão. Ao citar a variável, citar o **nome**, nunca o valor.
-**Nunca imprimir o token**, nem ao ecoar erro da API.
+**Nunca imprimir o token**, nem em log, nem ao ecoar erro da API, nem no board.
 
 ## Manifesto
 
@@ -114,6 +116,10 @@ Uma linha "adotado" só existe quando o corpo do elo cita este arquivo.
 
 ## O canal Linear
 
+**Criar a chave:** `https://linear.app/settings/account/security` (Settings, Security & access, Personal
+API keys), com um label que identifique a máquina e o verbo (`flux-<verbo>-<hostname>`). No
+`secrets_file`, uma linha `<TOKEN_VAR>=<valor>`, sem `export`.
+
 Autenticação por header, sem prefixo `Bearer` (a chave pessoal do Linear vai crua):
 
 ```bash
@@ -123,7 +129,7 @@ TOKEN=$(printenv "$TOKEN_VAR")
 [ -z "$TOKEN" ] && TOKEN=$(grep -E "^${TOKEN_VAR}=" "$SECRETS_FILE" 2>/dev/null | cut -d= -f2-)
 ```
 
-**Leitura de ticket, um request.** Aceita o identificador (`CPU-4576`); a URL é reduzida ao
+**Leitura de ticket, um request.** Aceita o identificador (`ENG-123`); a URL é reduzida ao
 identificador antes:
 
 ```graphql
@@ -138,6 +144,7 @@ query Ticket($id: String!, $after: String) {
     parent { identifier title }
     children { nodes { identifier title state { name } } }
     relations { nodes { type relatedIssue { identifier title state { name } } } }
+    inverseRelations { nodes { type issue { identifier title state { name } } } }
     attachments { nodes { title url sourceType } }
     comments(first: 50, after: $after) { pageInfo { hasNextPage endCursor } nodes { body createdAt user { name } } }
   }
@@ -145,12 +152,19 @@ query Ticket($id: String!, $after: String) {
 ```
 
 `comments(first: 50)` trunca: `hasNextPage: true` obriga a paginar com `after` até esgotar, porque o
-`build` lê a issue inteira e comentário perdido em silêncio é contexto perdido em silêncio.
+`build` lê a issue inteira e comentário perdido em silêncio é contexto perdido em silêncio. A página
+seguinte repete a query com `$after` = `endCursor` da anterior, e pode ser uma query enxuta só de
+`comments`.
+
+**Relações têm dois lados.** `relations` traz só as arestas em que esta issue é a origem; o "sou
+bloqueada por X" vem em `inverseRelations` (verificado contra a API: uma issue bloqueada tinha
+`relations` vazio e o `blocks` só em `inverseRelations`). O `land` monta o toposort com os dois.
 
 Ticket que o token não enxerga (workspace errado, sem acesso ou ID inexistente) volta como erro
 `Entity not found: Issue` (`INPUT_ERROR`, verificado contra a API), não como `issue: null`. Tratar os
 dois como o mesmo sinal: cair para MCP **e dizer isso no banner**, porque o MCP pode responder o mesmo
-erro por outro motivo. `attachments` é onde a integração GitHub do Linear pendura as PRs da issue, que é o que
+erro por outro motivo. Esse sinal usa o motivo `alvo nao enxergado`; erro de rede, 5xx ou timeout usa
+`leitura falhou`. `attachments` é onde a integração GitHub do Linear pendura as PRs da issue, que é o que
 o `land` procura.
 
 **Armadilhas que já custaram tempo:** o payload de `issueRelationCreate` vem em `issueRelation`, não em
