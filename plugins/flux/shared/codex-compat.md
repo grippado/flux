@@ -101,21 +101,25 @@ da seção seguinte: sem `FLUX_CMD`, imprimem a instrução em vez de executar. 
 o `flux:map` é oferecido por outros elos e ele próprio oferece o `equip`, e nenhuma das duas pontas
 executa sem `FLUX_CMD`.
 
-### `land` degrada no Codex
+### Elos que despacham irmãos no Codex
 
 `${FLUX_CMD}` não resolve no Codex hoje. O Passo 1b do [`preflight.md`](preflight.md) verifica
 `/flux:`, `/flux-` e `/`, e nenhuma dessas formas corresponde ao modo como o Codex expõe a skill.
 Pela regra do próprio passo, `FLUX_CMD` fica `UNAVAILABLE`.
 
-Isso atinge os elos que **despacham um irmão**, e são dois — mas eles reagem de formas diferentes, e a
+Isso atinge os elos que **despacham um irmão**, e são três — mas eles reagem de formas diferentes, e a
 diferença é o que importa aqui:
 
 - **`flux:land`** roda o `iterate` por PR dentro de subagente, e sem esse despacho não há entrega
-  multi-PR: a fase **aborta**, e com ela o verbo. É o único indisponível no Codex.
+  multi-PR: a fase **aborta**, e com ela o verbo. É o único **totalmente** indisponível no Codex.
 - **`flux:map`** despacha o `equip` por repo na fase de conserto, que é a segunda metade do verbo. Sem
   `FLUX_CMD` ele **degrada**: o levantamento, o delta, a integridade e o índice saem inteiros, e as
   remediações são impressas para o usuário rodar à mão. Continua sendo um verbo útil, com uma metade a
   menos e a perda declarada no banner.
+- **`flux:chain`** roda cada elo em sequência, então despacha irmãos e herda o limite. A recusa e o plano
+  (que nomeiam só verbos) funcionam; a **fase de execução aborta no preflight**, com a mensagem padrão
+  nomeando `FLUX_CMD`, como o `land`. Nunca executa o pipeline de um elo inline. No Codex o único
+  chain executável da v1, `review>iterate`, portanto não roda: o usuário invoca os verbos à mão.
 
 Os demais funcionam normalmente. **Exceção parcial: o `flux:refine`.** Sem `FLUX_CMD`, o verbo inteiro
 continua funcionando (T0/T1, PRD, TRD, plano, Caminho grill); só o encadeamento fatia-por-fatia do
@@ -156,7 +160,7 @@ mensagem padrão — **nunca** degradar para uma iteração inline fora do contr
 "quase" roda é pior que um `land` que diz que não roda: ele produziria PRs iteradas sem worktree,
 sem verificação contra código real e sem disciplina de resposta.
 
-Enquanto isso valer, o `flux:land` é o único verbo da família indisponível no Codex, e o banner de
+Enquanto isso valer, o `flux:land` é o único verbo da família totalmente indisponível no Codex, e o banner de
 perfil deve declarar a ausência. Quem precisa de entrega multi-PR no Codex usa o `iterate` PR a PR e
 coordena a ordem de merge à mão.
 

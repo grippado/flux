@@ -11,6 +11,10 @@
 > - `${FLUX_ROOT}/skills/build/SKILL.md`, que **oferece o corte** antes de despachar, no
 >   Step 2-quater, e tem override (`--no-slice`).
 >
+> O `${FLUX_ROOT}/skills/chain/SKILL.md` **antecipa** a medição para um chain que contém `refine` ou
+> `build` (`${FLUX_ROOT}/shared/chain.md`, "Escopo medido"): mesmo contrato, sem sinal novo, e os dois
+> consumidores acima medem de novo por conta própria. A antecipação ainda não está implementada.
+>
 > Não cobre decomposição em si. Como um pedido grande vira issues independentemente entregáveis é
 > `${FLUX_ROOT}/shared/issue-template.md`, seção **Decomposição (vertical slices)**, e este contrato
 > se apoia nela para contar slice.
