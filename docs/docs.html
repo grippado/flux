@@ -171,6 +171,7 @@ flux build LAB-142 --repo flux</code></pre>
         </table>
         <p><code>FULL</code> is <em>tentative</em> because the CLI sees the disk, not the session: it knows the agent file exists, not whether the harness registered it as invokable. The skill confirms that from inside.</p>
         <p><code>flux gather pr &lt;n|URL&gt; --json</code> collects a PR through <code>gh</code>: metadata, diff, and with <code>--threads</code> the review threads. Only verbs that answer threads ask for them.</p>
+        <p>Every verb spawn writes a small state file under <code>~/.flux/sessions/&lt;id&gt;.json</code> (id, verb, pid, terminal, start time, status). <code>flux session end &lt;id&gt;</code> (or <code>FLUX_SESSION_ID</code> in the environment, set by the CLI when it launches the harness) marks that file <code>"ended"</code>. It is idempotent: a missing or already-ended session exits <code>0</code>, since nothing more needs to happen.</p>
 
         <h3 id="flags">Flags</h3>
         <table>

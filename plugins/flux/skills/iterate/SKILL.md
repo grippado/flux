@@ -860,7 +860,9 @@ Em toda saída normal (não a interrupção pelo usuário), antes do relatório 
 ambiente `FLUX_SESSION_ID` estiver definida (sessão disparada via `flux iterate`), rodar
 `flux session end "$FLUX_SESSION_ID"` para marcar `status: "ended"` no arquivo de estado do CLI
 (`~/.flux/sessions/<id>.json`). Sem a variável (sessão aberta manualmente, fora do CLI), pular
-silenciosamente — não há arquivo de estado para marcar.
+silenciosamente — não há arquivo de estado para marcar. Se o comando falhar ou `flux` não estiver
+no PATH, ignorar o erro e seguir para o relatório final normalmente — é best-effort, nunca
+bloqueante.
 
 Em qualquer saída, **relatório final** no chat: rodadas fechadas, estado final do CI (com link se vermelho), **estado final de integração com a base** (e, se houve resolução de conflito, a estratégia usada e os arquivos resolvidos), threads humanas deixadas em `needs-discussion`, e o range de commits pushados durante o watch.
 
