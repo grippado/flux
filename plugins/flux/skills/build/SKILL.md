@@ -135,6 +135,8 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `EXEC_FALLBACK` = `exec_fallback` se presente, escalar **ou** mapa por repo; **sem default**
      (ausente = modo autônomo). A resolução está no Step 2, caminho B.
    - `LINEAR_ORG` = `linear_org` (para normalizar IDs de ticket em URL, quando útil)
+   - `LINEAR_TOKEN_ENV` = `linear_token_env` (nome da variável do token; ausente = `LINEAR_API_KEY`; `${FLUX_ROOT}/shared/api-first.md`)
+   - `SECRETS_FILE` = `secrets_file` (default `~/.secrets`)
    - `VAULT_ROOT` = `vault_root` / `VAULT_CTX` = `vault_context` (onde o board de execução é gravado)
    - `NO_EMDASH` = `no_emdash`
    - `SPECIALISTS_ROOT` = `specialists_root` (template de path com `{repo}`; degrau 1 da descoberta de
@@ -274,6 +276,12 @@ falha, mas quem o roda precisa saber que rodou sem os gates do repo.
 
 Quando a task é um ticket, **leia a issue inteira e repasse ao motor a seção de embasamento em
 código**, junto da descrição. Não resuma: o motor precisa dos `arquivo:linha` literais.
+
+**A leitura é API primeiro.** Ler o ticket é uma query GraphQL só (descrição, comentários, relações,
+anexos), não três ou quatro chamadas de tool em sequência, e o token do manifesto resolve o workspace
+certo em vez do que a sessão MCP calhou de autenticar. Seguir `${FLUX_ROOT}/shared/api-first.md`,
+canal `linear`, sem degrau de canário (leitura é idempotente); descida para MCP vai a `degradacoes:` como
+`transporte mcp (linear: <motivo>)`.
 
 Uma issue nascida do `/flux:issue` já teve os specialists do repo rodando sobre ela, na prospecção
 (`${FLUX_ROOT}/skills/issue/SKILL.md`, Step 2). O que está escrito ali sob "Embasamento no código"

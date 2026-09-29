@@ -370,6 +370,7 @@ flux/
     │   └── map/                    fora do ciclo: levanta a instalação e grava o índice
     └── shared/                     contratos compartilhados (fonte única, não duplicar nos verbos)
     ├── preflight.md               verificação de pré-requisitos, níveis de capacidade, banner
+    ├── api-first.md               transporte API primeiro, MCP como degrau declarado (Linear hoje)
     ├── hitl.md                    quando o elo para e pergunta, e como pergunta sem o tool preferido
     ├── flux-context.md            resolução de contexto via manifesto
     ├── agents-index.md            mapa das lentes na máquina (o que existe e onde, nunca o que rodou)

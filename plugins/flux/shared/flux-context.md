@@ -230,8 +230,8 @@ com o reviewer de outro time sem que nada acuse o problema.
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
 - `linear_token_env` — **nome da variável** (não o valor) que guarda o token da API do Linear, usado
-  pelo gate de transporte do `flux:issue` (Step 6-pre) para decidir entre a API GraphQL batched e o
-  MCP. Default `LINEAR_API_KEY`.
+  pelo contrato de transporte `${FLUX_ROOT}/shared/api-first.md` (escrita no `flux:issue`, leitura no
+  `flux:build` e no `flux:land`) para decidir entre a API GraphQL e o MCP. Default `LINEAR_API_KEY`.
 
   O campo existe porque **quem tem mais de um workspace de tracker tem mais de uma chave**, e as duas
   não podem morar sob o mesmo nome no mesmo cofre. Declarando o nome por contexto, cada manifesto

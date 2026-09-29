@@ -114,6 +114,7 @@ As flags podem aparecer em qualquer posição e combinadas.
    - `KITS_ROOT` = `kits_root` (template com `{repo}`; degrau 3 da cascata de destino, opcional)
    - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `REPOS` = `repos` (lista de repos conhecidos do contexto)
+   - `LINEAR_TOKEN_ENV` = `linear_token_env` e `SECRETS_FILE` = `secrets_file` (leitura da issue por API, `${FLUX_ROOT}/shared/api-first.md`; ausentes = `LINEAR_API_KEY` e `~/.secrets`)
    - `WORKSPACE_ROOT` = pai do diretório `.claude/` onde o manifesto foi encontrado
      (ex.: manifesto em `<raiz>/.claude/flux-context.json` → `WORKSPACE_ROOT=<raiz>`)
 
@@ -149,7 +150,7 @@ ONCE=false; SOLO=false; BOARD=""
 
 Para cada target:
 
-- **Issue Linear** (`CPU-XXXX`/`MOM-XXXX` ou URL): pegar metadados, sub-issues **e anexos/links** via Linear MCP (`get_issue`) — a integração GitHub do Linear costuma auto-linkar PRs mencionadas na descrição/branch à issue; isso é a fonte mais confiável quando disponível. Derivar o `ticket-id` em lowercase.
+- **Issue Linear** (`CPU-XXXX`/`MOM-XXXX` ou URL): pegar metadados, sub-issues **e anexos/links** — API primeiro, MCP como degrau declarado (`${FLUX_ROOT}/shared/api-first.md`, canal `linear`; a query de leitura já traz `children` e `attachments`) — a integração GitHub do Linear costuma auto-linkar PRs mencionadas na descrição/branch à issue; isso é a fonte mais confiável quando disponível. Derivar o `ticket-id` em lowercase.
 
 - **Descoberta primária (por conteúdo, todos os repos de `REPOS`):**
 
