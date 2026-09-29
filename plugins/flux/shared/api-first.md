@@ -80,11 +80,10 @@ reperguntaria a quem já optou.
 
 ## Declarar no banner
 
-O banner tem um só lugar para isso: `degradacoes:`, com o token canônico `transporte mcp (<canal>:
-<motivo>)` da tabela do Passo 5 de `${FLUX_ROOT}/shared/preflight.md`. Motivos: `sem token`, `token nao
-autentica`, `alvo nao enxergado`, `canario falhou`, `leitura falhou`, `opt-out`. Caminho por API não
-gera token, porque é o default. Não existe linha `transporte:` própria: campo fora do gabarito é campo
-inventado.
+O banner tem um só lugar para isso: `degradacoes:`, com o token canônico `transporte mcp (<canal>: <motivo>)`.
+A grafia e a lista fechada de motivos moram na tabela do Passo 5 de `${FLUX_ROOT}/shared/preflight.md`, que é a
+fonte única. Caminho por API não gera token, porque é o default. Não existe linha `transporte:` própria:
+campo fora do gabarito é campo inventado.
 
 Ausência de token nunca vira o motivo `sem token` sozinha: ela abre o gate, e o token declara o
 **desfecho** (`opt-out` se o usuário escolheu MCP, `sem token` só se o setup guiado falhou ou não havia
@@ -128,7 +127,7 @@ TOKEN=$(printenv "$TOKEN_VAR")
 identificador antes:
 
 ```graphql
-query Ticket($id: String!) {
+query Ticket($id: String!, $after: String) {
   issue(id: $id) {
     identifier title description url branchName priority
     state { name type }
@@ -140,7 +139,7 @@ query Ticket($id: String!) {
     children { nodes { identifier title state { name } } }
     relations { nodes { type relatedIssue { identifier title state { name } } } }
     attachments { nodes { title url sourceType } }
-    comments(first: 50) { pageInfo { hasNextPage } nodes { body createdAt user { name } } }
+    comments(first: 50, after: $after) { pageInfo { hasNextPage endCursor } nodes { body createdAt user { name } } }
   }
 }
 ```
@@ -164,7 +163,7 @@ outros; a URL canônica usa o `urlKey` do workspace, não o nome da organizaçã
 |---|---|---|
 | `issue` | escrita em lote com canário e resolução de UUIDs | Step 6-pre |
 | `build` | leitura do ticket antes de despachar ao motor | Step 2-ter |
-| `land` | leitura da issue, sub-issues e anexos na descoberta | Passo 1 |
+| `land` | leitura da issue, sub-issues e anexos na descoberta | Passo 1, "Descoberta das PRs" |
 
 Elo novo que passe a falar com serviço externo de dois caminhos adota este arquivo em vez de
 reescrever a escada, e entra na tabela acima no mesmo PR.

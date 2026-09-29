@@ -150,7 +150,7 @@ ONCE=false; SOLO=false; BOARD=""
 
 Para cada target:
 
-- **Issue Linear** (`CPU-XXXX`/`MOM-XXXX` ou URL): pegar metadados, sub-issues **e anexos/links** — API primeiro, MCP como degrau declarado (`${FLUX_ROOT}/shared/api-first.md`, canal `linear`; a query de leitura já traz `children` e `attachments`) — a integração GitHub do Linear costuma auto-linkar PRs mencionadas na descrição/branch à issue; isso é a fonte mais confiável quando disponível. Derivar o `ticket-id` em lowercase.
+- **Issue Linear** (`CPU-XXXX`/`MOM-XXXX` ou URL): pegar metadados, sub-issues **e anexos/links** — API primeiro, MCP como degrau declarado (`${FLUX_ROOT}/shared/api-first.md`, canal `linear`; descida para MCP vai a `degradacoes:` como `transporte mcp (linear: <motivo>)`; a query de leitura já traz `children` e `attachments`) — a integração GitHub do Linear costuma auto-linkar PRs mencionadas na descrição/branch à issue; isso é a fonte mais confiável quando disponível. Derivar o `ticket-id` em lowercase.
 
 - **Descoberta primária (por conteúdo, todos os repos de `REPOS`):**
 
