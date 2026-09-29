@@ -184,10 +184,11 @@ flux                                  # modo interativo: pergunta comando, alvo,
 Depois de instalar, os verbos ficam disponíveis em qualquer repo Git. No Claude Code, a forma
 é `/flux:peek`; no Cursor, `/flux-peek`; no Codex, use o nome que o Plugin Directory registrar.
 
-**Uma ressalva honesta sobre o Codex:** são **dez** verbos ali, não onze. O `flux:land` é o único
-elo que despacha um irmão, e para isso precisa resolver o prefixo de invocação da família — coisa
-que o Codex ainda não expõe de forma verificável. Ele aborta a fase de despacho em vez de degradar
-para uma iteração fora do contrato. Detalhe em
+**Uma ressalva honesta sobre o Codex:** o `flux:land` e o `flux:chain` despacham um irmão, e para isso
+precisam resolver o prefixo de invocação da família — coisa que o Codex ainda não expõe de forma
+verificável. O `land` aborta a fase de despacho; o `chain` valida a gramática e imprime o plano, mas
+não executa os elos. Nenhum dos dois degrada para uma iteração fora do contrato. `map` e `refine`
+também perdem uma capacidade lá. Detalhe em
 [`shared/codex-compat.md`](plugins/flux/shared/codex-compat.md).
 
 Requisitos reais: **`git`** (duro — sem ele o preflight aborta) e **`gh` autenticado** (mole, mas é o que separa "roda em PR" de "roda só na working tree"). Nada além disso. Sem manifesto, sem vault e sem specialists, a família roda no perfil genérico e [o banner do preflight](#convenções-transversais) declara o nível degradado em vez de fingir que está completo.
@@ -317,6 +318,7 @@ ponto para transformar um caso em comunicação embasada, não apenas depois do 
 | [`flux:review`](plugins/flux/skills/review/SKILL.md) | PR ou doc | review formal (holístico + specialists reconciliados) | vault; posta quando você manda |
 | [`flux:iterate`](plugins/flux/skills/iterate/SKILL.md) | PR | correções aplicadas, réplicas postadas, threads resolvidas, CI vigiado | sim (`--dry` rascunha read-only) |
 | [`flux:land`](plugins/flux/skills/land/SKILL.md) | issue/feature multi-PR | ordem de merge, validação de regressão, go/no-go | mantém PRs merge-ready; **nunca mergeia** |
+| [`flux:chain`](plugins/flux/skills/chain/SKILL.md) | cadeia de elos (`review>iterate`) + alvo do primeiro elo | validação da gramática antes de rodar, baton entre os elos, banner único; cada elo mantém os próprios gates | não escreve por conta; escreve o que cada elo escreve. Hoje executa só `review>iterate` |
 | [`flux:reply`](plugins/flux/skills/reply/SKILL.md) | permalink de thread | rascunho Slack-safe + ata no vault | salva rascunho; **nunca posta sozinho** |
 | [`flux:equip`](plugins/flux/skills/equip/SKILL.md) | repo | motor de execução (L0) + suite de specialists local (L2) + L3 exposta | sim, **fora do repo alvo**, pelo contrato de destino; manifesto só sob gate |
 | [`flux:map`](plugins/flux/skills/map/SKILL.md) | nada (a máquina) | inventário das lentes, delta desde a última execução, relatório de integridade | o índice `flux-agents.json`; os consertos **despacha ao `equip`**, nunca escreve por conta |
@@ -365,7 +367,7 @@ flux/
     │   ├── probe/                  opcional, antes do ciclo: investiga telemetria de produção
     │   ├── refine/                 opcional, antes do ciclo: fast SDD numa rodada
     │   ├── issue/  build/  peek/
-    │   ├── review/  iterate/  land/  reply/
+    │   ├── review/  iterate/  land/  reply/  chain/
     │   ├── equip/                  fora do ciclo: motor (L0), specialists (L2), expõe L3
     │   └── map/                    fora do ciclo: levanta a instalação e grava o índice
     └── shared/                     contratos compartilhados (fonte única, não duplicar nos verbos)
@@ -383,6 +385,7 @@ flux/
     ├── board-template.md          formato do board vivo (execução / iterate / delivery / conversa)
     ├── worktree-discipline.md     todo fluxo que escreve opera em worktree dedicado
     ├── write-destination.md       onde artefato gerado pode nascer: cascata + guardas de symlink/git/dotfiles
+    ├── chain.md                  gramática de chains: verbo, artefato, legalidade, baton, falha no meio
     ├── scope-gate.md             medir o tamanho do pedido antes de gastar tempo com ele: sinais, faixas, corte proposto
     ├── fanout-discipline.md       todo trabalho pesado vai para subagente, em paralelo
     ├── context-budget.md          leitura sob demanda, um root por sessão, delegação
@@ -391,7 +394,7 @@ flux/
 
 O harness resolve `skills/<verbo>/SKILL.md` como `/flux:<verbo>`. Adicionar um diretório em `skills/` publica um verbo novo, sem tocar em instalação.
 
-**O nome invocável é montado pelo harness, não escrito por nós.** O mesmo `skills/iterate/SKILL.md` vira `/flux:iterate` num harness e pode virar outra forma em outro. Por isso o único elo que despacha um irmão (o `flux:land`, que roda o iterate por PR dentro de subagente) escreve `${FLUX_CMD}iterate`, com o prefixo resolvido **e verificado** pelo [Passo 1b do preflight](plugins/flux/shared/preflight.md). O rigor é o mesmo do agente holístico: um nome de comando resolvido sem confirmação vira um subagente que não acha o comando e improvisa a iteração fora do contrato.
+**O nome invocável é montado pelo harness, não escrito por nós.** O mesmo `skills/iterate/SKILL.md` vira `/flux:iterate` num harness e pode virar outra forma em outro. Por isso os elos que despacham um irmão (o `flux:land`, que roda o iterate por PR dentro de subagente, e o `flux:chain`, que roda os elos em sequência) escrevem `${FLUX_CMD}iterate`, com o prefixo resolvido **e verificado** pelo [Passo 1b do preflight](plugins/flux/shared/preflight.md). O rigor é o mesmo do agente holístico: um nome de comando resolvido sem confirmação vira um subagente que não acha o comando e improvisa a iteração fora do contrato.
 
 `${FLUX_ROOT}` é resolvido pelo [`preflight`](plugins/flux/shared/preflight.md) na ordem: `${CLAUDE_PLUGIN_ROOT}` → `${CURSOR_PLUGIN_ROOT}` → `${CODEX_PLUGIN_ROOT}`, quando a sessão o define → o primeiro diretório acima da skill com `.codex-plugin/plugin.json`, que é como o Codex resolve na prática → dois níveis acima do verbo em execução, resolvendo symlink antes de subir (checkout direto, e a instalação local do Cursor) → `${FLUX_HOME}` do ambiente. O contrato específico do Codex está em [`shared/codex-compat.md`](plugins/flux/shared/codex-compat.md).
 

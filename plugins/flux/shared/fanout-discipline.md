@@ -23,6 +23,10 @@ Investigar código, verificar alegação contra o repo, aplicar correção, varr
 `flux:*`: nada disso acontece na main. Tudo vai para **subagente**, e sempre que houver mais de uma
 unidade independente, os subagentes vão **em paralelo** (fan-out), num único bloco de tool calls.
 
+**Exceção declarada: `flux:chain`.** Ele roda os elos na main, em sequência, e nunca em subagente,
+porque subagente não abre gate (`${FLUX_ROOT}/shared/hitl.md`); a regra acima segue valendo para o
+trabalho **dentro** de cada elo (`${FLUX_ROOT}/shared/chain.md`, "Execução").
+
 Vale para todos os elos, em todas as passadas — inclusive **dentro do watch**, onde o custo se
 acumula tick após tick e é justamente onde a tentação de "só dessa vez fazer inline" mais aparece.
 
