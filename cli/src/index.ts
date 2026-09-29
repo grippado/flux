@@ -324,18 +324,24 @@ async function runVerb(opts: {
     console.error(`[flux] --new não é suportado para o harness "${harness}" ainda. Rodando na aba atual.`);
   }
 
-  const sessionId = generateSessionId();
-  writeSessionFile({
-    sessionId,
-    verb,
-    pid: process.pid,
-    terminalApp: process.env["TERM_PROGRAM"] ?? "desconhecido",
-    startedAt: new Date().toISOString(),
-    status: "running",
-  });
+  let sessionId: string | undefined = generateSessionId();
+  try {
+    writeSessionFile({
+      sessionId,
+      verb,
+      pid: process.pid,
+      terminalApp: process.env["TERM_PROGRAM"] ?? null,
+      startedAt: new Date().toISOString(),
+      status: "running",
+    });
+  } catch (err) {
+    console.error(`[flux] aviso: não foi possível gravar o estado da sessão: ${err instanceof Error ? err.message : String(err)}`);
+    sessionId = undefined;
+  }
 
   if (!openNew || !supportsNewTab) {
     const exitCode = runHere({ command, body, invocation, sessionId });
+    if (sessionId) markSessionEnded(sessionId);
     process.exit(exitCode);
   }
 
@@ -619,8 +625,8 @@ async function main(): Promise<void> {
       }
       const ok = markSessionEnded(id);
       if (!ok) {
-        console.error(`[flux] sessão "${id}" não encontrada em ${sessionsDir()}`);
-        process.exit(1);
+        console.error(`[flux] sessão "${id}" não encontrada em ${sessionsDir()} — nada a fazer.`);
+        process.exit(0);
       }
       console.log(`[flux] sessão "${id}" marcada como encerrada.`);
       return;
