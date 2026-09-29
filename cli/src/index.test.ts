@@ -171,11 +171,7 @@ describe("flux session end: subcomando idempotente contra o estado real em ~/.fl
 
   afterEach(() => {
     for (const id of createdIds.splice(0)) {
-      try {
-        rmSync(sessionFilePath(id), { force: true });
-      } catch {
-        // sessionId invalido (path traversal) nunca chega a existir no disco.
-      }
+      rmSync(sessionFilePath(id), { force: true });
     }
   });
 

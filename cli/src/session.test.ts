@@ -51,7 +51,7 @@ describe("writeSessionFile: grava o arquivo minimo no spawn", () => {
     expect(onDisk).toEqual(session);
   });
 
-  it("duas sessoes simultaneas de verbos diferentes gravam arquivos e pids distintos", () => {
+  it("duas sessoes distintas gravam arquivos e pids distintos (escritas sequenciais em paths diferentes, nao concorrencia de verdade)", () => {
     const a = makeSession({ sessionId: "sessa-11111111", verb: "iterate", pid: 111 });
     const b = makeSession({ sessionId: "sessb-22222222", verb: "reply", pid: 222 });
 
