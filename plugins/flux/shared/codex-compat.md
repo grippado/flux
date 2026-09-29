@@ -101,7 +101,7 @@ da seção seguinte: sem `FLUX_CMD`, imprimem a instrução em vez de executar. 
 o `flux:map` é oferecido por outros elos e ele próprio oferece o `equip`, e nenhuma das duas pontas
 executa sem `FLUX_CMD`.
 
-### `land` degrada no Codex
+### Elos que despacham irmãos no Codex
 
 `${FLUX_CMD}` não resolve no Codex hoje. O Passo 1b do [`preflight.md`](preflight.md) verifica
 `/flux:`, `/flux-` e `/`, e nenhuma dessas formas corresponde ao modo como o Codex expõe a skill.
@@ -111,7 +111,7 @@ Isso atinge os elos que **despacham um irmão**, e são três — mas eles reage
 diferença é o que importa aqui:
 
 - **`flux:land`** roda o `iterate` por PR dentro de subagente, e sem esse despacho não há entrega
-  multi-PR: a fase **aborta**, e com ela o verbo.
+  multi-PR: a fase **aborta**, e com ela o verbo. É o único **totalmente** indisponível no Codex.
 - **`flux:map`** despacha o `equip` por repo na fase de conserto, que é a segunda metade do verbo. Sem
   `FLUX_CMD` ele **degrada**: o levantamento, o delta, a integridade e o índice saem inteiros, e as
   remediações são impressas para o usuário rodar à mão. Continua sendo um verbo útil, com uma metade a

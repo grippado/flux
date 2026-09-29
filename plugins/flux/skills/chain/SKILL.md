@@ -8,6 +8,7 @@ requires:
     - file: shared/flux-context.md
     - bin: git
     - bin: gh
+    - agent: ${HOLISTIC}
   soft:
     - vault
 ---
@@ -45,7 +46,7 @@ carimbo: {harness} | flux:chain@{flux_version}
 ```
 ````
 
-Recusa, plano de chain fora da v1 e abortagem (Steps 0-alvo a 2) saem **antes** do preflight e não
+Recusa e plano de chain fora da v1 (Steps 0-alvo a 2) seguem o gabarito de "Recusa útil" do `chain.md`; a abortagem do preflight (Step 3 em diante) segue o gabarito do preflight. Todos saem **antes** do preflight e não
 têm perfil resolvido para carimbar: seguem o formato de abortagem, sem banner, e nomeiam **verbos**,
 nunca um prefixo de invocação, porque `FLUX_CMD` ainda não foi verificado. O banner abre o output do
 chain que executa.
@@ -59,7 +60,7 @@ mensagem de abortagem" do preflight, também verbatim, e o nome do elo na primei
 Fazer **só o parse**: separar o primeiro token não-flag em elos por `>`, o resto em `<alvo>` e flags.
 Não abrir repo, não buscar PR. Regras de sintaxe em `${FLUX_ROOT}/shared/chain.md`, seção "Sintaxe".
 
-- Um elo só, elo desconhecido, `map` ou `equip` em qualquer posição: recusar, citar o verbo avulso.
+- Um elo só, elo desconhecido, `map`, `equip` ou `reply` em qualquer posição: recusar, citar o verbo avulso.
 - `--auto`: recusar. O chain não é procuração (`chain.md`, invariante 2); dizer que `--auto` vale só
   rodando o elo avulso.
 - Flag que nenhum elo do chain declara: recusar, nunca ignorar.
@@ -91,13 +92,14 @@ requisito de cada elo é verificado aqui, à mão. CLI ausente ou saída inváli
    (hoje, o Codex): **abortar** no formato do preflight nomeando `FLUX_CMD`. Nunca executar o
    pipeline de um elo inline (`codex-compat.md`).
 3. Verificar os `hard` **de cada elo** (`review`: `shared/review-legend.md`,
-   `shared/review-artifact-template.md`, `git`, agente `${HOLISTIC}`; `iterate`: `git` e `gh`, que o
+   `shared/review-artifact-template.md`, `shared/flux-context.md`, `git`, agente `${HOLISTIC}`; `iterate`: `git` e `gh`, que o
    `SKILL.md` dele não declara em `requires` e vêm de `VERB_REQUIREMENTS` em `cli/src/preflight.ts`).
    **Falta um: abortar antes do primeiro elo**, no formato do preflight, nomeando qual elo o exigia.
 4. Resolver `HOLISTIC` na ordem canônica do Passo 3 e verificar que existe.
-5. Resolver o perfil (`flux-context.md`) com a âncora no `<alvo>`. `NO_EMDASH` vale para todo texto
+5. Resolver a PR do `<alvo>` em URL (`gh pr view <alvo> --json url,headRefName`). Sem PR aberta
+   (alvo vazio, branch local): abortar antes do primeiro elo. Resolver o perfil (`flux-context.md`) com a âncora no `<alvo>`. `NO_EMDASH` vale para todo texto
    externo que o chain gerar.
-6. Classificar o nível: o **pior** entre os elos.
+6. Classificar o nível: o **pior** entre os elos, com o que o preflight do chain mediu.
 
 Este preflight é **do chain**. Cada elo roda o próprio Step 0 ao ser invocado, porque nada o dispensa
 disso: o custo é conhecido e o resultado, o mesmo.
@@ -118,8 +120,10 @@ Para `review>iterate <PR>`:
 1. **`review`**, verbo `pr`, alvo `<PR>` (mais `--solo`, se passada). Roda até o Step 8,
    **incluindo o gate de ação pós-review**. O usuário escolhe postar, aplicar ou não fazer nada, e
    essa escolha é dele, não do chain.
-2. **Baton.** Ler do resultado do elo: a **URL da PR** e o path do review no vault, quando houve vault.
-   Registrar no estado. Não resumir nem reescrever o que o `review` entregou.
+2. **Baton.** A **URL da PR** já foi resolvida pelo chain no Step 3 (`gh pr view`); do resultado do
+   `review` só se lê o path do vault, quando houve vault. Registrar no estado. Em seguida, se a branch
+   da PR tem commits sem push (`chain.md`, "Exceção: commits locais sem push"), **parar antes do
+   `iterate`** com o bloco de estado. Não resumir nem reescrever o que o `review` entregou.
 3. **`iterate`**, alvo a URL da PR, com as flags declaradas para ele. É o **último** elo: vale o
    default de watch, ou o `--once` que o usuário passou. `iterate` lê as threads da PR, **não** o
    arquivo do review (`chain.md`, "`review>iterate` e o gate de postagem").

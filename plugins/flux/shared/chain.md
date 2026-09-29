@@ -31,6 +31,7 @@ ${FLUX_CMD}chain <elo>[><elo>]... <alvo> [flags]
 ```
 
 Exemplos: `${FLUX_CMD}chain review>iterate 65`, `${FLUX_CMD}chain review>iterate 65 --once`.
+A forma de shell abaixo (`flux chain ...`) é a **alvo**: o CLI ainda não parseia chain (ver "O que não está implementado").
 
 - Os elos são nomes de verbo sem prefixo, separados por `>`. Espaço em volta do `>` é ignorado.
 - **No shell, o chain vai entre aspas**: `flux chain 'review>iterate' 65`. Sem aspas, o shell trata
@@ -81,8 +82,10 @@ Fora do chain, por decisão e não por esquecimento:
 - **`reply`** entra por permalink de thread e sai como rascunho de Slack; nenhum elo do ciclo consome
   esse rascunho, e ele não consome nenhum artefato que os outros produzam. Fora até haver vizinho.
 
-**`fonte` só é satisfeita pelos argumentos.** Isso é o que faz `build` aceitar uma descrição livre
-como primeiro elo e recusá-la no meio (`review>build`): nenhum elo produz `fonte`.
+**`fonte` e `alvo-telemetria` só são satisfeitos pelos argumentos, e só valem para o primeiro elo.**
+Isso é o que faz `build` aceitar uma descrição livre como primeiro elo e recusá-la no meio
+(`review>build`, `refine>build`): nenhum elo produz esses artefatos, então eles saem do baton depois
+do primeiro elo.
 
 **`pr` em `issue`:** o `flux:issue` já aceita PR como fonte (`${FLUX_ROOT}/skills/issue/SKILL.md`),
 então `review>issue` é legal. A issue nasce da **PR** (diff e metadados via `gh`), não do artefato de
@@ -95,7 +98,8 @@ baton de um chain só carrega PR entre elos.
 
 O chain carrega um **baton**: o conjunto de artefatos disponíveis. Começa com o que o `<alvo>` é
 (`fonte`, `alvo-telemetria` ou `pr`, inferido como o primeiro elo infere) e cresce a cada elo com o que
-ele **produz** e **repassa**. Um elo é legal quando **algum** artefato que ele consome está no baton.
+ele **produz** e **repassa**. `fonte` e `alvo-telemetria` satisfazem **só o primeiro elo** e saem do
+baton depois dele. Um elo é legal quando **algum** artefato que ele consome está no baton.
 
 Verificar da esquerda para a direita; a primeira aresta ilegal encerra a validação.
 
@@ -106,6 +110,7 @@ Verificar da esquerda para a direita; a primeira aresta ilegal encerra a valida�
 | `refine>issue>build>review>iterate` | legal | `board`, depois `issue`, depois `pr`, e `pr` atravessa até o fim |
 | `probe>issue` | legal | `probe` produz `board`, que `issue` consome |
 | `review>build` | **ilegal** | `build` consome `issue` ou `fonte`; o baton só tem `pr` e `review` |
+| `refine>build` | **ilegal** | `build` consome `issue` ou `fonte`; `fonte` só vale para o primeiro elo e o baton tem `board`. Ponte: `refine>issue>build` |
 | `iterate>refine` | **ilegal** | `refine` consome `fonte`, e nada produz `fonte` |
 | `refine>refine` | **ilegal** | elo adjacente repetido é no-op; recusar em vez de rodar duas vezes |
 | `iterate>land` | legal, **dúvida aberta** | ver abaixo |
@@ -145,16 +150,25 @@ intervalo.
 
 | baton | forma | quem relê |
 |-------|-------|-----------|
-| `pr` | URL da PR (`https://github.com/owner/repo/pull/N`), a forma que `review` e `iterate` aceitam | `gh`, a cada elo |
+| `pr` | URL da PR (`https://github.com/owner/repo/pull/N`), a forma que `review` e `iterate` aceitam. **Resolvida pelo chain no preflight** (`gh pr view <alvo> --json url`), não extraída da saída do elo: o chat do `review` só imprime a URL se o usuário postou. Alvo sem PR aberta (branch local, alvo vazio) aborta antes do primeiro elo | `gh`, a cada elo |
 | `issue` | id do tracker e URL | o tracker |
 | `board` | path absoluto no vault | o elo que consome |
 | `review` | path do arquivo no vault, **quando houve vault**; sem vault o `review` não persiste e não há este baton | registrado no estado do chain; **`iterate` não o lê**, ele lê as threads da PR |
 
 **`review>iterate` e o gate de postagem.** O que liga os dois é a PR, não o arquivo do vault. Se o
-usuário escolheu, no Step 8 do `review`, **não postar** (ou, em PR própria, aplicar sem push), a PR chega
-ao `iterate` sem threads novas. O `iterate` continua acionável por CI vermelho ou conflito com a base,
-e sem nada disso ele reporta que não há o que fazer. **O chain não decide isso e não para por isso**: a
-ausência de threads não é falha do `review`, é o baton mais magro que o gate do usuário deixou.
+usuário escolheu, no Step 8 do `review`, **não postar**, a PR chega ao `iterate` sem threads novas. O
+`iterate` continua acionável por CI vermelho ou conflito com a base, e sem nada disso ele reporta que
+não há o que fazer. **O chain não decide isso e não para por isso**: o gate de ação pós-review do
+`review` não cancela o baton `pr`, e a ausência de threads é o baton mais magro que o gate do usuário
+deixou, não falha.
+
+**Exceção: commits locais sem push.** Em PR própria, a opção 1 do 8a aplica correções em commits
+**sem push**. O `iterate` que vem em seguida opera na mesma branch e o push dele levaria esses commits
+junto, transformando a decisão "sem push" num push que nenhum gate mostrou. Por isso, entre os dois
+elos, o chain confere se a branch da PR tem commits que o remoto não tem
+(`git rev-list --count origin/<headRefName>..<headRefName>`). Maior que zero: **parar antes do
+`iterate`**, com o bloco de estado dizendo que há commits locais aguardando a decisão de push. O
+usuário pusha e retoma, ou roda o `iterate` avulso sabendo o que ele levará.
 
 ## Execução
 
@@ -166,7 +180,7 @@ ausência de threads não é falha do `review`, é o baton mais magro que o gate
    **união dos requisitos `hard` dos elos**. Falta um, ou `FLUX_CMD` é `UNAVAILABLE`: aborta **antes**
    do primeiro elo, no formato de abortagem do preflight e nomeando o que faltou. Descobrir no elo 3
    que falta `gh` joga fora os dois primeiros.
-4. **Medir o escopo** (seção seguinte).
+4. **Medir o escopo** (seção seguinte; não implementado na v1: nenhum chain executável contém `refine` ou `build`).
 5. **Banner do chain** (gabarito no SKILL do chain), depois o plano em uma linha por elo.
 6. **Rodar os elos em sequência, na main.** Cada elo é invocado como o harness invoca uma skill, com
    o baton como entrada, e roda o **próprio pipeline**, gates e Step 0 incluídos. **Elo nunca vira
@@ -185,7 +199,9 @@ ausência de threads não é falha do `review`, é o baton mais magro que o gate
 O gabarito é **um só, o do SKILL do chain** (`${FLUX_ROOT}/skills/chain/SKILL.md`), copiado verbatim do
 preflight (Passo 5) com `flux:chain` no carimbo. Aqui só a regra dos campos:
 
-- `nivel` é o **pior** entre os elos; `degradacoes:` é a **união** sem repetir token.
+- `nivel` é o **pior** entre os elos; `degradacoes:` é a **união** sem repetir token. O banner do
+  chain sai antes dos elos, então reflete o que o preflight do chain mediu (a união dos `hard` e
+  `soft` declarados); o banner de cada elo é a fonte do nível efetivo.
 - O andamento por elo (`1/2 review: concluído`, `2/2 iterate: em watch`) vai **no corpo**, abaixo do
   banner. O gabarito é fechado: campo fora dele é campo inventado.
 - **Cada elo emite o próprio banner**, como avulso. Nenhum mecanismo declarado faz um elo saber que
@@ -214,8 +230,11 @@ O chain **para** quando o elo:
 
 - aborta, ou termina em erro que o próprio elo classifica como bloqueio;
 - devolve ao usuário uma decisão que ficou sem resposta;
-- é recusado pelo usuário no gate (opção de saída inócua). **Não é falha**, é decisão: o chain
-  encerra sem token de degradação e diz qual elo o usuário parou.
+- é recusado pelo usuário num gate que **encerra o elo sem produzir o baton** (saída inócua). **Não é
+  falha**, é decisão: o chain encerra sem token de degradação e diz qual elo o usuário parou. A saída
+  inócua do gate de ação pós-review do `review` **não** entra aqui: ela não cancela o baton `pr`
+  (ver "`review>iterate` e o gate de postagem");
+- deixa commits locais sem push na branch da PR antes de um `iterate` (mesma seção).
 
 Ao parar por falha, o chain emite o **estado** no chat, bloco fechado:
 
