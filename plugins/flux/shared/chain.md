@@ -35,7 +35,8 @@ A forma de shell abaixo (`flux chain ...`) é a **alvo**: o CLI ainda não parse
 
 - Os elos são nomes de verbo sem prefixo, separados por `>`. Espaço em volta do `>` é ignorado.
 - **No shell, o chain vai entre aspas**: `flux chain 'review>iterate' 65`. Sem aspas, o shell trata
-  `>` como redirecionamento, cria um arquivo chamado `iterate` e o chain nunca chega a quem parseia.
+  `>` como redirecionamento, cria (ou sobrescreve) um arquivo chamado `iterate`, e quem parseia recebe só
+  `chain review 65`: o `>iterate` some antes de chegar a ele.
   Dentro do harness (slash command) as aspas não são necessárias.
 - O `<alvo>` é a entrada **do primeiro elo** e de mais nenhum: os seguintes só recebem o baton.
 - Mínimo dois elos. Um elo só é o próprio verbo.
