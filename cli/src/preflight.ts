@@ -69,6 +69,15 @@ export const VERB_REQUIREMENTS: Record<string, VerbRequirements> = {
       { type: "checkout_local", name: "checkout_local" },
     ],
   },
+  chain: {
+    hard: [
+      { type: "file", name: "shared/chain.md" },
+      { type: "file", name: "shared/flux-context.md" },
+      { type: "bin", name: "git" },
+      { type: "bin", name: "gh" },
+    ],
+    soft: [{ type: "vault", name: "vault" }],
+  },
 };
 
 const DEFAULT_REQUIREMENTS: VerbRequirements = {

@@ -7,10 +7,9 @@ requires:
     - file: shared/chain.md
     - file: shared/flux-context.md
     - bin: git
-  soft:
     - bin: gh
+  soft:
     - vault
-    - index
 ---
 
 # /flux:chain
@@ -136,7 +135,7 @@ Regras e critérios em `${FLUX_ROOT}/shared/chain.md`, seção "Falha no meio". 
   o anterior já fez.
 - Usuário escolhe a saída inócua num gate do elo: **encerrar** e dizer qual elo ele parou. Sem token
   de degradação, porque é decisão.
-- Parada por falha: imprimir o bloco de estado (`chain`, `parou em`, `concluidos`, `baton`, `retomar`)
+- Parada por falha: imprimir o bloco de estado (`chain`, `parou em`, `concluidos`, `baton`, `retomar`, este com o prefixo `${FLUX_CMD}` já verificado)
   e **reemitir o banner** com `chain interrompido` em `degradacoes:`, seguido do elo e do motivo.
 
 Retomar é rodar o elo que parou com o baton do estado. **Não há `flux resume`** hoje; não sugerir.

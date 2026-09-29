@@ -224,7 +224,7 @@ chain: {cadeia completa}
 parou em: {n}/{total} {elo} ({motivo em uma linha})
 concluidos: {elo, baton entregue, um por linha | nenhum}
 baton: {artefato = referência, um por linha}
-retomar: {verbo do elo que parou, com o baton já preenchido}
+retomar: ${FLUX_CMD}{verbo do elo que parou, com o baton já preenchido}
 ```
 
 e **reemite o banner** com `chain interrompido` em `degradacoes:`, seguido do elo e do motivo, como a

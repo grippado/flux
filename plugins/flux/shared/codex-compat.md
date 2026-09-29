@@ -111,12 +111,11 @@ Isso atinge os elos que **despacham um irmão**, e são três — mas eles reage
 diferença é o que importa aqui:
 
 - **`flux:land`** roda o `iterate` por PR dentro de subagente, e sem esse despacho não há entrega
-  multi-PR: a fase **aborta**, e com ela o verbo. É o único indisponível no Codex.
+  multi-PR: a fase **aborta**, e com ela o verbo.
 - **`flux:map`** despacha o `equip` por repo na fase de conserto, que é a segunda metade do verbo. Sem
   `FLUX_CMD` ele **degrada**: o levantamento, o delta, a integridade e o índice saem inteiros, e as
   remediações são impressas para o usuário rodar à mão. Continua sendo um verbo útil, com uma metade a
   menos e a perda declarada no banner.
-
 - **`flux:chain`** roda cada elo em sequência, então despacha irmãos e herda o limite. A recusa e o plano
   (que nomeiam só verbos) funcionam; a **fase de execução aborta no preflight**, com a mensagem padrão
   nomeando `FLUX_CMD`, como o `land`. Nunca executa o pipeline de um elo inline. No Codex o único
