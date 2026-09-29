@@ -272,122 +272,24 @@ team/project em `.claude/cache/`, team routing inferido do contexto, nunca hardc
 
 ### Step 6-pre — gate de transporte: API direta ou MCP
 
-Há dois caminhos para chegar ao tracker, e eles têm custos muito diferentes. **Testar, não presumir.**
+A escada (token, autentica, enxerga, escreve), o gate de token ausente, o cache da preferência e o
+formato do banner vivem em `${FLUX_ROOT}/shared/api-first.md`, canal `linear`. **Aplicar de lá; não
+reescrever aqui.** O que é específico da criação de issue fica neste elo:
 
-**O que decide.** A API GraphQL do Linear aceita **N mutations aliasadas num único request**; o MCP
-expõe **uma issue por chamada de tool**. Numa criação de 20 issues isso é a diferença entre 2 requests
-e 20 round-trips. Medição real (workspace pessoal, 2026-08-08): 6 issues atualizadas num request só, em
-**0,71s**; uma query de identidade sozinha custa **0,43s**, ou seja, o custo é quase todo de ida e
-volta, e é exatamente esse custo que o batching amortiza.
-
-O gate, nesta ordem, e ele para no primeiro "não":
-
-1. **Existe token?** O **nome da variável** vem do manifesto (`linear_token_env`, default
-   `LINEAR_API_KEY`); o valor vem do ambiente ou, faltando lá, do arquivo declarado em `secrets_file`
-   (default `~/.secrets`, formato `KEY=value`). Ausente nos dois: **executar Step 6-pre-bis**
-   (abaixo) antes de decidir o transporte — não cai em MCP em silêncio.
-
-   ```bash
-   TOKEN_VAR="${LINEAR_TOKEN_ENV:-LINEAR_API_KEY}"       # linear_token_env do manifesto
-   TOKEN=$(printenv "$TOKEN_VAR")                        # printenv, não expansão indireta: portátil zsh/bash
-   [ -z "$TOKEN" ] && TOKEN=$(grep -E "^${TOKEN_VAR}=" "${SECRETS_FILE:-$HOME/.secrets}" 2>/dev/null | cut -d= -f2-)
-   ```
-
-   > **Por que o nome é configurável, e por que o default não é o seu.** Quem trabalha em mais de um
-   > workspace do tracker tem mais de uma chave, e as duas não cabem sob o mesmo nome no mesmo cofre.
-   > Cada manifesto declara a sua, e é assim que o elo nunca cria issue numa org com a credencial da
-   > outra. Um nome de máquina hardcoded aqui faria o degrau 1 falhar para todo mundo que não tem
-   > aquele nome. O contrato do campo está em `${FLUX_ROOT}/shared/flux-context.md`, e as regras de
-   > manuseio do token (nunca ecoar, nunca gravar, header em vez de `--user`, aviso de permissão
-   > frouxa no arquivo) em `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do token".
-2. **O token autentica?** Uma query `{ viewer { id name } }`. Resposta diferente de `200`, ou payload
-   com `errors`: **MCP**.
-3. **O token enxerga o alvo?** Uma query do team com os labels, que é a mesma que resolve os UUIDs do
-   passo seguinte. Falhou: **MCP**.
-4. **O token escreve?** **Não existe dry run de mutation**, e é por isso que este passo é um *canário*
-   e não uma pergunta: criar **a primeira candidata sozinha** pela API. Nasceu: seguir pela API com o
-   resto em levas. Falhou por autenticação ou permissão: **cair para MCP e criar todo o resto por lá**,
-   inclusive essa primeira.
-
-> **Por que canário e não uma leva inteira.** Descobrir a falta de permissão no meio de um batch de 3
-> deixa um estado ambíguo: parte do documento GraphQL pode ter sido aplicada. Uma criação sozinha falha
-> de forma limpa, e o fallback fica trivial.
-
-**O que a API cobra a mais, e que o MCP resolvia sozinho:** ela quer **UUIDs**, não nomes. Team,
-project, milestone, labels, estado e responsável precisam ser resolvidos antes. É **uma query**, feita
-uma vez, cujo resultado serve a criação inteira, e é a mesma do passo 3 do gate. Resolver nome por nome
-a cada issue joga fora todo o ganho.
-
-**Declarar no banner** qual caminho está em uso, porque a diferença de velocidade é visível e a origem
-dela precisa ser auditável:
-
-```
-transporte: api (batch) | api (canário falhou, caiu para mcp) | mcp (setup guiado falhou nesta execução) | mcp (usuário optou por não configurar API)
-```
-
-Não existe entrada "mcp por token ausente": com o Step 6-pre-bis, ausência de token nunca decide
-transporte sozinha — ela abre o gate, e o banner declara o **desfecho do gate** (falha do setup ou
-escolha do usuário), nunca a ausência crua. Quando uma entrada citar a variável, cita o **nome** (o
-declarado em `linear_token_env`), nunca o valor.
-
-**Nunca imprimir o token**, nem em log, nem em mensagem de erro, nem no board. Ao ecoar resposta de
-erro da API, filtrar o valor antes.
-
-### Step 6-pre-bis — sem token: perguntar, não presumir
-
-O item 1 do gate historicamente caía em MCP no silêncio, mas isso esconde do usuário um ganho de
-velocidade real (ver a medição acima) por falta de dois minutos de setup. Sem o token resolvido (variável
-`$TOKEN_VAR`, nome declarado em `linear_token_env`, default `LINEAR_API_KEY`), **antes de seguir por MCP**,
-checar se já existe uma escolha salva (ver cache abaixo) e,
-não existindo, abrir um gate de uma pergunta (`${FLUX_ROOT}/shared/hitl.md`, single-select).
-
-**As duas opções prosseguem com a criação** — ela já foi aprovada no gate do Step 5; o que se escolhe
-aqui é só o canal. Por isso este gate não tem opção de abortar: a porta de saída inócua deste fluxo é
-a do Step 5 (`Só o rascunho, não criar`), e "seguir por MCP" é escolha de transporte, nunca um abort.
-
-1. **Gerar a chave agora** *(Recomendado)* — guiar o passo a passo:
-   1. Abrir `https://linear.app/settings/account/security` (Settings → Security & access →
-      Personal API keys) e criar uma chave nova, com um label que identifique a máquina (ex.:
-      `flux-issue-<hostname>`).
-   2. Colar o valor gerado no `secrets_file` do manifesto (default `~/.secrets`), no formato
-      `${TOKEN_VAR}=<valor>` (onde `TOKEN_VAR` é o nome declarado em `linear_token_env`, ex.:
-      `LINEAR_API_KEY=<valor>`), uma linha só, sem `export`. Arquivo ainda não existe: instruir a
-      **criar** o arquivo com essa linha, não só "adicionar" a ele. **Nunca peça pro usuário colar a
-      chave no chat** — a instrução é pra ele editar o arquivo diretamente.
-   3. Confirmado o salvamento, **releia o arquivo** e retome o gate a partir do item 2 (autentica).
-      Ainda sem token legível: reportar e cair pra MCP nesta execução (banner:
-      `mcp (setup guiado falhou nesta execução)`), sem gravar preferência (a tentativa falhou, não
-      foi uma escolha).
-2. **Não usar API, seguir por MCP** — grava a preferência no cache local (abaixo) e segue o resto
-   desta execução, e das próximas, direto pelo MCP, sem repetir a pergunta.
-
-Sem `AskUserQuestion` no harness, vira menu numerado, mesma ordem, degradação declarada no banner
-(`${FLUX_ROOT}/shared/hitl.md`).
-
-**Cache da preferência.** `<REPO_PATH>/.claude/cache/flux-issue-linear-transport.json`, mesma raiz de
-cache que o Step 6 já usa para team/project quando há `LINEAR_OPS`. É preferência de máquina, não de
-repo: se `.claude/cache/` não estiver no `.gitignore` do repo-alvo, avisar no banner que o arquivo vai
-aparecer como untracked (ou pior, ser commitado) em vez de gravar em silêncio um cache que outro
-colaborador do mesmo repo não pediu:
-
-```json
-{ "transport": "mcp", "reason": "usuário optou por não configurar ${TOKEN_VAR}" }
-```
-
-Antes de abrir a pergunta, ler esse arquivo: `transport: "mcp"` pula direto pro MCP, sem pergunta,
-sem tentar o token de novo — e o banner sai `mcp (usuário optou por não configurar API)`: o cache-hit
-é a mesma escolha, relembrada, e o banner não pode apagá-la fingindo omissão. **Não é o `flux-context.json`**: esse manifesto só é escrito pelo
-`flux:equip`, sob os dois campos que ele já governa (`exec_fallback`, `write_destinations`) — dar a
-este elo um terceiro campo pra escrever ali quebraria essa invariante de escritor único
-(`${FLUX_ROOT}/shared/flux-context.md`, "Só um elo escreve este arquivo"). O cache é local ao repo,
-específico deste elo, e não precisa do gate de destino de escrita: é preferência de transporte, não
-artefato de trabalho.
-
-O cache só é consultado **dentro** deste item 1, quando o gate já determinou ausência de token — se
-o token existir, o gate segue normal e o cache nem é lido. Configurando a variável declarada em
-`linear_token_env` depois (por fora, a qualquer momento), a próxima execução acha o token no item 1
-e nem chega a checar o cache — é assim que achar o token sempre vence um cache de `"mcp"` antigo,
-sem precisar de lógica extra de prioridade.
+- **A escrita usa o degrau 4.** Não existe dry run de mutation, então o canário é **criar a primeira
+  candidata sozinha** pela API. Nasceu: o resto segue em levas. Falhou por autenticação ou permissão:
+  MCP para todo o resto, inclusive essa primeira.
+- **O ganho é o batching.** A API aceita N mutations aliasadas num request e o MCP expõe uma issue por
+  chamada: numa criação de 20 issues, 2 requests contra 20 round-trips. Medição em
+  `${FLUX_ROOT}/shared/api-first.md`, "Por que a API ganha".
+- **A API cobra UUIDs, não nomes.** Team, project, milestone, labels, estado e responsável precisam ser
+  resolvidos antes. É **uma query**, feita uma vez, cujo resultado serve a criação inteira, e é a mesma
+  do degrau 3. Resolver nome por nome a cada issue joga fora todo o ganho.
+- **Banner:** descida para MCP entra em `degradacoes:` com o token `transporte mcp (linear: <motivo>)`
+  (`${FLUX_ROOT}/shared/api-first.md`, "Declarar no banner"). O nome da variável vem de
+  `linear_token_env`; nunca o valor.
+- **Sem token** abre o gate do contrato, e as duas opções prosseguem com a criação que o Step 5 já
+  aprovou. A saída inócua deste fluxo continua sendo `Só o rascunho, não criar`, no Step 5.
 
 ### Step 6 — a criação
 
