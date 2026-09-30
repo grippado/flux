@@ -524,16 +524,18 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 
    **Aqui e não antes**: quem pediu um build quer código, e uma entrevista sobre ferramental antes do
    trabalho é ruído. As duas ofertas cabem num gate só quando as duas faltas existirem.
-2. **Carimbar a PR.** Se o motor abriu PR, aplicar o carimbo `flux:build@<FLUX_VERSION>` na linha
-   `🤖 Generated with ...` do body, seguindo `${FLUX_ROOT}/shared/pr-attribution.md`. Quem aplica é a
-   main, depois do retorno do motor, e não o motor: o body é criado pelo motor do repo (nativo,
-   `exec_fallback` ou autônomo), e nenhum deles é obrigado a conhecer esta regra. Editar depois da
-   criação funciona com qualquer um. Se o motor já tiver carimbado, o algoritmo é idempotente e a
-   edição vira no-op. Motor sem PR (`pr: null`) → nada a carimbar. `PR_NUMBER` e `REPO_FULL` são
-   parseados da URL de PR devolvida pelo motor (`github.com/<owner>/<repo>/pull/<n>`); `SCRATCH` é o
-   diretório temporário da sessão (mesmo conceito do `flux:iterate`); `IS_OWN_PR` é conferido com
-   `gh api user -q .login` contra o autor da PR — normalmente verdadeiro, pois o motor abriu a PR com
-   a conta autenticada; se não for, não carimbar.
+2. **Conciliar a atribuição da PR.** Se o motor abriu PR, aplicar `flux:build@<FLUX_VERSION>` e
+   conciliar uma entrada legada `Gerado por: <par-do-motor>` na linha canônica
+   `🤖 Generated with ...`, seguindo `${FLUX_ROOT}/shared/pr-attribution.md`. Quem aplica é a main,
+   depois do retorno do motor, e não o motor: o body é criado pelo motor do repo (nativo,
+   `exec_fallback` ou autônomo), e nenhum deles é obrigado a conhecer esta regra. O algoritmo usa
+   `HARNESS_LABEL` do preflight, portanto funciona da mesma forma para Claude Code, Cursor, Codex e
+   um harness não verificável (`AI agent`), sem inferir produto pelo motor. Se a forma for ambígua,
+   preservar o body e não compactar. Motor sem PR (`pr: null`) → nada a conciliar. `PR_NUMBER` e
+   `REPO_FULL` são parseados da URL de PR devolvida pelo motor (`github.com/<owner>/<repo>/pull/<n>`);
+   `SCRATCH` é o diretório temporário da sessão (mesmo conceito do `flux:iterate`); `IS_OWN_PR` é
+   conferido com `gh api user -q .login` contra o autor da PR — normalmente verdadeiro, pois o motor
+   abriu a PR com a conta autenticada; se não for, não carimbar.
 3. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.

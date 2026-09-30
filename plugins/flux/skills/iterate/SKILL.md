@@ -686,9 +686,9 @@ atualizada"). Emitir o evento Slack `descricao-reconciliada` se o feed estiver c
 #### Carimbo de atribuição
 
 Toda passada que **pushou commit** nesta PR (passo 8 rodou) aplica o carimbo `flux:iterate@<FLUX_VERSION>`
-na linha `🤖 Generated with ...`, seguindo `${FLUX_ROOT}/shared/pr-attribution.md` (formato, algoritmo
-idempotente, nome do harness quando a linha não existe, guardrails). Este passo não redefine nada disso:
-só diz **quando** o carimbo entra.
+e concilia a entrada legada `Gerado por: <par-do-motor>` na linha `🤖 Generated with ...`, seguindo
+`${FLUX_ROOT}/shared/pr-attribution.md` (formato, algoritmo idempotente, nome do harness quando a linha
+não existe, guardrails). Este passo não redefine nada disso: só diz **quando** o carimbo entra.
 
 - Roda **mesmo sem drift**: o carimbo não é afirmação da descrição, então a regra "nenhuma afirmação
   refutada, não editar nada" do Gate abaixo não o bloqueia. Também não entra no changelog gerenciado.
