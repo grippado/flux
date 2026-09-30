@@ -56,13 +56,20 @@ Entrada: body remoto da PR e o par `P = flux:<verbo>@<versão>`.
    `🤖 Generated with` e o último parágrafo isolado de trailers. Nunca regerar o body inteiro.
 2. Reconhecer um par como `^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*@\S+$`. Uma lista após o último ` | ` é
    válida somente quando todos os itens, separados por `, `, são pares válidos.
-3. Procurar uma única linha `Gerado por: E` imediatamente antes do parágrafo final que contém
-   `Co-Authored-By`, ignorando somente linhas vazias. `E` precisa ser um par válido. Duas ou mais
-   candidatas, texto adicional no mesmo parágrafo, ausência do trailer final ou `E` inválido tornam a
-   entrada **ambígua**: não a remover nem a mover.
+3. Procurar uma única linha isolada `Gerado por: E` antes do parágrafo final de trailers que contém
+   `Co-Authored-By`. Ignorar linhas vazias e permitir atravessar **no máximo uma** linha
+   `🤖 Generated with`: precisa ser a atribuição selecionada no passo 1, ocupar sozinha seu
+   parágrafo, ter atribuição de harness não vazia e não ter ` | ` ou ter uma lista válida pelo passo
+   2. Assim, tanto `atribuição → Gerado por → trailer` quanto `Gerado por → atribuição → trailer`
+   são reconhecidos. Não atravessar texto livre, cercas nem blockquotes, mesmo que seus conteúdos
+   sejam ignorados no passo 1. Duas ou mais entradas legadas ou linhas de atribuição no rodapé,
+   texto adicional nos parágrafos, ausência do trailer final, lista inválida ou `E` inválido tornam
+   a entrada **ambígua**: não a remover nem a mover. `E` precisa ser um par válido.
 4. Se a atribuição existente não tem lista ou tem uma lista válida, montar a lista de pares sem
-   repetição: primeiro `E`, se a entrada legada foi reconhecida e ainda não estiver presente; depois
-   os pares existentes; por último `P`, se ainda não estiver presente. Se não há linha de atribuição,
+   repetição: primeiro `E`, se a entrada legada foi reconhecida, **mesmo se já estiver na lista**;
+   depois os pares existentes sem `E`, preservando a ordem; por último `P`, se ainda não estiver
+   presente. Sem `E` reconhecido, preservar a ordem dos pares existentes. Comparar sempre o par
+   inteiro, inclusive a versão. Se não há linha de atribuição,
    criar `🤖 Generated with <HARNESS_LABEL> | E, P` (omitindo `E` quando ausente) imediatamente antes
    do trailer final, ou no fim se não houver trailer.
 5. Só depois de confirmar que `E` apareceu na linha canônica, remover exatamente a linha legada
@@ -79,8 +86,19 @@ Entrada: body remoto da PR e o par `P = flux:<verbo>@<versão>`.
 | --- | --- |
 | `Gerado por: core:implement-task@0.62.10` + trailer | `🤖 Generated with Codex \| core:implement-task@0.62.10, flux:build@1.39.0` + trailer |
 | `🤖 Generated with Claude Code` + `Gerado por: core:implement-task@0.62.10` + trailer | `🤖 Generated with Claude Code \| core:implement-task@0.62.10, flux:build@1.39.0` + trailer |
+| `Gerado por: core:implement-task@0.62.10` + `🤖 Generated with Codex \| flux:build@1.38.0` + trailer | `🤖 Generated with Codex \| core:implement-task@0.62.10, flux:build@1.38.0, flux:build@1.39.0` + trailer |
+| `Gerado por: core:implement-task@0.62.10` + `🤖 Generated with Cursor \| flux:build@1.38.0, core:implement-task@0.62.10` + trailer | `🤖 Generated with Cursor \| core:implement-task@0.62.10, flux:build@1.38.0, flux:build@1.39.0` + trailer |
 | linha canônica com `flux:build@1.39.0` | nenhuma mudança |
 | `Gerado por:` ambíguo ou inválido | preserva a entrada e não a compacta |
+| `Gerado por: E` + atribuição com texto livre após ` \| ` + trailer | preserva a entrada legada; só acrescenta ` \| flux:build@1.39.0` quando necessário |
+| duas entradas `Gerado por:` ou duas linhas de atribuição no rodapé | preserva as entradas legadas; não compacta |
+| texto livre, cerca ou blockquote entre `Gerado por:` e trailer | preserva a entrada legada; não atravessa o conteúdo |
+
+Nos casos válidos, reaplicar o mesmo par deixa o body intacto. Preservar byte a byte a atribuição
+existente, inclusive links como `[Claude Code](https://claude.com/claude-code)`, e o parágrafo final
+de trailers, inclusive múltiplos coautores e modelos diferentes. Exemplos de carimbos dentro de
+cercas e blockquotes ficam intactos. Sem atribuição existente, os mesmos casos usam `HARNESS_LABEL`,
+inclusive `AI agent` para harness não verificável; com versão ilegível, o par usa `@unknown`.
 
 ## Mecânica
 
