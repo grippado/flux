@@ -480,6 +480,7 @@ Quando um verbo precisa de lógica determinística que não cabe em Markdown (po
 - **Invocação explícita.** Sempre `bash "${FLUX_ROOT}/scripts/<nome>.sh"` ou `python3 "${FLUX_ROOT}/scripts/<nome>.py"`, nunca o caminho direto. Assim o script não depende do bit de execução, que nem toda instalação preserva. Dentro do script, resolva caminhos relativos ao próprio arquivo, não ao cwd.
 - **Requisitos.** O script não se autodeclara: o verbo que o chama declara o que ele precisa, no `requires:` do `SKILL.md` (`bin: jq`, `bin: python3`, em `hard` se o verbo não funciona sem ele, em `soft` se degrada) e, para o CLI, em `VERB_REQUIREMENTS` em [`cli/src/preflight.ts`](cli/src/preflight.ts). O preflight avisa antes do verbo rodar; o script ainda confere a própria dependência e sai com `2`.
 - **Exemplo mínimo:** [`plugins/flux/scripts/example.sh`](plugins/flux/scripts/example.sh) (exige `jq`).
+- **Gate de polling do watch:** [`plugins/flux/scripts/iterate-watch-gate.sh`](plugins/flux/scripts/iterate-watch-gate.sh) (exige `gh` e `jq`) faz fora da LLM o poll da PR e só sai quando há algo a fazer; o contrato de argumentos, eventos e códigos de saída está em `--help`. Ainda não é lançado por nenhum verbo.
 
 Propostas de tradução, novos comandos, agents, melhorias de acessibilidade, integrações e novos
 engines/harnesses são bem-vindas. Antes de implementar uma mudança transversal, abra uma [RFC](.github/ISSUE_TEMPLATE/rfc-harness.md)
@@ -505,6 +506,7 @@ claude plugin validate ./plugins/flux # plugin + frontmatter de cada skill
 scripts/check-manifests.sh            # version e name iguais nos cinco manifests
 scripts/check-codex-agent-contract.sh # o adaptador Codex continua descrito nos shared/
 shellcheck plugins/flux/scripts/*.sh  # recomendado ao tocar em scripts (ver "Scripts auxiliares")
+scripts/test-iterate-watch-gate.sh    # ao tocar em iterate-watch-gate.sh: gh e sleep falsos, sem rede e sem espera
 ```
 
 Os dois `validate` conferem a forma de cada manifesto isoladamente, e recebem alvos disjuntos, então
