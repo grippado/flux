@@ -358,6 +358,7 @@ flux/
     ├── .cursor-plugin/plugin.json  manifesto Cursor (mesmo corpo, outro harness)
     ├── .codex-plugin/plugin.json   manifesto Codex + metadata de interface
     ├── shared/codex-compat.md      adaptador de delegação nativa e capacidades opcionais
+    ├── scripts/                    scripts bash/python que o plugin executa em runtime
     ├── agents/                      os agentes que a família despacha
     │   ├── pr-reviewer.md          o holístico genérico (default universal)
     │   ├── issue-creator.md        redige e cria issues aprovadas no tracker (sonnet, fan-out)
@@ -469,6 +470,17 @@ Um verbo novo entra assim:
 5. Termine com **handoff**: qual elo vem depois, e por que.
 6. Registre o verbo na tabela [Os comandos](#os-comandos) e, se ele mudar o ciclo, no diagrama.
 
+### Scripts auxiliares
+
+Quando um verbo precisa de lógica determinística que não cabe em Markdown (polling, parsing de JSON), ela vira script. A convenção:
+
+- **Onde.** `plugins/flux/scripts/` guarda o que o plugin executa em runtime e viaja com a instalação (só `plugins/flux` é copiado, por exemplo em [`scripts/install-cursor.sh`](scripts/install-cursor.sh)). O `scripts/` da raiz continua sendo manutenção do repo (checks, release, instalação) e não chega ao usuário.
+- **Bash é o default.** `#!/usr/bin/env bash`, `set -euo pipefail`, e dependência ausente sai com código `2` e mensagem em stderr, como em [`scripts/check-manifests.sh`](scripts/check-manifests.sh). Rode `shellcheck` antes de abrir PR.
+- **Python só quando a lógica justifica** (estrutura de dados, parsing que o `jq` não cobre, algo que o bash tornaria frágil). Use `python3`, apenas biblioteca padrão, versão mínima 3.8, e declare `python3` como requisito.
+- **Invocação explícita.** Sempre `bash "${FLUX_ROOT}/scripts/<nome>.sh"` ou `python3 "${FLUX_ROOT}/scripts/<nome>.py"`, nunca o caminho direto. Assim o script não depende do bit de execução, que nem toda instalação preserva. Dentro do script, resolva caminhos relativos ao próprio arquivo, não ao cwd.
+- **Requisitos.** O script não se autodeclara: o verbo que o chama declara o que ele precisa, no `requires:` do `SKILL.md` (`bin: jq`, `bin: python3`, em `hard` se o verbo não funciona sem ele, em `soft` se degrada) e, para o CLI, em `VERB_REQUIREMENTS` em [`cli/src/preflight.ts`](cli/src/preflight.ts). O preflight avisa antes do verbo rodar; o script ainda confere a própria dependência e sai com `2`.
+- **Exemplo mínimo:** [`plugins/flux/scripts/example.sh`](plugins/flux/scripts/example.sh) (exige `jq`).
+
 Propostas de tradução, novos comandos, agents, melhorias de acessibilidade, integrações e novos
 engines/harnesses são bem-vindas. Antes de implementar uma mudança transversal, abra uma [RFC](.github/ISSUE_TEMPLATE/rfc-harness.md)
 com a tese, escopo, dados ou exemplos que a sustentam,
@@ -492,6 +504,7 @@ claude plugin validate .              # marketplace
 claude plugin validate ./plugins/flux # plugin + frontmatter de cada skill
 scripts/check-manifests.sh            # version e name iguais nos cinco manifests
 scripts/check-codex-agent-contract.sh # o adaptador Codex continua descrito nos shared/
+shellcheck plugins/flux/scripts/*.sh  # recomendado ao tocar em scripts (ver "Scripts auxiliares")
 ```
 
 Os dois `validate` conferem a forma de cada manifesto isoladamente, e recebem alvos disjuntos, então
