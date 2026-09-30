@@ -5,7 +5,7 @@ import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliase
 import { runPreflight } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
-import { generateSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
+import { generateSessionId, isValidSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
@@ -340,8 +340,18 @@ async function runVerb(opts: {
   }
 
   if (!openNew || !supportsNewTab) {
-    const exitCode = runHere({ command, body, invocation, sessionId });
-    if (sessionId) markSessionEnded(sessionId);
+    let exitCode = 1;
+    try {
+      exitCode = runHere({ command, body, invocation, sessionId });
+    } finally {
+      if (sessionId) {
+        try {
+          markSessionEnded(sessionId);
+        } catch (err) {
+          console.error(`[flux] aviso: não foi possível marcar a sessão como encerrada: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
+    }
     process.exit(exitCode);
   }
 
@@ -620,6 +630,11 @@ async function main(): Promise<void> {
     if (target === "end") {
       const id = rest[0] ?? process.env["FLUX_SESSION_ID"] ?? null;
       if (!id) {
+        console.error("Uso: flux session end <id>  (ou defina FLUX_SESSION_ID no ambiente)");
+        process.exit(2);
+      }
+      if (!isValidSessionId(id)) {
+        console.error(`sessionId inválido: ${JSON.stringify(id)}`);
         console.error("Uso: flux session end <id>  (ou defina FLUX_SESSION_ID no ambiente)");
         process.exit(2);
       }

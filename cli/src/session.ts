@@ -25,8 +25,12 @@ export function generateSessionId(): string {
 
 const SESSION_ID_PATTERN = /^[a-z0-9]+-[0-9a-f]{8}$/;
 
+export function isValidSessionId(sessionId: string): boolean {
+  return SESSION_ID_PATTERN.test(sessionId);
+}
+
 export function sessionFilePath(sessionId: string, dir: string = sessionsDir()): string {
-  if (!SESSION_ID_PATTERN.test(sessionId)) {
+  if (!isValidSessionId(sessionId)) {
     throw new Error(`sessionId inválido: ${JSON.stringify(sessionId)}`);
   }
   return join(dir, `${sessionId}.json`);
