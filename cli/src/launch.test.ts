@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { readFileSync, mkdtempSync, writeFileSync } from "fs";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync, readdirSync } from "fs";
+import { spawnSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
 import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, runRemote, assertSafeInvocation, buildShellCmd, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
@@ -61,6 +62,19 @@ describe("assertSafeInvocation: rejeita metacaractere de shell em FLUX_CLAUDE_CM
 
   it("buildShellCmd propaga a rejeicao de assertSafeInvocation", () => {
     expect(() => buildShellCmd("claude; rm -rf /", "/tmp/prompt.txt")).toThrow();
+  });
+});
+
+describe("buildShellCmd: propaga FLUX_SESSION_ID como prefixo de ambiente do processo", () => {
+  it("com sessionId: antepoe FLUX_SESSION_ID=<id> sem 'export' (nao vaza pro shell da aba)", () => {
+    const cmd = buildShellCmd("claude", "/tmp/prompt.txt", "abc-12345678");
+    expect(cmd).toBe(`FLUX_SESSION_ID='abc-12345678' claude -- "$(cat '/tmp/prompt.txt')"`);
+    expect(cmd).not.toContain("export");
+  });
+
+  it("sem sessionId: comando fica identico ao que era antes (sem prefixo nenhum)", () => {
+    const cmd = buildShellCmd("claude", "/tmp/prompt.txt");
+    expect(cmd).toBe(`claude -- "$(cat '/tmp/prompt.txt')"`);
   });
 });
 
@@ -126,6 +140,25 @@ describe("runHere: executa na aba atual via shell interativo, sem osascript", ()
 });
 
 describe("launchClaude: caminhos de execução", () => {
+  it("fallback com sessionId: marca a sessão como ended em vez de deixá-la running (HOME isolado em subprocesso)", () => {
+    const home = mkdtempSync(join(tmpdir(), "flux-launch-home-"));
+    try {
+      const script = `
+        import { launchClaude } from ${JSON.stringify(join(import.meta.dir, "launch.ts"))};
+        import { generateSessionId, readSessionFile, writeSessionFile } from ${JSON.stringify(join(import.meta.dir, "session.ts"))};
+        const id = generateSessionId();
+        writeSessionFile({ sessionId: id, verb: "peek", pid: 1, terminalApp: null, startedAt: new Date().toISOString(), status: "running" });
+        await launchClaude({ command: "claude hello", body: "hello", invocation: "claude", sessionId: id }, { checkOsascript: () => false, termProgram: "iTerm.app" });
+        console.log(readSessionFile(id)?.status);
+      `;
+      const result = spawnSync("bun", ["-e", script], { encoding: "utf8", env: { ...process.env, HOME: home } });
+      expect(result.stdout.trim().split("\n").pop()).toBe("ended");
+      expect(readdirSync(join(home, ".flux", "sessions"))).toHaveLength(1);
+    } finally {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it("fallback quando osascript indisponivel", async () => {
     const cap = captureWrites();
     try {

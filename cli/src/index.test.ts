@@ -1,10 +1,21 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import { execFileSync } from "child_process";
-import { mkdtempSync } from "fs";
+import { execFileSync, spawnSync } from "child_process";
+import { mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
 import { buildRemoteSshArgv } from "./launch.ts";
 import { promptForRepo, runWizard, interpretMenuKey, reviewBanner } from "./index.ts";
+import { generateSessionId, isValidSessionId, readSessionFile, writeSessionFile } from "./session.ts";
+
+function runCli(args: string[], extraEnv: Record<string, string> = {}): { stdout: string; stderr: string; status: number } {
+  const dir = mkdtempSync(join(tmpdir(), "flux-cli-test-"));
+  const result = spawnSync("bun", ["run", join(import.meta.dir, "index.ts"), ...args], {
+    cwd: dir,
+    encoding: "utf8",
+    env: { ...process.env, ...extraEnv },
+  });
+  return { stdout: result.stdout ?? "", stderr: result.stderr ?? "", status: result.status ?? 1 };
+}
 
 describe("flux --remote --dry: reencaminha o comando sem levar --dry/--remote/--new junto", () => {
   it("--remote combinado com --dry imprime o comando ssh esperado (--here nao e mais forcado, e um no-op)", () => {
@@ -152,6 +163,79 @@ describe("reviewBanner: previa do banner antes de disparar o Claude Code", () =>
 
     const asEsc = await reviewBanner("--- corpo ---", { selectChoice: async () => null });
     expect(asEsc).toEqual({ type: "cancel" });
+  });
+});
+
+describe("flux session end: subcomando idempotente contra o estado em ~/.flux/sessions (HOME isolado)", () => {
+  const tmpHomes: string[] = [];
+
+  function makeHome(): { home: string; dir: string } {
+    const home = mkdtempSync(join(tmpdir(), "flux-cli-home-"));
+    tmpHomes.push(home);
+    return { home, dir: join(home, ".flux", "sessions") };
+  }
+
+  afterEach(() => {
+    for (const home of tmpHomes.splice(0)) {
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("id via argumento: marca ended e sai com exit 0", () => {
+    const { home, dir } = makeHome();
+    const id = generateSessionId();
+    writeSessionFile({ sessionId: id, verb: "peek", pid: 1, terminalApp: null, startedAt: new Date().toISOString(), status: "running" }, dir);
+
+    const result = runCli(["session", "end", id], { HOME: home });
+    expect(result.status).toBe(0);
+    expect(readSessionFile(id, dir)?.status).toBe("ended");
+  });
+
+  it("id via FLUX_SESSION_ID do ambiente: marca ended e sai com exit 0", () => {
+    const { home, dir } = makeHome();
+    const id = generateSessionId();
+    writeSessionFile({ sessionId: id, verb: "reply", pid: 2, terminalApp: null, startedAt: new Date().toISOString(), status: "running" }, dir);
+
+    const result = runCli(["session", "end"], { HOME: home, FLUX_SESSION_ID: id });
+    expect(result.status).toBe(0);
+    expect(readSessionFile(id, dir)?.status).toBe("ended");
+  });
+
+  it("sem id nenhum (nem argumento nem ambiente): exit 2 com uso", () => {
+    const { home } = makeHome();
+    const { FLUX_SESSION_ID: _dropped, ...cleanEnv } = process.env;
+    const dir = mkdtempSync(join(tmpdir(), "flux-cli-test-"));
+    const result = spawnSync("bun", ["run", join(import.meta.dir, "index.ts"), "session", "end"], {
+      cwd: dir,
+      encoding: "utf8",
+      env: { ...cleanEnv, HOME: home },
+    });
+    expect(result.status).toBe(2);
+    expect(result.stderr ?? "").toContain("Uso: flux session end");
+  });
+
+  it("id valido mas sem sessao correspondente: idempotente, exit 0", () => {
+    const { home } = makeHome();
+    const result = runCli(["session", "end", generateSessionId()], { HOME: home });
+    expect(result.status).toBe(0);
+    expect(result.stderr).toContain("não encontrada");
+  });
+
+  it("id malformado: imprime o uso e sai com exit 2, sem stack trace", () => {
+    const { home } = makeHome();
+    const result = runCli(["session", "end", "../etc/passwd"], { HOME: home });
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain("sessionId inválido");
+    expect(result.stderr).toContain("Uso: flux session end");
+    expect(result.stderr).not.toContain("    at ");
+  });
+});
+
+describe("isValidSessionId", () => {
+  it("aceita o formato gerado e rejeita o resto", () => {
+    expect(isValidSessionId(generateSessionId())).toBe(true);
+    expect(isValidSessionId("abc")).toBe(false);
+    expect(isValidSessionId("")).toBe(false);
   });
 });
 

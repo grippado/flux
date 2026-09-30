@@ -148,7 +148,7 @@ flux build LAB-142 --repo flux</code></pre>
         <p>The target is passed to the verb uninterpreted, with one exception: <strong>a Linear ticket requires <code>--repo</code></strong>. A <code>LAB-142</code> does not say which repo the work happens in, and the CLI refuses rather than guess.</p>
 
         <h3 id="mechanical">Mechanical subcommands</h3>
-        <p>Three subcommands <strong>open no session</strong>: they print JSON and exit. The skills consume them, and you use them to debug.</p>
+        <p>None of these <strong>open a verb session</strong>. Three of them print JSON and exit; the skills consume them, and you use them to debug. A fourth, <code>flux session end</code>, does not print JSON; it mutates the on-disk session state instead.</p>
         <p><code>flux resolve --json</code> prints the resolved context and nothing else. It is the command for "why does flux think I am in this profile?".</p>
 <pre><code>{
   "profile": "personal",
@@ -171,6 +171,7 @@ flux build LAB-142 --repo flux</code></pre>
         </table>
         <p><code>FULL</code> is <em>tentative</em> because the CLI sees the disk, not the session: it knows the agent file exists, not whether the harness registered it as invokable. The skill confirms that from inside.</p>
         <p><code>flux gather pr &lt;n|URL&gt; --json</code> collects a PR through <code>gh</code>: metadata, diff, and with <code>--threads</code> the review threads. Only verbs that answer threads ask for them.</p>
+        <p>Every verb spawn writes a small state file under <code>~/.flux/sessions/&lt;id&gt;.json</code> (id, verb, pid, terminal, start time, status). <code>flux session end &lt;id&gt;</code> (or <code>FLUX_SESSION_ID</code> in the environment, set by the CLI when it launches the harness) marks that file <code>"ended"</code>. It is idempotent: a missing or already-ended session exits <code>0</code>, since nothing more needs to happen. A <code>"running"</code> status does not prove the session is alive: a session opened with <code>--new</code> is marked ended only when the tab could not be opened, and a watch interrupted by the user is never marked ended.</p>
 
         <h3 id="flags">Flags</h3>
         <table>
