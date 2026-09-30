@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.39.0",
+    "tag": "v1.39.0",
+    "published_at": "2026-09-30T13:26:31Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.39.0",
+    "summary": {
+      "en": "Adds flux:chain, api-first transport, richer provenance stamps, CLI session state, and an automation setup guide.",
+      "pt": "Chega o flux:chain, o transporte api-first, carimbos de proveniência mais ricos, estado de sessão do CLI e um guia de automação."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.31.0",
     "tag": "v1.31.0",
     "published_at": "2026-09-15T21:24:30Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "✨ release: v1.31.0 — reverificar threads próprias abertas na rodada 2",
       "pt": "✨ release: v1.31.0 — reverificar threads próprias abertas na rodada 2"
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.30.3",
-    "tag": "v1.30.3",
-    "published_at": "2026-09-14T18:59:49Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.30.3",
-    "summary": {
-      "en": "Boards and reviews now record which session and machine wrote them.",
-      "pt": "Boards e reviews agora registram qual sessão e máquina os escreveu."
     },
     "changelog_source": "tag_message"
   },
