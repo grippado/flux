@@ -13,7 +13,7 @@
 
 > Família de comandos **globais e context-agnósticos** que cobre o ciclo inteiro de trabalho num repo: da telemetria de produção ao código, do código ao review, do review ao merge, do merge à comunicação.
 
-**[grippado.github.io/flux](https://grippado.github.io/flux/)** — a landing com o ciclo, a instalação por harness e as versões publicadas. O selo de release acima aponta sempre para a última, sem ninguém precisar lembrar de atualizar este arquivo.
+**[grippado.github.io/flux](https://grippado.github.io/flux/)**: a landing com o ciclo, a instalação por harness e as versões publicadas. O selo de release acima aponta sempre para a última, sem ninguém precisar lembrar de atualizar este arquivo. A landing, porém, só muda quando uma tag de versão é publicada: bumpar os manifests não basta (ver [Publicar uma versão](#publicar-uma-versão)).
 
 ## Instalação
 
@@ -507,6 +507,55 @@ ida ao GitHub, não uma regressão publicada.
 > valor YAML sem aspas quebra o parse, e o skill carrega com **metadata vazia**, silenciosamente:
 > sem `name`, sem `description`, sem `user-invocable`. O sintoma é um `1 error during load` genérico
 > no `/reload-plugins`, sem dizer qual arquivo. O `validate` diz.
+
+### Publicar uma versão
+
+**Bump de versão sem tag é landing desatualizada.** A landing e a página de releases leem o
+`docs/latest-release.json`, e só o workflow [`release.yml`](.github/workflows/release.yml) o atualiza,
+disparado por push de tag `v*`. Bumpar os cinco manifests não dispara nada: a versão muda no plugin, a
+landing não. Foi assim que as versões 1.32.0 a 1.38.0 saíram sem tag e a landing ficou parada em 1.31.0.
+
+O fluxo completo:
+
+1. Na PR, bumpe a versão nos cinco manifests (`.claude-plugin/marketplace.json`,
+   `.cursor-plugin/marketplace.json` e os três de `plugins/flux/`) e rode `scripts/check-manifests.sh`.
+2. Faça o merge na `main`.
+3. Crie a tag **anotada** `v<versão>` no commit do merge. A mensagem da tag vira o changelog, e o
+   `scripts/release-meta.sh` lê os trailers `Summary-en:` e `Summary-pt:` (sem travessão). O limite de
+   180 caracteres só corta o resumo de fallback, tirado da primeira linha da mensagem; o valor de um
+   trailer é publicado sem corte, então mantenha cada um em até 180. Tag leve é recusada de propósito,
+   e quem recusa é o workflow (o passo que busca o objeto da tag anotada), não o script isolado.
+4. O workflow `release` publica a release e commita o `docs/latest-release.json` na `main`, mas esse
+   commit só acontece quando a tag é a versão corrente (guarda `is_latest`); uma tag mais antiga publica
+   a release sem mexer na landing.
+
+```
+git tag -a v<x.y.z> <sha-da-main> -F <arquivo-com-a-mensagem>
+git push origin refs/tags/v<x.y.z>
+```
+
+Exemplo de `<arquivo-com-a-mensagem>`:
+
+```
+v<x.y.z>: o que mudou, em uma linha
+
+Corpo livre com o changelog.
+
+Summary-en: One sentence in English, up to 180 characters.
+Summary-pt: Uma frase em português, até 180 caracteres.
+```
+
+Uma tag por versão. Se versões ficaram sem tag, uma tag de catch-up na versão mais recente cobre as
+puladas: o changelog dela deve dizer o que entrou desde a última tag.
+
+Para conferir depois do push:
+
+```
+gh run list --workflow release
+git pull && cat docs/latest-release.json
+```
+
+O `docs/latest-release.json` deve trazer a versão nova. Sem essa linha, a landing não mudou.
 
 Duas regras que valem para qualquer contribuição:
 
