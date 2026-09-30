@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Flux guide: wiring GitHub, Linear, and Anthropic credentials for an unattended flux:refine/flux:issue automation, with an async approval gate.">
+  <title>Flux — Automation setup guide</title>
+  <link rel="icon" href="dark-fill.svg" type="image/svg+xml" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="light-fill.svg" type="image/svg+xml" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="favicon-32.png" sizes="32x32">
+  <link rel="preload" href="fonts/inter-latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .flux-mark{background:url("dark-fill.svg") center/contain no-repeat;font-size:0;color:transparent}html[data-theme=light] .flux-mark{background-image:url("light-fill.svg")}
+    .flux-glyph{display:inline-block;width:17px;height:17px;vertical-align:-3px;margin-right:8px;background:url("dark-outline.svg") center/contain no-repeat}html[data-theme=light] .flux-glyph{background-image:url("light-outline.svg")}.footer-brand{display:inline-flex;align-items:center}
+    .docs{display:grid;grid-template-columns:240px 1fr;gap:64px;padding:56px 0 110px;align-items:start}
+    .docs-nav{position:sticky;top:24px;font-size:.86rem}.docs-nav .eyebrow{margin:0 0 10px}.docs-nav ul{list-style:none;margin:0 0 26px;padding:0}.docs-nav li{margin:0}.docs-nav a{display:block;padding:5px 10px;border-left:2px solid var(--line);color:var(--muted);text-decoration:none;line-height:1.4}.docs-nav a:hover{color:var(--ink)}
+    .docs-body{min-width:0;max-width:760px}.docs-body h1{font-size:clamp(2.2rem,4vw,3rem);margin-bottom:14px}.docs-body h2{font-size:1.7rem;letter-spacing:-.02em;margin:60px 0 14px;padding-top:20px;border-top:1px solid var(--line)}.docs-body h2:first-of-type{border-top:0;margin-top:26px}.docs-body h3{font-size:1.1rem;margin:30px 0 10px;letter-spacing:-.01em}.docs-body p,.docs-body li{color:var(--muted)}.docs-body p{max-width:none}.docs-body strong{color:var(--ink)}.docs-body a{color:var(--violet)}.docs-body ol,.docs-body ul{padding-left:20px}.docs-body li{margin:6px 0}
+    .docs-body pre{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow:auto;font-size:.8rem;line-height:1.65;color:var(--ink)}.docs-body code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em}.docs-body p code,.docs-body li code{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--ink)}
+    .callout{border:1px solid color-mix(in srgb,var(--violet),var(--line) 55%);border-left:3px solid var(--violet);background:var(--panel);border-radius:10px;padding:14px 18px;margin:18px 0;font-size:.9rem}.callout p{margin:0}.callout b{color:var(--violet)}
+    .callout.warn{border-color:color-mix(in srgb,#d97757,var(--line) 45%);border-left-color:#d97757}.callout.warn b{color:#d97757}html[data-theme=light] .callout.warn b{color:#a4462a}
+    .docs-hero{padding:56px 0 0}.docs-hero .lede{max-width:640px}
+    @media(max-width:900px){.docs{grid-template-columns:1fr;gap:30px}.docs-nav{position:static;display:flex;flex-wrap:wrap;gap:0 18px}.docs-nav ul{margin:0 0 10px}}
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="Flux home"><span class="flux-mark" aria-hidden="true"></span><span>flux</span></a>
+    <nav aria-label="Main navigation">
+      <a href="index.html#install" data-i18n="navInstall">Install</a>
+      <a href="docs.html" data-i18n="navDocs">Docs</a>
+      <a href="index.html#contribute" data-i18n="navContribute">Contribute</a>
+    </nav>
+    <div class="header-actions">
+      <label class="sr-only" for="language" data-i18n="languageLabel">Language</label>
+      <select id="language">
+        <option value="en">EN</option><option value="pt">PT</option><option value="es">ES</option><option value="de">DE</option>
+      </select>
+      <button id="theme" class="icon-button" type="button" aria-label="Toggle color theme">☼</button>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="docs-hero">
+      <p class="eyebrow" data-i18n="eyebrow">setup guide</p>
+      <h1 data-i18n="h1">Wire GitHub, Linear, and Anthropic for an unattended issue pipeline.</h1>
+      <p class="lede" data-i18n="lede">This guide sets up the credentials for a GitHub Action that runs <code>flux:refine</code> and <code>flux:issue</code> on a GitHub issue and lands it in Linear, with a human approval step that never blocks a live terminal.</p>
+    </section>
+
+    <div class="docs">
+      <aside class="docs-nav" aria-label="Guide navigation">
+        <p class="eyebrow" data-i18n="navEyebrow">On this page</p>
+        <ul>
+          <li><a href="#overview" data-i18n="navOverview">Overview</a></li>
+          <li><a href="#github" data-i18n="navGithub">GitHub access</a></li>
+          <li><a href="#linear" data-i18n="navLinear">Linear API key</a></li>
+          <li><a href="#anthropic" data-i18n="navAnthropic">Anthropic key</a></li>
+          <li><a href="#wiring" data-i18n="navWiring">Wiring the secrets</a></li>
+          <li><a href="#gate" data-i18n="navGate">The async gate</a></li>
+          <li><a href="#security" data-i18n="navSecurity">Security notes</a></li>
+        </ul>
+      </aside>
+
+      <div class="docs-body">
+        <h2 id="overview" data-i18n="overviewTitle">Overview</h2>
+        <p data-i18n="overviewBody">Three separate credentials cross three separate systems. None of them is your personal login: a runner in GitHub Actions never has your terminal's <code>gh auth</code> session or your local <code>~/.secrets</code>, so each one is provisioned once, as a repository secret, scoped to this automation only.</p>
+        <div class="callout"><p data-i18n="overviewCallout"><b>Reference: </b>this guide backs <a href="https://github.com/grippado/flux/issues/62">grippado/flux#62</a>, the issue that specifies the pipeline itself.</p></div>
+
+        <h2 id="github" data-i18n="githubTitle">GitHub access</h2>
+        <p data-i18n="githubBody">A workflow triggered by <code>issues: opened</code> already receives a scoped, short-lived token as <code>GITHUB_TOKEN</code>. That token can read the issue and post the draft/result as a comment, no extra secret needed, as long as the workflow's permissions block grants it:</p>
+        <pre>permissions:
+  issues: write
+  contents: read</pre>
+        <p data-i18n="githubBody2">A personal access token is only needed if the automation must reach past this repository (opening a PR in another repo, for example). Skip it unless that becomes true.</p>
+
+        <h2 id="linear" data-i18n="linearTitle">Linear API key</h2>
+        <ol>
+          <li data-i18n="linearStep1">Open <a href="https://linear.app/settings/account/security">linear.app/settings/account/security</a> → Personal API keys → Create key.</li>
+          <li data-i18n="linearStep2">Label it so it is identifiable later, for example <code>flux-issue-automation</code>. A label tied to the purpose, not your name, makes it obvious what to revoke if this workflow is ever retired.</li>
+          <li data-i18n="linearStep3">Copy the value once. Linear will not show it again.</li>
+          <li data-i18n="linearStep4">In the <code>flux</code> repository: Settings → Secrets and variables → Actions → New repository secret. Name it <code>LINEAR_API_KEY</code> and paste the value.</li>
+        </ol>
+        <div class="callout warn"><p data-i18n="linearWarn"><b>Do not reuse your personal key.</b> A workspace-scoped key on your own machine (<code>LINEAR_API_KEY_PERSONAL</code>, or whatever <code>linear_token_env</code> your local flux manifest declares) is a different credential store than a repository secret. One key per store is what lets you revoke the automation's access without touching your own.</p></div>
+
+        <h2 id="anthropic" data-i18n="anthropicTitle">Anthropic key</h2>
+        <p data-i18n="anthropicBody">The runner needs its own way to invoke Claude, separate from your Claude Code subscription. Two options:</p>
+        <ul>
+          <li data-i18n="anthropicOpt1"><strong>API key</strong> (console.anthropic.com → Settings → API Keys → Create Key): usage is billed as API consumption, metered per token. This is the simplest path for a workflow nobody watches.</li>
+          <li data-i18n="anthropicOpt2"><strong>Claude Code OAuth token</strong>, when the official <code>claude-code-action</code> is used: generated from an authenticated Claude Code session and stored the same way. Check the action's own docs for the exact command, since this changes with the action's version.</li>
+        </ul>
+        <p data-i18n="anthropicBody2">Either way, store the value as a repository secret, for example <code>ANTHROPIC_API_KEY</code>, next to <code>LINEAR_API_KEY</code>.</p>
+
+        <h2 id="wiring" data-i18n="wiringTitle">Wiring the secrets</h2>
+        <p data-i18n="wiringBody">In the workflow file, secrets are referenced, never inlined:</p>
+        <pre>env:
+  ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+  LINEAR_API_KEY:    ${{ secrets.LINEAR_API_KEY }}</pre>
+        <p data-i18n="wiringBody2"><code>GITHUB_TOKEN</code> does not need this line: Actions injects it automatically for every job.</p>
+
+        <h2 id="gate" data-i18n="gateTitle">The async gate</h2>
+        <p data-i18n="gateBody">The credentials above make the pipeline able to reach every system it needs. They do not decide when it is allowed to write to Linear. That is a separate, mandatory step: <code>flux:issue</code> never creates a tracker issue without approval, and an unattended run replaces the interactive terminal prompt with an async one, for example a comment posted back on the GitHub issue, gated on a second signal (a reply, a label, a reaction) before the run continues. The mechanics of that gate are specified in <a href="https://github.com/grippado/flux/issues/62">issue #62</a>, not in this guide: this page only covers getting the three systems reachable.</p>
+
+        <h2 id="security" data-i18n="securityTitle">Security notes</h2>
+        <ul>
+          <li data-i18n="securityStep1">Never print a secret's value in a log, a comment, or a commit. If a workflow step needs to confirm a key resolved, log its presence (length, or a masked prefix), never the value.</li>
+          <li data-i18n="securityStep2">Scope the Linear key to the workspace this automation targets. A key with access to every workspace you belong to is a wider blast radius than this automation needs.</li>
+          <li data-i18n="securityStep3">Rotate a key immediately if a workflow run, a log, or a fork of this repository ever exposes it, even partially.</li>
+        </ul>
+      </div>
+    </div>
+  </main>
+  <footer class="site-footer wrap"><span class="footer-brand"><span class="flux-glyph" aria-hidden="true"></span>© 2026 Flux · MIT</span><span data-i18n="footerNote">Made for the work between idea and merge.</span><a href="https://github.com/grippado/flux">GitHub ↗</a></footer>
+
+  <script>
+    const copy = {
+      en: {
+        navInstall:'Install', navDocs:'Docs', navContribute:'Contribute', languageLabel:'Language',
+        eyebrow:'setup guide',
+        h1:'Wire GitHub, Linear, and Anthropic for an unattended issue pipeline.',
+        lede:'This guide sets up the credentials for a GitHub Action that runs <code>flux:refine</code> and <code>flux:issue</code> on a GitHub issue and lands it in Linear, with a human approval step that never blocks a live terminal.',
+        navEyebrow:'On this page', navOverview:'Overview', navGithub:'GitHub access', navLinear:'Linear API key', navAnthropic:'Anthropic key', navWiring:'Wiring the secrets', navGate:'The async gate', navSecurity:'Security notes',
+        overviewTitle:'Overview',
+        overviewBody:'Three separate credentials cross three separate systems. None of them is your personal login: a runner in GitHub Actions never has your terminal\'s <code>gh auth</code> session or your local <code>~/.secrets</code>, so each one is provisioned once, as a repository secret, scoped to this automation only.',
+        overviewCallout:'<b>Reference: </b>this guide backs <a href="https://github.com/grippado/flux/issues/62">grippado/flux#62</a>, the issue that specifies the pipeline itself.',
+        githubTitle:'GitHub access',
+        githubBody:'A workflow triggered by <code>issues: opened</code> already receives a scoped, short-lived token as <code>GITHUB_TOKEN</code>. That token can read the issue and post the draft/result as a comment, no extra secret needed, as long as the workflow\'s permissions block grants it:',
+        githubBody2:'A personal access token is only needed if the automation must reach past this repository (opening a PR in another repo, for example). Skip it unless that becomes true.',
+        linearTitle:'Linear API key',
+        linearStep1:'Open <a href="https://linear.app/settings/account/security">linear.app/settings/account/security</a> → Personal API keys → Create key.',
+        linearStep2:'Label it so it is identifiable later, for example <code>flux-issue-automation</code>. A label tied to the purpose, not your name, makes it obvious what to revoke if this workflow is ever retired.',
+        linearStep3:'Copy the value once. Linear will not show it again.',
+        linearStep4:'In the <code>flux</code> repository: Settings → Secrets and variables → Actions → New repository secret. Name it <code>LINEAR_API_KEY</code> and paste the value.',
+        linearWarn:'<b>Do not reuse your personal key.</b> A workspace-scoped key on your own machine (<code>LINEAR_API_KEY_PERSONAL</code>, or whatever <code>linear_token_env</code> your local flux manifest declares) is a different credential store than a repository secret. One key per store is what lets you revoke the automation\'s access without touching your own.',
+        anthropicTitle:'Anthropic key',
+        anthropicBody:'The runner needs its own way to invoke Claude, separate from your Claude Code subscription. Two options:',
+        anthropicOpt1:'<strong>API key</strong> (console.anthropic.com → Settings → API Keys → Create Key): usage is billed as API consumption, metered per token. This is the simplest path for a workflow nobody watches.',
+        anthropicOpt2:'<strong>Claude Code OAuth token</strong>, when the official <code>claude-code-action</code> is used: generated from an authenticated Claude Code session and stored the same way. Check the action\'s own docs for the exact command, since this changes with the action\'s version.',
+        anthropicBody2:'Either way, store the value as a repository secret, for example <code>ANTHROPIC_API_KEY</code>, next to <code>LINEAR_API_KEY</code>.',
+        wiringTitle:'Wiring the secrets',
+        wiringBody:'In the workflow file, secrets are referenced, never inlined:',
+        wiringBody2:'<code>GITHUB_TOKEN</code> does not need this line: Actions injects it automatically for every job.',
+        gateTitle:'The async gate',
+        gateBody:'The credentials above make the pipeline able to reach every system it needs. They do not decide when it is allowed to write to Linear. That is a separate, mandatory step: <code>flux:issue</code> never creates a tracker issue without approval, and an unattended run replaces the interactive terminal prompt with an async one, for example a comment posted back on the GitHub issue, gated on a second signal (a reply, a label, a reaction) before the run continues. The mechanics of that gate are specified in <a href="https://github.com/grippado/flux/issues/62">issue #62</a>, not in this guide: this page only covers getting the three systems reachable.',
+        securityTitle:'Security notes',
+        securityStep1:'Never print a secret\'s value in a log, a comment, or a commit. If a workflow step needs to confirm a key resolved, log its presence (length, or a masked prefix), never the value.',
+        securityStep2:'Scope the Linear key to the workspace this automation targets. A key with access to every workspace you belong to is a wider blast radius than this automation needs.',
+        securityStep3:'Rotate a key immediately if a workflow run, a log, or a fork of this repository ever exposes it, even partially.',
+        footerNote:'Made for the work between idea and merge.'
+      },
+      pt: {
+        navInstall:'Instalar', navDocs:'Docs', navContribute:'Contribuir', languageLabel:'Idioma',
+        eyebrow:'guia de configuração',
+        h1:'Configure GitHub, Linear e Anthropic para um pipeline de issues sem supervisão.',
+        lede:'Este guia prepara as credenciais para uma GitHub Action que roda <code>flux:refine</code> e <code>flux:issue</code> sobre uma issue do GitHub e a leva ao Linear, com um passo de aprovação humana que nunca bloqueia um terminal ao vivo.',
+        navEyebrow:'Nesta página', navOverview:'Visão geral', navGithub:'Acesso ao GitHub', navLinear:'Chave da API do Linear', navAnthropic:'Chave da Anthropic', navWiring:'Conectando os secrets', navGate:'O gate assíncrono', navSecurity:'Notas de segurança',
+        overviewTitle:'Visão geral',
+        overviewBody:'Três credenciais separadas atravessam três sistemas separados. Nenhuma delas é o seu login pessoal: um runner do GitHub Actions nunca tem a sessão <code>gh auth</code> do seu terminal nem o seu <code>~/.secrets</code> local, então cada uma é provisionada uma vez, como secret do repositório, restrita a esta automação.',
+        overviewCallout:'<b>Referência: </b>este guia apoia a <a href="https://github.com/grippado/flux/issues/62">grippado/flux#62</a>, a issue que especifica o pipeline em si.',
+        githubTitle:'Acesso ao GitHub',
+        githubBody:'Um workflow disparado por <code>issues: opened</code> já recebe um token restrito e de curta duração como <code>GITHUB_TOKEN</code>. Esse token consegue ler a issue e postar o rascunho/resultado como comentário, sem secret extra, desde que o bloco de permissões do workflow conceda isso:',
+        githubBody2:'Um personal access token só é necessário se a automação precisar ir além deste repositório (abrir uma PR em outro repo, por exemplo). Deixe de lado até isso se tornar verdade.',
+        linearTitle:'Chave da API do Linear',
+        linearStep1:'Abra <a href="https://linear.app/settings/account/security">linear.app/settings/account/security</a> → Personal API keys → Create key.',
+        linearStep2:'Rotule de um jeito identificável depois, por exemplo <code>flux-issue-automation</code>. Um rótulo ligado ao propósito, não ao seu nome, deixa claro o que revogar se este workflow for aposentado.',
+        linearStep3:'Copie o valor uma vez. O Linear não mostra de novo.',
+        linearStep4:'No repositório <code>flux</code>: Settings → Secrets and variables → Actions → New repository secret. Nomeie <code>LINEAR_API_KEY</code> e cole o valor.',
+        linearWarn:'<b>Não reaproveite sua chave pessoal.</b> Uma chave de workspace na sua própria máquina (<code>LINEAR_API_KEY_PERSONAL</code>, ou o que quer que o <code>linear_token_env</code> do seu manifesto local do flux declare) é um cofre diferente de um secret de repositório. Uma chave por cofre é o que permite revogar o acesso da automação sem mexer no seu.',
+        anthropicTitle:'Chave da Anthropic',
+        anthropicBody:'O runner precisa do próprio jeito de invocar o Claude, separado da sua assinatura do Claude Code. Duas opções:',
+        anthropicOpt1:'<strong>API key</strong> (console.anthropic.com → Settings → API Keys → Create Key): o uso é cobrado como consumo de API, medido por token. É o caminho mais simples para um workflow que ninguém observa.',
+        anthropicOpt2:'<strong>Token OAuth do Claude Code</strong>, quando a <code>claude-code-action</code> oficial é usada: gerado a partir de uma sessão autenticada do Claude Code e guardado do mesmo jeito. Confira a documentação da própria action pelo comando exato, porque isso muda com a versão dela.',
+        anthropicBody2:'Em qualquer um dos dois casos, guarde o valor como secret do repositório, por exemplo <code>ANTHROPIC_API_KEY</code>, ao lado do <code>LINEAR_API_KEY</code>.',
+        wiringTitle:'Conectando os secrets',
+        wiringBody:'No arquivo do workflow, secrets são referenciados, nunca embutidos:',
+        wiringBody2:'<code>GITHUB_TOKEN</code> não precisa desta linha: o Actions a injeta automaticamente em todo job.',
+        gateTitle:'O gate assíncrono',
+        gateBody:'As credenciais acima deixam o pipeline capaz de alcançar todo sistema de que precisa. Elas não decidem quando ele pode escrever no Linear. Isso é um passo separado e obrigatório: o <code>flux:issue</code> nunca cria issue no tracker sem aprovação, e uma execução sem supervisão troca o prompt interativo do terminal por um assíncrono, por exemplo um comentário postado de volta na issue do GitHub, condicionado a um segundo sinal (uma resposta, um label, uma reação) antes de a execução continuar. A mecânica desse gate está especificada na <a href="https://github.com/grippado/flux/issues/62">issue #62</a>, não neste guia: esta página cobre só deixar os três sistemas alcançáveis.',
+        securityTitle:'Notas de segurança',
+        securityStep1:'Nunca imprima o valor de um secret em log, comentário ou commit. Se um passo do workflow precisar confirmar que uma chave resolveu, logue a presença dela (tamanho, ou um prefixo mascarado), nunca o valor.',
+        securityStep2:'Restrinja a chave do Linear ao workspace que esta automação tem como alvo. Uma chave com acesso a todo workspace que você participa é um raio de exposição maior do que esta automação precisa.',
+        securityStep3:'Rotacione uma chave imediatamente se uma execução de workflow, um log, ou um fork deste repositório algum dia a expuser, mesmo que parcialmente.',
+        footerNote:'Feito para o trabalho entre a ideia e o merge.'
+      },
+      es: {
+        navInstall:'Instalar', navDocs:'Docs', navContribute:'Contribuir', languageLabel:'Idioma',
+        eyebrow:'guía de configuración',
+        h1:'Configura GitHub, Linear y Anthropic para un pipeline de issues sin supervisión.',
+        lede:'Esta guía prepara las credenciales para una GitHub Action que ejecuta <code>flux:refine</code> y <code>flux:issue</code> sobre una issue de GitHub y la lleva a Linear, con un paso de aprobación humana que nunca bloquea una terminal en vivo.',
+        navEyebrow:'En esta página', navOverview:'Resumen', navGithub:'Acceso a GitHub', navLinear:'Clave de API de Linear', navAnthropic:'Clave de Anthropic', navWiring:'Conectar los secrets', navGate:'El gate asíncrono', navSecurity:'Notas de seguridad',
+        overviewTitle:'Resumen',
+        overviewBody:'Tres credenciales separadas cruzan tres sistemas separados. Ninguna es tu inicio de sesión personal: un runner de GitHub Actions nunca tiene la sesión <code>gh auth</code> de tu terminal ni tu <code>~/.secrets</code> local, así que cada una se provisiona una vez, como secret del repositorio, con alcance solo a esta automatización.',
+        overviewCallout:'<b>Referencia: </b>esta guía respalda la <a href="https://github.com/grippado/flux/issues/62">grippado/flux#62</a>, la issue que especifica el pipeline en sí.',
+        githubTitle:'Acceso a GitHub',
+        githubBody:'Un workflow disparado por <code>issues: opened</code> ya recibe un token acotado y de corta duración como <code>GITHUB_TOKEN</code>. Ese token puede leer la issue y publicar el borrador/resultado como comentario, sin secret adicional, mientras el bloque de permisos del workflow lo conceda:',
+        githubBody2:'Un personal access token solo hace falta si la automatización necesita ir más allá de este repositorio (abrir una PR en otro repo, por ejemplo). Sáltalo a menos que eso se vuelva necesario.',
+        linearTitle:'Clave de API de Linear',
+        linearStep1:'Abre <a href="https://linear.app/settings/account/security">linear.app/settings/account/security</a> → Personal API keys → Create key.',
+        linearStep2:'Etiquétala de forma identificable después, por ejemplo <code>flux-issue-automation</code>. Una etiqueta ligada al propósito, no a tu nombre, deja claro qué revocar si este workflow se retira algún día.',
+        linearStep3:'Copia el valor una vez. Linear no lo vuelve a mostrar.',
+        linearStep4:'En el repositorio <code>flux</code>: Settings → Secrets and variables → Actions → New repository secret. Nómbrala <code>LINEAR_API_KEY</code> y pega el valor.',
+        linearWarn:'<b>No reutilices tu clave personal.</b> Una clave de workspace en tu propia máquina (<code>LINEAR_API_KEY_PERSONAL</code>, o lo que declare el <code>linear_token_env</code> de tu manifiesto local de flux) es un almacén distinto de un secret de repositorio. Una clave por almacén es lo que permite revocar el acceso de la automatización sin tocar el tuyo.',
+        anthropicTitle:'Clave de Anthropic',
+        anthropicBody:'El runner necesita su propia forma de invocar a Claude, separada de tu suscripción de Claude Code. Dos opciones:',
+        anthropicOpt1:'<strong>API key</strong> (console.anthropic.com → Settings → API Keys → Create Key): el uso se factura como consumo de API, medido por token. Es el camino más simple para un workflow que nadie observa.',
+        anthropicOpt2:'<strong>Token OAuth de Claude Code</strong>, cuando se usa la <code>claude-code-action</code> oficial: se genera desde una sesión autenticada de Claude Code y se guarda de la misma forma. Revisa la documentación de la propia action para el comando exacto, ya que cambia con su versión.',
+        anthropicBody2:'En cualquier caso, guarda el valor como secret del repositorio, por ejemplo <code>ANTHROPIC_API_KEY</code>, junto a <code>LINEAR_API_KEY</code>.',
+        wiringTitle:'Conectar los secrets',
+        wiringBody:'En el archivo del workflow, los secrets se referencian, nunca se escriben directamente:',
+        wiringBody2:'<code>GITHUB_TOKEN</code> no necesita esta línea: Actions lo inyecta automáticamente en cada job.',
+        gateTitle:'El gate asíncrono',
+        gateBody:'Las credenciales anteriores hacen que el pipeline pueda alcanzar cada sistema que necesita. No deciden cuándo puede escribir en Linear. Eso es un paso aparte y obligatorio: <code>flux:issue</code> nunca crea una issue en el tracker sin aprobación, y una ejecución sin supervisión reemplaza el prompt interactivo de la terminal por uno asíncrono, por ejemplo un comentario publicado de vuelta en la issue de GitHub, condicionado a una segunda señal (una respuesta, una etiqueta, una reacción) antes de continuar. La mecánica de ese gate está especificada en la <a href="https://github.com/grippado/flux/issues/62">issue #62</a>, no en esta guía: esta página solo cubre dejar los tres sistemas alcanzables.',
+        securityTitle:'Notas de seguridad',
+        securityStep1:'Nunca imprimas el valor de un secret en un log, un comentario o un commit. Si un paso del workflow necesita confirmar que una clave se resolvió, registra su presencia (longitud, o un prefijo enmascarado), nunca el valor.',
+        securityStep2:'Limita la clave de Linear al workspace al que apunta esta automatización. Una clave con acceso a todos los workspaces a los que perteneces es un radio de exposición mayor del que esta automatización necesita.',
+        securityStep3:'Rota una clave de inmediato si una ejecución de workflow, un log o un fork de este repositorio la expone alguna vez, incluso parcialmente.',
+        footerNote:'Hecho para el trabajo entre la idea y el merge.'
+      },
+      de: {
+        navInstall:'Installieren', navDocs:'Docs', navContribute:'Beitragen', languageLabel:'Sprache',
+        eyebrow:'Einrichtungsanleitung',
+        h1:'GitHub, Linear und Anthropic für eine unbeaufsichtigte Issue-Pipeline verbinden.',
+        lede:'Diese Anleitung richtet die Zugangsdaten für eine GitHub Action ein, die <code>flux:refine</code> und <code>flux:issue</code> auf einem GitHub-Issue ausführt und es in Linear ablegt, mit einem menschlichen Freigabeschritt, der niemals ein laufendes Terminal blockiert.',
+        navEyebrow:'Auf dieser Seite', navOverview:'Überblick', navGithub:'GitHub-Zugriff', navLinear:'Linear-API-Schlüssel', navAnthropic:'Anthropic-Schlüssel', navWiring:'Secrets verbinden', navGate:'Das asynchrone Gate', navSecurity:'Sicherheitshinweise',
+        overviewTitle:'Überblick',
+        overviewBody:'Drei getrennte Zugangsdaten überqueren drei getrennte Systeme. Keine davon ist dein persönlicher Login: ein Runner in GitHub Actions hat niemals die <code>gh auth</code>-Sitzung deines Terminals oder dein lokales <code>~/.secrets</code>, daher wird jede einmal als Repository-Secret bereitgestellt, beschränkt auf genau diese Automatisierung.',
+        overviewCallout:'<b>Referenz: </b>diese Anleitung gehört zu <a href="https://github.com/grippado/flux/issues/62">grippado/flux#62</a>, dem Issue, das die Pipeline selbst spezifiziert.',
+        githubTitle:'GitHub-Zugriff',
+        githubBody:'Ein durch <code>issues: opened</code> ausgelöster Workflow erhält bereits ein eingeschränktes, kurzlebiges Token als <code>GITHUB_TOKEN</code>. Dieses Token kann das Issue lesen und den Entwurf/das Ergebnis als Kommentar posten, ohne zusätzliches Secret, solange der Permissions-Block des Workflows es gewährt:',
+        githubBody2:'Ein Personal Access Token wird nur benötigt, wenn die Automatisierung über dieses Repository hinausgreifen muss (zum Beispiel eine PR in einem anderen Repo öffnen). Überspringe ihn, bis das tatsächlich zutrifft.',
+        linearTitle:'Linear-API-Schlüssel',
+        linearStep1:'Öffne <a href="https://linear.app/settings/account/security">linear.app/settings/account/security</a> → Personal API keys → Create key.',
+        linearStep2:'Beschrifte ihn erkennbar, zum Beispiel <code>flux-issue-automation</code>. Eine Beschriftung, die den Zweck statt deinen Namen nennt, macht offensichtlich, was zu widerrufen ist, falls dieser Workflow je stillgelegt wird.',
+        linearStep3:'Kopiere den Wert einmal. Linear zeigt ihn danach nicht mehr an.',
+        linearStep4:'Im Repository <code>flux</code>: Settings → Secrets and variables → Actions → New repository secret. Nenne ihn <code>LINEAR_API_KEY</code> und füge den Wert ein.',
+        linearWarn:'<b>Verwende nicht deinen persönlichen Schlüssel wieder.</b> Ein Workspace-Schlüssel auf deiner eigenen Maschine (<code>LINEAR_API_KEY_PERSONAL</code>, oder was auch immer <code>linear_token_env</code> in deinem lokalen Flux-Manifest deklariert) ist ein anderer Credential-Speicher als ein Repository-Secret. Ein Schlüssel pro Speicher erlaubt es, den Zugriff der Automatisierung zu widerrufen, ohne deinen eigenen anzufassen.',
+        anthropicTitle:'Anthropic-Schlüssel',
+        anthropicBody:'Der Runner braucht einen eigenen Weg, Claude aufzurufen, getrennt von deinem Claude-Code-Abonnement. Zwei Optionen:',
+        anthropicOpt1:'<strong>API-Schlüssel</strong> (console.anthropic.com → Settings → API Keys → Create Key): die Nutzung wird als API-Verbrauch abgerechnet, pro Token gemessen. Das ist der einfachste Weg für einen Workflow, den niemand beobachtet.',
+        anthropicOpt2:'<strong>Claude-Code-OAuth-Token</strong>, wenn die offizielle <code>claude-code-action</code> verwendet wird: erzeugt aus einer authentifizierten Claude-Code-Sitzung und genauso gespeichert. Prüfe die Dokumentation der Action selbst für den genauen Befehl, da sich das mit ihrer Version ändert.',
+        anthropicBody2:'In beiden Fällen den Wert als Repository-Secret speichern, zum Beispiel <code>ANTHROPIC_API_KEY</code>, neben <code>LINEAR_API_KEY</code>.',
+        wiringTitle:'Secrets verbinden',
+        wiringBody:'In der Workflow-Datei werden Secrets referenziert, nie eingebettet:',
+        wiringBody2:'<code>GITHUB_TOKEN</code> braucht diese Zeile nicht: Actions fügt es automatisch in jeden Job ein.',
+        gateTitle:'Das asynchrone Gate',
+        gateBody:'Die obigen Zugangsdaten machen die Pipeline fähig, jedes benötigte System zu erreichen. Sie entscheiden nicht, wann sie nach Linear schreiben darf. Das ist ein separater, verpflichtender Schritt: <code>flux:issue</code> erstellt nie ein Tracker-Issue ohne Freigabe, und ein unbeaufsichtigter Lauf ersetzt den interaktiven Terminal-Prompt durch einen asynchronen, zum Beispiel einen Kommentar zurück im GitHub-Issue, abhängig von einem zweiten Signal (eine Antwort, ein Label, eine Reaktion), bevor der Lauf fortgesetzt wird. Die Mechanik dieses Gates ist in <a href="https://github.com/grippado/flux/issues/62">Issue #62</a> spezifiziert, nicht in dieser Anleitung: diese Seite deckt nur ab, die drei Systeme erreichbar zu machen.',
+        securityTitle:'Sicherheitshinweise',
+        securityStep1:'Gib niemals den Wert eines Secrets in einem Log, einem Kommentar oder einem Commit aus. Muss ein Workflow-Schritt bestätigen, dass ein Schlüssel aufgelöst wurde, logge seine Anwesenheit (Länge, oder ein maskiertes Präfix), niemals den Wert.',
+        securityStep2:'Beschränke den Linear-Schlüssel auf den Workspace, den diese Automatisierung anspricht. Ein Schlüssel mit Zugriff auf jeden Workspace, dem du angehörst, ist ein größerer Wirkungsradius, als diese Automatisierung braucht.',
+        securityStep3:'Rotiere einen Schlüssel sofort, wenn ein Workflow-Lauf, ein Log oder ein Fork dieses Repositorys ihn jemals offenlegt, auch nur teilweise.',
+        footerNote:'Gemacht für die Arbeit zwischen Idee und Merge.'
+      }
+    };
+    const lang = document.querySelector('#language');
+    const theme = document.querySelector('#theme');
+    function setLanguage(value){
+      const strings = copy[value] || copy.en;
+      document.documentElement.lang = value === 'pt' ? 'pt-BR' : value;
+      document.querySelectorAll('[data-i18n]').forEach(el => { if (strings[el.dataset.i18n]) el.innerHTML = strings[el.dataset.i18n]; });
+      localStorage.setItem('flux-lang', value);
+    }
+    function setTheme(value){
+      document.documentElement.dataset.theme = value;
+      theme.textContent = value === 'dark' ? '☼' : '◐';
+      localStorage.setItem('flux-theme', value);
+    }
+    lang.value = localStorage.getItem('flux-lang') || 'en';
+    setLanguage(lang.value);
+    setTheme(localStorage.getItem('flux-theme') || 'dark');
+    lang.addEventListener('change', e => setLanguage(e.target.value));
+    theme.addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
+  </script>
+</body>
+</html>
