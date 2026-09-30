@@ -114,6 +114,7 @@ As flags podem aparecer em qualquer posição e combinadas.
    - `KITS_ROOT` = `kits_root` (template com `{repo}`; degrau 3 da cascata de destino, opcional)
    - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `REPOS` = `repos` (lista de repos conhecidos do contexto)
+   - `LINEAR_TOKEN_ENV` = `linear_token_env` e `SECRETS_FILE` = `secrets_file` (leitura da issue por API, `${FLUX_ROOT}/shared/api-first.md`; ausentes = `LINEAR_API_KEY` e `~/.secrets`)
    - `WORKSPACE_ROOT` = pai do diretório `.claude/` onde o manifesto foi encontrado
      (ex.: manifesto em `<raiz>/.claude/flux-context.json` → `WORKSPACE_ROOT=<raiz>`)
 
@@ -149,7 +150,7 @@ ONCE=false; SOLO=false; BOARD=""
 
 Para cada target:
 
-- **Issue Linear** (`CPU-XXXX`/`MOM-XXXX` ou URL): pegar metadados, sub-issues **e anexos/links** via Linear MCP (`get_issue`) — a integração GitHub do Linear costuma auto-linkar PRs mencionadas na descrição/branch à issue; isso é a fonte mais confiável quando disponível. Derivar o `ticket-id` em lowercase.
+- **Issue Linear** (`CPU-XXXX`/`MOM-XXXX` ou URL): pegar metadados, sub-issues **e anexos/links** — API primeiro, MCP como degrau declarado (`${FLUX_ROOT}/shared/api-first.md`, canal `linear`; descida para MCP vai a `degradacoes:` como `transporte mcp (linear: <motivo>)`; a query de leitura já traz `children` e `attachments`) — a integração GitHub do Linear costuma auto-linkar PRs mencionadas na descrição/branch à issue; isso é a fonte mais confiável quando disponível. Derivar o `ticket-id` em lowercase.
 
 - **Descoberta primária (por conteúdo, todos os repos de `REPOS`):**
 
@@ -192,7 +193,7 @@ Se nenhuma PR acionável, avise e termine.
 ### 2. Grafo de ordem + locks
 
 - Classifique cada PR por **camada** (backend/api, bff, frontend, infra) e por issue.
-- Detecte dependências de deploy (quem consome contrato de quem) e monte a **ordem de merge** por toposort cross-repo: ordene por camada (produtor de contrato antes de consumidor) e, dentro da camada, respeite as arestas de bloqueio que a **issue do tracker** declarar (no Linear, as relações `blocks` / `blockedBy` que o `get_issue` devolve em `relations`; em outros trackers, a relação equivalente). Não havendo relação declarada, o grafo é só o de camadas — nunca inventar aresta a partir de prosa da descrição. Ciclo detectado não se desempata por adivinhação — reporte as PRs envolvidas e peça a ordem ao usuário.
+- Detecte dependências de deploy (quem consome contrato de quem) e monte a **ordem de merge** por toposort cross-repo: ordene por camada (produtor de contrato antes de consumidor) e, dentro da camada, respeite as arestas de bloqueio que a **issue do tracker** declarar (no Linear, as relações `blocks` / `blockedBy`, que a leitura da issue devolve em `relations` e `inverseRelations` (`${FLUX_ROOT}/shared/api-first.md`; no MCP, `get_issue`); em outros trackers, a relação equivalente). Não havendo relação declarada, o grafo é só o de camadas — nunca inventar aresta a partir de prosa da descrição. Ciclo detectado não se desempata por adivinhação — reporte as PRs envolvidas e peça a ordem ao usuário.
 - Fontes de **lock**:
   - **base branch empilhado**: `baseRefName != main` → a PR base entra antes (garantido pelo próprio base).
   - **acoplamento de contrato**: descoberto na fase 3 (ex.: backend gatilho por último).

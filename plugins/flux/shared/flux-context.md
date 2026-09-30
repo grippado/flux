@@ -230,8 +230,8 @@ com o reviewer de outro time sem que nada acuse o problema.
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
 - `linear_token_env` — **nome da variável** (não o valor) que guarda o token da API do Linear, usado
-  pelo gate de transporte do `flux:issue` (Step 6-pre) para decidir entre a API GraphQL batched e o
-  MCP. Default `LINEAR_API_KEY`.
+  pelo contrato de transporte `${FLUX_ROOT}/shared/api-first.md` (escrita no `flux:issue`, leitura no
+  `flux:build` e no `flux:land`) para decidir entre a API GraphQL e o MCP. Default `LINEAR_API_KEY`.
 
   O campo existe porque **quem tem mais de um workspace de tracker tem mais de uma chave**, e as duas
   não podem morar sob o mesmo nome no mesmo cofre. Declarando o nome por contexto, cada manifesto
@@ -239,8 +239,9 @@ com o reviewer de outro time sem que nada acuse o problema.
   numa org com a credencial da outra. **Nunca colocar o token aqui**: o manifesto é versionado em
   dotfiles com frequência, e o valor mora no ambiente ou no `secrets_file`.
 
-  Ausente → `LINEAR_API_KEY`; não existindo essa variável, o gate para no degrau 1 e o transporte é
-  **MCP**, declarado no banner. Não é falha: é o caminho default de quem nunca configurou chave.
+  Ausente → `LINEAR_API_KEY`; não existindo essa variável, o degrau 1 abre o gate de token ausente de
+  `${FLUX_ROOT}/shared/api-first.md`, que pergunta e nunca cai em MCP em silêncio. Não é falha: é o
+  caminho default de quem nunca configurou chave.
 - `secrets_file` — arquivo de secrets da máquina, no formato `KEY=value` (sem `export`, uma chave por
   linha, comentários com `#`), consultado quando a variável nomeada por um campo `*_token_env` não
   está no ambiente. Default `~/.secrets`. Existe porque **a sessão de um subagente não herda o que foi
@@ -430,7 +431,8 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
   declarando a perda quando não achar (o `flux:reply` sem canal Slack aborta; o modo doc do
   `flux:review`/`flux:peek` aborta só naquele alvo).
 - `linear_token_env` = `LINEAR_API_KEY`; `secrets_file` = `~/.secrets`. Sem a variável no ambiente e
-  sem a linha no arquivo, o gate de transporte do `flux:issue` fica em **MCP** e diz isso no banner.
+  sem a linha no arquivo, o gate de token ausente de `${FLUX_ROOT}/shared/api-first.md` (issue, build, land) abre, e o desfecho
+  vai ao banner.
 - `telemetry` = ausente; o `flux:probe` deriva o que der da URL do alvo (a org, no Sentry; a query e a
   janela, no Datadog), pergunta o repo do cruzamento e declara as duas coisas no banner. Sem o bloco e
   sem alvo em forma de URL, ele aborta pedindo o que falta em vez de adivinhar. Prospectors = os da

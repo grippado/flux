@@ -145,6 +145,7 @@ Os dois campos **não entram** na cascata de resolução de `FLUX_ROOT` nem afet
 ### 1b — `FLUX_CMD`
 
 Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR dentro de subagente;
+o `flux:chain`, que roda os elos do chain em sequência na main;
 o `flux:map`, que despacha o equip por repo; os elos com watch, `flux:iterate` e `flux:reply`, que
 reinvocam a si mesmos pelo `prompt` do `ScheduleWakeup`; e o `flux:refine`, que reinvoca a si mesmo,
 sequencial e sem subagente, no encadeamento fatia-por-fatia do Caminho vermelho — mesmo mecanismo e
@@ -455,7 +456,9 @@ que o banner precisa ser.
 | `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4, 5 ou 6 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
 | `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) |
 | `harness nao verificavel` | `HARNESS = unknown`: nenhum dos candidatos 1–3 resolveu `FLUX_ROOT`, portanto o harness não pôde ser identificado — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
+| `transporte mcp` | um canal com dois caminhos (`${FLUX_ROOT}/shared/api-first.md`) foi servido pelo MCP em vez da API — sai com o canal e o motivo em grafia fixa: `transporte mcp (linear: sem token \| token nao autentica \| alvo nao enxergado \| canario falhou \| leitura falhou \| opt-out)`. Caminho por API não gera token: é o default, e declarar o default é ruído | o elo que aplicou o contrato (`issue`, `build`, `land`) |
 | `versao ilegivel` | `FLUX_VERSION = unknown`: nenhum dos três manifests (`plugin.json`) foi lido com sucesso ou o campo `version` estava ausente — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
+| `chain interrompido` | um elo do chain parou por falha, ou deixou decisão sem resposta, e os elos seguintes **não rodaram** — sai com o elo e o motivo, e acompanha o bloco de estado do chain. Usuário que escolhe a saída inócua de um gate **não** gera este token: é decisão, não interrupção | o `flux:chain` (`${FLUX_ROOT}/shared/chain.md`, "Falha no meio") |
 
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
 encheria de ruído o banner de toda máquina que não usa kit. Só os quatro estados de kit acima são
@@ -510,7 +513,7 @@ O trecho `(ancora: alvo <path>)` sai **só quando a âncora não é o `cwd`**, o
 veio do alvo. É o que torna auditável a pergunta "por que este elo rodou no contexto X se eu o chamei
 de Y", que sem isso é indistinguível de um bug.
 
-A linha `lentes` sai em todo elo que reconcilia review (`flux:review`, `flux:iterate`, `flux:land`)
+A linha `lentes` sai em todo elo que reconcilia review (`flux:review`, `flux:iterate`, `flux:land`, `flux:chain`)
 **e também no `flux:build`**, com as três camadas de `${FLUX_ROOT}/shared/review-agents.md`. O build
 não usa as lentes para executar, mas é frequentemente o primeiro elo a tocar um repo novo, e é onde
 se descobre que ele está sem cobertura: sem a linha, a oferta de `${FLUX_CMD}equip` no fim chegaria

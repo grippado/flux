@@ -408,7 +408,7 @@ sem board a prospecção **será refeita** — é a perda concreta de não ter v
 ### Por que aponta e não despacha
 
 Despachar um irmão obriga a resolver `${FLUX_CMD}` **e verificá-lo** (Passo 1b do preflight), e hoje
-só o `flux:land` faz isso — ao custo de ficar **indisponível** num harness onde o prefixo não é
+o `flux:land`, o `flux:map` e o `flux:chain` fazem isso — ao custo de abortar (land, execução do chain) ou degradar (map) num harness onde o prefixo não é
 verificável, como está registrado em `${FLUX_ROOT}/shared/codex-compat.md`. Um elo de refinamento não
 tem motivo para pagar esse preço: ele termina com um artefato que o usuário quer ler antes de
 prosseguir. Apontar mantém o verbo disponível nos três harnesses e respeita a regra da família de que
