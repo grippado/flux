@@ -18,7 +18,7 @@
     .docs-body{min-width:0;max-width:760px}.docs-body h1{font-size:clamp(2.2rem,4vw,3rem);margin-bottom:14px}.docs-body h2{font-size:1.7rem;letter-spacing:-.02em;margin:60px 0 14px;padding-top:20px;border-top:1px solid var(--line)}.docs-body h2:first-of-type{border-top:0;margin-top:26px}.docs-body h3{font-size:1.1rem;margin:30px 0 10px;letter-spacing:-.01em}.docs-body p,.docs-body li{color:var(--muted)}.docs-body p{max-width:none}.docs-body strong{color:var(--ink)}.docs-body a{color:var(--violet)}.docs-body ol,.docs-body ul{padding-left:20px}.docs-body li{margin:6px 0}
     .docs-body pre{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;overflow:auto;font-size:.8rem;line-height:1.65;color:var(--ink)}.docs-body code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.86em}.docs-body p code,.docs-body li code{background:var(--panel);border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--ink)}
     .callout{border:1px solid color-mix(in srgb,var(--violet),var(--line) 55%);border-left:3px solid var(--violet);background:var(--panel);border-radius:10px;padding:14px 18px;margin:18px 0;font-size:.9rem}.callout p{margin:0}.callout b{color:var(--violet)}
-    .callout.warn{border-color:color-mix(in srgb,#d97757,var(--line) 45%);border-left-color:#d97757}.callout.warn b{color:#d97757}
+    .callout.warn{border-color:color-mix(in srgb,#d97757,var(--line) 45%);border-left-color:#d97757}.callout.warn b{color:#d97757}html[data-theme=light] .callout.warn b{color:#a4462a}
     .docs-hero{padding:56px 0 0}.docs-hero .lede{max-width:640px}
     @media(max-width:900px){.docs{grid-template-columns:1fr;gap:30px}.docs-nav{position:static;display:flex;flex-wrap:wrap;gap:0 18px}.docs-nav ul{margin:0 0 10px}}
   </style>
@@ -112,10 +112,6 @@
   <footer class="site-footer wrap"><span class="footer-brand"><span class="flux-glyph" aria-hidden="true"></span>© 2026 Flux · MIT</span><span data-i18n="footerNote">Made for the work between idea and merge.</span><a href="https://github.com/grippado/flux">GitHub ↗</a></footer>
 
   <script>
-    // Copy for this page only, in the four languages the site speaks.
-    // Kept local to this file (not appended to the shared script.js) because
-    // that file is a single generated line per addition, and a guide this
-    // size would make the next diff to it unreadable.
     const copy = {
       en: {
         navInstall:'Install', navDocs:'Docs', navContribute:'Contribute', languageLabel:'Language',
@@ -176,13 +172,13 @@
         anthropicBody2:'Em qualquer um dos dois casos, guarde o valor como secret do repositório, por exemplo <code>ANTHROPIC_API_KEY</code>, ao lado do <code>LINEAR_API_KEY</code>.',
         wiringTitle:'Conectando os secrets',
         wiringBody:'No arquivo do workflow, secrets são referenciados, nunca embutidos:',
-        wiringBody2:'<code>GITHUB_TOKEN</code> não precisa desta linha: o Actions injeta ele automaticamente em todo job.',
+        wiringBody2:'<code>GITHUB_TOKEN</code> não precisa desta linha: o Actions a injeta automaticamente em todo job.',
         gateTitle:'O gate assíncrono',
         gateBody:'As credenciais acima deixam o pipeline capaz de alcançar todo sistema de que precisa. Elas não decidem quando ele pode escrever no Linear. Isso é um passo separado e obrigatório: o <code>flux:issue</code> nunca cria issue no tracker sem aprovação, e uma execução sem supervisão troca o prompt interativo do terminal por um assíncrono, por exemplo um comentário postado de volta na issue do GitHub, condicionado a um segundo sinal (uma resposta, um label, uma reação) antes de a execução continuar. A mecânica desse gate está especificada na <a href="https://github.com/grippado/flux/issues/62">issue #62</a>, não neste guia: esta página cobre só deixar os três sistemas alcançáveis.',
         securityTitle:'Notas de segurança',
         securityStep1:'Nunca imprima o valor de um secret em log, comentário ou commit. Se um passo do workflow precisar confirmar que uma chave resolveu, logue a presença dela (tamanho, ou um prefixo mascarado), nunca o valor.',
-        securityStep2:'Restrinja a chave do Linear ao workspace que esta automação alvo. Uma chave com acesso a todo workspace que você participa é um raio de exposição maior do que esta automação precisa.',
-        securityStep3:'Rotacione uma chave imediatamente se uma execução de workflow, um log, ou um fork deste repositório algum dia expuser ela, mesmo que parcialmente.',
+        securityStep2:'Restrinja a chave do Linear ao workspace que esta automação tem como alvo. Uma chave com acesso a todo workspace que você participa é um raio de exposição maior do que esta automação precisa.',
+        securityStep3:'Rotacione uma chave imediatamente se uma execução de workflow, um log, ou um fork deste repositório algum dia a expuser, mesmo que parcialmente.',
         footerNote:'Feito para o trabalho entre a ideia e o merge.'
       },
       es: {
@@ -215,7 +211,7 @@
         gateBody:'Las credenciales anteriores hacen que el pipeline pueda alcanzar cada sistema que necesita. No deciden cuándo puede escribir en Linear. Eso es un paso aparte y obligatorio: <code>flux:issue</code> nunca crea una issue en el tracker sin aprobación, y una ejecución sin supervisión reemplaza el prompt interactivo de la terminal por uno asíncrono, por ejemplo un comentario publicado de vuelta en la issue de GitHub, condicionado a una segunda señal (una respuesta, una etiqueta, una reacción) antes de continuar. La mecánica de ese gate está especificada en la <a href="https://github.com/grippado/flux/issues/62">issue #62</a>, no en esta guía: esta página solo cubre dejar los tres sistemas alcanzables.',
         securityTitle:'Notas de seguridad',
         securityStep1:'Nunca imprimas el valor de un secret en un log, un comentario o un commit. Si un paso del workflow necesita confirmar que una clave se resolvió, registra su presencia (longitud, o un prefijo enmascarado), nunca el valor.',
-        securityStep2:'Limita la clave de Linear al workspace que esta automatización apunta. Una clave con acceso a todos los workspaces a los que perteneces es un radio de exposición mayor del que esta automatización necesita.',
+        securityStep2:'Limita la clave de Linear al workspace al que apunta esta automatización. Una clave con acceso a todos los workspaces a los que perteneces es un radio de exposición mayor del que esta automatización necesita.',
         securityStep3:'Rota una clave de inmediato si una ejecución de workflow, un log o un fork de este repositorio la expone alguna vez, incluso parcialmente.',
         footerNote:'Hecho para el trabajo entre la idea y el merge.'
       },
