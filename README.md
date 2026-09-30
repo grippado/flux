@@ -521,9 +521,13 @@ O fluxo completo:
    `.cursor-plugin/marketplace.json` e os três de `plugins/flux/`) e rode `scripts/check-manifests.sh`.
 2. Faça o merge na `main`.
 3. Crie a tag **anotada** `v<versão>` no commit do merge. A mensagem da tag vira o changelog, e o
-   `scripts/release-meta.sh` lê os trailers `Summary-en:` e `Summary-pt:` (até 180 caracteres cada, sem
-   travessão). Tag leve é recusada de propósito.
-4. O workflow `release` publica a release e commita o `docs/latest-release.json` na `main`.
+   `scripts/release-meta.sh` lê os trailers `Summary-en:` e `Summary-pt:` (sem travessão). O limite de
+   180 caracteres só corta o resumo de fallback, tirado da primeira linha da mensagem; o valor de um
+   trailer é publicado sem corte, então mantenha cada um em até 180. Tag leve é recusada de propósito,
+   e quem recusa é o workflow (o passo que busca o objeto da tag anotada), não o script isolado.
+4. O workflow `release` publica a release e commita o `docs/latest-release.json` na `main`, mas esse
+   commit só acontece quando a tag é a versão corrente (guarda `is_latest`); uma tag mais antiga publica
+   a release sem mexer na landing.
 
 ```
 git tag -a v<x.y.z> <sha-da-main> -F <arquivo-com-a-mensagem>
