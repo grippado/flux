@@ -63,6 +63,11 @@ resolução agentica. JSON válido resolve o Step 0-context abaixo — revalidar
 (threads são insumo obrigatório deste elo; `degraded` sem threads → tratar como a perda que o
 fluxo já descreve). CLI ausente ou saída inválida → seguir o step abaixo como sempre.
 
+**`jq` é requisito `hard` deste elo**, ao lado de `git` e `gh`: o gate mecânico do watch
+(`${FLUX_ROOT}/scripts/iterate-watch-gate.sh`) não roda sem ele. O `flux preflight iterate` já aborta
+no formato padrão quando falta; na resolução agentica, conferir `command -v jq` junto com os outros
+dois e abortar pelo mesmo gabarito.
+
 ## Step 0-context: resolver perfil de contexto
 
 Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
@@ -784,13 +789,44 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
 Cenário típico: o usuário fechou a 1ª rodada de threads e **vai sair**. Quer que o comando:
 1. Pegue automaticamente as **próximas rodadas** do bot reviewer (que costuma recomentar depois do push) e as feche sem intervenção.
 2. **Monitore o CI** da PR (GitHub Actions) e avise/aja quando quebrar.
-3. Não esqueça: mantenha a sessão acordada com cadência sã até a PR assentar.
+3. Não esqueça: mantenha a PR vigiada até assentar, **sem gastar um turno de LLM por tick ocioso**.
+
+Quem espera é o **gate mecânico** (`${FLUX_ROOT}/scripts/iterate-watch-gate.sh`): um processo em
+background faz o poll da PR e só termina quando há algo a fazer ou quando o watch acabou. Onde o gate
+não puder ser usado, vale o watch agendado de sempre (um tick de LLM reagendado por `ScheduleWakeup`).
+A escolha entre os dois é o `WATCH_WAKE`, abaixo.
 
 As **rodadas subsequentes do watch rodam em `--auto`**: cada uma aplica + posta + resolve + commita + pusha sozinha (assume a opção 1 da confirmação), já que o usuário tipicamente saiu. **Em PR de terceiro, isso vale só se a escrita já foi concedida** (`writeGrantedForThirdParty == true` no estado, ver "Pedido explícito de escrita" no passo 6); sem concessão, cada rodada automática fica em `no-push` (interação, sem commit/push) até o usuário pedir escrita numa passada interativa. A 1ª passada mantém a confirmação interativa, a menos que `--auto`. A configuração de `--solo` persiste em todas as rodadas. Verificação contra o código real continua **obrigatória** em toda rodada, watch não relaxa o rigor anti-falso-positivo.
 
+### `WATCH_WAKE`: quem acorda a sessão
+
+Resolver **uma vez**, na main, depois da 1ª passada, e gravar no estado (`watchWake`). Vale o rigor do
+Passo 1b do `${FLUX_ROOT}/shared/preflight.md`: **resolver não é verificar**. É introspecção do que a
+sessão de fato expõe, nunca leitura de documentação de harness.
+
+| valor | quando | o que o watch faz |
+|-------|--------|-------------------|
+| `processo` | a sessão expõe execução de comando **em background** e o **fim do processo reabre a sessão** como evento de sistema (não como mensagem do usuário) | lança o gate e espera a saída ("O loop de watch") |
+| `fila` | o fim do processo não reabre a sessão, mas ela é acordável por um comando de fila chamado pelo próprio invólucro do gate. **Só existe pelo adaptador do harness e é opt-in**: contrato, pré-condições e estado atual em `${FLUX_ROOT}/shared/codex-compat.md`, seção "Watch do iterate" | lança o gate dentro do invólucro descrito lá |
+| `agendado` | nenhum dos dois acima foi verificado, ou o gate falhou neste run | o watch atual: um tick por wake, reagendado por `ScheduleWakeup` ("Fallback agendado") |
+
+- **Na dúvida é `agendado`.** Capacidade que não pôde ser confirmada nesta sessão não foi verificada. O
+  fallback é o comportamento de sempre, então errar para ele custa só turnos, e errar para `processo`
+  onde o fim do processo não acorda ninguém custa o watch inteiro, em silêncio.
+- **Cair em `agendado` é degradação e sai com aviso**, no chat e no board, dizendo o motivo (capacidade
+  ausente, código de saída do gate, saída sem JSON). Nunca em silêncio.
+- **O wake não é aprovação.** O fim do processo é evento de sistema, e mesmo onde o wake chega como
+  mensagem ele não responde gate nenhum: vale "Modo watch" do `${FLUX_ROOT}/shared/hitl.md`.
+
+> **Onde isto foi medido (spike LAB-170, 2026-09-30, uma execução por cenário).** No Claude Code e no
+> Cursor o fim de um processo em background acordou a sessão (em 20s, com cerca de 10min de ociosidade
+> e, no primeiro, depois de compactação), com o shell em modo background; o aviso traz só o código de
+> saída. No Codex não acordou. Os nomes aparecem aqui como registro de medição, não como regra: o que
+> decide é a capacidade verificada na sessão, e toda linha da tabela tem caminho de ausência.
+
 ### Estado persistente (não esquecer entre wakes)
 
-Mantenha um arquivo de estado por PR para sobreviver aos `ScheduleWakeup` e às janelas de contexto. Caminho: `.git/flux-watch-pr-<PR_NUMBER>.json` no checkout (fica fora do versionamento, dentro de `.git/`). Campos:
+Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `ScheduleWakeup` do fallback e às janelas de contexto (inclusive compactação). Caminho: `flux-watch-pr-<PR_NUMBER>.json` no diretório git **comum** do checkout, o que `git rev-parse --git-common-dir` devolve (o `.git/` do repo, também quando o comando roda de dentro de uma worktree; fica fora do versionamento). É o mesmo arquivo que o gate lê, e por isso o caminho é passado a ele em `--state`. Campos:
 
 ```json
 {
@@ -811,6 +847,7 @@ Mantenha um arquivo de estado por PR para sobreviver aos `ScheduleWakeup` e às 
   "bodySyncedAtSha": "abc123",
   "titleSyncedAtSha": "abc123",
   "quietTicks": 0,
+  "watchWake": "processo|fila|agendado",
   "board": "<VAULT_ROOT>/0-inbox/....md",
   "parentBoard": null,
   "startedAt": "<ISO>",
@@ -818,19 +855,99 @@ Mantenha um arquivo de estado por PR para sobreviver aos `ScheduleWakeup` e às 
 }
 ```
 
-Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido.
+Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido. `watchWake` = o valor resolvido em "`WATCH_WAKE`"; só muda no meio do run **para** `agendado`, nunca de volta. `quietTicks` só é contado aqui no fallback agendado: com o gate, a contagem é dele, no arquivo irmão `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
 
 Na 1ª passada, gravar o estado inicial (round 1, threads que você resolveu, SHA pós-push, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA para o qual descrição e título foram reconciliados no passo 8a, ou `null` se não houve drift, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente `isResolved == true` de sua autoria, o `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles, e o `board` a partir do naming determinístico do passo 2a.
 
-**Atualizar o board a cada tick:** todo tick rola o carimbo de data do board (frontmatter `updated:`, TLDR, título do painel) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline de Eventos Relevantes + parágrafo na Timeline Verbosa. Tick quiet só rola a data.
+**Atualizar o board a cada tick:** tick é turno deste elo. Com o gate, só existe tick quando ele sai (o poll ocioso acontece fora da LLM e não toca o board); no fallback agendado, a cada wake. Todo tick rola o carimbo de data do board (frontmatter `updated:`, TLDR, título do painel) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline de Eventos Relevantes + parágrafo na Timeline Verbosa. Tick quiet só rola a data.
 
-### O loop de watch (cada tick)
+### O loop de watch (gate mecânico)
 
-Após a 1ª passada (e a cada wake), execute UM tick:
+Com `watchWake` em `processo` (ou em `fila`, pelo invólucro do adaptador), o loop é: **gravar o estado,
+lançar o gate em background, encerrar o turno, tratar a saída, relançar**. Entre o lançamento e a
+saída não há turno de LLM: o poll ocioso é do script.
 
-1. **Estado da PR.** `gh pr view $PR_NUMBER --repo $REPO_FULL --json state,merged,headRefOid,isDraft,mergeable,mergeStateStatus`.
+**1. Gravar o estado antes de lançar.** O gate decide lendo o arquivo de estado (`resolvedThreadIds`,
+`answeredCommentIds`, `lastHeadSha`, `lastCiConclusion`, `conflictAttemptedAtBaseSha`, `bodySyncedAtSha`,
+`titleSyncedAtSha`, `round`, `noRebase`, `startedAt`). Estado desatualizado faz o gate sair de novo com o
+mesmo evento, na hora.
+
+**2. Lançar em background**, pelo modo de background da ferramenta de shell da sessão, pedindo o maior
+limite de vida que ela aceitar, e **encerrar o turno** sem `ScheduleWakeup`:
+
+```bash
+GIT_COMMON="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)"
+WATCH_STATE="$GIT_COMMON/flux-watch-pr-$PR_NUMBER.json"
+GATE_OUT="$GIT_COMMON/flux-watch-gate-pr-$PR_NUMBER.out"
+GATE_ERR="$GIT_COMMON/flux-watch-gate-pr-$PR_NUMBER.err"
+bash "${FLUX_ROOT}/scripts/iterate-watch-gate.sh" --pr "$PR_NUMBER" --repo "$REPO_FULL" \
+  --state "$WATCH_STATE" ${GATE_FAST:+--fast} > "$GATE_OUT" 2> "$GATE_ERR"
+```
+
+`GATE_FAST=1` quando o tick acabou de fechar uma rodada ou de pushar (recomentário rápido do bot é
+esperado); vazio nos demais. A cadência do poll (270s e 1200s, nunca 300s) é do script. O contrato de
+argumentos, eventos e códigos de saída é o `--help` dele, fonte única: não reescrever aqui.
+
+**3. Ler a saída.** O aviso de fim do processo traz **só o código de saída**. O evento é a última linha
+de `$GATE_OUT`, um JSON `{ts,event,pr,sha,ci,mergeable,delta,detail}`:
+
+```bash
+GATE_EVENT="$(tail -n 1 "$GATE_OUT" | jq -c 'select(type == "object" and has("event"))' 2>/dev/null || true)"
+```
+
+`GATE_EVENT` vazio é **saída sem JSON**.
+
+**4. Tratar o código de saída:**
+
+```bash
+case "$GATE_RC" in
+  0)           [ -n "$GATE_EVENT" ] && NEXT=tick || NEXT=fallback ;;
+  10|11|12|13) [ -n "$GATE_EVENT" ] && NEXT=saida || NEXT=fallback ;;
+  14)          NEXT=ceder ;;
+  129|130|143) NEXT=relancar ;;
+  *)           NEXT=fallback ;;
+esac
+```
+
+- **`tick`** (0: `nova-rodada`, `ci-vermelho`, `conflito-novo`, `drift`) → executar **um tick** pelo
+  fluxo de sempre ("Um tick", abaixo): mesma coleta, mesmos gates, mesma ordem de prioridade. O evento
+  diz por que a sessão acordou e o `delta` adianta os ids, mas quem decide é a coleta do tick, porque a
+  PR pode ter andado entre a saída do gate e este turno. Ao fim, voltar ao passo 1 e relançar.
+- **`saida`** (10 a 13) → o watch acabou; seguir "Condições de saída" (`flux session end` e relatório
+  final, iguais aos de hoje). 10 = mergeada ou fechada (`event` diz qual); 11 = assentou; 12 = conflito
+  bloqueado sem saída; 13 = limite de segurança. Não relançar.
+- **`fallback`** (2, 3, 64, qualquer outro código, ou saída sem JSON) → gravar `watchWake: "agendado"`,
+  avisar no chat e no board com o código e a última linha de `$GATE_ERR`, e seguir pelo "Fallback
+  agendado" até o fim deste run. **Não relançar o gate neste run.** 2 é dependência ausente, 3 é o `gh`
+  falhando três vezes, 64 é erro de invocação ou estado ilegível: nos três, repetir a mesma chamada
+  repete a falha, e o tick agendado não depende do script (estado ilegível ele reconstrói pela regra do
+  "Estado persistente").
+- **`ceder`** (14: já existe um gate rodando nesta PR) → **não relançar e não agendar**: dois vigias
+  na mesma PR aplicam, respondem e pusham em dobro. Se o gate vivo foi lançado por esta mesma sessão,
+  seguir esperando por ele. Senão, encerrar o watch desta sessão avisando que a PR já tem um watch
+  ativo (o pid do dono está em `flux-watch-gate-pr-<PR_NUMBER>.lock/pid`, ao lado do estado), rodar o
+  `flux session end` das "Condições de saída" e fechar com o relatório final do que esta sessão fez,
+  **sem** declarar "assentou". Nunca matar um processo que esta sessão não lançou.
+- **`relancar`** (129, 130, 143: o processo recebeu sinal, tipicamente o limite de vida de comando em
+  background do harness) → não é evento da PR nem falha do gate; voltar ao passo 2. O progresso do gate
+  está no arquivo de estado dele e sobrevive ao relançamento. Dois encerramentos por sinal seguidos sem
+  que o `lastPollAt` de `flux-watch-gate-pr-<PR_NUMBER>.json` avance → `fallback`.
+
+Em toda saída do watch e em toda queda para o fallback, se ainda houver um gate **lançado por esta
+sessão** rodando, encerrá-lo antes (o script limpa o próprio lock ao receber o sinal).
+
+Se a sessão for reaberta sem aviso de saída pendente (compactação, retomada manual), ler `watchWake` do
+estado: em `processo` ou `fila`, relançar pelo passo 1 (um gate ainda vivo responde 14 e cai em
+`ceder`); em `agendado`, seguir o fallback.
+
+### Um tick
+
+Um tick roda quando o gate sai com evento acionável ou, no fallback agendado, a cada wake:
+
+1. **Estado da PR.** `gh pr view $PR_NUMBER --repo $REPO_FULL --json state,merged,headRefOid,baseRefName,isDraft,mergeable,mergeStateStatus`.
    - `merged == true` ou `state == "CLOSED"` → **encerrar o watch** com relatório final. Não pushar mais nada.
    - **`mergeable` entra nesta coleta obrigatoriamente.** A base anda enquanto o watch dorme: uma PR que integrava no tick anterior pode estar `CONFLICTING` agora. Não herdar `lastMergeable` do estado sem reconsultar.
+   - **`baseRefName` também**: é contra `origin/<baseRefName>` que o gate de integração mede `conflictAttemptedAtBaseSha`, e a base de uma PR pode ser trocada no meio do watch.
 2. **CI.** `gh pr checks $PR_NUMBER --repo $REPO_FULL --json name,state,conclusion,link` (ou `gh pr checks` simples se o JSON não vier). Classifique o agregado:
    - `pending`/`in_progress` → CI rodando, ainda não decidiu.
    - todos `success`/`neutral`/`skipped` → **verde**.
@@ -843,12 +960,14 @@ Após a 1ª passada (e a cada wake), execute UM tick:
 - **PR conflitante (`mergeable == CONFLICTING`) → tem precedência sobre tudo.** Aplicar o **gate de integração do passo 2b** (fonte única) antes de qualquer outra coisa deste tick, pelo mesmo motivo da 1ª passada: correção empilhada em base que não funde piora o conflito, e o CI do tick é inconfiável. Se a base andou desde a última tentativa (`conflictAttemptedAtBaseSha != ` SHA atual de `origin/<base>`), é tentativa nova; se é o mesmo SHA de base, **não retentar**. Resolvido → evento `conflito-resolvido`, atualizar `lastHeadSha` e `lastMergeable`, e seguir o tick normalmente. Não resolvido → evento `conflito-bloqueado`, **modo degradado**: fechar a conversa das threads do delta (responder/reagir/resolver) sem aplicar, commitar ou pushar, e não contar quiet tick.
 - **Nova rodada de threads (delta não vazio)** → executar o fluxo normal (passos 3 a 8a, incluindo a reconciliação da descrição) **só sobre as threads do delta**, com `--auto`. Ao terminar: `round += 1`, adicionar os PRRT recém-resolvidos a `resolvedThreadIds`, atualizar `lastHeadSha`, zerar `quietTicks`. Emitir evento Slack `nova-rodada-fechada` (ver "Hook Slack").
 - **CI vermelho** (e sem delta de threads) → aplicar a **triagem de CI do passo 2c** (fonte única): coletar o porquê via log, identificar se é gate de qualidade externo e, nesse caso, consultar a API conforme `${FLUX_ROOT}/shared/quality-gate-api.md` antes de classificar; se a causa for atribuível ao próprio push e dentro do escopo, tentar **uma** correção na worktree da PR + quality gate + commit/push na mesma branch (evento `ci-corrigido-tentativa`); senão, não mexer no código, registrar e reportar (evento `ci-vermelho` com link do log e, para gate externo, com `metricKey`/`actualValue`/`errorThreshold` da API). No máximo **uma** tentativa de auto-fix por SHA — nunca em loop.
-- **CI verde + sem delta de threads + PR integrando** → antes de contar quiet tick, checar **drift de título e descrição**: se `bodySyncedAtSha != lastHeadSha` ou `titleSyncedAtSha != lastHeadSha`, rodar o passo 8a sobre o SHA corrente (uma passada, com os três guardrails). Depois, `quietTicks += 1`. Emitir `ci-verde` apenas na **transição** (quando `lastCiConclusion != success`).
+- **CI verde + sem delta de threads + PR integrando** → antes de contar quiet tick, checar **drift de título e descrição**: se `bodySyncedAtSha != lastHeadSha` ou `titleSyncedAtSha != lastHeadSha`, rodar o passo 8a sobre o SHA corrente (uma passada, com os três guardrails). É o que o evento `drift` do gate pede. Depois, `quietTicks += 1` (só no fallback agendado; com o gate, o quiet tick é contado por ele). Emitir `ci-verde` apenas na **transição** (quando `lastCiConclusion != success`).
 - **CI pending + sem delta** → não fazer nada além de aguardar (não conta como quiet tick).
 
-Atualizar sempre `lastCiConclusion`, `lastMergeable` e `lastTickAt` no estado.
+Atualizar sempre `lastCiConclusion`, `lastMergeable` e `lastTickAt` no estado, **antes** de relançar o gate ou de agendar o próximo wake.
 
 #### Condições de saída (encerrar o watch)
+
+As condições são as mesmas nos dois modos. Com o gate, quem as detecta é o script e elas chegam como código de saída (10 = mergeada ou fechada, 11 = assentou, 12 = conflito bloqueado, 13 = limite); no fallback agendado, quem as detecta é o tick. O que se faz ao sair é idêntico.
 
 - PR mergeada ou fechada.
 - **Assentou**: CI verde, zero threads abertas, **`mergeable == MERGEABLE`** e **título/descrição reconciliados** (`bodySyncedAtSha` e `titleSyncedAtSha` == `lastHeadSha`, ou nenhuma afirmação em drift) por **2 ticks consecutivos** (`quietTicks >= 2`). A PR está pronta para review humano/merge; o watch cumpriu o papel. **Nunca declarar "assentou" com a PR `CONFLICTING`** (nem com `UNKNOWN` sem reconsultar): PR conflitante e quieta é PR travada, não PR pronta, exatamente como título ou descrição afirmando algo que a PR já refutou.
@@ -866,9 +985,11 @@ bloqueante.
 
 Em qualquer saída, **relatório final** no chat: rodadas fechadas, estado final do CI (com link se vermelho), **estado final de integração com a base** (e, se houve resolução de conflito, a estratégia usada e os arquivos resolvidos), threads humanas deixadas em `needs-discussion`, e o range de commits pushados durante o watch.
 
-### Cadência (escolha do `delaySeconds` do próximo wake)
+### Fallback agendado (`watchWake: agendado`)
 
-Use `ScheduleWakeup` ao fim de cada tick para reabrir a sessão. A escolha do intervalo segue as janelas de cache (TTL ~5 min):
+É o watch de antes do gate, inteiro, e vale onde o `WATCH_WAKE` não resolveu `processo` nem `fila`, ou depois de uma queda do gate neste run. Cada wake executa "Um tick" e reagenda; o gate não é lançado.
+
+Use `ScheduleWakeup` ao fim de cada tick para reabrir a sessão. A escolha do `delaySeconds` segue as janelas de cache (TTL ~5 min):
 - **CI rodando** ou **acabei de fechar uma rodada** (espero recomentário rápido do bot): **270s** (mantém o cache quente; é o que muda rápido).
 - **CI verde, aguardando assentar** (quiet ticks): **1200s** (~20 min). Não há o que checar antes disso; paga o cache miss uma vez e espera mais.
 - **CI vermelho aguardando resolução externa**: **1200s**. Já reportei; só re-checo se mudou.
@@ -901,7 +1022,7 @@ já entraram na verificação por descoberta, e o `equip` não os toca.
 - **Integração com a base é o primeiro gate** (passo 2b, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`): PR que não funde com a base é PR sobre a qual não se escreve, e o CI verde dela é sinal falso. Conflito conta como trabalho acionável por si só, então uma PR com zero threads e CI verde **não** encerra a passada se estiver `CONFLICTING` (foi exatamente assim que a `arco-ai-plugins#252` passou batida). Resolução mecânica o flow faz; semântica é do usuário; force-push só com `--force-with-lease` e aval humano, que `--auto` não substitui.
 - Verificação vem antes de tudo: nunca aceitar um comentário sem confirmar a alegação no código real. Vale igual dentro do modo WATCH e no `--dry`.
 - **Specialists por default**: a verificação enriquece com os specialists do repo seguindo `${FLUX_ROOT}/shared/review-agents.md`. Use `--solo` para pular e rodar só com `<HOLISTIC>`. Fallback gracioso quando não houver specialists no repo.
-- **Watch é o default**: após a 1ª passada e o push, fica vivo monitorando CI + novas rodadas do bot até a PR assentar/mergear (ver "Modo WATCH"). Use **`--once`** (alias `--no-watch`) para o comportamento de uma passada só.
+- **Watch é o default**: após a 1ª passada e o push, fica vivo monitorando CI + novas rodadas do bot até a PR assentar/mergear (ver "Modo WATCH"). Quem espera é o gate mecânico, fora da LLM; onde ele não puder ser usado, o watch cai no agendado, com aviso. Use **`--once`** (alias `--no-watch`) para o comportamento de uma passada só.
 - **`--dry` nunca escreve no GitHub**: qualquer texto rascunhado fica no vault (ou no chat se não houver vault) e não é postado.
 - **Título e descrição são entregável, não enfeite** (passo 8a): thread resolvida com CI verde e descrição afirmando o desenho que a própria rodada refutou é entrega pela metade. A reconciliação roda em toda rodada que muda algo afirmado pela descrição, com os três guardrails (só PR própria · só afirmação refutada por evidência · nunca regerar do zero), e o watch não declara "assentou" com título ou descrição em drift. O título tem barra mais alta: só se renomeia quando nomeia o desenho refutado, preservando prefixo de ticket e a convenção de escrita do repo, com o nome antigo registrado no changelog.
 - Se `gh` não estiver autenticado, pedir `gh auth login` e abortar.

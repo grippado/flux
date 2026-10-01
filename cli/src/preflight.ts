@@ -63,6 +63,7 @@ export const VERB_REQUIREMENTS: Record<string, VerbRequirements> = {
     hard: [
       { type: "bin", name: "git" },
       { type: "bin", name: "gh" },
+      { type: "bin", name: "jq" },
     ],
     soft: [
       { type: "vault", name: "vault" },
@@ -132,7 +133,7 @@ function expandHome(p: string): string {
 
 export function binExists(name: string): boolean {
   try {
-    return Bun.which(name) !== null;
+    return Bun.which(name, { PATH: process.env["PATH"] ?? "" }) !== null;
   } catch {
     try {
       const result = Bun.spawnSync(["/usr/bin/which", name], { stderr: "ignore" });

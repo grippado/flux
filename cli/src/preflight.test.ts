@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
@@ -42,6 +42,17 @@ function makeRepo(withManifest: Record<string, unknown> | null = null): string {
     writeFileSync(join(repo, ".claude", "flux-context.json"), JSON.stringify(withManifest));
   }
   return repo;
+}
+
+function makeBinDir(names: string[]): string {
+  const dir = join(tmp, "bin");
+  mkdirSync(dir, { recursive: true });
+  for (const name of names) {
+    const file = join(dir, name);
+    writeFileSync(file, "#!/bin/sh\nexit 0\n");
+    chmodSync(file, 0o755);
+  }
+  return dir;
 }
 
 describe("findKitsInRoot", () => {
@@ -201,6 +212,45 @@ describe("runPreflight", () => {
       const result = await runPreflight({ verb: "map", cwd: repo });
       expect(result.requirements.hard.map((r) => r.name)).toEqual(["git"]);
     } finally {
+      delete process.env["CLAUDE_PLUGIN_ROOT"];
+    }
+  });
+
+  test("iterate exige git, gh e jq como hard", async () => {
+    const fluxRoot = makeFluxRoot(true);
+    const savedPath = process.env["PATH"];
+    process.env["CLAUDE_PLUGIN_ROOT"] = fluxRoot;
+    process.env["PATH"] = makeBinDir(["git", "gh", "jq"]);
+    try {
+      const repo = makeRepo({ name: "perfil-teste" });
+      const result = await runPreflight({ verb: "iterate", cwd: repo });
+      expect(result.requirements.hard.map((r) => r.name)).toEqual(["git", "gh", "jq"]);
+      expect(result.requirements.hard.every((r) => r.ok)).toBe(true);
+      expect(result.status).not.toBe("abort");
+      expect(result.abort_message).toBeNull();
+    } finally {
+      process.env["PATH"] = savedPath;
+      delete process.env["CLAUDE_PLUGIN_ROOT"];
+    }
+  });
+
+  test("iterate aborta no formato padrao quando falta jq", async () => {
+    const fluxRoot = makeFluxRoot(true);
+    const savedPath = process.env["PATH"];
+    process.env["CLAUDE_PLUGIN_ROOT"] = fluxRoot;
+    process.env["PATH"] = makeBinDir(["git", "gh"]);
+    try {
+      const repo = makeRepo({ name: "perfil-teste" });
+      const result = await runPreflight({ verb: "iterate", cwd: repo });
+      expect(result.status).toBe("abort");
+      expect(result.capability_level_hint).toBe("UNAVAILABLE");
+      expect(result.abort_message).toContain("O verbo `iterate` nao pode rodar nesta maquina");
+      expect(result.abort_message).toContain("binario `jq` ausente no PATH");
+      expect(result.abort_message).not.toContain("binario `gh`");
+      expect(result.requirements.hard.filter((r) => !r.ok).map((r) => r.name)).toEqual(["jq"]);
+      expect(result.session_revalidation_required).toEqual([]);
+    } finally {
+      process.env["PATH"] = savedPath;
       delete process.env["CLAUDE_PLUGIN_ROOT"];
     }
   });
