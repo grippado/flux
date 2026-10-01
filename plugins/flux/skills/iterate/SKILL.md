@@ -8,6 +8,8 @@ requires:
     - file: shared/merge-conflict-gate.md
     - file: shared/worktree-discipline.md
     - file: shared/fanout-discipline.md
+    - file: shared/review-agents.md
+    - file: shared/board-template.md
     - bin: git
     - bin: gh
     - agent: ${HOLISTIC}
@@ -262,10 +264,10 @@ Eles não têm reply nativo (responder = novo issue comment) nem resolução; re
 **Coletar também o estado do CI** (sempre, mesmo sem threads):
 
 ```bash
-gh pr checks $PR_NUMBER --repo $REPO_FULL   # ou --json name,state,conclusion,link
+gh pr checks $PR_NUMBER --repo $REPO_FULL   # ou --json name,state,bucket,link
 ```
 
-Classificar o agregado do CI (mesma regra do watch): `pending`/`in_progress` → **rodando**; todos `success`/`neutral`/`skipped` → **verde**; qualquer `failure`/`timed_out`/`cancelled` → **vermelho**.
+Classificar o agregado do CI pelo `bucket`, pela regra do passo 2 de "Um tick" (fonte única): qualquer `fail` ou `cancel` → **vermelho**; senão, qualquer `pending` → **rodando**; senão → **verde**.
 
 **Critério de término da 1ª passada (redefinido):** o run só encerra cedo (avisar no chat, não commitar) quando **não há thread acionável, não há issue comment acionável sem réplica, o CI não está vermelho** (verde ou ainda rodando) **E a PR integra com a base** (`mergeable == MERGEABLE`). Qualquer um dos três últimos torna a PR acionável mesmo sem thread nenhuma:
 
@@ -340,7 +342,7 @@ Com o estado do CI coletado no passo 2:
 - **CI vermelho** → coletar o porquê antes de decidir:
 
   ```bash
-  gh pr checks $PR_NUMBER --repo $REPO_FULL --json name,state,conclusion,link   # achar o check que falhou
+  gh pr checks $PR_NUMBER --repo $REPO_FULL --json name,state,bucket,link   # achar o check que falhou
   gh run view <run-id> --repo $REPO_FULL --log-failed                            # run-id vem do link/databaseId do check
   ```
 
@@ -879,14 +881,14 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
   "lastGateEvent": null,
   "board": "<VAULT_ROOT>/0-inbox/....md",
   "parentBoard": null,
-  "startedAt": "<ISO>",
-  "lastTickAt": "<ISO>"
+  "startedAt": "<UTC: YYYY-MM-DDTHH:MM:SSZ>",
+  "lastTickAt": "<UTC: YYYY-MM-DDTHH:MM:SSZ>"
 }
 ```
 
-Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido. `resolvedThreadIds` = toda thread que este elo **já processou**, resolvida ou não: é a lista que o gate usa para decidir se uma thread aberta é novidade, então uma thread respondida e deixada aberta de propósito (`needs-discussion`) entra aqui também, senão o gate a devolve como `nova-rodada` a cada relançamento. `discussionThreadIds` = o subconjunto dessas que ficou **aberto de propósito**; o gate não lê este campo, ele serve ao tick (passo 3 de "Um tick") e ao relatório final. `lastCiConclusion` grava um de três literais, `success`, `failure` ou `pending` (ou `null` quando a PR não tem checks): são as strings que o gate compara, e qualquer outra grafia faz o `ci-vermelho` se repetir. `watchWake` = o valor resolvido em "`WATCH_WAKE`"; só muda no meio do run **para** `agendado`, nunca de volta. `gatePid`, `gateSignalExits`, `gateLastPollAtSeen` e `lastGateEvent` são a memória do loop do gate entre turnos (quem é o gate desta sessão, quantas vezes ele caiu por sinal sem progredir, qual foi a última saída acionável); o uso de cada um está em "O loop de watch", e o gate não lê nenhum deles. `quietTicks` só é contado aqui no fallback agendado: com o gate, a contagem é dele, no arquivo irmão `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
+Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido. `resolvedThreadIds` = toda thread que este elo **já processou**, resolvida ou não: é a lista que o gate usa para decidir se uma thread aberta é novidade, então uma thread respondida e deixada aberta de propósito (`needs-discussion`) entra aqui também, senão o gate a devolve como `nova-rodada` a cada relançamento. `discussionThreadIds` = o subconjunto dessas que ficou **aberto de propósito**; o gate não lê este campo, ele serve ao tick (passo 3 de "Um tick") e ao relatório final. `lastCiConclusion` grava um de três literais, `success`, `failure` ou `pending` (ou `null` quando a PR não tem checks): são as strings que o gate compara, e qualquer outra grafia faz o `ci-vermelho` se repetir. `watchWake` = o valor resolvido em "`WATCH_WAKE`"; só muda no meio do run **para** `agendado`, nunca de volta. `answeredCommentIds` = todo issue comment de terceiro que este elo **já classificou**, respondido ou não: é a lista que o gate usa para decidir se um comentário é novidade, então o comentário ignorável (bot de CI, sincronização de ticket) entra aqui também, senão o gate o devolve como `nova-rodada` a cada relançamento; o nome do campo é o que o gate lê e não muda. `startedAt` e `lastTickAt` são gravados **em UTC com `Z`**, no formato exato de `date -u +%Y-%m-%dT%H:%M:%SZ`: o gate lê `startedAt` para o limite de ~6h e só entende esse formato; com offset local (`-03:00`) ou sem `Z` ele descarta o valor em silêncio e passa a contar o limite do primeiro poll dele. `gatePid`, `gateSignalExits`, `gateLastPollAtSeen` e `lastGateEvent` são a memória do loop do gate entre turnos (quem é o gate desta sessão, quantas vezes ele caiu por sinal sem progredir, qual foi a última saída acionável); o uso de cada um está em "O loop de watch", e o gate não lê nenhum deles. `quietTicks` só é contado aqui no fallback agendado: com o gate, a contagem é dele, no arquivo irmão `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
 
-Na 1ª passada, gravar o estado inicial (round 1, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, SHA pós-push, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente `isResolved == true` de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), o `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles, e o `board` a partir do naming determinístico do passo 2a.
+Na 1ª passada, gravar o estado inicial (round 1, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, `answeredCommentIds` = os issue comments de terceiros que a 1ª passada classificou, respondidos e ignoráveis, SHA pós-push, `lastCiConclusion` = o CI coletado no passo 2, nos literais do passo 2 de "Um tick", `conflictAttemptedAtBaseSha` = o `baseRefOid` se o passo 2b terminou em modo degradado, senão `null`, `startedAt` = agora, no formato UTC acima, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente `isResolved == true` de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), o `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles (os ignoráveis voltam à lista no primeiro tick, que os reclassifica), e o `board` a partir do naming determinístico do passo 2a.
 
 **Atualizar o board a cada tick:** tick é turno deste elo. Com o gate, só existe tick quando ele sai (o poll ocioso acontece fora da LLM e não toca o board); no fallback agendado, a cada wake. Todo tick rola o carimbo de data do board (frontmatter `updated:`, TLDR, título do painel) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline de Eventos Relevantes + parágrafo na Timeline Verbosa. Tick quiet só rola a data.
 
@@ -961,15 +963,25 @@ Toda saída que não seja `relancar` zera `gateSignalExits`, e toda saída que n
   fluxo de sempre ("Um tick", abaixo): mesma coleta, mesmos gates, mesma ordem de prioridade. O evento
   diz por que a sessão acordou e o `delta` adianta os ids, mas quem decide é a coleta do tick, porque a
   PR pode ter andado entre a saída do gate e este turno. Ao fim, voltar ao passo 1 e relançar.
-  - **Disjuntor de loop quente.** Comparar `event`, `sha` e `delta` de `GATE_EVENT` com `lastGateEvent`
-    do estado. **Iguais** → o gate saiu duas vezes seguidas pelo mesmo motivo, no mesmo SHA (logo, sem
-    push no meio): o tick anterior não deixou no estado o que o gate lê, e relançar repetiria a saída a
-    cada poll. Não executar outro tick por esse caminho: ir para `fallback`, com o aviso **nomeando o
-    evento** repetido e o SHA. **Diferentes** → gravar o trio em `lastGateEvent` e seguir. Um disparo
-    indevido (o mesmo evento legítimo duas vezes no mesmo SHA) custa só a troca pelo modo agendado.
+  - **Disjuntor de loop quente.** A chave tem quatro partes: `event`, `sha` e `delta` de `GATE_EVENT`,
+    mais o **SHA da base**, o `baseRefOid` do `gh pr view` do passo 1 de "Um tick" (adiantar essa
+    leitura para cá; o gate só expõe a base dentro de `detail`, que é prosa e não se compara). Comparar
+    a chave com `lastGateEvent` do estado. **Iguais** → o gate saiu duas vezes seguidas pelo mesmo
+    motivo, no mesmo SHA (logo, sem push no meio) e com a mesma base: o tick anterior não deixou no
+    estado o que o gate lê, e relançar repetiria a saída a cada poll. Não executar outro tick por esse
+    caminho: ir para `fallback`, com o aviso **nomeando o evento** repetido e o SHA. **Diferentes** →
+    gravar as quatro partes em `lastGateEvent` e seguir. O SHA da base é o que separa dois
+    `conflito-novo` legítimos: com a base andando, o segundo chega com o mesmo head e o mesmo delta do
+    primeiro. Um disparo indevido (o mesmo evento legítimo duas vezes na mesma chave) custa só a troca
+    pelo modo agendado.
 - **`saida`** (10 a 13) → o watch acabou; seguir "Condições de saída" (`flux session end` e relatório
   final, iguais aos de hoje). 10 = mergeada ou fechada (`event` diz qual); 11 = assentou; 12 = conflito
   bloqueado sem saída; 13 = limite de segurança. Não relançar.
+  - **11 pede uma conferência antes de valer.** O gate não enxerga réplica nova em thread de
+    `discussionThreadIds` (ele compara ids). Antes de declarar "assentou", reconsultar essas threads
+    pela regra do passo 3 de "Um tick". Alguma recebeu réplica desde que foi deixada aberta → não é
+    saída: é rodada. Executar **um tick** (sem passar pelo disjuntor, que só compara eventos
+    acionáveis) e voltar ao passo 1. Nenhuma recebeu → assentou.
 - **`fallback`** (2, 3, 64, qualquer outro código, ou saída sem JSON) → gravar `watchWake: "agendado"`,
   avisar no chat e no board com o código e a última linha de `$GATE_ERR`, e seguir pelo "Fallback
   agendado" até o fim deste run. **Não relançar o gate neste run.** 2 é dependência ausente, 3 é o `gh`
@@ -978,11 +990,12 @@ Toda saída que não seja `relancar` zera `gateSignalExits`, e toda saída que n
   "Estado persistente").
 - **`ceder`** (14: já existe um gate rodando nesta PR) → **não relançar e não agendar**: dois vigias
   na mesma PR aplicam, respondem e pusham em dobro. O dono do lock está em `$GATE_LOCK/pid`. Se esse pid
-  é o `gatePid` do estado **e** esta sessão é a que o lançou, o gate vivo é o dela: seguir esperando por
-  ele. Senão, encerrar o watch desta sessão avisando que a PR já tem um watch ativo (com o pid do
+  é o `gatePid` do estado **e** esta sessão é a que o lançou (a distinção entre continuação da sessão e
+  invocação nova, no ramo `esperar` abaixo), o gate vivo é o dela: seguir esperando por ele. Senão, encerrar o watch desta sessão avisando que a PR já tem um watch ativo (com o pid do
   dono), rodar o
   `flux session end` das "Condições de saída" e fechar com o relatório final do que esta sessão fez,
-  **sem** declarar "assentou". Nunca matar um processo que esta sessão não lançou.
+  **sem** declarar "assentou". Nunca matar um processo que esta sessão não lançou, e não limpar o
+  `gatePid` do estado: ele é da sessão dona do gate.
 - **`relancar`** (129, 130, 143: o script recebeu HUP, INT ou TERM e traduziu o sinal em código) → não
   é evento da PR nem falha do gate; voltar ao passo 2. O progresso do gate
   está no arquivo de estado dele e sobrevive ao relançamento. Dois encerramentos por sinal seguidos sem
@@ -990,14 +1003,22 @@ Toda saída que não seja `relancar` zera `gateSignalExits`, e toda saída que n
   estado, para sobreviver à compactação: ler o `lastPollAt` do gate; se ele avançou em relação a
   `gateLastPollAtSeen`, `gateSignalExits = 1`; senão, `gateSignalExits += 1`; gravar o valor lido em
   `gateLastPollAtSeen`; com `gateSignalExits >= 2`, `fallback`.
+  - **Sinal que esta sessão mesma mandou não relança.** Quando foi ela que encerrou o gate (parágrafo
+    abaixo: saída do watch ou queda para o fallback), o 143 que chega depois é eco desse encerramento,
+    reconhecível porque `gatePid` já foi limpo no estado e o watch já saiu ou `watchWake` já é
+    `agendado`: não relançar, não contar em `gateSignalExits`, não tratar como evento.
   - **Qual sinal o harness manda** ao estourar o limite de vida de um comando em background não foi
     medido, e este elo não presume. O que o `case` garante: encerramento que o script traduz (129, 130,
     143) relança; encerramento que ele não tem como traduzir (137, de um KILL) cai em `*` e portanto em
     `fallback`, com o lock deixado para trás, que o script recupera como órfão num lançamento futuro.
 
 Em toda saída do watch e em toda queda para o fallback, se ainda houver um gate **lançado por esta
-sessão** rodando (`gatePid` vivo e igual ao pid do lock), encerrá-lo antes (o script limpa o próprio
-lock ao receber o sinal) e limpar `gatePid`.
+sessão** rodando, encerrá-lo antes (o script limpa o próprio lock ao receber o sinal) e limpar
+`gatePid`. `gatePid` vivo e igual ao pid do lock diz só que o gate do estado está vivo, não de quem ele
+é: o estado é por PR e toda sessão que abre a mesma PR lê o mesmo `gatePid`. Quem identifica a sessão
+é a distinção do ramo `esperar`, abaixo: só a sessão que lançou o gate, ou a continuação dela, o
+encerra. Uma invocação nova do verbo não encerra gate nenhum e não mexe em `gatePid`, em nenhum ramo
+(`ceder`, `saida`, `fallback`).
 
 Se a sessão for reaberta sem aviso de saída pendente (compactação, retomada manual), ler `watchWake` do
 estado. Em `agendado`, seguir o fallback. Em `processo` ou `fila`, **não relançar para descobrir se há
@@ -1034,8 +1055,8 @@ Um tick roda quando o gate sai com evento acionável ou, no fallback agendado, a
    - senão (todos `pass` ou `skipping`) → **verde** (`success`).
    - nenhum check reportado → **sem checks** (`null`): para assentar vale como verde, e nunca é vermelho.
 3. **Threads novas.** Rode o GraphQL `reviewThreads` do passo 2. Compute o delta: threads `isResolved == false` cujo `id` (PRRT) **não** está em `resolvedThreadIds` do estado, e que não sejam triviais (mesma regra de "pular triviais"). Esse delta é a **nova rodada**.
-   - **Threads em `discussionThreadIds`** ficam fora do delta por construção (estão em `resolvedThreadIds`). Reconsultar o último comentário de cada uma (`comments(last: 1) { nodes { author { login } } }`): se o autor não é a conta do `gh`, alguém respondeu depois da sua réplica; tirar o id das duas listas e tratar a thread como delta. O gate não acorda por réplica numa thread dessas (ele compara ids, não conta comentários): ela é vista no próximo tick que acontecer por outro motivo, e segue listada no relatório final.
-3b. **Issue comments novos.** Rode TAMBÉM `gh api repos/$REPO_FULL/issues/$PR_NUMBER/comments` (o `reviewThreads` não os retorna — ver passo 2). Compute o delta: comentários de terceiros com `id` **não** presente em `answeredCommentIds` do estado, aplicando a mesma partição acionável/ignorável do passo 2. Um issue comment acionável novo **conta como nova rodada**, exatamente como uma thread nova. Ao respondê-lo, acrescente o `id` a `answeredCommentIds`.
+   - **Threads em `discussionThreadIds`** ficam fora do delta por construção (estão em `resolvedThreadIds`). Reconsultar o último comentário de cada uma (`comments(last: 1) { nodes { author { login } } }`): se o autor não é a conta do `gh`, alguém respondeu depois da sua réplica; tirar o id das duas listas e tratar a thread como delta. O gate não acorda por réplica numa thread dessas (ele compara ids, não conta comentários): ela é vista no próximo tick que acontecer por outro motivo ou, não havendo outro, na conferência do código 11 (ramo `saida` de "O loop de watch"), e segue listada no relatório final.
+3b. **Issue comments novos.** Rode TAMBÉM `gh api repos/$REPO_FULL/issues/$PR_NUMBER/comments` (o `reviewThreads` não os retorna — ver passo 2). Compute o delta: comentários de terceiros com `id` **não** presente em `answeredCommentIds` do estado, aplicando a mesma partição acionável/ignorável do passo 2. Um issue comment acionável novo **conta como nova rodada**, exatamente como uma thread nova. Ao fim do tick, `answeredCommentIds` recebe o `id` de **todo** comentário do delta que o tick classificou: o acionável ao ser respondido, o ignorável ao ser classificado como tal, sem réplica. O gate acorda por qualquer comentário de terceiro cujo `id` não esteja nessa lista (ele só filtra autoria e o trivial); ignorável que fica de fora reacorda a sessão a cada poll, o tick não tem o que fazer, e o disjuntor derruba o watch para `agendado`.
 
 #### Decisão do tick (em ordem de prioridade)
 
@@ -1049,10 +1070,10 @@ Atualizar sempre `lastHeadSha`, `lastCiConclusion`, `lastMergeable` e `lastTickA
 
 #### Condições de saída (encerrar o watch)
 
-As condições são as mesmas nos dois modos. Com o gate, quem as detecta é o script e elas chegam como código de saída (10 = mergeada ou fechada, 11 = assentou, 12 = conflito bloqueado, 13 = limite); no fallback agendado, quem as detecta é o tick. O que se faz ao sair é idêntico.
+As condições são as mesmas nos dois modos. Com o gate, quem as detecta é o script e elas chegam como código de saída (10 = mergeada ou fechada, 11 = assentou, 12 = conflito bloqueado, 13 = limite); no fallback agendado, quem as detecta é o tick. Uma parte do "assentou" o script não vê, a réplica nova em thread de `discussionThreadIds`: no agendado o tick a reconsulta a cada wake, e com o gate ela é conferida ao receber o 11 (ramo `saida` de "O loop de watch"). O que se faz ao sair é idêntico.
 
 - PR mergeada ou fechada.
-- **Assentou**: CI verde **ou PR sem checks** (repo sem CI assenta; CI rodando ou vermelho, não), zero threads no delta (as de `discussionThreadIds` não contam: esperam o revisor e vão listadas no relatório final), **`mergeable == MERGEABLE`** e **título/descrição reconciliados** (`bodySyncedAtSha` e `titleSyncedAtSha` == `lastHeadSha`) por **2 ticks consecutivos** (`quietTicks >= 2`). A PR está pronta para review humano/merge; o watch cumpriu o papel. **Nunca declarar "assentou" com a PR `CONFLICTING`** (nem com `UNKNOWN` sem reconsultar): PR conflitante e quieta é PR travada, não PR pronta, exatamente como título ou descrição afirmando algo que a PR já refutou.
+- **Assentou**: CI verde **ou PR sem checks** (repo sem CI assenta; CI rodando ou vermelho, não), zero threads no delta (as de `discussionThreadIds` sem réplica nova não contam: esperam o revisor e vão listadas no relatório final; com réplica nova voltam ao delta), **`mergeable == MERGEABLE`** e **título/descrição reconciliados** (`bodySyncedAtSha` e `titleSyncedAtSha` == `lastHeadSha`) por **2 ticks consecutivos** (`quietTicks >= 2`). A PR está pronta para review humano/merge; o watch cumpriu o papel. **Nunca declarar "assentou" com a PR `CONFLICTING`** (nem com `UNKNOWN` sem reconsultar): PR conflitante e quieta é PR travada, não PR pronta, exatamente como título ou descrição afirmando algo que a PR já refutou.
 - **Conflito bloqueado sem saída**: `mergeable == CONFLICTING` com o gate em modo degradado (semântico, `--no-rebase` ou PR de terceiro) e **nada mais a fazer** (zero threads no delta, CI não acionável) → encerrar avisando que a PR precisa de resolução humana do conflito. Ficar vivo não muda o bloqueio, e o watch não deve consumir wakes esperando por decisão que é do usuário.
 - Limite de segurança: `round > 8` ou watch ativo há mais de ~6h sem assentar → encerrar avisando que passou do esperado (provável discussão humana travada, CI cronicamente vermelho ou conflito recorrente com uma base muito movimentada) e pedir olhada manual.
 - Usuário interrompe a sessão.
