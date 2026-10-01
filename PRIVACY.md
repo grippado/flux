@@ -12,6 +12,10 @@ There is no telemetry, no analytics, no crash reporting and no usage tracking, i
 the plugin or on the website. No data is sent to the author of this project, and
 there is no endpoint that could receive it.
 
+The files Flux keeps on your machine (see "What Flux writes" and "Local evidence")
+are your own records. They are not collected, uploaded or synced by Flux, and
+nothing reads them except you and the commands you run.
+
 ## What Flux reads
 
 Only what the command you invoked needs, on the machine it runs on:
@@ -44,6 +48,13 @@ explicit approval. A command may draft; you decide whether it is sent.
 - a dedicated Git worktree, when a command produces code
 - files in your notes vault, when your manifest declares one
 - files where you confirm, when a command scaffolds agents or configuration
+  (by default `~/.claude/flux-specialists/<repo>/`, after you confirm the destination)
+- `flux-agents.json`, an index of the agents installed on your machine, in each agents
+  directory your harness scans, when you run `map`
+- `~/.flux/sessions/<id>.json`, written by the `flux` command line: one small file
+  per run of `flux <verb>`, with the verb, the process id, the terminal application
+  and start and end times. It holds no arguments, output or content
+- `~/.flux/runs/<run_id>/`, only when you ask for it with `--record`: see "Local evidence"
 
 It does not write inside a repository you are only reviewing.
 
@@ -51,12 +62,42 @@ Board and review artifacts written to your vault carry a small `provenance` bloc
 short hostname (`hostname -s`), the literal command you invoked, a local timestamp, and, when a
 vault context is configured, the paths of the session transcript files (`.jsonl` under
 `~/.claude/projects/`) that produced the note. The block also includes the name of the harness
-that ran the command, the plug-in version, and a compact stamp (`harness | flux:verb@version`).
+that ran the command, the plug-in version, the model and effort when the harness reports them, the
+name of the command that generated the note, and a compact stamp (`harness | flux:verb@version`).
 This never leaves your machine on its own, the same as everything else on this page, but a
 hostname or a transcript path can be identifying (a person's name, an asset tag, a local username
 in the path), and vaults are sometimes synced or shared beyond the machine that wrote them. If
 that matters to you, treat it like any other content of your vault: edit or strip it before
 sharing.
+
+## Local evidence
+
+`flux review <PR> --record` writes a local record of that execution, a "run", under
+`~/.flux/runs/<run_id>/` (or under `FLUX_RUNS_ROOT`, if you set it). It is opt-in:
+without `--record` nothing is written there. The run is outside any repository, its
+directories are readable only by you (`0700`) and its files too (`0600`).
+
+A run contains: a run id and timestamps; the verb, its exit code and status; the
+session id and process id; which harness was launched; the model and effort when the
+harness reports them, otherwise `unknown`; which tools and capabilities were available
+(names and states, never paths); the human approvals you gave and the option you chose;
+references to the artifacts the command produced; and a short summary written by the
+model. The target is recorded as `github:pr/<number>`.
+
+A run does **not** contain: environment variables, tokens, SSH targets, raw command
+output, the conversation transcript, your hostname, the literal command line, or the
+content of the review. The review itself stays where it already was, in your vault, and
+the run only points to it. The writer refuses absolute paths in the fields that could
+hold one.
+
+Runs are never uploaded, synced or sent anywhere by Flux. To delete them, remove the
+directory: `rm -rf ~/.flux/runs`.
+
+**Publishing is a separate, explicit step, and it does not exist yet.** A run is a
+private record, and it can still be identifying (a session id, a PR number, the
+summary text), so it is not meant to be shared as it is. When a way to publish a run
+is added, it will produce a sanitized copy from a fixed list of allowed fields, you
+will review it, and nothing will be published until you say so.
 
 ## The website
 
