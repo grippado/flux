@@ -13,7 +13,7 @@
 
 > Família de comandos **globais e context-agnósticos** que cobre o ciclo inteiro de trabalho num repo: da telemetria de produção ao código, do código ao review, do review ao merge, do merge à comunicação.
 
-**[grippado.github.io/flux](https://grippado.github.io/flux/)**: a landing com o ciclo, a instalação por harness e as versões publicadas. O selo de release acima aponta sempre para a última, sem ninguém precisar lembrar de atualizar este arquivo. A landing, porém, só muda quando uma tag de versão é publicada: bumpar os manifests não basta (ver [Publicar uma versão](#publicar-uma-versão)).
+**[grippado.github.io/flux](https://grippado.github.io/flux/)**: a landing com o ciclo, a instalação por harness e as versões publicadas. O selo de release acima aponta sempre para a última, sem ninguém precisar lembrar de atualizar este arquivo. A landing, porém, só muda quando a release é aprovada: o merge de uma versão nova dispara o workflow, mas ele espera um clique (ver [Publicar uma versão](#publicar-uma-versão)).
 
 ## Instalação
 
@@ -525,45 +525,43 @@ ida ao GitHub, não uma regressão publicada.
 
 ### Publicar uma versão
 
-**Bump de versão sem tag é landing desatualizada.** A landing e a página de releases leem o
-`docs/latest-release.json`, e só o workflow [`release.yml`](.github/workflows/release.yml) o atualiza,
-disparado por push de tag `v*`. Bumpar os cinco manifests não dispara nada: a versão muda no plugin, a
-landing não. Foi assim que as versões 1.32.0 a 1.38.0 saíram sem tag e a landing ficou parada em 1.31.0.
+**Versão nova na `main` sem aprovação é landing desatualizada.** A landing e a página de releases leem o
+`docs/latest-release.json`, e só o workflow [`release.yml`](.github/workflows/release.yml) o atualiza.
+O merge de uma versão nova dispara o workflow sozinho; o que falta depois dele é um clique de aprovação.
+Antes era uma tag criada à mão, e foi esquecendo dela que as versões 1.32.0 a 1.38.0 saíram sem release
+e a landing ficou parada em 1.31.0.
 
 O fluxo completo:
 
 1. Na PR, bumpe a versão nos cinco manifests (`.claude-plugin/marketplace.json`,
    `.cursor-plugin/marketplace.json` e os três de `plugins/flux/`) e rode `scripts/check-manifests.sh`.
-2. Faça o merge na `main`.
-3. Crie a tag **anotada** `v<versão>` no commit do merge. A mensagem da tag vira o changelog, e o
-   `scripts/release-meta.sh` lê os trailers `Summary-en:` e `Summary-pt:` (sem travessão). O limite de
-   180 caracteres só corta o resumo de fallback, tirado da primeira linha da mensagem; o valor de um
-   trailer é publicado sem corte, então mantenha cada um em até 180. Tag leve é recusada de propósito,
-   e quem recusa é o workflow (o passo que busca o objeto da tag anotada), não o script isolado.
-4. O workflow `release` publica a release e commita o `docs/latest-release.json` na `main`, mas esse
-   commit só acontece quando a tag é a versão corrente (guarda `is_latest`); uma tag mais antiga publica
-   a release sem mexer na landing.
+   Se quiser um resumo próprio na landing, ponha no corpo da PR as linhas `Summary-en:` e `Summary-pt:`,
+   cada uma no começo da linha, em até 180 caracteres e sem travessão.
+2. Faça o merge na `main`. O push que toca o `plugins/flux/.claude-plugin/plugin.json` dispara o workflow
+   `release`, e o job `plan` confere se a tag `v<versão>` já existe. Existindo, a run termina ali, sem
+   pedir nada: o arquivo mudou sem a versão mudar.
+3. Aprove a run no Environment `release` (aba Actions, ou o link que o GitHub manda). É o único gate
+   humano da release.
+4. Aprovada, a run cria a tag **anotada** `v<versão>` no commit do merge, publica a release e commita o
+   `docs/latest-release.json` na `main`. Esse commit só acontece quando a versão é a corrente (guarda
+   `is_latest`); uma versão mais antiga publica a release sem mexer na landing.
+
+A mensagem da tag vira o changelog, e quem a escreve é o workflow:
 
 ```
-git tag -a v<x.y.z> <sha-da-main> -F <arquivo-com-a-mensagem>
-git push origin refs/tags/v<x.y.z>
+<título da PR>
+
+PR: <url da PR>
+
+Summary-en: <a linha do corpo da PR, quando existe>
+Summary-pt: <a linha do corpo da PR, quando existe>
 ```
 
-Exemplo de `<arquivo-com-a-mensagem>`:
+O `scripts/release-meta.sh` lê os dois trailers. Sem eles, o resumo da landing cai na primeira linha, que
+é o título da PR, igual nos dois idiomas e cortado em 180 caracteres; o valor de um trailer é publicado
+sem corte. Num push direto na `main`, sem PR, a primeira linha é o assunto do commit.
 
-```
-v<x.y.z>: o que mudou, em uma linha
-
-Corpo livre com o changelog.
-
-Summary-en: One sentence in English, up to 180 characters.
-Summary-pt: Uma frase em português, até 180 caracteres.
-```
-
-Uma tag por versão. Se versões ficaram sem tag, uma tag de catch-up na versão mais recente cobre as
-puladas: o changelog dela deve dizer o que entrou desde a última tag.
-
-Para conferir depois do push:
+Para conferir depois do merge:
 
 ```
 gh run list --workflow release
@@ -571,6 +569,34 @@ git pull && cat docs/latest-release.json
 ```
 
 O `docs/latest-release.json` deve trazer a versão nova. Sem essa linha, a landing não mudou.
+
+#### Reparo
+
+Os dois gatilhos antigos continuam existindo, e os dois passam pela mesma aprovação:
+
+- **A run foi rejeitada ou expirou sem aprovação.** Nada foi criado. Reexecute a run
+  (`gh run rerun <id>`) e aprove.
+- **A tag existe e a release não, ou a release saiu errada.** Republique pelo dispatch:
+  `gh workflow run release -f version=<x.y.z>`. O dispatch não cria tag: ele publica a que existe.
+- **Tag de catch-up, ou mensagem escrita à mão.** Crie a tag anotada e publique; o push dela dispara o
+  workflow. Tag leve é recusada de propósito, e quem recusa é o workflow (o passo que busca o objeto da
+  tag anotada), não o script isolado.
+
+```
+git tag -a v<x.y.z> <sha-da-main> -F <arquivo-com-a-mensagem>
+git push origin refs/tags/v<x.y.z>
+```
+
+Uma tag por versão. Se versões ficaram sem tag, uma tag de catch-up na versão mais recente cobre as
+puladas: o changelog dela deve dizer o que entrou desde a última tag.
+
+#### O Environment `release`
+
+O gate é um [Environment](https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments)
+do GitHub com revisor obrigatório, e ele precisa existir **antes** de o workflow rodar: um job que
+referencia um Environment inexistente o cria sem proteção nenhuma e publica sem pedir aprovação. Num
+fork, crie o seu antes do primeiro bump (Settings, Environments, `release`, Required reviewers), com
+"Prevent self-review" desligado se você é o único mantenedor.
 
 Duas regras que valem para qualquer contribuição:
 
