@@ -482,11 +482,11 @@ Veredito: {STATUS} — {1 frase do veredito}.
 
 **Não** repita o conteúdo do review no chat. **Não** faça resumo expandido. O arquivo é a fonte de verdade.
 
-Em seguida, vá direto para o Step 8 (sem esperar input adicional do usuário). Se o review **não tem PR number** (branch local sem PR aberta) ou se o `FINAL_REPORT` não retornou nenhum comentário acionável (`request-change`, `breaking-change`, `question`, `suggestion`, `praise`), **pule o Step 8** — apenas terminar.
+Em seguida, vá direto para o Step 8 (sem esperar input adicional do usuário). Se o review **não tem PR number** (branch local sem PR aberta) ou se o `FINAL_REPORT` não retornou nenhum comentário acionável (`request-change`, `breaking-change`, `question`, `suggestion`, `praise`), **pule o Step 8** — apenas terminar. Exceção: em PR de terceiros (`IS_OWN_PR` falso) com `STATUS` `approved`, `approved-with-suggestions` ou `approved-with-questions`, o 8b abre mesmo sem comentário acionável (a PR continua precisando de number).
 
 ### 8. Oferecer ação pós-review (aplicar ou publicar)
 
-Se há PR aberta e comentários acionáveis no review, abrir um **GATE** (`${FLUX_ROOT}/shared/hitl.md`) — uma única question, single-select. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline.
+Se há PR aberta e comentários acionáveis no review (ou a exceção do Step 7 para veredito aprovar em PR de terceiros), abrir um **GATE** (`${FLUX_ROOT}/shared/hitl.md`) — uma única question, single-select. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline.
 
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 
@@ -514,26 +514,34 @@ Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
 
 - **Header:** `Postar na PR?`
 - **Question:** `Quer postar algum subset dos comentários direto na PR #{number}?`
-- **Options (nessa ordem):**
-  0. **(só quando `STATUS` do Step 7 é `approved`, `approved-with-suggestions` ou `approved-with-questions`)** `Postar e aprovar (Recomendado)`, descrição: `Posta a revisão (prioridades + praise inline, event COMMENT) e, só depois de a postagem dar certo, aprova a PR em chamada separada, sem corpo. Aprovar é decisão sua: só acontece se você escolher esta opção.`
-  1. `Prioridades + praise`, descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline, sem aprovar a PR. Padrão histórico do usuário.`
+- **Options (nessa ordem):** depende do `STATUS` do Step 7, lido como já impresso, sem reanalisar o relatório.
+
+**Veredito aprovar** (`approved`, `approved-with-suggestions` ou `approved-with-questions`; só PR de terceiros). O menu tem no máximo 4 opções, o limite do `AskUserQuestion`:
+
+  1. `Postar e aprovar (Recomendado)` — descrição: `Posta a revisão (prioridades + praise inline, event COMMENT) e, só depois de a postagem dar certo e o commit revisado continuar sendo o head da PR, aprova em chamada separada, sem corpo. Aprovar é decisão sua: só acontece se você escolher esta opção.`
+  2. `Prioridades + praise` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline, sem aprovar a PR. Padrão histórico do usuário.`
+  3. `Tudo` — descrição: `Posta todos os comentários do review (request-change, breaking-change, question, suggestion, praise) inline. note nunca vai. Para só prioridades, sem praise, use o campo livre "Other".`
+  4. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
+
+- Em `approved-with-questions`, a opção 1 perde a marca `(Recomendado)` e a recomendada passa a ser `Prioridades + praise (Recomendado)`; a descrição da opção 1 acrescenta: `Atenção: aprovar libera o merge com perguntas ainda abertas.`
+- Sem comentário acionável (exceção do Step 7), o menu tem só `Postar e aprovar (Recomendado)` (posta o corpo e o placar, sem comentários inline, e aprova) e `Não postar`.
+- Com `REOPEN_CANDIDATES` não vazio, depois da primeira pergunta fazer uma **segunda** pergunta single-select, `Responder também as threads reverificadas?`, com `Sim` (executa o 8b-bis) e `Não`. A descrição de `Sim` é a da opção `Responder threads reverificadas` abaixo.
+
+**Demais vereditos** (`request-changes`, `STATUS` ausente ou não reconhecido) e **PR própria** (inclusive quando o 8a reutiliza este menu pela opção `Postar comentários inline`, porque o GitHub não permite aprovar a própria PR): o menu é o de sempre, sem opção de aprovar.
+
+  1. `Prioridades + praise (Recomendado)` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline. Padrão histórico do usuário.`
   2. `Só prioridades` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE inline. Sem praise.`
   3. `Tudo` — descrição: `Posta todos os comentários do review (request-change, breaking-change, question, suggestion, praise) inline. note nunca vai.`
   4. **(só quando `REOPEN_CANDIDATES` não está vazio)** `Responder threads reverificadas` — descrição: `Para cada thread própria reaberta com réplica pendente (Passo 4b): posta réplica + reação 👍/👎 + resolve via GraphQL a que procedeu; mantém aberta, com a justificativa, a que não procedeu. Independente de postar review nova.`
   5. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
 
-> A opção "Recomendado" é a primeira e tem `(Recomendado)` no label. Sem a opção 0, a opção 1 volta a ser
-> `Prioridades + praise (Recomendado)`, com a descrição de sempre (sem "sem aprovar a PR").
-> A opção 0 lê o `STATUS` já impresso no Step 7, sem reanalisar o relatório. Com `request-changes`, `STATUS`
-> ausente ou valor não reconhecido, ela não entra. Nunca entra em PR própria, inclusive quando o 8a reutiliza
-> este menu pela opção `Postar comentários inline`: nesse caminho o menu é o de hoje, sem a opção 0, porque
-> o GitHub não permite aprovar a própria PR.
+> A opção marcada `(Recomendado)` é sempre a primeira do menu, exceto em `approved-with-questions`, onde é `Prioridades + praise`, segunda.
+> O fallback textual numerado, sem o limite de 4 opções, pode listar todas as opções de uma vez: `Postar e aprovar`, `Prioridades + praise`, `Só prioridades`, `Tudo`, `Responder threads reverificadas` (quando houver) e `Não postar`.
 > Para rascunhar réplicas às threads abertas da PR, use `${FLUX_CMD}iterate <pr> --dry` (montar com o
 > `FLUX_CMD` do preflight, não com `/flux:` literal).
-> A opção 4 só entra no menu quando o Passo 4b produziu `REOPEN_CANDIDATES`; sem reverificação nesta
-> rodada, o menu tem só as opções 1/2/3 + "Não postar", como antes (mais a opção 0 quando ela se aplica).
+> `Responder threads reverificadas` só existe quando o Passo 4b produziu `REOPEN_CANDIDATES`; sem reverificação nesta rodada, não há essa opção nem a segunda pergunta.
 
-Se o usuário escolher uma opção positiva (0, 1, 2 ou 3), montar a review e postar via `gh api`:
+Se o usuário escolher uma opção de postar (`Postar e aprovar`, `Prioridades + praise`, `Só prioridades` ou `Tudo`), montar a review e postar via `gh api`:
 
 ```bash
 gh api -X POST repos/{owner}/{repo}/pulls/{number}/reviews --input <json-file>
@@ -554,7 +562,7 @@ JSON shape esperado:
 
 Regras para montar o payload (conforme `review-legend.md` — Banner do badge):
 
-- `event` **sempre** `COMMENT` na postagem, inclusive na opção 0. Nunca `REQUEST_CHANGES` sem pedido explícito separado, e nunca `APPROVE` dentro deste payload: a aprovação da opção 0 é uma chamada separada, descrita abaixo.
+- `event` **sempre** `COMMENT` na postagem, inclusive em `Postar e aprovar`. Nunca `REQUEST_CHANGES` sem pedido explícito separado, e nunca `APPROVE` dentro deste payload: a aprovação de `Postar e aprovar` é uma chamada separada, descrita abaixo.
 - Cada comentário usa `side: "RIGHT"`. Range multi-linha → `start_line` + `line`. Linha única → só `line`.
 - **Validar os números de linha contra o diff real** antes de postar — os números no markdown do vault podem estar relativos a hunks ou desatualizados. Buscar a linha no novo arquivo (RIGHT side) procurando pelo trecho citado.
 - **O `body` da review segue `${FLUX_ROOT}/shared/review-body-template.md`** (fonte única): veredito em negrito no topo, `### Placar dos findings` com a tabela de badges (incluindo os zeros), a linha da legenda, e as seções opcionais de destaque. **Não escrever o corpo em prosa solta.** O placar é **contado a partir do payload que você está postando**, nunca de memória.
@@ -574,24 +582,31 @@ Review postada: {html_url}
 {n} inline + {m} praise no corpo. Submetida como COMMENTED (não-bloqueante).
 ```
 
-**Opção 0 (`Postar e aprovar`): aprovação depois da postagem.** A ordem é fixa e a aprovação é uma chamada separada, nunca parte do payload acima:
+**Opção `Postar e aprovar`: aprovação depois da postagem.** A ordem é fixa e a aprovação é uma chamada separada, nunca parte do payload acima:
 
-1. Postar a revisão exatamente como descrito acima (`event: COMMENT`).
-2. Só se o `gh api` da postagem retornou sucesso, aprovar a PR com corpo vazio (a revisão já foi postada no `COMMENT` anterior):
+1. Postar a revisão como descrito acima (`event: COMMENT`), com o mesmo subset da opção `Prioridades + praise` (prioridades + praise); sem comentário acionável, só o corpo e o placar, sem comentários inline.
+2. Só se o `gh api` da postagem retornou sucesso, reler o head da PR e comparar com o `HEAD_SHA` guardado no Step 3:
 
 ```bash
-gh api -X POST repos/{owner}/{repo}/pulls/{number}/reviews -f event=APPROVE
+gh pr view {number} --json headRefOid -q .headRefOid
+```
+
+   - Se divergir: **não aprovar**, avisar que a PR mudou desde a revisão e que a revisão postada permanece.
+   - Se for igual, aprovar fixando o commit, com corpo vazio (a revisão já foi postada no `COMMENT` anterior):
+
+```bash
+gh api -X POST repos/{owner}/{repo}/pulls/{number}/reviews -f event=APPROVE -f commit_id=$HEAD_SHA
 ```
 
 3. Se a postagem falhou: **não aprovar**, não retentar, e avisar o usuário do erro e de que a PR não foi aprovada.
 4. Se a postagem deu certo e a aprovação falhou: **manter a revisão postada**, não desfazer nada, e informar a falha da aprovação (com o erro do `gh api`) e que a PR segue sem aprovação.
 
-Resposta no chat da opção 0, em vez da acima: a mesma, acrescida de `PR #{number} aprovada.` quando a aprovação deu certo, ou `Aprovação falhou: {erro}. A revisão continua postada; a PR não foi aprovada.` quando falhou.
+Resposta no chat de `Postar e aprovar`, em vez da acima: a mesma, acrescida de `PR #{number} aprovada.` quando a aprovação deu certo, `Aprovação falhou: {erro}. A revisão continua postada; a PR não foi aprovada.` quando falhou, ou `A PR mudou desde a revisão; não aprovei. A revisão continua postada.` quando o head divergiu.
 
 Se o usuário escolher "Não postar" ou cancelar a question, apenas terminar (sem mensagem extra).
 
-Se o usuário escolher a opção 4 (`Responder threads reverificadas`), seguir para **8b-bis** abaixo —
-nada impede escolher 4 numa rodada seguinte depois de já ter postado com 1/2/3 noutra, já que são
+Se o usuário escolher `Responder threads reverificadas` (ou responder `Sim` à segunda pergunta), seguir para **8b-bis** abaixo —
+nada impede escolher isso numa rodada seguinte depois de já ter postado com `Postar e aprovar`, `Prioridades + praise`, `Só prioridades` ou `Tudo` noutra, já que são
 ações independentes sobre coisas diferentes (review nova vs. threads antigas).
 
 #### 8b-bis. Fechar as threads reverificadas do Passo 4b
