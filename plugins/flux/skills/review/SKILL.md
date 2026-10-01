@@ -13,6 +13,7 @@ requires:
     - bin: gh
     - file: shared/review-body-template.md
     - vault
+    - checkout_local
     - index
 ---
 
@@ -71,11 +72,14 @@ perda no banner de perfil, que abre todo output.
 Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
 1. Resolver a **âncora** (alvo primeiro, `cwd` depois — ver `${FLUX_ROOT}/shared/flux-context.md`,
-   seção "Qual é a âncora") e procurar `flux-context.json` em `.claude/` subindo a árvore a partir
-   dela:
+   seção "Qual é a âncora") e procurar `flux-context.json` em `.claude/` ou `.cursor/` subindo a
+   árvore a partir dela (em cada nível `.claude/` é consultado antes de `.cursor/`, e o nível mais
+   fundo vence, como em `${FLUX_ROOT}/shared/flux-context.md`):
    ```
-   <cwd>/.claude/flux-context.json
+   <âncora>/.claude/flux-context.json
+   <âncora>/.cursor/flux-context.json
    <parent>/.claude/flux-context.json
+   <parent>/.cursor/flux-context.json
    ...
    ```
 
