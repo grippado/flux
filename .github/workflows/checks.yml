@@ -1,9 +1,9 @@
 # Roda os checks de contrato do repo em toda PR e em todo push para a main.
 #
-# Os dois scripts abaixo cobrem pontos cegos do `claude plugin validate`, que
-# valida cada manifesto isoladamente e nunca a relação entre eles nem o texto
-# dos shared/. Até aqui eles só rodavam quando o autor lembrava de rodá-los na
-# mão, o que degrada para zero na primeira contribuição de terceiro.
+# Os dois primeiros scripts abaixo cobrem pontos cegos do `claude plugin
+# validate`, que valida cada manifesto isoladamente e nunca a relação entre eles
+# nem o texto dos shared/. Até aqui eles só rodavam quando o autor lembrava de
+# rodá-los na mão, o que degrada para zero na primeira contribuição de terceiro.
 #
 # check-manifests.sh   — version e name iguais nos cinco manifests.
 # check-codex-agent-contract.sh — as frases que sustentam o adaptador Codex
@@ -11,6 +11,9 @@
 #   invariantes: apagar a seção falha, reescrevê-la preservando a regra também
 #   falha, e inverter a regra mantendo a frase passa. Está em CI justamente
 #   porque um canário que ninguém executa não avisa nada.
+#
+# test-run.sh e `bun test` (cli/) cobrem o writer do run e a CLI, inclusive a
+# paridade entre VERB_REQUIREMENTS e o requires: do SKILL do review.
 name: checks
 
 on:
@@ -38,6 +41,20 @@ jobs:
 
       - name: check-codex-agent-contract
         run: scripts/check-codex-agent-contract.sh
+
+      - name: shellcheck
+        run: shellcheck plugins/flux/scripts/run.sh scripts/test-run.sh
+
+      - name: test-run
+        run: scripts/test-run.sh
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+
+      - name: cli tests
+        working-directory: cli
+        run: bun test
 
       # Aviso, nunca falha: manifests bumpados sem tag ficam invisiveis ate alguem
       # notar. O 1.29.1 ficou dias nos manifests sem release. Em PR o bump ainda
