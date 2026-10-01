@@ -57,7 +57,9 @@ O contexto principal é fino por construção. Ele faz:
    usuário**: um gate dentro de subagente trava o fluxo em silêncio.
 6. **Board / artefato no vault** — escrita serializada num só lugar, para não haver corrida entre
    subagentes escrevendo a mesma nota.
-7. **Watch** — `ScheduleWakeup`, cadência, estado persistente.
+7. **Watch** — quem acorda a sessão, cadência, estado persistente. No `flux:iterate` quem espera a PR
+   é o gate mecânico, com `ScheduleWakeup` como fallback (`WATCH_WAKE`, no `SKILL.md` dele); nos
+   demais elos com watch, `ScheduleWakeup`.
 
 Tudo o mais é fan-out.
 

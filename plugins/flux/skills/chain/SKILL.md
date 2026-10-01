@@ -92,9 +92,14 @@ requisito de cada elo é verificado aqui, à mão. CLI ausente ou saída inváli
    (hoje, o Codex): **abortar** no formato do preflight nomeando `FLUX_CMD`. Nunca executar o
    pipeline de um elo inline (`codex-compat.md`).
 3. Verificar os `hard` **de cada elo** (`review`: `shared/review-legend.md`,
-   `shared/review-artifact-template.md`, `shared/flux-context.md`, `git`, agente `${HOLISTIC}`; `iterate`: `git` e `gh`, que o
-   `SKILL.md` dele não declara em `requires` e vêm de `VERB_REQUIREMENTS` em `cli/src/preflight.ts`).
+   `shared/review-artifact-template.md`, `shared/flux-context.md`, `git`, agente `${HOLISTIC}`; `iterate`: os do
+   `requires` do `SKILL.md` dele, fonte única da lista, com os binários `git` e `gh`, os mesmos de
+   `VERB_REQUIREMENTS` em `cli/src/preflight.ts`).
    **Falta um: abortar antes do primeiro elo**, no formato do preflight, nomeando qual elo o exigia.
+   Com `iterate` no chain, conferir também `command -v jq`: é `soft` dele e não aborta. Sem `jq`, a
+   perda entra em `degradacoes:` do banner do chain, na redação que o `SKILL.md` do `iterate` usa para
+   ela (o watch fica no modo agendado; seção `WATCH_WAKE` de lá), porque o banner do chain reflete a
+   união dos `hard` e `soft` dos elos (`chain.md`, "Banner").
 4. Resolver `HOLISTIC` na ordem canônica do Passo 3 e verificar que existe.
 5. Resolver a PR do `<alvo>` em URL (`gh pr view <alvo> --json url,headRefName`). Sem PR aberta
    (alvo vazio, branch local): abortar antes do primeiro elo. Resolver o perfil (`flux-context.md`) com a âncora no `<alvo>`. `NO_EMDASH` vale para todo texto
