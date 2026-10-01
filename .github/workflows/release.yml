@@ -37,10 +37,14 @@ permissions:
 # cancelada quando outra mais nova entra na fila, mesmo com cancel-in-progress
 # desligado, e a versão da run cancelada nunca ganharia tag. O que se perde é a
 # fila entre dois bumps, e o retry de rebase do passo do JSON cobre a disputa
-# pelo push da main.
+# pelo push da main quando o outro push não mexe no mesmo arquivo. Duas releases
+# aprovadas ao mesmo tempo ainda disputam o selo Latest e o JSON: aprove uma de
+# cada vez, a mais antiga primeiro.
 #
-# Tag e dispatch seguem enfileirados e nunca cancelados: uma release cancelada no
-# meio é uma release publicada cuja página ficou descrevendo a versão anterior.
+# Tag e dispatch seguem no grupo único, que nunca cancela uma release no meio:
+# uma release cancelada ali é uma release publicada cuja página ficou descrevendo
+# a versão anterior. O grupo guarda uma rodando e uma pendente; uma terceira
+# cancela a pendente, e a pendência agora dura o tempo da aprovação.
 concurrency:
   group: ${{ github.event_name == 'push' && github.ref_type == 'branch' && format('release-{0}', github.sha) || 'release' }}
   cancel-in-progress: false
@@ -58,6 +62,13 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      # Só o plugin.json do Claude dispara e nomeia a release. Sem este passo, um
+      # bump parcial que entrou na main com o check vermelho ganharia tag: a main
+      # não exige check nenhum para aceitar o merge.
+      - name: check-manifests
+        if: github.event_name == 'push' && github.ref_type == 'branch'
+        run: scripts/check-manifests.sh
 
       - name: Resolve version
         id: version
@@ -93,7 +104,7 @@ jobs:
           if [[ "$from_main" == "true" ]] \
             && git ls-remote --exit-code --tags origin "refs/tags/v${version}" > /dev/null; then
             needed=false
-            echo "::notice title=sem release::v${version} já tem tag; o plugin.json mudou sem mudar a versão. Para republicar, use o workflow_dispatch."
+            echo "::notice title=sem release::v${version} já tem tag, então esta run não publica nada. Se a release dela não saiu, republique pelo workflow_dispatch."
           fi
           echo "needed=$needed" >> "$GITHUB_OUTPUT"
 
@@ -164,8 +175,11 @@ jobs:
 
           # Mesma leitura do release-meta.sh: a primeira linha que começa pelo
           # prefixo exato. Sem as duas, a página cai no título nos dois idiomas.
-          summary_en="$(grep -m1 '^Summary-en:' <<< "$body" || true)"
-          summary_pt="$(grep -m1 '^Summary-pt:' <<< "$body" || true)"
+          # Fora de bloco cercado: uma PR que documenta a convenção num exemplo
+          # publicaria o exemplo como resumo da landing.
+          prose="$(awk '/^[[:space:]]*```/ { fenced = !fenced; next } !fenced' <<< "$body")"
+          summary_en="$(grep -m1 '^Summary-en:' <<< "$prose" || true)"
+          summary_pt="$(grep -m1 '^Summary-pt:' <<< "$prose" || true)"
 
           message="$RUNNER_TEMP/tag-message.txt"
           {
@@ -233,6 +247,10 @@ jobs:
             exit 0
           fi
           echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+
+          # Outra release pode ter publicado a tag dela depois do checkout desta
+          # run. Sem buscar de novo, as duas se declarariam a versão corrente.
+          git fetch --quiet --force --tags origin
 
           current="$(scripts/release-meta.sh latest "v${VERSION}")"
 
@@ -323,9 +341,9 @@ jobs:
           # acima foi escrito pelo da tag, e os dois têm que vir da mesma fonte.
           install -m 755 scripts/release-meta.sh "$RUNNER_TEMP/release-meta.sh"
 
-          # O job está com checkout na tag, que é um HEAD destacado: um commit
-          # feito aqui não pertenceria a branch nenhuma e o push não teria onde
-          # aterrissar. O arquivo é da main, então é a main que entra.
+          # O checkout pode estar na tag, que é um HEAD destacado, ou num SHA da
+          # main que já ficou para trás: um commit feito ali não teria onde
+          # aterrissar. O arquivo é da main de agora, então é ela que entra.
           git fetch --no-tags origin main
           git checkout -B main FETCH_HEAD
 
