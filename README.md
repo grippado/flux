@@ -527,7 +527,8 @@ ida ao GitHub, não uma regressão publicada.
 
 **Versão nova na `main` sem aprovação é landing desatualizada.** A landing e a página de releases leem o
 `docs/latest-release.json`, e só o workflow [`release.yml`](.github/workflows/release.yml) o atualiza.
-O merge de uma versão nova dispara o workflow sozinho; o que falta depois dele é um clique de aprovação.
+O merge de uma versão nova dispara o workflow sozinho; o que falta depois dele é um clique de aprovação. Com dois bumps esperando, aprove um de cada vez, o
+mais antigo primeiro: aprovados juntos, eles disputam o selo Latest e o `docs/latest-release.json`.
 Antes era uma tag criada à mão, e foi esquecendo dela que as versões 1.32.0 a 1.38.0 saíram sem release
 e a landing ficou parada em 1.31.0.
 
@@ -536,7 +537,8 @@ O fluxo completo:
 1. Na PR, bumpe a versão nos cinco manifests (`.claude-plugin/marketplace.json`,
    `.cursor-plugin/marketplace.json` e os três de `plugins/flux/`) e rode `scripts/check-manifests.sh`.
    Se quiser um resumo próprio na landing, ponha no corpo da PR as linhas `Summary-en:` e `Summary-pt:`,
-   cada uma no começo da linha, em até 180 caracteres e sem travessão.
+   cada uma no começo da linha e fora de bloco de código, em até 180 caracteres e sem travessão. O
+   limite e o travessão são convenção: o workflow copia a linha como está, sem validar nem cortar.
 2. Faça o merge na `main`. O push que toca o `plugins/flux/.claude-plugin/plugin.json` dispara o workflow
    `release`, e o job `plan` confere se a tag `v<versão>` já existe. Existindo, a run termina ali, sem
    pedir nada: o arquivo mudou sem a versão mudar.
@@ -572,10 +574,13 @@ O `docs/latest-release.json` deve trazer a versão nova. Sem essa linha, a landi
 
 #### Reparo
 
-Os dois gatilhos antigos continuam existindo, e os dois passam pela mesma aprovação:
+Três caminhos, e todos passam pela mesma aprovação. Os dois últimos são os gatilhos antigos, que
+continuam existindo:
 
-- **A run foi rejeitada ou expirou sem aprovação.** Nada foi criado. Reexecute a run
-  (`gh run rerun <id>`) e aprove.
+- **A run foi rejeitada, expirou sem aprovação ou falhou no meio.** Reexecute só o que falhou
+  (`gh run rerun --failed <id>`) e aprove. O `--failed` importa: um rerun completo refaz o `plan`, e se
+  a tag já tinha sido criada ele conclui que não há o que publicar. Se o GitHub não deixar mais
+  reexecutar a run (a janela é limitada), crie a tag à mão, como no último item.
 - **A tag existe e a release não, ou a release saiu errada.** Republique pelo dispatch:
   `gh workflow run release -f version=<x.y.z>`. O dispatch não cria tag: ele publica a que existe.
 - **Tag de catch-up, ou mensagem escrita à mão.** Crie a tag anotada e publique; o push dela dispara o

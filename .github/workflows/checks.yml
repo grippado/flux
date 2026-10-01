@@ -54,5 +54,5 @@ jobs:
           tag="$(git tag --list 'v*' --sort=-v:refname | head -1)"
           echo "manifests em ${manifest}; ultima tag ${tag:-nenhuma}"
           if [ "v${manifest}" != "${tag}" ]; then
-            echo "::warning title=release pendente::os manifests estao em ${manifest} mas a ultima tag e ${tag:-nenhuma}. A tag nasce quando a run do workflow release e aprovada: gh run list --workflow release. Sem run pendente, ver Publicar uma versao no README."
+            echo "::warning title=release pendente::a versao dos manifests e ${manifest} mas a ultima tag e ${tag:-nenhuma}. A tag nasce quando a run do workflow release e aprovada: gh run list --workflow release. Sem run pendente, ver Publicar uma versao no README."
           fi
