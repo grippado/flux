@@ -92,7 +92,7 @@ requisito de cada elo é verificado aqui, à mão. CLI ausente ou saída inváli
    (hoje, o Codex): **abortar** no formato do preflight nomeando `FLUX_CMD`. Nunca executar o
    pipeline de um elo inline (`codex-compat.md`).
 3. Verificar os `hard` **de cada elo** (`review`: `shared/review-legend.md`,
-   `shared/review-artifact-template.md`, `shared/flux-context.md`, `git`, agente `${HOLISTIC}`; `iterate`: `git` e `gh`, que o
+   `shared/review-artifact-template.md`, `shared/flux-context.md`, `git`, agente `${HOLISTIC}`; `iterate`: `git`, `gh` e `jq`, que o
    `SKILL.md` dele não declara em `requires` e vêm de `VERB_REQUIREMENTS` em `cli/src/preflight.ts`).
    **Falta um: abortar antes do primeiro elo**, no formato do preflight, nomeando qual elo o exigia.
 4. Resolver `HOLISTIC` na ordem canônica do Passo 3 e verificar que existe.

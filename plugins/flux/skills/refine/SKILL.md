@@ -416,7 +416,8 @@ prosseguir. Apontar mantém o verbo disponível nos três harnesses e respeita a
 
 **Exceção única: o encadeamento fatia-por-fatia do Caminho vermelho** (ver "Caminho vermelho — a
 recusa", abaixo). Ali o elo se reinvoca a si mesmo — não a um irmão, o mesmo mecanismo e o mesmo risco
-que `flux:iterate` e `flux:reply` já pagam ao se reagendar via `ScheduleWakeup` no modo watch
+que `flux:reply` já paga ao se reagendar via `ScheduleWakeup` no modo watch, e `flux:iterate` no
+fallback agendado do watch dele, que por padrão espera pelo gate mecânico
 (`${FLUX_ROOT}/shared/preflight.md`, Passo 1b) — e paga o mesmo custo deles: resolver e verificar
 `${FLUX_CMD}` antes de fazer isso. Fora daquele caso específico, a regra acima vale sem exceção.
 
@@ -474,8 +475,8 @@ fatia 1. As três condições são **todas** necessárias:
 
 Faltando qualquer uma das três, segue o fechamento padrão acima. Dadas as três:
 
-1. **Resolver e verificar `${FLUX_CMD}`** (o mesmo Passo 1b do preflight que `flux:iterate` e
-   `flux:reply` já aplicam antes de se reagendar via `ScheduleWakeup` — não duplicar a lógica aqui,
+1. **Resolver e verificar `${FLUX_CMD}`** (o mesmo Passo 1b do preflight que `flux:reply` e, no
+   fallback agendado do watch, `flux:iterate` já aplicam antes de se reagendar via `ScheduleWakeup` — não duplicar a lógica aqui,
    aplicar). Não verificável nesta sessão: **não encadear**, cair no fechamento padrão (oferecer a
    fatia 1), com a degradação declarada no banner — é a mesma saída inócua de sempre, só não
    automática.

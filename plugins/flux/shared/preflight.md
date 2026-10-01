@@ -146,8 +146,10 @@ Os dois campos **não entram** na cascata de resolução de `FLUX_ROOT` nem afet
 
 Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR dentro de subagente;
 o `flux:chain`, que roda os elos do chain em sequência na main;
-o `flux:map`, que despacha o equip por repo; os elos com watch, `flux:iterate` e `flux:reply`, que
-reinvocam a si mesmos pelo `prompt` do `ScheduleWakeup`; e o `flux:refine`, que reinvoca a si mesmo,
+o `flux:map`, que despacha o equip por repo; os elos com watch, que
+reinvocam a si mesmos pelo `prompt` do `ScheduleWakeup`: o `flux:reply` em todo wake, e o
+`flux:iterate` só no fallback agendado, porque o watch dele espera a PR pelo gate mecânico
+(`WATCH_WAKE`, no `SKILL.md` dele); e o `flux:refine`, que reinvoca a si mesmo,
 sequencial e sem subagente, no encadeamento fatia-por-fatia do Caminho vermelho — mesmo mecanismo e
 mesmo risco dos dois anteriores) precisa escrever o **nome invocável** do irmão. Esse nome é montado pelo harness a partir
 do nome do plugin e do verbo, não por nós: o mesmo `skills/iterate/SKILL.md` vira `/flux:iterate`
