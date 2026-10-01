@@ -42,6 +42,10 @@ jobs:
       # Aviso, nunca falha: manifests bumpados sem tag ficam invisiveis ate alguem
       # notar. O 1.29.1 ficou dias nos manifests sem release. Em PR o bump ainda
       # nao tem tag por definicao, entao o aviso so faz sentido no push para main.
+      #
+      # Logo depois do merge de um bump este aviso e esperado: a tag so nasce
+      # quando a run do workflow release e aprovada. Ele vira problema quando
+      # continua aparecendo nos pushes seguintes.
       - name: manifest-vs-tag
         if: github.event_name == 'push'
         run: |
@@ -50,5 +54,5 @@ jobs:
           tag="$(git tag --list 'v*' --sort=-v:refname | head -1)"
           echo "manifests em ${manifest}; ultima tag ${tag:-nenhuma}"
           if [ "v${manifest}" != "${tag}" ]; then
-            echo "::warning title=release pendente::os manifests estao em ${manifest} mas a ultima tag e ${tag:-nenhuma}. Publicar: git tag -a v${manifest} && git push origin v${manifest}"
+            echo "::warning title=release pendente::a versao dos manifests e ${manifest} mas a ultima tag e ${tag:-nenhuma}. A tag nasce quando a run do workflow release e aprovada: gh run list --workflow release. Sem run pendente, ver Publicar uma versao no README."
           fi

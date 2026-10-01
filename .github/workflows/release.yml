@@ -1,8 +1,16 @@
-# Publica uma release quando uma tag de versão é pushada.
+# Publica uma release quando uma versão nova chega na main.
 #
 # O flux não compila nada: uma release aqui é o changelog da tag virando página
-# pública, mais o docs/latest-release.json que a landing lê. Por isso o job é um
-# só e roda em minutos, ao contrário do release do violeet, de onde este veio.
+# pública, mais o docs/latest-release.json que a landing lê.
+#
+# Três gatilhos, um caminho só:
+#   push na main que toca o plugin.json   o caminho normal: o job cria a tag
+#   push de tag v*                        reparo: a tag já existe, só publica
+#   workflow_dispatch                     reparo: republica uma tag existente
+#
+# O job cria a tag e publica na mesma run de propósito: um push feito com o
+# GITHUB_TOKEN não dispara workflow nenhum, então uma tag criada aqui nunca
+# chegaria ao gatilho de tag.
 #
 # A fonte do changelog é a mensagem da tag anotada, resolvida por
 # scripts/release-meta.sh — o mesmo script que escreve o JSON, para que corpo da
@@ -11,6 +19,10 @@ name: release
 
 on:
   push:
+    # Filtro de path não é avaliado em push de tag: `paths` só restringe o push
+    # de branch, e a tag v* continua disparando sozinha.
+    branches: [main]
+    paths: ["plugins/flux/.claude-plugin/plugin.json"]
     tags: ["v*"]
   workflow_dispatch:
     inputs:
@@ -19,20 +31,164 @@ on:
         required: true
 
 permissions:
-  # Criar a release e commitar o docs/latest-release.json de volta na main.
-  contents: write
+  contents: read
 
-# Duas tags pushadas em sequência disputariam o push da main. Enfileirado e nunca
-# cancelado: uma release cancelada no meio é uma release publicada cuja página
-# ficou descrevendo a versão anterior.
+# No push da main o grupo é por SHA: com um grupo único, uma run pendente é
+# cancelada quando outra mais nova entra na fila, mesmo com cancel-in-progress
+# desligado, e a versão da run cancelada nunca ganharia tag. O que se perde é a
+# fila entre dois bumps, e o retry de rebase do passo do JSON cobre a disputa
+# pelo push da main quando o outro push não mexe no mesmo arquivo. Duas releases
+# aprovadas ao mesmo tempo ainda disputam o selo Latest e o JSON: aprove uma de
+# cada vez, a mais antiga primeiro.
+#
+# Tag e dispatch seguem no grupo único, que nunca cancela uma release no meio:
+# uma release cancelada ali é uma release publicada cuja página ficou descrevendo
+# a versão anterior. O grupo guarda uma rodando e uma pendente; uma terceira
+# cancela a pendente, e a pendência agora dura o tempo da aprovação.
 concurrency:
-  group: release
+  group: ${{ github.event_name == 'push' && github.ref_type == 'branch' && format('release-{0}', github.sha) || 'release' }}
   cancel-in-progress: false
 
 jobs:
+  # Decide se há o que publicar antes de qualquer pedido de aprovação. Sem este
+  # job, todo merge que tocasse o plugin.json sem mudar a versão pararia no
+  # Environment esperando um clique para não fazer nada.
+  plan:
+    name: Resolver versão e decidir se há release
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Achar a PR do commit, de onde sai a mensagem da tag. Declarar uma
+      # permissão zera as não listadas, então as duas precisam estar escritas.
+      pull-requests: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      needed: ${{ steps.version.outputs.needed }}
+      tag_message_b64: ${{ steps.message.outputs.tag_message_b64 }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Só o plugin.json do Claude dispara e nomeia a release. Sem este passo, um
+      # bump parcial que entrou na main com o check vermelho ganharia tag: a main
+      # não exige check nenhum para aceitar o merge.
+      - name: check-manifests
+        if: github.event_name == 'push' && github.ref_type == 'branch'
+        run: scripts/check-manifests.sh
+
+      - name: Resolve version
+        id: version
+        env:
+          # Por `env:` e não interpolado no corpo do script: o valor vem de um
+          # input de dispatch, e interpolado ele é colado no bash antes do shell
+          # ver a linha.
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          from_main=false
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="$INPUT_VERSION"
+          elif [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            version="${GITHUB_REF_NAME#v}"
+          else
+            # O checkout está no SHA do evento, não no HEAD da main: é a versão
+            # que aquele merge trouxe, mesmo que a main já tenha andado.
+            version="$(jq -r '.version' plugins/flux/.claude-plugin/plugin.json)"
+            from_main=true
+          fi
+          # Uma versão que não é semver produziria uma tag `v` sozinha lá na
+          # frente, e o erro só apareceria na página. Falha aqui.
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "versão inválida: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          needed=true
+          # Só o push da main pergunta se a tag existe. Tag e dispatch são
+          # reparo: a tag existir é a premissa deles, não um motivo para pular.
+          if [[ "$from_main" == "true" ]] \
+            && git ls-remote --exit-code --tags origin "refs/tags/v${version}" > /dev/null; then
+            needed=false
+            echo "::notice title=sem release::v${version} já tem tag, então esta run não publica nada. Se a release dela não saiu, republique pelo workflow_dispatch."
+          fi
+          echo "needed=$needed" >> "$GITHUB_OUTPUT"
+
+      # Só no push da main com versão nova. A mensagem é montada aqui, antes do
+      # gate, para que o resumo da run mostre a quem aprova o texto exato que
+      # vai para a tag, a release e a landing.
+      #
+      # Título e corpo da PR são texto de terceiro. Eles chegam pela API em
+      # variável de shell e vão para um arquivo; nunca passam por `${{ }}`, onde
+      # seriam colados no script antes do shell ver a linha. O output vai em
+      # base64 porque é multilinha e o delimitador do GITHUB_OUTPUT poderia ser
+      # forjado por quem escreve o corpo da PR.
+      - name: Compose tag message
+        id: message
+        if: steps.version.outputs.needed == 'true' && github.event_name == 'push' && github.ref_type == 'branch'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          pr="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq '[.[] | select(.merged_at != null)][0] // empty')"
+
+          if [[ -n "$pr" ]]; then
+            title="$(jq -r '.title' <<< "$pr")"
+            url="$(jq -r '.html_url' <<< "$pr")"
+            body="$(jq -r '.body // ""' <<< "$pr" | tr -d '\r')"
+          else
+            # Push direto na main, sem PR. O sufixo "(#N)" só existe no assunto
+            # de um squash, e aqui não há PR para ele apontar.
+            title="$(git log -1 --format=%s "$GITHUB_SHA" | sed -E 's/ \(#[0-9]+\)$//')"
+            url=""
+            body=""
+          fi
+
+          # Mesma leitura do release-meta.sh: a primeira linha que começa pelo
+          # prefixo exato. Sem as duas, a página cai no título nos dois idiomas.
+          # Fora de bloco cercado: uma PR que documenta a convenção num exemplo
+          # publicaria o exemplo como resumo da landing.
+          prose="$(awk '/^[[:space:]]*```/ { fenced = !fenced; next } !fenced' <<< "$body")"
+          summary_en="$(grep -m1 '^Summary-en:' <<< "$prose" || true)"
+          summary_pt="$(grep -m1 '^Summary-pt:' <<< "$prose" || true)"
+
+          message="$RUNNER_TEMP/tag-message.txt"
+          {
+            printf '%s\n' "$title"
+            if [[ -n "$url" ]]; then
+              printf '\nPR: %s\n' "$url"
+            fi
+            if [[ -n "$summary_en" || -n "$summary_pt" ]]; then
+              printf '\n'
+              if [[ -n "$summary_en" ]]; then printf '%s\n' "$summary_en"; fi
+              if [[ -n "$summary_pt" ]]; then printf '%s\n' "$summary_pt"; fi
+            fi
+          } > "$message"
+          echo "tag_message_b64=$(base64 -w0 "$message")" >> "$GITHUB_OUTPUT"
+
+          {
+            printf '### Release v%s aguardando aprovação\n\n' "$VERSION"
+            printf 'Aprovar o job release cria a tag anotada v%s no commit %s com esta mensagem:\n\n' "$VERSION" "$GITHUB_SHA"
+            printf '~~~~text\n'
+            cat "$message"
+            printf '~~~~\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
   release:
     name: Publicar release e atualizar a landing
+    needs: plan
+    if: needs.plan.outputs.needed == 'true'
     runs-on: ubuntu-24.04
+    # O único gate humano da release. O Environment precisa existir com revisor
+    # antes deste arquivo chegar na main: um job que referencia um Environment
+    # inexistente o cria sem proteção nenhuma e roda sem pedir aprovação.
+    environment: release
+    permissions:
+      # Pushar a tag, criar a release e commitar o docs/latest-release.json.
+      contents: write
 
     steps:
       - uses: actions/checkout@v5
@@ -43,36 +199,56 @@ jobs:
           # runner e o changelog degrada em silêncio para o fallback.
           fetch-tags: true
 
-      - name: Resolve version
-        id: version
+      # Só no push da main. A tag nasce aqui, antes de qualquer passo que a leia:
+      # sem ela no checkout o release-meta.sh não falha, ele responde que a
+      # versão não é a corrente e a landing fica parada sem ninguém ser avisado.
+      - name: Create annotated tag
+        id: tag
+        if: github.event_name == 'push' && github.ref_type == 'branch'
         env:
-          # Por `env:` e não interpolado no corpo do script: o valor vem de um
-          # input de dispatch, e interpolado ele é colado no bash antes do shell
-          # ver a linha. O passo Resolve latest abaixo já fazia assim.
-          INPUT_VERSION: ${{ inputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
+          TAG_MESSAGE_B64: ${{ needs.plan.outputs.tag_message_b64 }}
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            version="$INPUT_VERSION"
-          else
-            version="${GITHUB_REF_NAME#v}"
+
+          # A run pode ter esperado horas pela aprovação, e o plan respondeu
+          # antes dela. Se a tag apareceu nesse intervalo, alguém a publicou à
+          # mão: ela é a verdade, e o passo seguinte a busca como num reparo.
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" > /dev/null; then
+            echo "v${VERSION} já existe no remoto; publicando a partir dela"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          # Uma versão que não é semver produziria uma tag `v` sozinha lá na
-          # frente, e o erro só apareceria na página. Falha aqui.
-          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
-            echo "versão inválida: $version" >&2
-            exit 1
-          fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+          # A mensagem foi montada no plan, antes da aprovação, e é a que apareceu
+          # no resumo da run. Montá-la aqui leria a PR de novo, depois do clique,
+          # e publicaria um texto que quem aprovou não viu.
+          message="$RUNNER_TEMP/tag-message.txt"
+          base64 -d <<< "$TAG_MESSAGE_B64" > "$message"
+          test -s "$message"
+          cat "$message"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # No SHA do evento e não no HEAD: depois de horas esperando aprovação a
+          # main pode ser outro commit. E `--cleanup=whitespace` porque o default
+          # apaga toda linha que começa com `#`, e um título de PR pode começar.
+          git tag -a --cleanup=whitespace -F "$message" "v${VERSION}" "$GITHUB_SHA"
+          git push origin "refs/tags/v${VERSION}"
+          echo "created=true" >> "$GITHUB_OUTPUT"
 
       # O checkout deixa refs/tags/<tag> apontando direto para o commit, ou seja,
       # uma tag leve — mesmo quando a tag no remoto é anotada. O script recusa
       # tag leve de propósito (nela o `%(contents)` devolve o corpo do commit, que
       # sairia publicado como se fosse changelog), então sem este fetch toda
       # release publica o assunto do merge commit e o fallback nunca é notado.
+      #
+      # Pulado quando o passo acima criou a tag: ela já está no checkout, anotada.
       - name: Fetch annotated tag object
+        if: steps.tag.outputs.created != 'true'
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           set -euo pipefail
           git fetch --force origin "refs/tags/v${VERSION}:refs/tags/v${VERSION}"
@@ -92,7 +268,7 @@ jobs:
         id: latest
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           set -euo pipefail
 
@@ -104,6 +280,10 @@ jobs:
             exit 0
           fi
           echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+
+          # Outra release pode ter publicado a tag dela depois do checkout desta
+          # run. Sem buscar de novo, as duas se declarariam a versão corrente.
+          git fetch --quiet --force --tags origin
 
           current="$(scripts/release-meta.sh latest "v${VERSION}")"
 
@@ -120,7 +300,7 @@ jobs:
       # duas cópias de uma cadeia de fallback divergem na primeira correção.
       - name: Resolve changelog
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           set -euo pipefail
           scripts/release-meta.sh changelog "v${VERSION}" > "$RUNNER_TEMP/changelog.md"
@@ -128,7 +308,7 @@ jobs:
 
       - name: Write release notes
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           set -euo pipefail
           {
@@ -155,8 +335,8 @@ jobs:
           # este campo a action não tem tag nenhuma para publicar. O caminho de
           # dispatch é exatamente o de reparar uma release já cortada, que é
           # quando isso mais importa.
-          tag_name: v${{ steps.version.outputs.version }}
-          name: flux ${{ steps.version.outputs.version }}
+          tag_name: v${{ needs.plan.outputs.version }}
+          name: flux ${{ needs.plan.outputs.version }}
           body_path: notes.md
           # Uma tag com cara de prerelease é publicada como tal, para que uma
           # `v1.22.0-rc1` nunca vire a versão que a página anuncia como atual. Vem
@@ -185,7 +365,7 @@ jobs:
         if: ${{ steps.latest.outputs.is_latest == 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ needs.plan.outputs.version }}
         run: |
           set -euo pipefail
 
@@ -194,9 +374,9 @@ jobs:
           # acima foi escrito pelo da tag, e os dois têm que vir da mesma fonte.
           install -m 755 scripts/release-meta.sh "$RUNNER_TEMP/release-meta.sh"
 
-          # O job está com checkout na tag, que é um HEAD destacado: um commit
-          # feito aqui não pertenceria a branch nenhuma e o push não teria onde
-          # aterrissar. O arquivo é da main, então é a main que entra.
+          # O checkout pode estar na tag, que é um HEAD destacado, ou num SHA da
+          # main que já ficou para trás: um commit feito ali não teria onde
+          # aterrissar. O arquivo é da main de agora, então é ela que entra.
           git fetch --no-tags origin main
           git checkout -B main FETCH_HEAD
 
