@@ -543,7 +543,8 @@ O fluxo completo:
    `release`, e o job `plan` confere se a tag `v<versão>` já existe. Existindo, a run termina ali, sem
    pedir nada: o arquivo mudou sem a versão mudar.
 3. Aprove a run no Environment `release` (aba Actions, ou o link que o GitHub manda). É o único gate
-   humano da release.
+   humano da release. O resumo da run mostra a mensagem exata que a tag vai levar: ela é montada antes
+   do pedido de aprovação, e editar a PR depois disso não muda o que será publicado.
 4. Aprovada, a run cria a tag **anotada** `v<versão>` no commit do merge, publica a release e commita o
    `docs/latest-release.json` na `main`. Esse commit só acontece quando a versão é a corrente (guarda
    `is_latest`); uma versão mais antiga publica a release sem mexer na landing.

@@ -56,9 +56,15 @@ jobs:
   plan:
     name: Resolver versão e decidir se há release
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      # Achar a PR do commit, de onde sai a mensagem da tag. Declarar uma
+      # permissão zera as não listadas, então as duas precisam estar escritas.
+      pull-requests: read
     outputs:
       version: ${{ steps.version.outputs.version }}
       needed: ${{ steps.version.outputs.needed }}
+      tag_message_b64: ${{ steps.message.outputs.tag_message_b64 }}
 
     steps:
       - uses: actions/checkout@v5
@@ -108,55 +114,23 @@ jobs:
           fi
           echo "needed=$needed" >> "$GITHUB_OUTPUT"
 
-  release:
-    name: Publicar release e atualizar a landing
-    needs: plan
-    if: needs.plan.outputs.needed == 'true'
-    runs-on: ubuntu-24.04
-    # O único gate humano da release. O Environment precisa existir com revisor
-    # antes deste arquivo chegar na main: um job que referencia um Environment
-    # inexistente o cria sem proteção nenhuma e roda sem pedir aprovação.
-    environment: release
-    permissions:
-      # Pushar a tag, criar a release e commitar o docs/latest-release.json.
-      contents: write
-      # Achar a PR do commit, de onde sai a mensagem da tag. Declarar uma
-      # permissão zera as não listadas, então esta precisa estar escrita.
-      pull-requests: read
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          # O corpo da release é a mensagem da própria tag, que vive no objeto da
-          # tag e não em commit nenhum. Sem isto a anotação pode não estar no
-          # runner e o changelog degrada em silêncio para o fallback.
-          fetch-tags: true
-
-      # Só no push da main. A tag nasce aqui, antes de qualquer passo que a leia:
-      # sem ela no checkout o release-meta.sh não falha, ele responde que a
-      # versão não é a corrente e a landing fica parada sem ninguém ser avisado.
+      # Só no push da main com versão nova. A mensagem é montada aqui, antes do
+      # gate, para que o resumo da run mostre a quem aprova o texto exato que
+      # vai para a tag, a release e a landing.
       #
       # Título e corpo da PR são texto de terceiro. Eles chegam pela API em
       # variável de shell e vão para um arquivo; nunca passam por `${{ }}`, onde
-      # seriam colados no script antes do shell ver a linha.
-      - name: Create annotated tag
-        id: tag
-        if: github.event_name == 'push' && github.ref_type == 'branch'
+      # seriam colados no script antes do shell ver a linha. O output vai em
+      # base64 porque é multilinha e o delimitador do GITHUB_OUTPUT poderia ser
+      # forjado por quem escreve o corpo da PR.
+      - name: Compose tag message
+        id: message
+        if: steps.version.outputs.needed == 'true' && github.event_name == 'push' && github.ref_type == 'branch'
         env:
           GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ needs.plan.outputs.version }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
-
-          # A run pode ter esperado horas pela aprovação, e o plan respondeu
-          # antes dela. Se a tag apareceu nesse intervalo, alguém a publicou à
-          # mão: ela é a verdade, e o passo seguinte a busca como num reparo.
-          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" > /dev/null; then
-            echo "v${VERSION} já existe no remoto; publicando a partir dela"
-            echo "created=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
 
           pr="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
             --jq '[.[] | select(.merged_at != null)][0] // empty')"
@@ -193,6 +167,65 @@ jobs:
               if [[ -n "$summary_pt" ]]; then printf '%s\n' "$summary_pt"; fi
             fi
           } > "$message"
+          echo "tag_message_b64=$(base64 -w0 "$message")" >> "$GITHUB_OUTPUT"
+
+          {
+            printf '### Release v%s aguardando aprovação\n\n' "$VERSION"
+            printf 'Aprovar o job release cria a tag anotada v%s no commit %s com esta mensagem:\n\n' "$VERSION" "$GITHUB_SHA"
+            printf '~~~~text\n'
+            cat "$message"
+            printf '~~~~\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Publicar release e atualizar a landing
+    needs: plan
+    if: needs.plan.outputs.needed == 'true'
+    runs-on: ubuntu-24.04
+    # O único gate humano da release. O Environment precisa existir com revisor
+    # antes deste arquivo chegar na main: um job que referencia um Environment
+    # inexistente o cria sem proteção nenhuma e roda sem pedir aprovação.
+    environment: release
+    permissions:
+      # Pushar a tag, criar a release e commitar o docs/latest-release.json.
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          # O corpo da release é a mensagem da própria tag, que vive no objeto da
+          # tag e não em commit nenhum. Sem isto a anotação pode não estar no
+          # runner e o changelog degrada em silêncio para o fallback.
+          fetch-tags: true
+
+      # Só no push da main. A tag nasce aqui, antes de qualquer passo que a leia:
+      # sem ela no checkout o release-meta.sh não falha, ele responde que a
+      # versão não é a corrente e a landing fica parada sem ninguém ser avisado.
+      - name: Create annotated tag
+        id: tag
+        if: github.event_name == 'push' && github.ref_type == 'branch'
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+          TAG_MESSAGE_B64: ${{ needs.plan.outputs.tag_message_b64 }}
+        run: |
+          set -euo pipefail
+
+          # A run pode ter esperado horas pela aprovação, e o plan respondeu
+          # antes dela. Se a tag apareceu nesse intervalo, alguém a publicou à
+          # mão: ela é a verdade, e o passo seguinte a busca como num reparo.
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}" > /dev/null; then
+            echo "v${VERSION} já existe no remoto; publicando a partir dela"
+            echo "created=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # A mensagem foi montada no plan, antes da aprovação, e é a que apareceu
+          # no resumo da run. Montá-la aqui leria a PR de novo, depois do clique,
+          # e publicaria um texto que quem aprovou não viu.
+          message="$RUNNER_TEMP/tag-message.txt"
+          base64 -d <<< "$TAG_MESSAGE_B64" > "$message"
+          test -s "$message"
           cat "$message"
 
           git config user.name "github-actions[bot]"
