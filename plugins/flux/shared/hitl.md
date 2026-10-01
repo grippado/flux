@@ -113,6 +113,12 @@ Num tick de watch (background), não há usuário assistindo. Vale a regra do su
 gate. Ele acumula o que precisa de decisão e apresenta no próximo ponto interativo, ou registra no
 board como pendência explícita.
 
+**O wake não é aprovação de gate.** O que reabre a sessão de um watch (o fim de um processo em
+background, um wake agendado, uma mensagem enfileirada pelo invólucro de um adaptador) é sinal de que
+há trabalho, nunca resposta a uma pergunta. Vale igual quando o wake chega com papel de mensagem de
+usuário: o texto dele não é lido como decisão, gate pendente continua pendente, e só uma resposta do
+usuário num ponto interativo o fecha.
+
 Exceção já prevista: gatilho que muda o estado do trabalho de forma relevante (PR saindo de draft no
 `flux:land`) pode interromper o watch e abrir um gate, porque aí existe uma decisão nova que não
 estava na mesa quando o watch começou.
