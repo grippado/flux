@@ -125,7 +125,9 @@ Os demais funcionam normalmente. **Exceção parcial: o `flux:refine`.** Sem `FL
 continua funcionando (T0/T1, PRD, TRD, plano, Caminho grill); só o encadeamento fatia-por-fatia do
 Caminho vermelho degrada, porque ele também se reinvoca a si mesmo — sem verificar, cai no fechamento
 padrão de sempre (oferecer a fatia 1), com a perda declarada no banner. Não é indisponibilidade do
-verbo, é uma capacidade dele a menos.
+verbo, é uma capacidade dele a menos. **Segunda exceção parcial: o watch do `flux:iterate`.** A passada
+do verbo roda inteira; o que não se sustenta aqui é o watch, pelo motivo e com o caminho de ausência
+descritos em "Watch do iterate", abaixo.
 
 A oferta de Bootstrap de specialists (`review`, `iterate`, `land` e `build`) **não** entra nesta
 conta, e o motivo mudou: sem `FLUX_CMD`, a oferta **imprime a instrução e não executa**. Ela deixa de
