@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.41.0",
+    "tag": "v1.41.0",
+    "published_at": "2026-10-01T16:04:17Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.41.0",
+    "summary": {
+      "en": "The review gate can now post and approve a PR in one choice, pinned to the reviewed commit, plus a mechanical polling gate for the iterate watch.",
+      "pt": "O gate do review passa a postar e aprovar a PR numa só escolha, presa ao commit revisado, e o watch do iterate ganha um gate mecânico de polling."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.40.0",
     "tag": "v1.40.0",
     "published_at": "2026-09-30T14:08:50Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "Reconciles PR attribution in build and iterate, and documents that the landing only updates when a release tag is pushed.",
       "pt": "Concilia a atribuição de PR no build e no iterate, e documenta que a landing só atualiza quando uma tag de release é pushada."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.39.0",
-    "tag": "v1.39.0",
-    "published_at": "2026-09-30T13:26:31Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.39.0",
-    "summary": {
-      "en": "Adds flux:chain, api-first transport, richer provenance stamps, CLI session state, and an automation setup guide.",
-      "pt": "Chega o flux:chain, o transporte api-first, carimbos de proveniência mais ricos, estado de sessão do CLI e um guia de automação."
     },
     "changelog_source": "tag_message"
   },
