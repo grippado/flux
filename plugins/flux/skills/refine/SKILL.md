@@ -485,7 +485,8 @@ Faltando qualquer uma das três, segue o fechamento padrão acima. Dadas as trê
    fechamento padrão, com o corte inteiro nomeado, degradação declarada no banner. Corte com 8 ou
    menos, segue para o item 3.
 3. **Encadear sequencial, nunca paralelo, na própria main** (o mesmo padrão do modo watch do
-   `flux:iterate`/`flux:reply`: reinvocação de si mesmo roda na sessão corrente, não em subagente —
+   `flux:reply` e do fallback agendado do watch do `flux:iterate`: reinvocação de si mesmo roda na
+   sessão corrente, não em subagente —
    subagente não abre gate, e uma fatia pode precisar abrir o próprio Caminho grill). Uma fatia pode
    mudar o que a próxima decide (mesmo princípio do item 2 do Caminho grill ao buscar evidência), então
    paralelo destruiria essa dependência. Ordem: a do **grafo de bloqueio** das fatias
