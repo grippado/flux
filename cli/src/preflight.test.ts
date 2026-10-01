@@ -216,7 +216,7 @@ describe("runPreflight", () => {
     }
   });
 
-  test("iterate exige git, gh e jq como hard", async () => {
+  test("iterate exige git e gh como hard e jq como soft", async () => {
     const fluxRoot = makeFluxRoot(true);
     const savedPath = process.env["PATH"];
     process.env["CLAUDE_PLUGIN_ROOT"] = fluxRoot;
@@ -224,17 +224,20 @@ describe("runPreflight", () => {
     try {
       const repo = makeRepo({ name: "perfil-teste" });
       const result = await runPreflight({ verb: "iterate", cwd: repo });
-      expect(result.requirements.hard.map((r) => r.name)).toEqual(["git", "gh", "jq"]);
+      expect(result.requirements.hard.map((r) => r.name)).toEqual(["git", "gh"]);
       expect(result.requirements.hard.every((r) => r.ok)).toBe(true);
+      expect(result.requirements.soft.map((r) => r.name)).toContain("jq");
+      expect(result.requirements.soft.find((r) => r.name === "jq")?.ok).toBe(true);
       expect(result.status).not.toBe("abort");
       expect(result.abort_message).toBeNull();
+      expect(result.degradations.some((d) => d.includes("jq"))).toBe(false);
     } finally {
       process.env["PATH"] = savedPath;
       delete process.env["CLAUDE_PLUGIN_ROOT"];
     }
   });
 
-  test("iterate aborta no formato padrao quando falta jq", async () => {
+  test("iterate sem jq degrada e nomeia a perda do gate, sem abortar", async () => {
     const fluxRoot = makeFluxRoot(true);
     const savedPath = process.env["PATH"];
     process.env["CLAUDE_PLUGIN_ROOT"] = fluxRoot;
@@ -242,12 +245,34 @@ describe("runPreflight", () => {
     try {
       const repo = makeRepo({ name: "perfil-teste" });
       const result = await runPreflight({ verb: "iterate", cwd: repo });
+      expect(result.status).toBe("degraded");
+      expect(result.abort_message).toBeNull();
+      expect(result.capability_level_hint).not.toBe("UNAVAILABLE");
+      expect(result.requirements.hard.every((r) => r.ok)).toBe(true);
+      expect(result.requirements.soft.find((r) => r.name === "jq")?.ok).toBe(false);
+      expect(result.degradations).toContain(
+        "jq indisponivel — watch do iterate sem gate mecanico; cai no modo agendado"
+      );
+    } finally {
+      process.env["PATH"] = savedPath;
+      delete process.env["CLAUDE_PLUGIN_ROOT"];
+    }
+  });
+
+  test("iterate segue abortando quando falta gh", async () => {
+    const fluxRoot = makeFluxRoot(true);
+    const savedPath = process.env["PATH"];
+    process.env["CLAUDE_PLUGIN_ROOT"] = fluxRoot;
+    process.env["PATH"] = makeBinDir(["git", "jq"]);
+    try {
+      const repo = makeRepo({ name: "perfil-teste" });
+      const result = await runPreflight({ verb: "iterate", cwd: repo });
       expect(result.status).toBe("abort");
       expect(result.capability_level_hint).toBe("UNAVAILABLE");
       expect(result.abort_message).toContain("O verbo `iterate` nao pode rodar nesta maquina");
-      expect(result.abort_message).toContain("binario `jq` ausente no PATH");
-      expect(result.abort_message).not.toContain("binario `gh`");
-      expect(result.requirements.hard.filter((r) => !r.ok).map((r) => r.name)).toEqual(["jq"]);
+      expect(result.abort_message).toContain("binario `gh` ausente no PATH");
+      expect(result.abort_message).not.toContain("binario `jq`");
+      expect(result.requirements.hard.filter((r) => !r.ok).map((r) => r.name)).toEqual(["gh"]);
       expect(result.session_revalidation_required).toEqual([]);
     } finally {
       process.env["PATH"] = savedPath;

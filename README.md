@@ -191,7 +191,7 @@ não executa os elos. Nenhum dos dois degrada para uma iteração fora do contra
 também perdem uma capacidade lá. Detalhe em
 [`shared/codex-compat.md`](plugins/flux/shared/codex-compat.md).
 
-Requisitos reais: **`git`** (duro — sem ele o preflight aborta) e **`gh` autenticado** (mole, mas é o que separa "roda em PR" de "roda só na working tree"). Nada além disso. Sem manifesto, sem vault e sem specialists, a família roda no perfil genérico e [o banner do preflight](#convenções-transversais) declara o nível degradado em vez de fingir que está completo.
+Requisitos reais: **`git`** (duro — sem ele o preflight aborta) e **`gh` autenticado** (mole, mas é o que separa "roda em PR" de "roda só na working tree"). O `jq` é mole e só interessa ao watch do `flux:iterate`: sem ele o watch troca o gate mecânico pelo modo agendado, com a perda declarada. Nada além disso. Sem manifesto, sem vault e sem specialists, a família roda no perfil genérico e [o banner do preflight](#convenções-transversais) declara o nível degradado em vez de fingir que está completo.
 
 Dois elos dependem de MCP e degradam sem ele: o `flux:reply` precisa de um canal de Slack, e o modo doc do `flux:review`/`flux:peek` precisa de um canal de documentos. Qual servidor atende cada canal vem do campo `mcp` do [manifesto](#o-manifesto-de-contexto); sem o campo, o elo procura a capacidade na sessão. Nenhum id de MCP é hardcoded na família — ele depende de como cada máquina instalou o servidor.
 

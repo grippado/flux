@@ -2,6 +2,19 @@
 name: iterate
 description: "Orquestrador `flux:iterate` — fecha o loop de UMA PR (checa se ela ainda funde com a base e resolve conflito mecânico, verifica threads contra o código real, aplica correções, responde, reage 👍/👎, resolve, commita, pusha, vigia CI + bot). `--dry` rascunha réplicas read-only e salva no vault. Global, resolve contexto via `flux-context.md`."
 user-invocable: true
+requires:
+  hard:
+    - file: shared/flux-context.md
+    - file: shared/merge-conflict-gate.md
+    - file: shared/worktree-discipline.md
+    - file: shared/fanout-discipline.md
+    - bin: git
+    - bin: gh
+    - agent: ${HOLISTIC}
+  soft:
+    - bin: jq
+    - checkout_local
+    - vault
 ---
 
 # /flux:iterate
@@ -63,10 +76,11 @@ resolução agentica. JSON válido resolve o Step 0-context abaixo — revalidar
 (threads são insumo obrigatório deste elo; `degraded` sem threads → tratar como a perda que o
 fluxo já descreve). CLI ausente ou saída inválida → seguir o step abaixo como sempre.
 
-**`jq` é requisito `hard` deste elo**, ao lado de `git` e `gh`: o gate mecânico do watch
-(`${FLUX_ROOT}/scripts/iterate-watch-gate.sh`) não roda sem ele. O `flux preflight iterate` já aborta
-no formato padrão quando falta; na resolução agentica, conferir `command -v jq` junto com os outros
-dois e abortar pelo mesmo gabarito.
+**`jq` é requisito `soft` deste elo** (`git` e `gh` são `hard`): só o gate mecânico do watch
+(`${FLUX_ROOT}/scripts/iterate-watch-gate.sh`) depende dele. Sem `jq` o elo roda inteiro, inclusive
+`--once` e `--dry`, e o watch fica no modo agendado ("`WATCH_WAKE`"), com a perda na linha
+`degradacoes` do banner. O `flux preflight iterate` já devolve essa degradação; na resolução agentica,
+conferir `command -v jq` junto com os outros dois.
 
 ## Step 0-context: resolver perfil de contexto
 
@@ -813,6 +827,8 @@ sessão de fato expõe, nunca leitura de documentação de harness.
 | `fila` | o fim do processo não reabre a sessão, mas ela é acordável por um comando de fila chamado pelo próprio invólucro do gate. **Só existe pelo adaptador do harness e é opt-in**: contrato, pré-condições e estado atual em `${FLUX_ROOT}/shared/codex-compat.md`, seção "Watch do iterate" | lança o gate dentro do invólucro descrito lá |
 | `agendado` | nenhum dos dois acima foi verificado, ou o gate falhou neste run | o watch atual: um tick por wake, reagendado por `ScheduleWakeup` ("Fallback agendado") |
 
+- **Sem `jq` é `agendado`, direto.** O gate não roda sem ele (sairia com o código 2), então não se
+  lança: o requisito é `soft` e a degradação já está no banner.
 - **Na dúvida é `agendado`.** Capacidade que não pôde ser confirmada nesta sessão não foi verificada. O
   fallback é o comportamento de sempre, então errar para ele custa só turnos, e errar para `processo`
   onde o fim do processo não acorda ninguém custa o watch inteiro, em silêncio.

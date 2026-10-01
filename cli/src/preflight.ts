@@ -63,9 +63,9 @@ export const VERB_REQUIREMENTS: Record<string, VerbRequirements> = {
     hard: [
       { type: "bin", name: "git" },
       { type: "bin", name: "gh" },
-      { type: "bin", name: "jq" },
     ],
     soft: [
+      { type: "bin", name: "jq" },
       { type: "vault", name: "vault" },
       { type: "checkout_local", name: "checkout_local" },
     ],
@@ -91,6 +91,7 @@ const DEFAULT_REQUIREMENTS: VerbRequirements = {
 
 const SOFT_LOSS: Record<string, string> = {
   gh: "gh indisponivel — sem coleta de PR/threads via GitHub",
+  jq: "jq indisponivel — watch do iterate sem gate mecanico; cai no modo agendado",
   vault: "vault indisponivel — rodadas anteriores nao consultadas; artefato nao persistido",
   checkout_local: "sem checkout local — contexto de repo nao verificavel (vies para question)",
 };
