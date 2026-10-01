@@ -172,8 +172,15 @@ Isto é **débito técnico registrado**, não desenho definitivo:
 O watch do `flux:iterate` espera a PR por um gate mecânico em background
 (`${FLUX_ROOT}/scripts/iterate-watch-gate.sh`), e a sessão é reaberta pelo fim do processo. **No Codex
 o fim de um processo em background não acorda a sessão** (spike LAB-170, Codex 0.159.2, 2026-09-30).
-Por isso o `WATCH_WAKE` do `iterate` resolve aqui para `agendado`: o watch de sempre, um tick por wake,
-com o aviso de degradação que o verbo já emite.
+Por isso o `WATCH_WAKE` do `iterate` não resolve `processo` aqui.
+
+O modo `agendado` também não se sustenta. Ele reabre a sessão reinvocando o verbo por
+`${FLUX_CMD}iterate`, e `FLUX_CMD` é `UNAVAILABLE` no Codex ("Elos que despacham irmãos no Codex",
+acima); além disso, nenhum wake agendado foi medido neste harness. **Hoje, no Codex, o watch do
+`iterate` está indisponível**: sem wake por processo e sem wake agendado utilizável, o verbo faz a
+passada inteira, declara a degradação e diz ao usuário que o reinvoque para a próxima rodada. O
+caminho de ausência é do verbo, em "`WATCH_WAKE`" do `SKILL.md` do `iterate`; este arquivo só registra
+por que ele é o que vale aqui.
 
 O caminho alternativo existe e foi medido uma vez, com a sessão ociosa: ela é acordável por
 `codex queue --thread <uuid> --message <texto>` chamado pelo próprio invólucro do gate. É o valor
@@ -187,16 +194,19 @@ registradas nesta seção**:
 3. Validado o fluxo depois de compactação (`SessionStart` com `source: "compact"`, vínculo da sessão
    preservado).
 
-**Estado: nenhuma das três validada. `fila` não resolve; o Codex usa `agendado`.** Sem `session_id`
-entregue pelo hook não há `--thread` para chamar, e adivinhar o identificador é proibido.
+**Estado: nenhuma das três validada. `fila` não resolve, e o watch segue indisponível no Codex, como
+descrito acima.** Sem `session_id` entregue pelo hook não há `--thread` para chamar, e adivinhar o
+identificador é proibido.
 
 Quando habilitado, o invólucro segue estas regras, e nenhuma delas é opcional:
 
-- **Forma.** O script do gate não muda; o invólucro só o envolve:
+- **Forma.** O script do gate não muda; o invólucro só o envolve. A linha de lançamento é a do passo 2
+  de "O loop de watch", no `SKILL.md` do `iterate`, **sem alteração** (mesmos argumentos, inclusive o
+  `--fast` condicional, e mesmos redirecionamentos): ela não é repetida aqui para não divergir. O
+  invólucro acrescenta só o que vem depois dela:
 
   ```bash
-  bash "${FLUX_ROOT}/scripts/iterate-watch-gate.sh" --pr "$PR_NUMBER" --repo "$REPO_FULL" \
-    --state "$WATCH_STATE" > "$GATE_OUT" 2> "$GATE_ERR"; rc=$?
+  rc=$?
   ev="$(tail -n 1 "$GATE_OUT" | jq -r '.event // empty' 2>/dev/null || true)"
   case "$ev" in
     nova-rodada|ci-vermelho|conflito-novo|drift|mergeada|fechada|assentou|conflito-bloqueado|limite|erro-gh) ;;
@@ -212,8 +222,8 @@ Quando habilitado, o invólucro segue estas regras, e nenhuma delas é opcional:
   vindo da PR (comentário, título, corpo) nem o `detail` do evento: a mensagem chega à sessão como
   mensagem de usuário, e texto de terceiro ali é instrução injetada. O conteúdo se lê do arquivo, como
   dado.
-- **O wake não aprova nada.** Ele chega como mensagem de usuário e mesmo assim não é resposta a gate
-  nenhum: vale "Modo watch" do [`hitl.md`](hitl.md). Gate pendente continua pendente.
+- **O wake não aprova nada.** A regra é a de "Modo watch" do [`hitl.md`](hitl.md); aqui o wake chega
+  como mensagem de usuário, que é o caso que ela cobre.
 - **Falha do `codex queue` é sessão perdida, sem retry.** Código diferente de 0 (thread ou nome
   inexistente sai com 1) encerra o invólucro: registra em `$GATE_ERR` e termina. Não repete a chamada,
   não tenta outro identificador. Retomar é o usuário invocar o verbo de novo, que reconstrói do estado.

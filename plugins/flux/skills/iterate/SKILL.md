@@ -824,7 +824,7 @@ sessão de fato expõe, nunca leitura de documentação de harness.
 | valor | quando | o que o watch faz |
 |-------|--------|-------------------|
 | `processo` | a sessão expõe execução de comando **em background** e o **fim do processo reabre a sessão** como evento de sistema (não como mensagem do usuário) | lança o gate e espera a saída ("O loop de watch") |
-| `fila` | o fim do processo não reabre a sessão, mas ela é acordável por um comando de fila chamado pelo próprio invólucro do gate. **Só existe pelo adaptador do harness e é opt-in**: contrato, pré-condições e estado atual em `${FLUX_ROOT}/shared/codex-compat.md`, seção "Watch do iterate" | lança o gate dentro do invólucro descrito lá |
+| `fila` | o fim do processo não reabre a sessão, mas ela é acordável por um comando de fila chamado pelo próprio invólucro do gate. **Só existe pelo adaptador do harness e é opt-in**: contrato, pré-condições e estado atual em `${FLUX_ROOT}/shared/codex-compat.md`, seção "Watch do iterate". **Hoje não é resolvível**: as pré-condições de lá não estão validadas, então este valor nunca é escolhido | lança o gate dentro do invólucro descrito lá |
 | `agendado` | nenhum dos dois acima foi verificado, ou o gate falhou neste run | o watch atual: um tick por wake, reagendado por `ScheduleWakeup` ("Fallback agendado") |
 
 - **Sem `jq` é `agendado`, direto.** O gate não roda sem ele (sairia com o código 2), então não se
@@ -834,14 +834,19 @@ sessão de fato expõe, nunca leitura de documentação de harness.
   onde o fim do processo não acorda ninguém custa o watch inteiro, em silêncio.
 - **Cair em `agendado` é degradação e sai com aviso**, no chat e no board, dizendo o motivo (capacidade
   ausente, código de saída do gate, saída sem JSON). Nunca em silêncio.
-- **O wake não é aprovação.** O fim do processo é evento de sistema, e mesmo onde o wake chega como
-  mensagem ele não responde gate nenhum: vale "Modo watch" do `${FLUX_ROOT}/shared/hitl.md`.
+- **`agendado` também tem caminho de ausência.** Ele depende de duas coisas: uma ferramenta de wake
+  agendado na sessão e `FLUX_CMD` resolvido (o wake reinvoca `${FLUX_CMD}iterate`). Faltando qualquer
+  uma, **o watch não se sustenta**: a passada termina como em `--once`, com aviso no chat e no board
+  dizendo que o watch está indisponível, o motivo, e que o usuário reinvoque o verbo para a próxima
+  rodada. Vale igual quando a queda para `agendado` acontece no meio do run.
+- **O wake não é aprovação.** A regra é a de "Modo watch" do `${FLUX_ROOT}/shared/hitl.md`.
 
 > **Onde isto foi medido (spike LAB-170, 2026-09-30, uma execução por cenário).** No Claude Code e no
 > Cursor o fim de um processo em background acordou a sessão (em 20s, com cerca de 10min de ociosidade
 > e, no primeiro, depois de compactação), com o shell em modo background; o aviso traz só o código de
 > saída. No Codex não acordou. Os nomes aparecem aqui como registro de medição, não como regra: o que
-> decide é a capacidade verificada na sessão, e toda linha da tabela tem caminho de ausência.
+> decide é a capacidade verificada na sessão, e toda linha da tabela tem caminho de ausência: `processo`
+> e `fila` caem em `agendado`, e `agendado` cai em watch indisponível, com a passada valendo como `--once`.
 
 ### Estado persistente (não esquecer entre wakes)
 
@@ -1009,7 +1014,7 @@ Em qualquer saída, **relatório final** no chat: rodadas fechadas, estado final
 
 ### Fallback agendado (`watchWake: agendado`)
 
-É o watch de antes do gate, inteiro, e vale onde o `WATCH_WAKE` não resolveu `processo` nem `fila`, ou depois de uma queda do gate neste run. Cada wake executa "Um tick" e reagenda; o gate não é lançado.
+É o watch de antes do gate, inteiro, e vale onde o `WATCH_WAKE` não resolveu `processo` nem `fila`, ou depois de uma queda do gate neste run. Sem wake agendado utilizável, vale o caminho de ausência descrito em "`WATCH_WAKE`". Cada wake executa "Um tick" e reagenda; o gate não é lançado.
 
 Use `ScheduleWakeup` ao fim de cada tick para reabrir a sessão. A escolha do `delaySeconds` segue as janelas de cache (TTL ~5 min):
 - **CI rodando** ou **acabei de fechar uma rodada** (espero recomentário rápido do bot): **270s** (mantém o cache quente; é o que muda rápido).
