@@ -873,6 +873,10 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
   "titleSyncedAtSha": "abc123",
   "quietTicks": 0,
   "watchWake": "processo|fila|agendado",
+  "gatePid": null,
+  "gateSignalExits": 0,
+  "gateLastPollAtSeen": null,
+  "lastGateEvent": null,
   "board": "<VAULT_ROOT>/0-inbox/....md",
   "parentBoard": null,
   "startedAt": "<ISO>",
@@ -880,7 +884,7 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
 }
 ```
 
-Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido. `resolvedThreadIds` = toda thread que este elo **já processou**, resolvida ou não: é a lista que o gate usa para decidir se uma thread aberta é novidade, então uma thread respondida e deixada aberta de propósito (`needs-discussion`) entra aqui também, senão o gate a devolve como `nova-rodada` a cada relançamento. `discussionThreadIds` = o subconjunto dessas que ficou **aberto de propósito**; o gate não lê este campo, ele serve ao tick (passo 3 de "Um tick") e ao relatório final. `lastCiConclusion` grava um de três literais, `success`, `failure` ou `pending` (ou `null` quando a PR não tem checks): são as strings que o gate compara, e qualquer outra grafia faz o `ci-vermelho` se repetir. `watchWake` = o valor resolvido em "`WATCH_WAKE`"; só muda no meio do run **para** `agendado`, nunca de volta. `quietTicks` só é contado aqui no fallback agendado: com o gate, a contagem é dele, no arquivo irmão `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
+Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido. `resolvedThreadIds` = toda thread que este elo **já processou**, resolvida ou não: é a lista que o gate usa para decidir se uma thread aberta é novidade, então uma thread respondida e deixada aberta de propósito (`needs-discussion`) entra aqui também, senão o gate a devolve como `nova-rodada` a cada relançamento. `discussionThreadIds` = o subconjunto dessas que ficou **aberto de propósito**; o gate não lê este campo, ele serve ao tick (passo 3 de "Um tick") e ao relatório final. `lastCiConclusion` grava um de três literais, `success`, `failure` ou `pending` (ou `null` quando a PR não tem checks): são as strings que o gate compara, e qualquer outra grafia faz o `ci-vermelho` se repetir. `watchWake` = o valor resolvido em "`WATCH_WAKE`"; só muda no meio do run **para** `agendado`, nunca de volta. `gatePid`, `gateSignalExits`, `gateLastPollAtSeen` e `lastGateEvent` são a memória do loop do gate entre turnos (quem é o gate desta sessão, quantas vezes ele caiu por sinal sem progredir, qual foi a última saída acionável); o uso de cada um está em "O loop de watch", e o gate não lê nenhum deles. `quietTicks` só é contado aqui no fallback agendado: com o gate, a contagem é dele, no arquivo irmão `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
 
 Na 1ª passada, gravar o estado inicial (round 1, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, SHA pós-push, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente `isResolved == true` de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), o `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles, e o `board` a partir do naming determinístico do passo 2a.
 
@@ -901,22 +905,37 @@ mesmo evento, na hora.
 limite de vida que ela aceitar, e **encerrar o turno** sem `ScheduleWakeup`:
 
 ```bash
-GIT_COMMON="$(cd "$(git rev-parse --git-common-dir)" && pwd -P)"
+GIT_COMMON="$(cd "$WORKTREE_PATH" && cd "$(git rev-parse --git-common-dir)" && pwd -P)"
 WATCH_STATE="$GIT_COMMON/flux-watch-pr-$PR_NUMBER.json"
 GATE_OUT="$GIT_COMMON/flux-watch-gate-pr-$PR_NUMBER.out"
 GATE_ERR="$GIT_COMMON/flux-watch-gate-pr-$PR_NUMBER.err"
+GATE_LOCK="$GIT_COMMON/flux-watch-gate-pr-$PR_NUMBER.lock"
 bash "${FLUX_ROOT}/scripts/iterate-watch-gate.sh" --pr "$PR_NUMBER" --repo "$REPO_FULL" \
   --state "$WATCH_STATE" ${GATE_FAST:+--fast} > "$GATE_OUT" 2> "$GATE_ERR"
 ```
+
+`WORKTREE_PATH` é a worktree da PR resolvida no passo 1. O diretório git comum sai **dela**, nunca do
+cwd da sessão: com input por URL de outro repo, o cwd aponta para o `.git` errado. As cinco linhas de
+caminho são **recalculadas em todo turno que as usa** (lançar, ler a saída, reabrir): cada turno roda
+em outro shell, e variável definida no lançamento não existe mais na leitura.
 
 `GATE_FAST=1` quando o tick acabou de fechar uma rodada ou de pushar (recomentário rápido do bot é
 esperado); vazio nos demais. A cadência do poll (270s e 1200s, nunca 300s) é do script. O contrato de
 argumentos, eventos e códigos de saída é o `--help` dele, fonte única: não reescrever aqui.
 
-**3. Ler a saída.** O aviso de fim do processo traz **só o código de saída**. O evento é a última linha
-de `$GATE_OUT`, um JSON `{ts,event,pr,sha,ci,mergeable,delta,detail}`:
+Ainda neste turno, depois de lançar: ler o pid do gate em `$GATE_LOCK/pid` (o script o grava ao assumir
+o lock; esperar alguns segundos se o arquivo ainda não existir) e gravá-lo em `gatePid` no estado. O
+gate relê o estado a cada poll, então gravar depois do lançamento não o atrapalha. Se o processo já
+tiver terminado, não gravar: tratar o código de saída.
+
+**3. Ler a saída.** O aviso de fim do processo traz **só o código de saída**: é dele que vem `GATE_RC`
+(em `fila`, do campo `exit=` da mensagem do invólucro). Nenhum trecho anterior define essa variável,
+porque o lançamento aconteceu em outro turno; atribuí-la aqui, com o valor do aviso, e recalcular os
+caminhos do passo 2. O evento é a última linha de `$GATE_OUT`, um JSON
+`{ts,event,pr,sha,ci,mergeable,delta,detail}`:
 
 ```bash
+GATE_RC=<código de saída do aviso>
 GATE_EVENT="$(tail -n 1 "$GATE_OUT" | jq -c 'select(type == "object" and has("event"))' 2>/dev/null || true)"
 ```
 
@@ -934,10 +953,20 @@ case "$GATE_RC" in
 esac
 ```
 
-- **`tick`** (0: `nova-rodada`, `ci-vermelho`, `conflito-novo`, `drift`) → executar **um tick** pelo
+Toda saída que não seja `relancar` zera `gateSignalExits`, e toda saída que não seja `ceder` limpa
+`gatePid` (o processo terminou).
+
+- **`tick`** (0: `nova-rodada`, `ci-vermelho`, `conflito-novo`, `drift`) → primeiro o **disjuntor**,
+  abaixo; passando por ele, executar **um tick** pelo
   fluxo de sempre ("Um tick", abaixo): mesma coleta, mesmos gates, mesma ordem de prioridade. O evento
   diz por que a sessão acordou e o `delta` adianta os ids, mas quem decide é a coleta do tick, porque a
   PR pode ter andado entre a saída do gate e este turno. Ao fim, voltar ao passo 1 e relançar.
+  - **Disjuntor de loop quente.** Comparar `event`, `sha` e `delta` de `GATE_EVENT` com `lastGateEvent`
+    do estado. **Iguais** → o gate saiu duas vezes seguidas pelo mesmo motivo, no mesmo SHA (logo, sem
+    push no meio): o tick anterior não deixou no estado o que o gate lê, e relançar repetiria a saída a
+    cada poll. Não executar outro tick por esse caminho: ir para `fallback`, com o aviso **nomeando o
+    evento** repetido e o SHA. **Diferentes** → gravar o trio em `lastGateEvent` e seguir. Um disparo
+    indevido (o mesmo evento legítimo duas vezes no mesmo SHA) custa só a troca pelo modo agendado.
 - **`saida`** (10 a 13) → o watch acabou; seguir "Condições de saída" (`flux session end` e relatório
   final, iguais aos de hoje). 10 = mergeada ou fechada (`event` diz qual); 11 = assentou; 12 = conflito
   bloqueado sem saída; 13 = limite de segurança. Não relançar.
@@ -948,22 +977,48 @@ esac
   repete a falha, e o tick agendado não depende do script (estado ilegível ele reconstrói pela regra do
   "Estado persistente").
 - **`ceder`** (14: já existe um gate rodando nesta PR) → **não relançar e não agendar**: dois vigias
-  na mesma PR aplicam, respondem e pusham em dobro. Se o gate vivo foi lançado por esta mesma sessão,
-  seguir esperando por ele. Senão, encerrar o watch desta sessão avisando que a PR já tem um watch
-  ativo (o pid do dono está em `flux-watch-gate-pr-<PR_NUMBER>.lock/pid`, ao lado do estado), rodar o
+  na mesma PR aplicam, respondem e pusham em dobro. O dono do lock está em `$GATE_LOCK/pid`. Se esse pid
+  é o `gatePid` do estado **e** esta sessão é a que o lançou, o gate vivo é o dela: seguir esperando por
+  ele. Senão, encerrar o watch desta sessão avisando que a PR já tem um watch ativo (com o pid do
+  dono), rodar o
   `flux session end` das "Condições de saída" e fechar com o relatório final do que esta sessão fez,
   **sem** declarar "assentou". Nunca matar um processo que esta sessão não lançou.
-- **`relancar`** (129, 130, 143: o processo recebeu sinal, tipicamente o limite de vida de comando em
-  background do harness) → não é evento da PR nem falha do gate; voltar ao passo 2. O progresso do gate
+- **`relancar`** (129, 130, 143: o script recebeu HUP, INT ou TERM e traduziu o sinal em código) → não
+  é evento da PR nem falha do gate; voltar ao passo 2. O progresso do gate
   está no arquivo de estado dele e sobrevive ao relançamento. Dois encerramentos por sinal seguidos sem
-  que o `lastPollAt` de `flux-watch-gate-pr-<PR_NUMBER>.json` avance → `fallback`.
+  que o `lastPollAt` de `flux-watch-gate-pr-<PR_NUMBER>.json` avance → `fallback`. A conta mora no
+  estado, para sobreviver à compactação: ler o `lastPollAt` do gate; se ele avançou em relação a
+  `gateLastPollAtSeen`, `gateSignalExits = 1`; senão, `gateSignalExits += 1`; gravar o valor lido em
+  `gateLastPollAtSeen`; com `gateSignalExits >= 2`, `fallback`.
+  - **Qual sinal o harness manda** ao estourar o limite de vida de um comando em background não foi
+    medido, e este elo não presume. O que o `case` garante: encerramento que o script traduz (129, 130,
+    143) relança; encerramento que ele não tem como traduzir (137, de um KILL) cai em `*` e portanto em
+    `fallback`, com o lock deixado para trás, que o script recupera como órfão num lançamento futuro.
 
 Em toda saída do watch e em toda queda para o fallback, se ainda houver um gate **lançado por esta
-sessão** rodando, encerrá-lo antes (o script limpa o próprio lock ao receber o sinal).
+sessão** rodando (`gatePid` vivo e igual ao pid do lock), encerrá-lo antes (o script limpa o próprio
+lock ao receber o sinal) e limpar `gatePid`.
 
 Se a sessão for reaberta sem aviso de saída pendente (compactação, retomada manual), ler `watchWake` do
-estado: em `processo` ou `fila`, relançar pelo passo 1 (um gate ainda vivo responde 14 e cai em
-`ceder`); em `agendado`, seguir o fallback.
+estado. Em `agendado`, seguir o fallback. Em `processo` ou `fila`, **não relançar para descobrir se há
+gate vivo**: os redirecionamentos da linha de lançamento truncam `$GATE_OUT` e `$GATE_ERR` do gate vivo
+antes de o script responder 14. Recalcular os caminhos do passo 2 e checar a vivacidade:
+
+```bash
+LOCK_PID="$(cat "$GATE_LOCK/pid" 2>/dev/null || true)"
+GATE_PID="$(jq -r '.gatePid // empty' "$WATCH_STATE" 2>/dev/null || true)"
+if [ -n "$LOCK_PID" ] && kill -0 "$LOCK_PID" 2>/dev/null; then
+  [ "$LOCK_PID" = "$GATE_PID" ] && NEXT=esperar || NEXT=ceder
+else
+  NEXT=lancar
+fi
+```
+
+- **`lancar`** → não há gate vivo: seguir pelo passo 1.
+- **`esperar`** → o gate vivo é o que este watch lançou. Se a reabertura é **continuação desta sessão**
+  (compactação), encerrar o turno sem relançar: a saída dele reabre a sessão. Se é uma **invocação
+  nova** do verbo, o gate pertence a outra sessão e o fim dele não reabre esta: tratar como `ceder`.
+- **`ceder`** → como no código 14.
 
 ### Um tick
 
