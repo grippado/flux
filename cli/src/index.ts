@@ -2,10 +2,11 @@ import { resolveContext } from "./resolve.ts";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
 import { resolveHarness, harnessInstallHint, assertCanonicalHarness, CANONICAL_HARNESSES, DEFAULT_HARNESS_WARNING } from "./harness.ts";
 import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
-import { runPreflight } from "./preflight.ts";
+import { runPreflight, type PreflightResult } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
 import { generateSessionId, isValidSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
+import { beginRecording, finishRecording, scriptAvailable, type RunHandle, type RunPromptInfo } from "./run.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
@@ -40,6 +41,7 @@ function printUsage(): void {
   console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
   console.error("     flux session end <id>  (ou defina FLUX_SESSION_ID no ambiente e omita <id>)");
   console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--new] [--remote [alias]] [--yes|-y] [--harness <claude|cursor|codex>]");
+  console.error("     flux review <PR> --record  (grava o run local em ~/.flux/runs/<run_id>/; só review, modo here)");
   console.error("     flux <verbo> ... --remote  (sem alias: pergunta interativamente qual máquina alcançável usar)");
   console.error("     flux <verbo> ... --yes     (pula a prévia do banner antes de disparar o Claude Code)");
   console.error("     flux <verbo> ... --harness <valor>  (harness de agente; valores: claude, cursor, codex)");
@@ -62,6 +64,7 @@ function parseArgs(argv: string[]): {
   yes: boolean;
   threads: boolean;
   harness: string | null;
+  record: boolean;
   rest: string[];
 } {
   const args = [...argv];
@@ -79,6 +82,7 @@ function parseArgs(argv: string[]): {
   let yes = false;
   let threads = false;
   let harness: string | null = null;
+  let record = false;
   const rest: string[] = [];
 
   if (args.length > 0) {
@@ -128,6 +132,9 @@ function parseArgs(argv: string[]): {
     } else if (a === "--threads") {
       threads = true;
       i++;
+    } else if (a === "--record") {
+      record = true;
+      i++;
     } else if (a === "--harness") {
       if (i + 1 < args.length && !args[i + 1]!.startsWith("--")) {
         try {
@@ -150,7 +157,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, rest };
+  return { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, record, rest };
 }
 
 async function runResolve(opts: {
@@ -201,12 +208,26 @@ async function runVerb(opts: {
   remote: string | null;
   remotePrompt: boolean;
   yes: boolean;
+  record: boolean;
   rest: string[];
   argv: string[];
   harnessFlag: string | null;
 }): Promise<void> {
-  const { verb, target, repo, dry, safe, openNew, yes, rest, argv } = opts;
+  const { verb, target, repo, dry, safe, openNew, yes, record, rest, argv } = opts;
   let remote = opts.remote;
+
+  if (record && verb !== "review") {
+    console.error(`[flux] --record só é suportado em "review" nesta versão (recebido: "${verb}").`);
+    process.exit(1);
+  }
+  if (record && openNew) {
+    console.error("[flux] --record ainda não suporta --new: o fim da sessão não é observável fora do modo here.");
+    process.exit(1);
+  }
+  if (record && (opts.remote || opts.remotePrompt)) {
+    console.error("[flux] --record ainda não suporta --remote: o run seria criado na outra máquina, fora do que este slice cobre.");
+    process.exit(1);
+  }
 
   if (opts.remotePrompt) {
     remote = await pickRemoteInteractively();
@@ -290,13 +311,33 @@ async function runVerb(opts: {
   if (harnessSource === "default") console.error(DEFAULT_HARNESS_WARNING);
   const invocationOpts = { safe, harness, claudeCmd: harnessOverride };
 
-  let body = buildPromptBody(ctx, verb, args, { harness, harnessSource });
+  let userComment: string | null = null;
+  const composeBody = (run?: RunPromptInfo): string => {
+    const base = buildPromptBody(ctx, verb, args, { harness, harnessSource, run });
+    return userComment ? `${base}\n\n---\nComentário adicional do usuário:\n${userComment}` : base;
+  };
+
+  let body = composeBody();
   const invocation = resolveInvocation(invocationOpts);
   let command = buildCommand(body, invocationOpts);
 
   if (dry) {
+    if (record) console.error("[flux] --dry não grava run: nenhum run foi criado.");
     console.log(command);
     return;
+  }
+
+  let preflight: PreflightResult | null = null;
+  if (record) {
+    if (!scriptAvailable(ctx.flux_root)) {
+      console.error(`[flux] --record requer scripts/run.sh em flux_root (${ctx.flux_root}); instalação do plugin incompleta ou desatualizada.`);
+      process.exit(1);
+    }
+    preflight = await runPreflight({ verb, target: effectiveTarget, repo: repoSlug, cwd: process.cwd() });
+    if (preflight.status === "abort") {
+      console.error(preflight.abort_message ?? "[flux] preflight abortou.");
+      process.exit(3);
+    }
   }
 
   if (!yes && process.stdin.isTTY) {
@@ -306,7 +347,8 @@ async function runVerb(opts: {
       process.exit(1);
     }
     if (review.type === "comment" && review.text) {
-      body = `${body}\n\n---\nComentário adicional do usuário:\n${review.text}`;
+      userComment = review.text;
+      body = composeBody();
       command = buildCommand(body, invocationOpts);
     }
   }
@@ -339,11 +381,42 @@ async function runVerb(opts: {
     sessionId = undefined;
   }
 
+  let recording: RunHandle | null = null;
+  if (record && preflight) {
+    try {
+      recording = beginRecording({
+        fluxRoot: ctx.flux_root,
+        verb,
+        target: effectiveTarget,
+        harness,
+        sessionId: sessionId ?? null,
+        preflight,
+      });
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : String(err));
+      if (sessionId) markSessionEnded(sessionId);
+      process.exit(1);
+    }
+    body = composeBody({ runId: recording.runId, sequence: recording.sequence, root: recording.root });
+    command = buildCommand(body, invocationOpts);
+    console.error(`[flux] gravando o run ${recording.runId} em ${recording.runDir}`);
+  }
+
   if (!openNew || !supportsNewTab) {
-    let exitCode = 1;
+    let exitCode: number | null = null;
     try {
       exitCode = runHere({ command, body, invocation, sessionId });
     } finally {
+      if (recording) {
+        try {
+          const finished = finishRecording(recording, exitCode);
+          for (const w of finished.warnings) console.error(w);
+          if (finished.ok) console.error(`[flux] run gravado em ${recording.runDir}`);
+          else console.error(`[flux] run incompleto em ${recording.runDir}`);
+        } catch (err) {
+          console.error(`[flux] aviso: não foi possível fechar o run: ${err instanceof Error ? err.message : String(err)}`);
+        }
+      }
       if (sessionId) {
         try {
           markSessionEnded(sessionId);
@@ -352,7 +425,7 @@ async function runVerb(opts: {
         }
       }
     }
-    process.exit(exitCode);
+    process.exit(exitCode ?? 1);
   }
 
   await launchClaude({ command, body, invocation, sessionId });
@@ -582,10 +655,15 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, rest } = parseArgs(argv);
+  const { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, record, rest } = parseArgs(argv);
 
   if (!subcommand) {
     printUsage();
+    process.exit(1);
+  }
+
+  if (record && !isSupportedVerb(subcommand)) {
+    console.error(`[flux] --record só vale em "flux review <PR>" (recebido: "${subcommand}").`);
     process.exit(1);
   }
 
@@ -656,7 +734,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  await runVerb({ verb: subcommand, target, repo, dry, safe, openNew, remote, remotePrompt, yes, rest, argv, harnessFlag: harness });
+  await runVerb({ verb: subcommand, target, repo, dry, safe, openNew, remote, remotePrompt, yes, record, rest, argv, harnessFlag: harness });
 }
 
 if (import.meta.main) {

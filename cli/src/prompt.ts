@@ -1,5 +1,6 @@
 import type { ResolvedContext } from "./resolve.ts";
 import { UNKNOWN_HARNESS, type Harness, type HarnessResolution } from "./harness.ts";
+import type { RunPromptInfo } from "./run.ts";
 import pkg from "../package.json";
 
 const CLI_VERSION: string = pkg.version;
@@ -46,6 +47,7 @@ export function buildCommand(body: string, opts: CommandOptions): string {
 export type PromptBodyOpts = {
   harness: Harness;
   harnessSource: HarnessResolution["source"];
+  run?: RunPromptInfo;
 };
 
 export function buildPrompt(
@@ -59,7 +61,7 @@ export function buildPrompt(
 
 export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string, opts: PromptBodyOpts): string {
   const lines: string[] = [];
-  const { harness, harnessSource } = opts;
+  const { harness, harnessSource, run } = opts;
 
   lines.push(`--- PREFLIGHT RESOLVIDO (flux-cli v${CLI_VERSION}) ---`);
   lines.push(`perfil: ${ctx.profile}`);
@@ -71,6 +73,11 @@ export function buildPromptBody(ctx: ResolvedContext, verb: string, args: string
   lines.push(`exec_fallback: ${ctx.exec_fallback ?? "ausente"}`);
   lines.push(`harness: ${harness}`);
   lines.push(`harness_source: ${harnessSource}`);
+  if (run) {
+    lines.push(`run_id: ${run.runId}`);
+    lines.push(`run_stage: ${run.sequence}`);
+    lines.push(`run_root: ${run.root}`);
+  }
   lines.push(`lentes:`);
   lines.push(`  l2_paths: ${ctx.lenses.l2_paths.length > 0 ? ctx.lenses.l2_paths.join(", ") : "ausente"}`);
   lines.push(`  l3_paths: ${ctx.lenses.l3_paths.length > 0 ? ctx.lenses.l3_paths.join(", ") : "ausente"}`);
