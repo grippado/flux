@@ -167,9 +167,11 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 
 **`--record`** é consumido pela CLI (`flux review <PR> --record`), que abre o run. Se aparecer nos argumentos que este elo recebe (execução direta, sem CLI), ignore-o: o run só é aberto pela CLI.
 
-## Registro do run (só quando o bloco de preflight traz `run_id`)
+## Registro do run (só quando a mensagem de invocação traz `run_id:`)
 
-Quando o `PREFLIGHT RESOLVIDO` traz `run_id`, `run_stage` e `run_root`, o `flux review --record` já abriu o run e a stage, e a própria CLI as fecha quando este elo terminar. Aqui o elo só **informa** três coisas ao writer, `${FLUX_ROOT}/scripts/run.sh` (contrato em `${FLUX_ROOT}/shared/run.md`). Sem `run_id` no bloco, nada desta seção roda. Vale só para o pipeline `pr`; o `doc` não registra nada.
+A fonte é **a mensagem que invocou este elo**: o bloco `--- PREFLIGHT RESOLVIDO (flux-cli ...) ---` que a CLI prepende ao comando. Se ele traz as linhas `run_id:`, `run_stage:` e `run_root:`, o `flux review --record` já abriu o run e a stage, e a própria CLI as fecha quando este elo terminar. O JSON de `flux preflight` (Step 0-cli) **não** traz esses campos e não é a fonte: a ausência de `run_id` nele não desliga esta seção. Leia o bloco da invocação antes de qualquer outro passo e guarde os três valores.
+
+Aqui o elo só **informa** três coisas ao writer, `${FLUX_ROOT}/scripts/run.sh` (contrato em `${FLUX_ROOT}/shared/run.md`). Sem as linhas `run_id:` na invocação, nada desta seção roda. Vale só para o pipeline `pr`; o `doc` não registra nada.
 
 Nunca bloqueante: se o `run.sh` falhar, avisar numa linha e seguir o review. Só o `run.sh` escreve no run; nunca grave arquivo dele por conta própria. Em todos os comandos abaixo, `{run_id}`, `{run_stage}` e `{run_root}` são os valores do bloco, passados como `--run`, `--seq` e `--root` (o `--root` sempre entre aspas, porque o caminho pode ter espaço).
 
@@ -490,7 +492,7 @@ STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificaç�
 
 Gravar com a Write tool no caminho calculado (Step 5). Quando `VAULT_ROOT` não estiver definido (perfil
 genérico sem `--save`): imprimir o artefato no chat em vez de gravar; com `--save <dir>`, gravar em
-`<dir>/{filename}`. Com `run_id` no bloco de preflight, registrar o output (item 1 de "Registro do run").
+`<dir>/{filename}`. Com `run_id:` na invocação, registrar o output (item 1 de "Registro do run").
 
 ### 7. Resposta no chat
 
@@ -508,7 +510,7 @@ Em seguida, vá direto para o Step 8 (sem esperar input adicional do usuário). 
 
 ### 8. Oferecer ação pós-review (aplicar ou publicar)
 
-Se há PR aberta e comentários acionáveis no review (ou a exceção do Step 7 para veredito aprovar em PR de terceiros), abrir um **GATE** (`${FLUX_ROOT}/shared/hitl.md`) — uma única question, single-select. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline. Com `run_id` no bloco de preflight, registrar a decisão assim que o usuário escolher (item 2 de "Registro do run").
+Se há PR aberta e comentários acionáveis no review (ou a exceção do Step 7 para veredito aprovar em PR de terceiros), abrir um **GATE** (`${FLUX_ROOT}/shared/hitl.md`) — uma única question, single-select. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline. Com `run_id:` na invocação, registrar a decisão assim que o usuário escolher (item 2 de "Registro do run").
 
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 
