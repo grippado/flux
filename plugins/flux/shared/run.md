@@ -28,9 +28,11 @@ Não é observability, nem event stream, nem banco. É identidade e evidência d
 
 | O writer (`run.sh`) controla | O modelo informa |
 |---|---|
-| diretório, nomes de arquivo, `run_id`, `sequence`, `verb`, timestamps, `status`, `exit_code`, `session_id`, `pid`, `writer`, versões, snapshot de capacidades, `gates`, `outputs`, `retry_of` | resumo da stage, conteúdo do review (que fica no artefato do vault), `model` e `effort` quando só o harness os sabe |
+| diretório, nomes de arquivo, `run_id`, `sequence`, `verb`, timestamps, `status`, `exit_code`, `session_id`, `writer`, versões, snapshot de capacidades, `gates`, `outputs`, `retry_of` | resumo da stage, conteúdo do review (que fica no artefato do vault), `model` e `effort` quando só o harness os sabe |
 
 O modelo nunca edita arquivo de run: chama `run.sh`, que valida e grava de forma atômica.
+
+**Dependências do `run.sh`.** Só `bash` (3.2 ou mais novo) e utilitários POSIX presentes em qualquer macOS ou Linux (`awk`, `sed`, `date`, `mktemp`, `od`, `tr`, `grep`, `stat`, `mv`), mais `iconv` para o resumo. Não exige `jq` nem `git`. Por isso nenhum `bin:` entra no `requires:` do `review`: o registro nunca é bloqueante, e a falta de uma ferramenta faz o `run.sh` sair com `2` e o review seguir sem registrar.
 
 ## Níveis de garantia
 
@@ -50,11 +52,11 @@ O run entra explicitamente no `PREFLIGHT RESOLVIDO` que a CLI monta (`run_id`, `
 
 ## Ciclo de vida
 
-- **Run:** `active`, `completed`, `failed`. `interrupted` e `abandoned` são derivados na leitura (run `active` cuja última stage está `running` sem processo vivo, ou parado há muito), nunca gravados.
+- **Run:** `active`, `completed`, `failed`. `interrupted` e `abandoned` são derivados na leitura (run `active` cuja última stage continua `running` há mais tempo do que o leitor considera razoável), nunca gravados.
 - **Stage:** `running`, `completed`, `failed`, `cancelled`. A primeira conclusão vale: `stage-end` numa stage já encerrada não altera nada.
 - Depois do `end`, o run está fechado: `stage-start`, `gate`, `output`, `stage-set`, `stage-summary` e `stage-end` saem com `3`.
 - `outcome.md` carrega `result` (`completed`, `failed` ou `cancelled`). `run.md` só distingue `completed` de `failed`: um run cujo resultado foi `cancelled` termina com `status: completed`.
-- A CLI mapeia o exit code do harness: `0` completa, `130` e `143` cancelam, o resto falha. Se a CLI morrer antes do `finally` (a CLI não trata `SIGINT`), a stage fica `running`.
+- A CLI mapeia o exit code do harness: `0` completa, `130` e `143` cancelam, o resto falha. Um harness morto por sinal vira `128 + n` (a convenção do shell), nunca um `1` inventado. Se a própria CLI morrer antes do `finally` (ela não trata `SIGINT` nem `SIGTERM`), a stage fica `running`.
 - Retry nunca sobrescreve: nova stage com `retry_of`.
 
 ## Schema `flux-run/1`
@@ -66,7 +68,6 @@ O run entra explicitamente no `PREFLIGHT RESOLVIDO` que a CLI monta (`run_id`, `
 schema: flux-run/1
 run_id: 20261001T204006Z_review-pr-184_ba64
 status: active              # active | completed | failed
-goal: null
 started_at: 2026-10-01T17:40:06-03:00
 ended_at: null
 flux_version: 1.43.0        # lida do plugin.json do próprio writer
@@ -89,19 +90,16 @@ finished_at: 2026-10-01T17:52:41-03:00
 exit_code: 0                # null quando não observável
 writer: cli
 session_id: lq1x2y3z-9f8e7d6c
-pid: 41872
 harness:
   value: claude-code        # claude-code | cursor | codex | unknown
-  source: cli-launch        # cli-launch | plugin-root-env | unknown
+  source: cli-launch        # cli-launch | default | plugin-root-env | unknown
 model: unknown
 effort: unknown
 target: "github:pr/184"
 capabilities:
   level_cli_hint: FULL-tentativo
-  hard:
-    - {name: git, ok: true}
-  soft:
-    - {name: vault, ok: false}
+  missing:
+    - {name: vault, kind: soft}
   degradations:
     - "vault indisponivel — rodadas anteriores nao consultadas; artefato nao persistido"
 gates:
@@ -125,9 +123,9 @@ outputs:
 
 Regras de campo:
 
-- `harness.value` e `harness.source` são fatos da CLI, nunca inferência: com `FLUX_CLAUDE_CMD` o que foi lançado é um comando arbitrário e o valor é `unknown`.
+- `harness.value` e `harness.source` são fatos da CLI, nunca inferência. `source: cli-launch` quando o harness foi escolhido (flag, `FLUX_HARNESS` ou manifesto) e lançado; `source: default` quando a CLI assumiu `claude` por falta de declaração (o valor é o que ela lançou, mas a escolha não foi do usuário); com `FLUX_CLAUDE_CMD` o que foi lançado é um comando arbitrário e o valor é `unknown`.
 - `model` e `effort` só valem por autorrelato do harness (`shared/preflight.md`); senão ficam `unknown`. Nunca se inventa valor.
-- `capabilities` é uma **projeção** do `PreflightResult` da CLI (`capability_level_hint`, nome e estado de cada requisito, degradações) e nunca carrega path.
+- `capabilities` é uma **projeção** do `PreflightResult` da CLI e nunca carrega path: o nível (`capability_level_hint`), só os requisitos que **faltaram** (nome e `kind: hard|soft`) e as degradações. O que estava presente não é listado: ausência de um nome significa que ele estava disponível.
 - `gates` e `outputs` crescem por `append`; o writer recusa decisões, `via` e `kind` fora do vocabulário: gates `github-post`, `commit-push`, `issue-write`, `slack-write`, `pr-open`, `write-outside`, `write-manifest`, `ambiguous-target` (as categorias de `shared/hitl.md`); outputs `review`, `board`, `pr`, `issue`.
 - `outputs[].ref` é referência, nunca conteúdo: `vault:<path relativo a VAULT_ROOT>`, `url:<url>` ou `git:<ref>`. Não se copia finding para o run.
 - Gate: `requested` não se grava (existir o registro implica ter sido pedido); `not_applicable` é a ausência de registro.
@@ -136,7 +134,7 @@ Regras de campo:
 
 O writer recusa (exit `4`) path absoluto (`/…`, `~`, `file://`, `C:\`, UNC) em `target`, `capabilities`, `degradations`, `option`, `model`, `effort`, `ref` e `--slug`, `..` como componente de `ref`, e padrões de segredo (tokens do GitHub, chaves `sk-`, `AKIA…`, `Bearer …`, chave privada) em qualquer campo ou no resumo. O resumo é texto livre do modelo: o writer só barra caminhos conhecidos (`/Users/`, `/home/`, `~/`…) e segredos, então ele **não** é garantidamente limpo e só entra em `public-runs/` depois de revisão humana. O run **não tem campo** para: variáveis de ambiente, tokens, alvo de SSH, saída bruta de comando, transcript, hostname, `invocation` literal nem `session_sources`. A regra é: *store semantic evidence, not raw exhaust.*
 
-Dados identificadores que ainda existem no run privado: `session_id`, `pid`, `target` (`github:pr/N`), o slug do `run_id` e o resumo do modelo. Por isso o run privado não é publicável como está.
+Dados identificadores que ainda existem no run privado: `session_id`, `target` (`github:pr/N`), o slug do `run_id` e o resumo do modelo. Por isso o run privado não é publicável como está.
 
 **Publicação** (`public-runs/`, sanitização por allowlist, revisão humana antes de publicar) é uma fronteira futura e explícita, fora do slice 1. Nada aqui publica nada.
 

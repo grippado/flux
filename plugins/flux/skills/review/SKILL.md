@@ -173,7 +173,7 @@ A fonte é **a mensagem que invocou este elo**: o bloco `--- PREFLIGHT RESOLVIDO
 
 Aqui o elo só **informa** três coisas ao writer, `${FLUX_ROOT}/scripts/run.sh` (contrato em `${FLUX_ROOT}/shared/run.md`). Sem as linhas `run_id:` na invocação, nada desta seção roda. Vale só para o pipeline `pr`; o `doc` não registra nada.
 
-Nunca bloqueante: se o `run.sh` falhar, avisar numa linha e seguir o review. Só o `run.sh` escreve no run; nunca grave arquivo dele por conta própria. Em todos os comandos abaixo, `{run_id}`, `{run_stage}` e `{run_root}` são os valores do bloco, passados como `--run`, `--seq` e `--root` (o `--root` sempre entre aspas, porque o caminho pode ter espaço).
+Nunca bloqueante: se o `run.sh` falhar, avisar numa linha no chat (`Registro do run indisponível: {erro do run.sh}`) e seguir o review. O banner já foi emitido e não carrega essa falha, e não ganha token novo; a falha de abrir ou fechar o run é declarada pela CLI, no terminal. Só o `run.sh` escreve no run; nunca grave arquivo dele por conta própria. Em todos os comandos abaixo, `{run_id}`, `{run_stage}` e `{run_root}` são os valores do bloco, passados como `--run`, `--seq` e `--root` (o `--root` sempre entre aspas, porque o caminho pode ter espaço).
 
 1. **Output** (Step 6, logo depois de gravar o artefato no vault):
    `bash "${FLUX_ROOT}/scripts/run.sh" output --run {run_id} --seq {run_stage} --root "{run_root}" --kind review --ref "vault:{path do artefato relativo a VAULT_ROOT}" --head-sha {HEAD_SHA}`.

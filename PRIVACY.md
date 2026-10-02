@@ -78,9 +78,9 @@ without `--record` nothing is written there. The run is outside any repository, 
 directories are readable only by you (`0700`) and its files too (`0600`).
 
 A run contains: a run id and timestamps; the verb, its exit code and status; the
-session id and process id; which harness was launched; the model and effort when the
-harness reports them, otherwise `unknown`; which tools and capabilities were available
-(names and states, never paths); the human approvals you gave and the option you chose;
+session id; which harness was launched; the model and effort when the harness reports
+them, otherwise `unknown`; the capability level and which required tools or files were
+missing (names only, never paths); the human approvals you gave and the option you chose;
 references to the artifacts the command produced; and a short summary written by the
 model. The target is recorded as `github:pr/<number>`.
 
