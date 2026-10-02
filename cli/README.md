@@ -459,7 +459,7 @@ Um harness headless (`codex exec`, `claude -p`) sai com `0` mesmo quando a skill
 ```
 
 - `schema` é obrigatório e vale `flux-gate/1`. `pending: false` é recibo de gate resolvido e não conta como sinal.
-- `kind` é uma das categorias de `plugins/flux/shared/hitl.md` (as mesmas que `run.sh gate` valida): `github-post`, `commit-push`, `issue-write`, `slack-write`, `pr-open`, `write-outside`, `write-manifest`, `ambiguous-target`.
+- `kind` é uma das categorias que `run.sh gate` valida (`GATE_KINDS`), derivadas das ações de `plugins/flux/shared/hitl.md`: `github-post`, `commit-push`, `issue-write`, `slack-write`, `pr-open`, `write-outside`, `write-manifest`, `ambiguous-target`.
 - `question` e `options` são opcionais, só para exibição (sem controle de terminal, truncados em 200 caracteres, no máximo 8 opções). O `flux` não os grava no run.
 - **Direção segura:** arquivo existente mas vazio, com JSON inválido, de outro `schema` ou com `kind` fora do vocabulário conta como gate pendente (o stderr diz que o sinal era ilegível). Só a ausência do arquivo é sucesso.
 
@@ -467,14 +467,16 @@ Um harness headless (`codex exec`, `claude -p`) sai com `0` mesmo quando a skill
 
 **Onde o canal não existe.** O CLI declara no stderr e no bloco (`gate_signal: indisponivel (<motivo>)`) em vez de fingir cobertura:
 
-- `codex exec` com `--safe` roda em sandbox `read-only` e o modelo não consegue gravar o arquivo, nem com `--add-dir` (testado com codex-cli 0.160.0; só `-s workspace-write --add-dir` grava, e o CLI não afrouxa o sandbox que você escolheu). Sem `--safe` o CLI usa `--dangerously-bypass-approvals-and-sandbox`, que não restringe escrita; esse caminho não foi exercitado contra o codex real nesta mudança (a chamada de teste travou), só contra um harness de teste.
+- `codex exec` com `--safe` roda em sandbox `read-only` e o modelo não consegue gravar o arquivo, nem com `--add-dir` (testado com codex-cli 0.160.0; só `-s workspace-write --add-dir` grava, e o CLI não afrouxa o sandbox que você escolheu). Sem `--safe` o CLI usa `--dangerously-bypass-approvals-and-sandbox` e o sinal é gravado (verificado com codex-cli 0.160.0).
 - `--new`, porque o fim da sessão não é observável fora do modo here.
 - `FLUX_CLAUDE_CMD`: o canal é oferecido, mas o CLI não sabe se o comando customizado consegue gravar nele. Se não conseguir, o gate pendente volta a passar por sucesso.
+
+**Verificado e disponível:** `cursor agent --print` em workspace confiável (`--trust`) grava o sinal mesmo sem `--force`; em workspace não confiável o cursor recusa rodar headless e o problema nem chega ao sinal. `claude` não foi exercitado contra o harness real: em `--safe` o prompt de permissão cobre a gravação, e sem `--safe` a permissão é pulada.
 
 **O que ainda falta para o fluxo estar completo.** Este repo entrega o lado do CLI: canal, exit code, stderr e testes. Ninguém escreve o arquivo ainda. O contrato exato que as skills precisam adotar, as do `flux` e as de `arco-ai-plugins` que hoje emitem `DECISION REQUIRED` (o marcador não existe neste repo):
 
 1. Ler `gate_signal:` no bloco PREFLIGHT RESOLVIDO da mensagem que invocou a skill. Ausente ou `indisponivel (...)`: manter o comportamento atual e não prometer detecção mecânica.
-2. Ao parar num gate sem resposta humana (headless, sem canal interativo), gravar o JSON acima nesse caminho **antes** de encerrar, com o `kind` da categoria do gate. Uma gravação só, atômica (escrever e renomear), e não gravar nada quando o gate foi respondido.
+2. O gatilho é exato: o ponto em que `plugins/flux/shared/hitl.md` manda **imprimir o menu numerado e parar** (seção "Quando o harness não tem o mecanismo", passo 2), ou seja, quando `AskUserQuestion` não existe e não há resposta a esperar. Nesse ponto, gravar o JSON acima no caminho de `gate_signal` **antes** de encerrar. Uma gravação só, atômica (escrever e renomear). Não gravar nada quando o gate foi respondido, nem quando `AskUserQuestion` abriu o gate normalmente. O `kind` usa o vocabulário de `run.sh gate` (`GATE_KINDS`), que mapeia as categorias de ação do `hitl.md` (a tabela "Ações que exigem GATE" as descreve em prosa, não pelos slugs).
 3. Manter o texto `DECISION REQUIRED` na saída: ele continua sendo a leitura humana, só deixou de ser o contrato.
 
 Até as skills fazerem o passo 2, uma execução que para num gate continua saindo `0`.

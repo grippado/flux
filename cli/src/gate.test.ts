@@ -243,7 +243,7 @@ exit 0
       cwd,
       encoding: "utf8",
       input: "",
-      env: { ...process.env, FLUX_CLAUDE_CMD: bin, FAKE_MODE: mode, SHELL: "/bin/sh", TMPDIR: tmp },
+      env: { ...process.env, FLUX_CLAUDE_CMD: bin, FAKE_MODE: mode, SHELL: "/bin/sh", TMPDIR: tmp, HOME: tmp },
     });
     return { status: result.status ?? -1, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
   }
