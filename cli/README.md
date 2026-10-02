@@ -446,7 +446,7 @@ Um harness headless (`codex exec` e equivalentes) sai com `0` mesmo quando a ski
 
 `10` é exclusivo deste protocolo: `1` é falha, `2` é uso errado, `3` é preflight abortado. Stdout e stderr do harness continuam herdados, sem pipe nem tee. Quando há sinal, o CLI acrescenta ao stderr o `kind`, a pergunta e as opções, e diz que a execução parou aguardando decisão e não concluiu.
 
-**Contrato do arquivo** (`flux-gate/1`), que a skill escreve **antes** de parar num gate sem poder perguntar a um humano:
+**Contrato do arquivo** (`flux-gate/1`). O formato que a skill escreve tem dono em `plugins/flux/shared/hitl.md`, seção "Execução headless"; o que segue é o que o CLI aceita e faz com ele. A skill escreve **antes** de parar num gate sem poder perguntar a um humano:
 
 ```json
 {
@@ -476,7 +476,7 @@ Um harness headless (`codex exec` e equivalentes) sai com `0` mesmo quando a ski
 **O que ainda falta para o fluxo estar completo.** Este repo entrega o lado do CLI: canal, exit code, stderr e testes. Ninguém escreve o arquivo ainda. O contrato exato que as skills precisam adotar, as do `flux` e as skills externas que hoje emitem `DECISION REQUIRED` (o marcador não existe neste repo):
 
 1. Ler `gate_signal:` no bloco PREFLIGHT RESOLVIDO da mensagem que invocou a skill. Ausente ou `indisponivel (...)`: manter o comportamento atual e não prometer detecção mecânica.
-2. O gatilho é exato: o ponto em que `plugins/flux/shared/hitl.md` manda **imprimir o menu numerado e parar** (seção "Quando o harness não tem o mecanismo", passos 1 e 2), ou seja, quando `AskUserQuestion` não existe e não há resposta a esperar. Nesse ponto, gravar o JSON acima no caminho de `gate_signal` **antes** de encerrar. Uma gravação só, atômica (escrever e renomear). Não gravar nada quando o gate foi respondido, nem quando `AskUserQuestion` abriu o gate normalmente. O `kind` usa o vocabulário de `run.sh gate` (`GATE_KINDS`), que mapeia as categorias de ação do `hitl.md` (a tabela "Ações que exigem GATE" as descreve em prosa, não pelos slugs).
+2. O gatilho é exato: o ponto em que `plugins/flux/shared/hitl.md` manda **imprimir o menu numerado e parar** (seção "Quando o harness não tem o mecanismo", passos 1 e 2), ou seja, quando `AskUserQuestion` não existe e não há resposta a esperar. Nesse ponto, gravar o JSON acima no caminho de `gate_signal` **antes** de encerrar. Uma gravação só, atômica (escrever e renomear). Não gravar nada quando o gate foi respondido, nem quando `AskUserQuestion` abriu o gate normalmente. O `kind` usa o vocabulário de `run.sh gate` (`GATE_KINDS`), e a tabela ação para `kind` está em `hitl.md`, seção "Execução headless".
 3. Manter o texto `DECISION REQUIRED` na saída: ele continua sendo a leitura humana, só deixou de ser o contrato.
 
 Até as skills fazerem o passo 2, uma execução que para num gate continua saindo `0`.
