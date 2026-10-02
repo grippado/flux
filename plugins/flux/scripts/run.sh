@@ -12,6 +12,7 @@ EX_USAGE=64
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LOCK_DIR=""
+BREAK_DIR=""
 TMP_FILE=""
 
 usage() {
@@ -24,12 +25,12 @@ NN-<verbo>.md por stage e outcome.md. Permissões 0700 nos diretórios, 0600 nos
 arquivos. Não envia nada para fora da máquina.
 
 Comandos:
-  start        [--slug S] [--goal TEXTO] [--cli-version V]        imprime o run_id
+  start        [--slug S] [--cli-version V]                       imprime o run_id
   stage-start  --run ID --verb V [--writer cli|script|prose]
-               [--session-id S] [--pid N] [--target T] [--retry-of N]
+               [--session-id S] [--target T] [--retry-of N]
                [--harness-value claude-code|cursor|codex|unknown]
-               [--harness-source cli-launch|plugin-root-env|unknown]
-               [--cap-hint H] [--cap-hard nome:ok|fail]... [--cap-soft nome:ok|fail]...
+               [--harness-source cli-launch|default|plugin-root-env|unknown]
+               [--cap-hint H] [--cap-missing nome:hard|soft]...
                [--cap-degradation TEXTO]...                      imprime a sequence (NN)
   stage-set    --run ID --seq N [--model M] [--effort E]
   gate         --run ID --seq N --kind K --decision approved|rejected|delegated|dismissed
@@ -60,6 +61,9 @@ cleanup() {
     fi
     if [ -n "$LOCK_DIR" ] && [ -d "$LOCK_DIR" ]; then
         rm -rf "$LOCK_DIR"
+    fi
+    if [ -n "$BREAK_DIR" ] && [ -d "$BREAK_DIR" ]; then
+        rmdir "$BREAK_DIR" 2> /dev/null || true
     fi
 }
 trap cleanup EXIT
@@ -147,18 +151,15 @@ RUN=""
 SEQ=""
 VERB=""
 SLUG=""
-GOAL=""
 CLI_VERSION=""
 WRITER="script"
 SESSION_ID=""
-PID_VALUE=""
 TARGET=""
 RETRY_OF=""
 HARNESS_VALUE="unknown"
 HARNESS_SOURCE="unknown"
 CAP_HINT=""
-CAP_HARD=""
-CAP_SOFT=""
+CAP_MISSING=""
 CAP_DEG=""
 MODEL=""
 EFFORT=""
@@ -185,18 +186,15 @@ parse_flags() {
             --seq) SEQ="$2" ;;
             --verb) VERB="$2" ;;
             --slug) SLUG="$2" ;;
-            --goal) GOAL="$2" ;;
             --cli-version) CLI_VERSION="$2" ;;
             --writer) WRITER="$2" ;;
             --session-id) SESSION_ID="$2" ;;
-            --pid) PID_VALUE="$2" ;;
             --target) TARGET="$2" ;;
             --retry-of) RETRY_OF="$2" ;;
             --harness-value) HARNESS_VALUE="$2" ;;
             --harness-source) HARNESS_SOURCE="$2" ;;
             --cap-hint) CAP_HINT="$2" ;;
-            --cap-hard) CAP_HARD="${CAP_HARD}${2}"$'\n' ;;
-            --cap-soft) CAP_SOFT="${CAP_SOFT}${2}"$'\n' ;;
+            --cap-missing) CAP_MISSING="${CAP_MISSING}${2}"$'\n' ;;
             --cap-degradation) CAP_DEG="${CAP_DEG}${2}"$'\n' ;;
             --model) MODEL="$2" ;;
             --effort) EFFORT="$2" ;;
@@ -234,9 +232,13 @@ require_run() {
     RUN_DIR="$(runs_root)/$RUN"
     [ -d "$RUN_DIR" ] || die "$EX_STATE" "run inexistente: $RUN"
     if [ "$REQUIRE_ACTIVE" = "1" ]; then
-        [ -f "$RUN_DIR/run.md" ] || die "$EX_STATE" "run.md ausente em $RUN"
-        [ "$(fm_get status "$RUN_DIR/run.md")" = "active" ] || die "$EX_STATE" "run já encerrado: $RUN"
+        assert_active
     fi
+}
+
+assert_active() {
+    [ -f "$RUN_DIR/run.md" ] || die "$EX_STATE" "run.md ausente em $RUN"
+    [ "$(fm_get status "$RUN_DIR/run.md")" = "active" ] || die "$EX_STATE" "run já encerrado: $RUN"
 }
 
 require_seq() {
@@ -321,29 +323,46 @@ mtime_of() {
     stat -c '%Y' "$1" 2> /dev/null || stat -f '%m' "$1" 2> /dev/null || printf '0'
 }
 
-drop_stale_lock() {
-    if mv "$RUN_DIR/.lock" "$RUN_DIR/.lock.stale.$$" 2> /dev/null; then
-        rm -rf "$RUN_DIR/.lock.stale.$$"
+lock_is_stale() {
+    local holder age
+    holder="$(cat "$RUN_DIR/.lock/pid" 2> /dev/null || true)"
+    if [ -n "$holder" ]; then
+        if kill -0 "$holder" 2> /dev/null; then
+            return 1
+        fi
+        return 0
     fi
+    [ -d "$RUN_DIR/.lock" ] || return 1
+    age=$(($(date +%s) - $(mtime_of "$RUN_DIR/.lock")))
+    [ "$age" -ge 5 ]
+}
+
+drop_stale_lock() {
+    local age
+    if ! mkdir "$RUN_DIR/.lock.break" 2> /dev/null; then
+        age=$(($(date +%s) - $(mtime_of "$RUN_DIR/.lock.break")))
+        if [ "$age" -ge 5 ]; then
+            rmdir "$RUN_DIR/.lock.break" 2> /dev/null || true
+        fi
+        return 0
+    fi
+    BREAK_DIR="$RUN_DIR/.lock.break"
+    if lock_is_stale; then
+        rm -rf "$RUN_DIR/.lock"
+    fi
+    rmdir "$BREAK_DIR" 2> /dev/null || true
+    BREAK_DIR=""
 }
 
 acquire_lock() {
-    local tries=0 holder age
+    local tries=0 holder
     LOCK_DIR=""
     while ! mkdir "$RUN_DIR/.lock" 2> /dev/null; do
-        holder="$(cat "$RUN_DIR/.lock/pid" 2> /dev/null || true)"
-        if [ -n "$holder" ]; then
-            if ! kill -0 "$holder" 2> /dev/null; then
-                drop_stale_lock
-                continue
-            fi
-        else
-            age=$(($(date +%s) - $(mtime_of "$RUN_DIR/.lock")))
-            if [ "$age" -ge 5 ]; then
-                drop_stale_lock
-                continue
-            fi
+        if lock_is_stale; then
+            drop_stale_lock
+            continue
         fi
+        holder="$(cat "$RUN_DIR/.lock/pid" 2> /dev/null || true)"
         tries=$((tries + 1))
         [ "$tries" -le 100 ] || die "$EX_STATE" "lock do run ocupado (pid $holder)."
         sleep 0.1
@@ -373,9 +392,9 @@ next_sequence() {
     printf '%s' "$((max + 1))"
 }
 
-cap_list() {
-    local items="$1" line name state ok
-    if [ -z "$items" ]; then
+missing_list() {
+    local line name kind
+    if [ -z "$CAP_MISSING" ]; then
         printf ' []\n'
         return
     fi
@@ -383,16 +402,15 @@ cap_list() {
     while IFS= read -r line; do
         [ -n "$line" ] || continue
         name="${line%:*}"
-        state="${line##*:}"
+        kind="${line##*:}"
         [[ "$name" =~ ^[A-Za-z0-9_./-]+$ ]] || die "$EX_INVALID" "nome de capacidade inválido: $name"
         [[ "$name" != /* && "$name" != "~"* ]] || die "$EX_INVALID" "nome de capacidade com path absoluto: $name"
-        case "$state" in
-            ok) ok=true ;;
-            fail) ok=false ;;
-            *) die "$EX_INVALID" "estado de capacidade inválido: $line (use nome:ok|fail)" ;;
+        case "$kind" in
+            hard | soft) ;;
+            *) die "$EX_INVALID" "tipo de capacidade inválido: $line (use nome:hard|soft)" ;;
         esac
-        printf '    - {name: %s, ok: %s}\n' "$name" "$ok"
-    done <<< "$items"
+        printf '    - {name: %s, kind: %s}\n' "$name" "$kind"
+    done <<< "$CAP_MISSING"
 }
 
 deg_list() {
@@ -411,8 +429,9 @@ deg_list() {
 
 cmd_start() {
     parse_flags "$@"
-    local slug id dir started goal cli_version
+    local slug id dir started cli_version
     [[ "$SLUG" != *[/\\~]* ]] || die "$EX_INVALID" "--slug com path ou til: recusado."
+    [ -z "$CLI_VERSION" ] || [[ "$CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]{1,20})?$ ]] || die "$EX_INVALID" "--cli-version inválido: $CLI_VERSION"
     slug="$(slugify "${SLUG:-run}")"
     [ -n "$slug" ] || slug="run"
     ensure_root
@@ -420,14 +439,12 @@ cmd_start() {
     dir="$(runs_root)/$id"
     mkdir -m 700 "$dir" || die "$EX_STATE" "não foi possível criar $dir (colisão de run_id?)"
     started="$(now_iso)"
-    if [ -n "$GOAL" ]; then goal="$(yaml_str "$GOAL")"; else goal="null"; fi
     if [ -n "$CLI_VERSION" ]; then cli_version="$(yaml_scalar "$CLI_VERSION")"; else cli_version="null"; fi
     {
         printf -- '---\n'
         printf 'schema: %s\n' "$SCHEMA"
         printf 'run_id: %s\n' "$id"
         printf 'status: active\n'
-        printf 'goal: %s\n' "$goal"
         printf 'started_at: %s\n' "$started"
         printf 'ended_at: null\n'
         printf 'flux_version: %s\n' "$(yaml_scalar "$(plugin_version)")"
@@ -443,16 +460,15 @@ cmd_stage_start() {
     [[ "$VERB" =~ ^[a-z]+$ ]] || die "$EX_USAGE" "--verb inválido ou ausente."
     case "$WRITER" in cli | script | prose) ;; *) die "$EX_INVALID" "--writer inválido: $WRITER" ;; esac
     case "$HARNESS_VALUE" in claude-code | cursor | codex | unknown) ;; *) die "$EX_INVALID" "--harness-value inválido: $HARNESS_VALUE" ;; esac
-    case "$HARNESS_SOURCE" in cli-launch | plugin-root-env | unknown) ;; *) die "$EX_INVALID" "--harness-source inválido: $HARNESS_SOURCE" ;; esac
+    case "$HARNESS_SOURCE" in cli-launch | default | plugin-root-env | unknown) ;; *) die "$EX_INVALID" "--harness-source inválido: $HARNESS_SOURCE" ;; esac
     [ -z "$SESSION_ID" ] || [[ "$SESSION_ID" =~ ^[a-z0-9]+-[0-9a-f]{8}$ ]] || die "$EX_INVALID" "--session-id inválido: $SESSION_ID"
-    [ -z "$PID_VALUE" ] || [[ "$PID_VALUE" =~ ^[0-9]+$ ]] || die "$EX_INVALID" "--pid inválido: $PID_VALUE"
     [ -z "$TARGET" ] || reject_abs_path "--target" "$TARGET"
     [ -z "$CAP_HINT" ] || [[ "$CAP_HINT" =~ ^[A-Za-z-]+$ ]] || die "$EX_INVALID" "--cap-hint inválido: $CAP_HINT"
-    local hard_block soft_block deg_block seq file started session pid target retry hint
-    hard_block="$(cap_list "$CAP_HARD")"
-    soft_block="$(cap_list "$CAP_SOFT")"
+    local missing_block deg_block seq file started session target retry hint
+    missing_block="$(missing_list)"
     deg_block="$(deg_list)"
     acquire_lock
+    assert_active
     seq="$(next_sequence)"
     if [ -n "$RETRY_OF" ]; then
         [[ "$RETRY_OF" =~ ^[0-9]{1,3}$ ]] || die "$EX_INVALID" "--retry-of inválido: $RETRY_OF"
@@ -464,7 +480,6 @@ cmd_stage_start() {
     file="$RUN_DIR/$(printf '%02d' "$seq")-$VERB.md"
     started="$(now_iso)"
     if [ -n "$SESSION_ID" ]; then session="$SESSION_ID"; else session="null"; fi
-    if [ -n "$PID_VALUE" ]; then pid="$PID_VALUE"; else pid="null"; fi
     if [ -n "$TARGET" ]; then target="$(yaml_str "$TARGET")"; else target="null"; fi
     if [ -n "$CAP_HINT" ]; then hint="$CAP_HINT"; else hint="unknown"; fi
     {
@@ -480,7 +495,6 @@ cmd_stage_start() {
         printf 'exit_code: null\n'
         printf 'writer: %s\n' "$WRITER"
         printf 'session_id: %s\n' "$session"
-        printf 'pid: %s\n' "$pid"
         printf 'harness:\n'
         printf '  value: %s\n' "$HARNESS_VALUE"
         printf '  source: %s\n' "$HARNESS_SOURCE"
@@ -489,8 +503,7 @@ cmd_stage_start() {
         printf 'target: %s\n' "$target"
         printf 'capabilities:\n'
         printf '  level_cli_hint: %s\n' "$hint"
-        printf '  hard:%s\n' "$hard_block"
-        printf '  soft:%s\n' "$soft_block"
+        printf '  missing:%s\n' "$missing_block"
         printf '  degradations:%s\n' "$deg_block"
         printf 'gates: []\n'
         printf 'outputs: []\n'
@@ -510,6 +523,7 @@ cmd_stage_set() {
     [ -z "$MODEL" ] || reject_abs_path "--model" "$MODEL"
     [ -z "$EFFORT" ] || reject_abs_path "--effort" "$EFFORT"
     acquire_lock
+    assert_active
     if [ -n "$MODEL" ]; then
         set_scalar "$STAGE_FILE" model "$(yaml_scalar "$MODEL")"
     fi
@@ -533,6 +547,7 @@ cmd_gate() {
         item="$item"$'\n'"    option: $(yaml_str "$OPTION")"
     fi
     acquire_lock
+    assert_active
     append_item "$STAGE_FILE" gates "$item"
     release_lock
 }
@@ -563,6 +578,7 @@ cmd_output() {
         item="$item"$'\n'"    head_sha: $HEAD_SHA"
     fi
     acquire_lock
+    assert_active
     append_item "$STAGE_FILE" outputs "$item"
     release_lock
 }
@@ -572,13 +588,13 @@ cmd_stage_summary() {
     require_stage
     local text out
     text="$(head -c 4096)"
-    if command -v iconv > /dev/null 2>&1; then
-        text="$(printf '%s' "$text" | iconv -f UTF-8 -t UTF-8 -c 2> /dev/null || printf '%s' "$text")"
-    fi
+    command -v iconv > /dev/null 2>&1 || die "$EX_DEPS" "iconv não encontrado no PATH (necessário para cortar o resumo em fronteira de caractere)."
+    text="$(printf '%s' "$text" | iconv -f UTF-8 -t UTF-8 -c 2> /dev/null || true)"
     text="$(printf '%s' "$text" | LC_ALL=C tr -d '\000-\010\013\014\016-\037\177')"
     [ -n "$text" ] || die "$EX_USAGE" "resumo vazio no stdin."
     reject_unsafe_text "resumo" "$text"
     acquire_lock
+    assert_active
     out="$(mktemp "$(dirname "$STAGE_FILE")/.tmp.XXXXXX")"
     TMP_FILE="$out"
     {
@@ -600,6 +616,7 @@ cmd_stage_end() {
     case "$STATUS" in completed | failed | cancelled) ;; *) die "$EX_INVALID" "--status inválido: $STATUS" ;; esac
     [ -z "$EXIT_CODE" ] || [[ "$EXIT_CODE" =~ ^[0-9]{1,3}$ ]] || die "$EX_INVALID" "--exit-code inválido: $EXIT_CODE"
     acquire_lock
+    assert_active
     if [ "$(fm_get status "$STAGE_FILE")" != "running" ]; then
         release_lock
         printf 'run.sh: stage %s já encerrada (%s); a primeira conclusão vale.\n' "$SEQ" "$(fm_get status "$STAGE_FILE")" >&2
@@ -622,6 +639,8 @@ stage_files() {
 cmd_end() {
     parse_flags "$@"
     require_run
+    acquire_lock
+    assert_active
     local f s n_completed=0 n_failed=0 n_cancelled=0 n_running=0 total=0
     local g_approved=0 g_rejected=0 g_delegated=0 g_dismissed=0 d
     local outputs_block="" seq base ended result run_status
@@ -692,6 +711,7 @@ cmd_end() {
     } | write_atomic "$RUN_DIR/outcome.md"
     set_scalar "$RUN_DIR/run.md" status "$run_status"
     set_scalar "$RUN_DIR/run.md" ended_at "$ended"
+    release_lock
 }
 
 main() {

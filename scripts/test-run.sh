@@ -100,9 +100,9 @@ t_true "default grava em \$HOME/.flux/runs/<id>" '[ -f "$HOME_T/.flux/runs/$RUN_
 t_eq "raiz default 0700" "700" "$(mode_of "$HOME_T/.flux/runs")"
 
 echo "# stage-start"
-SEQ="$(rs stage-start --run "$RUN" --verb review --writer cli --session-id lq1x2y3z-9f8e7d6c --pid 4242 \
-    --target github:pr/184 --harness-value claude-code --harness-source cli-launch --cap-hint FULL-tentativo \
-    --cap-hard git:ok --cap-hard shared/flux-context.md:ok --cap-soft gh:ok --cap-soft vault:fail \
+SEQ="$(rs stage-start --run "$RUN" --verb review --writer cli --session-id lq1x2y3z-9f8e7d6c \
+    --target github:pr/184 --harness-value claude-code --harness-source default --cap-hint FULL-tentativo \
+    --cap-missing vault:soft --cap-missing shared/flux-context.md:hard \
     --cap-degradation "vault indisponivel — rodadas anteriores nao consultadas; artefato nao persistido" \
     --cap-degradation "gh indisponivel — sem coleta de PR/threads via GitHub")"
 STAGE="$RUN_DIR/01-review.md"
@@ -114,7 +114,7 @@ t_eq "stage sequence" "1" "$(fm_value sequence "$STAGE")"
 t_eq "stage verb" "review" "$(fm_value verb "$STAGE")"
 t_eq "stage writer" "cli" "$(fm_value writer "$STAGE")"
 t_eq "stage session_id" "lq1x2y3z-9f8e7d6c" "$(fm_value session_id "$STAGE")"
-t_eq "stage pid" "4242" "$(fm_value pid "$STAGE")"
+t_true "stage não tem pid nem goal" '! grep -qE "^(pid|goal):" "$STAGE" "$RUN_DIR/run.md"'
 t_eq "stage exit_code nasce null" "null" "$(fm_value exit_code "$STAGE")"
 t_eq "stage finished_at nasce null" "null" "$(fm_value finished_at "$STAGE")"
 t_eq "stage model nasce unknown" "unknown" "$(fm_value model "$STAGE")"
@@ -122,11 +122,12 @@ t_eq "stage effort nasce unknown" "unknown" "$(fm_value effort "$STAGE")"
 t_eq "stage target" '"github:pr/184"' "$(fm_value target "$STAGE")"
 t_eq "stage retry_of null" "null" "$(fm_value retry_of "$STAGE")"
 t_has "harness.value" "  value: claude-code" "$STAGE"
-t_has "harness.source" "  source: cli-launch" "$STAGE"
+t_has "harness.source" "  source: default" "$STAGE"
 t_has "capabilities.level_cli_hint" "  level_cli_hint: FULL-tentativo" "$STAGE"
-t_has "capabilities hard" "    - {name: git, ok: true}" "$STAGE"
-t_has "capabilities hard com nome relativo" "    - {name: shared/flux-context.md, ok: true}" "$STAGE"
-t_has "capabilities soft ok false" "    - {name: vault, ok: false}" "$STAGE"
+t_has "capabilities lista só o que faltou: soft" "    - {name: vault, kind: soft}" "$STAGE"
+t_has "capabilities lista só o que faltou: hard com nome relativo" "    - {name: shared/flux-context.md, kind: hard}" "$STAGE"
+t_true "capabilities não tem lista de hard/soft ok" '! grep -qE "^  (hard|soft):" "$STAGE"'
+t_has "harness.source default é aceito" "  source: default" "$STAGE"
 t_has "capabilities degradations" '    - "gh indisponivel — sem coleta de PR/threads via GitHub"' "$STAGE"
 t_eq "gates nasce vazio" "[]" "$(fm_value gates "$STAGE")"
 t_eq "outputs nasce vazio" "[]" "$(fm_value outputs "$STAGE")"
@@ -195,10 +196,18 @@ rs stage-start --run "$RUN" --verb review --cap-degradation "falhou em /Users/gr
 t_eq "degradação com path absoluto sai 4" "4" "$?"
 rs stage-start --run "$RUN" --verb review --target "/Users/grippado/repo" 2> /dev/null
 t_eq "target com path absoluto sai 4" "4" "$?"
-rs stage-start --run "$RUN" --verb review --cap-hard "/usr/bin/git:ok" 2> /dev/null
+rs stage-start --run "$RUN" --verb review --cap-missing "/usr/bin/git:hard" 2> /dev/null
 t_eq "capacidade com path absoluto sai 4" "4" "$?"
-rs stage-start --run "$RUN" --verb review --cap-soft "gh:talvez" 2> /dev/null
-t_eq "estado de capacidade inválido sai 4" "4" "$?"
+rs stage-start --run "$RUN" --verb review --cap-missing "gh:talvez" 2> /dev/null
+t_eq "tipo de capacidade inválido sai 4" "4" "$?"
+rs stage-start --run "$RUN" --verb review --harness-source inventado 2> /dev/null
+t_eq "harness-source inválido sai 4" "4" "$?"
+rs start --cli-version "1.30.0 /Users/x" 2> /dev/null
+t_eq "cli-version com path sai 4" "4" "$?"
+rs start --cli-version "ghp_abcdefghijklmnopqrstuvwxyz0123" 2> /dev/null
+t_eq "cli-version com segredo sai 4" "4" "$?"
+rs start --goal "x" 2> /dev/null
+t_eq "--goal deixou de existir (64)" "64" "$?"
 t_eq "recusas não criaram stages extras" "2" "$(find "$RUN_DIR" -name '[0-9][0-9]-*.md' | wc -l | tr -d ' ')"
 
 echo "# contornos do guard de path e segredo"
@@ -255,6 +264,17 @@ printf 'rodei /flux:review em ~5 minutos, 3 findings\n' | rs stage-summary --run
 t_eq "resumo comum com /comando e ~5 passa" "0" "$?"
 printf 'acentuação: ação, é, ü\n' | rs stage-summary --run "$RUN" --seq 1
 t_has "UTF-8 preservado" "acentuação: ação, é, ü" "$STAGE"
+RUN_U="$(rs start --slug utf8)"
+rs stage-start --run "$RUN_U" --verb review > /dev/null
+python3 -c "import sys; sys.stdout.write('a'*4095+'é fim\n')" | rs stage-summary --run "$RUN_U" --seq 1
+STAGE_U="$FLUX_RUNS_ROOT/$RUN_U/01-review.md"
+t_true "corte no meio de um caractere gera UTF-8 válido" 'iconv -f UTF-8 -t UTF-8 "$STAGE_U" 2>&1 | cat > /dev/null'
+t_eq "corte multibyte não duplica o corpo" "1" "$(grep -c '^## Resumo$' "$STAGE_U")"
+t_true "corte multibyte respeita o teto de 4096 bytes no corpo" '[ "$(sed -n "/^## Resumo$/,\$p" "$STAGE_U" | wc -c | tr -d " ")" -le 4120 ]'
+t_eq "corte multibyte descarta só o caractere partido" "4095" "$(sed -n '/^## Resumo$/,$p' "$STAGE_U" | tr -cd 'a' | wc -c | tr -d ' ')"
+printf 'texto com acento no limite: %s\n' "$(python3 -c "print('é'*3000)")" | rs stage-summary --run "$RUN_U" --seq 1
+t_true "texto todo acentuado cortado em 4096 bytes segue válido" 'iconv -f UTF-8 -t UTF-8 "$STAGE_U" 2>&1 | cat > /dev/null'
+t_eq "e não duplica o cabeçalho do resumo" "1" "$(grep -c '^## Resumo$' "$STAGE_U")"
 printf 'PR 184: approved-with-suggestions.\nstatus: falso dentro do corpo\n' | rs stage-summary --run "$RUN" --seq 1
 
 echo "# stage-end"
@@ -312,7 +332,36 @@ mkdir "$FLUX_RUNS_ROOT/$RUN_L/.lock"
 printf '999999\n' > "$FLUX_RUNS_ROOT/$RUN_L/.lock/pid"
 rs gate --run "$RUN_L" --seq 1 --kind github-post --decision dismissed --via askuser 2> /dev/null
 t_eq "lock de pid morto é recuperado" "0" "$?"
-t_true "nenhum .lock nem .lock.stale sobrando" '[ -z "$(find "$FLUX_RUNS_ROOT/$RUN_L" -name ".lock*" | head -1)" ]'
+mkdir "$FLUX_RUNS_ROOT/$RUN_L/.lock" "$FLUX_RUNS_ROOT/$RUN_L/.lock.break"
+touch -t 202001010000 "$FLUX_RUNS_ROOT/$RUN_L/.lock" "$FLUX_RUNS_ROOT/$RUN_L/.lock.break"
+rs gate --run "$RUN_L" --seq 1 --kind github-post --decision approved --via askuser 2> /dev/null
+t_eq "quebra de lock órfã (.lock.break antigo) é recuperada" "0" "$?"
+t_true "nenhum .lock, .lock.break nem .lock.stale sobrando" '[ -z "$(find "$FLUX_RUNS_ROOT/$RUN_L" -name ".lock*" | head -1)" ]'
+
+echo "# end e escritas concorrentes não deixam o outcome desatualizado"
+for i in 1 2 3 4 5; do
+    RUN_C="$(rs start --slug conc)"
+    rs stage-start --run "$RUN_C" --verb review > /dev/null
+    rs stage-end --run "$RUN_C" --seq 1 --status completed --exit-code 0
+    for _ in 1 2 3 4; do
+        rs stage-start --run "$RUN_C" --verb land > /dev/null 2>&1 &
+    done
+    rs end --run "$RUN_C" > /dev/null 2>&1 &
+    wait
+    FILES="$(find "$FLUX_RUNS_ROOT/$RUN_C" -name '[0-9][0-9]-*.md' | wc -l | tr -d ' ')"
+    COUNTED=0
+    for k in completed failed cancelled running; do
+        n="$(sed -n "s/^  $k: //p" "$FLUX_RUNS_ROOT/$RUN_C/outcome.md" | head -1)"
+        COUNTED=$((COUNTED + n))
+    done
+    t_eq "rodada $i: o outcome contou todas as stages que existem" "$FILES" "$COUNTED"
+done
+RUN_D="$(rs start --slug dois-end)"
+rs end --run "$RUN_D" > /dev/null 2>&1 &
+rs end --run "$RUN_D" > /dev/null 2>&1 &
+wait
+t_eq "dois end simultâneos deixam um outcome só e run encerrado" "completed" "$(fm_value status "$FLUX_RUNS_ROOT/$RUN_D/run.md")"
+t_true "e nenhum lock sobrando" '[ -z "$(find "$FLUX_RUNS_ROOT/$RUN_D" -name ".lock*" | head -1)" ]'
 
 echo "# resultado derivado"
 RUN_F="$(rs start --slug falha)"
