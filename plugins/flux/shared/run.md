@@ -70,7 +70,7 @@ run_id: 20261001T204006Z_review-pr-184_ba64
 status: active              # active | completed | failed
 started_at: 2026-10-01T17:40:06-03:00
 ended_at: null
-flux_version: 1.43.0        # lida do plugin.json do próprio writer
+flux_version: 1.44.0        # lida do plugin.json do próprio writer
 cli_version: 1.30.0         # null sem CLI
 ---
 ```
