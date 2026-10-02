@@ -39,12 +39,13 @@ Comandos:
   stage-summary --run ID --seq N          (texto do resumo no stdin, até 4096 bytes)
   stage-end    --run ID --seq N --status completed|failed|cancelled [--exit-code N]
   end          --run ID [--result completed|failed|cancelled]
+  resolve-ref  --run ID --vault-root DIR [--ref vault:<rel>]       imprime o path atual da nota (relativo)
 
 Flags comuns: --root DIR (padrão: $FLUX_RUNS_ROOT ou ~/.flux/runs).
 
 Códigos de saída: 0 ok; 2 dependência ausente; 3 estado inválido (run ou stage
-inexistente, run já encerrado); 4 valor recusado (path absoluto, enum inválido);
-64 uso inválido.
+inexistente, run já encerrado, nota não encontrada); 4 valor recusado (path
+absoluto, enum inválido); 64 uso inválido.
 EOF
 }
 
@@ -168,6 +169,7 @@ DECISION=""
 VIA=""
 OPTION=""
 REF=""
+VAULT_ROOT_DIR=""
 HEAD_SHA=""
 STATUS=""
 EXIT_CODE=""
@@ -203,6 +205,7 @@ parse_flags() {
             --via) VIA="$2" ;;
             --option) OPTION="$2" ;;
             --ref) REF="$2" ;;
+            --vault-root) VAULT_ROOT_DIR="$2" ;;
             --head-sha) HEAD_SHA="$2" ;;
             --status) STATUS="$2" ;;
             --exit-code) EXIT_CODE="$2" ;;
@@ -714,6 +717,45 @@ cmd_end() {
     release_lock
 }
 
+cmd_resolve_ref() {
+    parse_flags "$@"
+    REQUIRE_ACTIVE=0
+    require_run
+    [ -n "$VAULT_ROOT_DIR" ] || die "$EX_USAGE" "--vault-root é obrigatório."
+    [ -d "$VAULT_ROOT_DIR" ] || die "$EX_STATE" "vault inexistente: $VAULT_ROOT_DIR"
+    local root="${VAULT_ROOT_DIR%/}" hint="" file found=""
+    if [ -n "$REF" ]; then
+        case "$REF" in vault:*) hint="${REF#vault:}" ;; *) die "$EX_INVALID" "--ref deve começar com vault: (recebido: $REF)" ;; esac
+        [[ "$hint" != /* && "$hint" != "~"* && ! "$hint" =~ (^|/)\.\.(/|$) ]] || die "$EX_INVALID" "--ref inválido: $REF"
+        if [ -f "$root/$hint" ] && note_has_run_id "$root/$hint"; then
+            printf '%s\n' "$hint"
+            return 0
+        fi
+    fi
+    while IFS= read -r file; do
+        if note_has_run_id "$file"; then
+            found="${found}${file#"$root"/}"$'\n'
+        fi
+    done < <(grep -rlF --include='*.md' --exclude-dir=.git -e "$RUN" "$root" 2> /dev/null | LC_ALL=C sort)
+    if [ -z "$found" ]; then
+        if [ -n "$hint" ] && [ -f "$root/$hint" ]; then
+            printf '%s\n' "$hint"
+            return 0
+        fi
+        die "$EX_STATE" "nenhuma nota do vault carrega run_id: $RUN"
+    fi
+    printf '%s' "$found"
+}
+
+note_has_run_id() {
+    awk -v id="$RUN" '
+        NR == 1 { if ($0 != "---") exit 1; next }
+        $0 == "---" { exit (hit ? 0 : 1) }
+        $0 == "run_id: \"" id "\"" || $0 == "run_id: " id { hit = 1 }
+        END { if (!hit) exit 1 }
+    ' "$1" 2> /dev/null
+}
+
 main() {
     if [ "$#" -eq 0 ]; then
         usage >&2
@@ -731,6 +773,7 @@ main() {
         stage-summary) cmd_stage_summary "$@" ;;
         stage-end) cmd_stage_end "$@" ;;
         end) cmd_end "$@" ;;
+        resolve-ref) cmd_resolve_ref "$@" ;;
         *) die "$EX_USAGE" "comando desconhecido: $cmd" ;;
     esac
 }

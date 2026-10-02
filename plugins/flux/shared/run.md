@@ -128,6 +128,7 @@ Regras de campo:
 - `capabilities` é uma **projeção** do `PreflightResult` da CLI e nunca carrega path: o nível (`capability_level_hint`), só os requisitos que **faltaram** (nome e `kind: hard|soft`) e as degradações. O que estava presente não é listado: ausência de um nome significa que ele estava disponível.
 - `gates` e `outputs` crescem por `append`; o writer recusa decisões, `via` e `kind` fora do vocabulário: gates `github-post`, `commit-push`, `issue-write`, `slack-write`, `pr-open`, `write-outside`, `write-manifest`, `ambiguous-target` (as categorias de `shared/hitl.md`); outputs `review`, `board`, `pr`, `issue`.
 - `outputs[].ref` é referência, nunca conteúdo: `vault:<path relativo a VAULT_ROOT>`, `url:<url>` ou `git:<ref>`. Não se copia finding para o run.
+- `vault:<path>` é **dica de localização no momento da escrita**: o `/organize` promove a nota do `0-inbox/` para o lado `arco/` ou `personal/`, e pode renomear e consolidar, então o path envelhece. A identidade da nota é o `run_id` no frontmatter dela (topo, fora de `provenance`), gravado pelo `flux:review` quando há run. `run.sh resolve-ref --run ID --vault-root DIR [--ref vault:<rel>]` devolve o path atual: usa a dica se a nota ainda está lá com o `run_id`, senão varre o vault procurando o `run_id` no frontmatter; sai com `3` quando nenhuma nota o carrega. Nota sem `run_id` (anterior a esta regra) só se resolve pela dica.
 - Gate: `requested` não se grava (existir o registro implica ter sido pedido); `not_applicable` é a ausência de registro.
 
 ## Privacidade

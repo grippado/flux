@@ -191,6 +191,31 @@ t_eq "ref sem prefixo sai 4" "4" "$?"
 rs output --run "$RUN" --seq 1 --kind review --ref "vault:x.md" --head-sha NAO 2> /dev/null
 t_eq "head_sha inválido sai 4" "4" "$?"
 
+echo "# resolve-ref"
+VAULT="$WORK/vault"
+mkdir -p "$VAULT/0-inbox" "$VAULT/personal/pr-reviews" "$VAULT/.git"
+printf -- '---\ncontext: "pessoal"\nrun_id: "%s"\nprovenance:\n  machine: "x"\n---\n\ncorpo\n' "$RUN" > "$VAULT/0-inbox/nota.md"
+rs resolve-ref --run "$RUN" --vault-root "$VAULT" --ref "vault:0-inbox/nota.md" > "$WORK/rr.txt"
+t_eq "dica ainda válida resolve sem varrer" "0" "$?"
+t_has "dica devolvida" "0-inbox/nota.md" "$WORK/rr.txt"
+mv "$VAULT/0-inbox/nota.md" "$VAULT/personal/pr-reviews/2026-10-01-1836-flux-PR78.md"
+rs resolve-ref --run "$RUN" --vault-root "$VAULT" --ref "vault:0-inbox/nota.md" > "$WORK/rr.txt"
+t_eq "nota promovida e renomeada resolve por run_id" "0" "$?"
+t_has "path novo devolvido" "personal/pr-reviews/2026-10-01-1836-flux-PR78.md" "$WORK/rr.txt"
+printf -- '---\nrun_id: "%s"\n---\n' "$RUN" > "$VAULT/.git/lixo.md"
+printf -- '---\ncontext: x\n---\n\nrun_id: "%s"\n' "$RUN" > "$VAULT/0-inbox/so-no-corpo.md"
+rs resolve-ref --run "$RUN" --vault-root "$VAULT" > "$WORK/rr.txt"
+t_true "run_id no corpo e em .git não contam" '[ "$(wc -l < "$WORK/rr.txt" | tr -d " ")" = "1" ]'
+rm -f "$VAULT/personal/pr-reviews/2026-10-01-1836-flux-PR78.md"
+rs resolve-ref --run "$RUN" --vault-root "$VAULT" --ref "vault:0-inbox/so-no-corpo.md" > "$WORK/rr.txt" 2> /dev/null
+t_eq "nota sem run_id no frontmatter, só com a dica, ainda resolve pela dica" "0" "$?"
+rs resolve-ref --run "$RUN" --vault-root "$VAULT" 2> /dev/null
+t_eq "sem nota alguma sai 3" "3" "$?"
+rs resolve-ref --run "$RUN" --vault-root "$VAULT" --ref "vault:../fora.md" 2> /dev/null
+t_eq "dica com .. sai 4" "4" "$?"
+rs resolve-ref --run "$RUN" 2> /dev/null
+t_eq "sem --vault-root sai 64" "64" "$?"
+
 echo "# recusa de dados sensíveis"
 rs stage-start --run "$RUN" --verb review --cap-degradation "falhou em /Users/grippado/repo/x" 2> /dev/null
 t_eq "degradação com path absoluto sai 4" "4" "$?"

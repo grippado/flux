@@ -488,7 +488,8 @@ STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificaç�
 - `## 🎯 Veredito & prioridades` no topo, com cada prioridade linkando pro `#fN` e pro código.
 - Frontmatter enriquecido: `pr_url`, `ticket_url`, `head_sha`, `counts` e `status` (vocabulário novo).
   `reverified_threads` entra só quando o Passo 4b rodou (com o tamanho de `REOPEN_CANDIDATES`);
-  sem Passo 4b, omitir o campo.
+  sem Passo 4b, omitir o campo. Com `run_id:` na invocação, o frontmatter ganha `run_id: "{run_id}"`
+  (topo do frontmatter, fora de `provenance`); sem run, omitir o campo.
 
 Gravar com a Write tool no caminho calculado (Step 5). Quando `VAULT_ROOT` não estiver definido (perfil
 genérico sem `--save`): imprimir o artefato no chat em vez de gravar; com `--save <dir>`, gravar em
