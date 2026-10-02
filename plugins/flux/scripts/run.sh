@@ -69,7 +69,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for tool in awk sed date mktemp od tr; do
+for tool in awk sed date mktemp od tr grep sort stat mv; do
     command -v "$tool" > /dev/null 2>&1 || die "$EX_DEPS" "$tool não encontrado no PATH."
 done
 

@@ -32,7 +32,7 @@ Não é observability, nem event stream, nem banco. É identidade e evidência d
 
 O modelo nunca edita arquivo de run: chama `run.sh`, que valida e grava de forma atômica.
 
-**Dependências do `run.sh`.** Só `bash` (3.2 ou mais novo) e utilitários POSIX presentes em qualquer macOS ou Linux (`awk`, `sed`, `date`, `mktemp`, `od`, `tr`, `grep`, `stat`, `mv`), mais `iconv` para o resumo. Não exige `jq` nem `git`. Por isso nenhum `bin:` entra no `requires:` do `review`: o registro nunca é bloqueante, e a falta de uma ferramenta faz o `run.sh` sair com `2` e o review seguir sem registrar.
+**Dependências do `run.sh`.** Só `bash` (3.2 ou mais novo) e utilitários POSIX presentes em qualquer macOS ou Linux (`awk`, `sed`, `date`, `mktemp`, `od`, `tr`, `grep`, `sort`, `stat`, `mv`), mais `iconv` para o resumo. Não exige `jq` nem `git`. Por isso nenhum `bin:` entra no `requires:` do `review`: o registro nunca é bloqueante, e a falta de uma ferramenta faz o `run.sh` sair com `2` e o review seguir sem registrar.
 
 ## Níveis de garantia
 
@@ -56,7 +56,7 @@ O run entra explicitamente no `PREFLIGHT RESOLVIDO` que a CLI monta (`run_id`, `
 - **Stage:** `running`, `completed`, `failed`, `cancelled`. A primeira conclusão vale: `stage-end` numa stage já encerrada não altera nada.
 - Depois do `end`, o run está fechado: `stage-start`, `gate`, `output`, `stage-set`, `stage-summary` e `stage-end` saem com `3`.
 - `outcome.md` carrega `result` (`completed`, `failed` ou `cancelled`). `run.md` só distingue `completed` de `failed`: um run cujo resultado foi `cancelled` termina com `status: completed`.
-- A CLI mapeia o exit code do harness: `0` completa, `130` e `143` cancelam, o resto falha. Um harness morto por sinal vira `128 + n` (a convenção do shell), nunca um `1` inventado. Se a própria CLI morrer antes do `finally` (ela não trata `SIGINT` nem `SIGTERM`), a stage fica `running`.
+- A CLI mapeia o exit code do harness: `0` completa, `130` e `143` cancelam, o resto falha. Um harness morto por sinal vira `128 + n` (a convenção do shell), nunca um `1` inventado. `SIGTERM` no `flux` é encaminhado ao processo final e a stage fecha `cancelled` (143); `SIGINT` o pai ignora, porque o Ctrl-C do terminal já atinge o grupo inteiro. Se a CLI morrer sem passar pelo `finally` (`SIGKILL`, `SIGHUP`), a stage fica `running`.
 - Retry nunca sobrescreve: nova stage com `retry_of`.
 
 ## Schema `flux-run/1`
@@ -141,4 +141,4 @@ Dados identificadores que ainda existem no run privado: `session_id`, `target` (
 
 ## O que o slice 1 não cobre
 
-`--new`, `--remote`, `flux run start|end|list`, `--run` como UX, `chain`, execução de skill sem CLI, `public-runs/`, evals, `level_session` no snapshot, tratamento de `SIGINT` na CLI, e verbos além de `review` (pipeline `pr`).
+`--new`, `--remote`, `flux run start|end|list`, `--run` como UX, `chain`, execução de skill sem CLI, `public-runs/`, evals, `level_session` no snapshot, e verbos além de `review` (pipeline `pr`).
