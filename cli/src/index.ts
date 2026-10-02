@@ -6,6 +6,7 @@ import { runPreflight, type PreflightResult } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
 import { generateSessionId, isValidSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
+import { closeGateChannel, describeGateSignal, effectiveExitCode, planGateChannel, armGateChannel, readGateSignal, unavailableReason } from "./gate.ts";
 import { beginRecording, finishRecording, scriptAvailable, type RunHandle, type RunPromptInfo } from "./run.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
@@ -311,9 +312,14 @@ async function runVerb(opts: {
   if (harnessSource === "default") console.error(DEFAULT_HARNESS_WARNING);
   const invocationOpts = { safe, harness, claudeCmd: harnessOverride };
 
+  const supportsNewTab = harness === "claude" || harnessSource === "override";
+  const warnGateUnavailable = (reason: string): void =>
+    console.error(`[flux] aviso: sinal de gate pendente indisponivel (${reason}); decisao pendente nao muda o exit code.`);
+  let gateChannel = planGateChannel(unavailableReason({ harness, safe, observable: !openNew || !supportsNewTab }));
+
   let userComment: string | null = null;
   const composeBody = (run?: RunPromptInfo): string => {
-    const base = buildPromptBody(ctx, verb, args, { harness, harnessSource, run });
+    const base = buildPromptBody(ctx, verb, args, { harness, harnessSource, run, gateSignal: gateChannel });
     return userComment ? `${base}\n\n---\nComentário adicional do usuário:\n${userComment}` : base;
   };
 
@@ -326,6 +332,7 @@ async function runVerb(opts: {
     console.log(command);
     return;
   }
+  if (!gateChannel.available) warnGateUnavailable(gateChannel.reason);
 
   let preflight: PreflightResult | null = null;
   if (record) {
@@ -361,7 +368,6 @@ async function runVerb(opts: {
     process.exit(1);
   }
 
-  const supportsNewTab = harness === "claude" || harnessSource === "override";
   if (!supportsNewTab && openNew) {
     console.error(`[flux] --new não é suportado para o harness "${harness}" ainda. Rodando na aba atual.`);
   }
@@ -406,8 +412,19 @@ async function runVerb(opts: {
   if (!openNew || !supportsNewTab) {
     let exitCode: number | null = null;
     try {
+      const armed = armGateChannel(gateChannel);
+      if (gateChannel.available && !armed.available) {
+        warnGateUnavailable(armed.reason);
+        gateChannel = armed;
+        body = composeBody(recording ? { runId: recording.runId, sequence: recording.sequence, root: recording.root } : undefined);
+        command = buildCommand(body, invocationOpts);
+      }
       exitCode = await runHere({ command, body, invocation, sessionId });
+      const gateSignal = readGateSignal(gateChannel);
+      if (gateSignal) console.error(describeGateSignal(gateSignal));
+      exitCode = effectiveExitCode(exitCode, gateSignal);
     } finally {
+      closeGateChannel(gateChannel);
       if (recording) {
         try {
           const finished = finishRecording(recording, exitCode);
