@@ -2,7 +2,7 @@ import { existsSync } from "fs";
 import { homedir } from "os";
 import { join, resolve } from "path";
 import type { PreflightResult } from "./preflight.ts";
-import { UNKNOWN_HARNESS, type Harness } from "./harness.ts";
+import { UNKNOWN_HARNESS, type Harness, type HarnessResolution } from "./harness.ts";
 import pkg from "../package.json";
 
 const CLI_VERSION: string = pkg.version;
@@ -28,7 +28,7 @@ export type StageStatus = "completed" | "failed" | "cancelled";
 
 export type RunHarness = {
   value: "claude-code" | "cursor" | "codex" | "unknown";
-  source: "cli-launch";
+  source: "cli-launch" | "default";
 };
 
 const SIGINT_EXIT = 130;
@@ -57,14 +57,15 @@ export function stageStatusForExit(exitCode: number | null): StageStatus {
   return "failed";
 }
 
-export function harnessForRun(harness: Harness): RunHarness {
+export function harnessForRun(harness: Harness, resolution: HarnessResolution["source"] = "flag"): RunHarness {
+  const source = resolution === "default" ? "default" : "cli-launch";
   switch (harness) {
     case "claude":
-      return { value: "claude-code", source: "cli-launch" };
+      return { value: "claude-code", source };
     case "cursor":
-      return { value: "cursor", source: "cli-launch" };
+      return { value: "cursor", source };
     case "codex":
-      return { value: "codex", source: "cli-launch" };
+      return { value: "codex", source };
     case UNKNOWN_HARNESS:
       return { value: "unknown", source: "cli-launch" };
   }
@@ -88,8 +89,8 @@ export function targetForRun(target: string | null): string | null {
 
 export function capabilityArgs(preflight: PreflightResult): string[] {
   const args: string[] = ["--cap-hint", preflight.capability_level_hint];
-  for (const r of preflight.requirements.hard) args.push("--cap-hard", `${r.name}:${r.ok ? "ok" : "fail"}`);
-  for (const r of preflight.requirements.soft) args.push("--cap-soft", `${r.name}:${r.ok ? "ok" : "fail"}`);
+  for (const r of preflight.requirements.hard) if (!r.ok) args.push("--cap-missing", `${r.name}:hard`);
+  for (const r of preflight.requirements.soft) if (!r.ok) args.push("--cap-missing", `${r.name}:soft`);
   for (const d of preflight.degradations) args.push("--cap-degradation", d);
   return args;
 }
@@ -108,9 +109,9 @@ export type BeginRecordingInput = {
   verb: string;
   target: string | null;
   harness: Harness;
+  harnessSource?: HarnessResolution["source"];
   sessionId: string | null;
   preflight: PreflightResult;
-  pid?: number;
   root?: string;
   exec?: RunExec;
 };
@@ -123,7 +124,7 @@ export function beginRecording(input: BeginRecordingInput): RunHandle {
   const exec = input.exec ?? defaultExec;
   const root = input.root ?? runsRoot();
   const script = runScriptPath(input.fluxRoot);
-  const harness = harnessForRun(input.harness);
+  const harness = harnessForRun(input.harness, input.harnessSource);
 
   const started = runScript(
     script,
@@ -142,8 +143,6 @@ export function beginRecording(input: BeginRecordingInput): RunHandle {
     input.verb,
     "--writer",
     "cli",
-    "--pid",
-    String(input.pid ?? process.pid),
     "--harness-value",
     harness.value,
     "--harness-source",

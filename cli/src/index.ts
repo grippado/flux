@@ -389,6 +389,7 @@ async function runVerb(opts: {
         verb,
         target: effectiveTarget,
         harness,
+        harnessSource,
         sessionId: sessionId ?? null,
         preflight,
       });

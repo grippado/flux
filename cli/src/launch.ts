@@ -1,6 +1,6 @@
 import { mkdtempSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
-import { tmpdir, homedir } from "os";
+import { tmpdir, homedir, constants } from "os";
 import { markSessionEnded } from "./session.ts";
 
 export function escapeAppleScript(s: string): string {
@@ -99,9 +99,14 @@ export type HereDeps = {
   shell?: string;
 };
 
+export function exitCodeOf(proc: { exitCode: number | null; signalCode?: string | null }): number {
+  if (proc.exitCode !== null) return proc.exitCode;
+  const signal = proc.signalCode ? (constants.signals as Record<string, number>)[proc.signalCode] : undefined;
+  return signal ? 128 + signal : 1;
+}
+
 function spawnInherit(argv: string[]): number {
-  const proc = Bun.spawnSync(argv, { stdio: ["inherit", "inherit", "inherit"] });
-  return proc.exitCode ?? 1;
+  return exitCodeOf(Bun.spawnSync(argv, { stdio: ["inherit", "inherit", "inherit"] }));
 }
 
 export function runHere(req: LaunchRequest, deps: HereDeps = {}): number {

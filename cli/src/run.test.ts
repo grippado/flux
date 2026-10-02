@@ -17,6 +17,7 @@ import {
   type RunExec,
 } from "./run.ts";
 import { buildPromptBody } from "./prompt.ts";
+import { exitCodeOf } from "./launch.ts";
 import type { PreflightResult } from "./preflight.ts";
 import type { ResolvedContext } from "./resolve.ts";
 
@@ -120,27 +121,45 @@ describe("stageStatusForExit", () => {
 
 describe("harnessForRun: vocabulario do run, origem sempre cli-launch", () => {
   it("mapeia os canonicos e marca override como unknown", () => {
-    expect(harnessForRun("claude")).toEqual({ value: "claude-code", source: "cli-launch" });
-    expect(harnessForRun("cursor")).toEqual({ value: "cursor", source: "cli-launch" });
-    expect(harnessForRun("codex")).toEqual({ value: "codex", source: "cli-launch" });
-    expect(harnessForRun("desconhecido")).toEqual({ value: "unknown", source: "cli-launch" });
+    expect(harnessForRun("claude", "flag")).toEqual({ value: "claude-code", source: "cli-launch" });
+    expect(harnessForRun("cursor", "manifesto")).toEqual({ value: "cursor", source: "cli-launch" });
+    expect(harnessForRun("codex", "env")).toEqual({ value: "codex", source: "cli-launch" });
+    expect(harnessForRun("desconhecido", "override")).toEqual({ value: "unknown", source: "cli-launch" });
+  });
+
+  it("harness assumido por default nao e carimbado como escolha: source default", () => {
+    expect(harnessForRun("claude", "default")).toEqual({ value: "claude-code", source: "default" });
+  });
+});
+
+describe("exitCodeOf: morte por sinal vira 128+n, nunca um 1 inventado", () => {
+  it("exit code real passa direto, inclusive 0", () => {
+    expect(exitCodeOf({ exitCode: 0 })).toBe(0);
+    expect(exitCodeOf({ exitCode: 3, signalCode: null })).toBe(3);
+  });
+
+  it("sinal conhecido vira 128+n e SIGINT/SIGTERM caem em cancelled", () => {
+    expect(exitCodeOf({ exitCode: null, signalCode: "SIGINT" })).toBe(130);
+    expect(exitCodeOf({ exitCode: null, signalCode: "SIGTERM" })).toBe(143);
+    expect(exitCodeOf({ exitCode: null, signalCode: "SIGKILL" })).toBe(137);
+    expect(stageStatusForExit(exitCodeOf({ exitCode: null, signalCode: "SIGINT" }))).toBe("cancelled");
+    expect(stageStatusForExit(exitCodeOf({ exitCode: null, signalCode: "SIGKILL" }))).toBe("failed");
+  });
+
+  it("sem exit code nem sinal conhecido, falha com 1", () => {
+    expect(exitCodeOf({ exitCode: null })).toBe(1);
+    expect(exitCodeOf({ exitCode: null, signalCode: "SIGNAOEXISTE" })).toBe(1);
   });
 });
 
 describe("capabilityArgs: projecao do PreflightResult sem nenhum path", () => {
-  it("leva nome e estado, nunca path, manifesto, ancora, kits nem lentes", () => {
+  it("leva so o nivel, o que faltou e as degradacoes, nunca path, manifesto, ancora, kits nem lentes", () => {
     const args = capabilityArgs(makePreflight());
     expect(args).toEqual([
       "--cap-hint",
       "FULL-tentativo",
-      "--cap-hard",
-      "shared/review-legend.md:ok",
-      "--cap-hard",
-      "git:ok",
-      "--cap-soft",
-      "gh:ok",
-      "--cap-soft",
-      "vault:fail",
+      "--cap-missing",
+      "vault:soft",
       "--cap-degradation",
       "vault indisponivel — rodadas anteriores nao consultadas; artefato nao persistido",
     ]);
@@ -215,9 +234,9 @@ describe("beginRecording com exec falso: argumentos passados ao writer", () => {
       verb: "review",
       target: "184",
       harness: "claude",
+      harnessSource: "default",
       sessionId: "lq1x2y3z-9f8e7d6c",
       preflight: makePreflight(),
-      pid: 4242,
       root: "/r",
       exec,
     });
@@ -233,10 +252,11 @@ describe("beginRecording com exec falso: argumentos passados ao writer", () => {
     expect(stage).toContain("--writer");
     expect(stage[stage.indexOf("--writer") + 1]).toBe("cli");
     expect(stage[stage.indexOf("--harness-value") + 1]).toBe("claude-code");
-    expect(stage[stage.indexOf("--harness-source") + 1]).toBe("cli-launch");
+    expect(stage[stage.indexOf("--harness-source") + 1]).toBe("default");
+    expect(stage).not.toContain("--pid");
+    expect(stage).not.toContain("--cap-hard");
     expect(stage[stage.indexOf("--session-id") + 1]).toBe("lq1x2y3z-9f8e7d6c");
     expect(stage[stage.indexOf("--target") + 1]).toBe("github:pr/184");
-    expect(stage[stage.indexOf("--pid") + 1]).toBe("4242");
     for (const c of calls) expect(c.slice(-2)).toEqual(["--root", "/r"]);
     expect(stage.slice(3).join(" ")).not.toContain("/Users/");
   });
@@ -295,7 +315,10 @@ describe("beginRecording/finishRecording contra o run.sh real", () => {
     expect(fmValue(stage, "target")).toBe('"github:pr/184"');
     expect(fm(stage)).toContain("  value: claude-code");
     expect(fm(stage)).toContain("  source: cli-launch");
-    expect(fm(stage)).toContain("    - {name: vault, ok: false}");
+    expect(fm(stage)).toContain("    - {name: vault, kind: soft}");
+    expect(fm(stage)).not.toContain("ok: true");
+    expect(fm(stage)).not.toContain("pid:");
+    expect(readFileSync(join(handle.runDir, "run.md"), "utf8")).not.toContain("goal:");
     expect(fm(stage)).not.toContain("/Users/");
     expect(fmValue(join(handle.runDir, "run.md"), "status")).toBe("completed");
     expect(fmValue(join(handle.runDir, "outcome.md"), "result")).toBe("completed");
@@ -336,7 +359,7 @@ describe("beginRecording/finishRecording contra o run.sh real", () => {
 describe("flux review --record de ponta a ponta (harness substituido por FLUX_CLAUDE_CMD)", () => {
   function cli(args: string[], envExtra: Record<string, string>, home: string) {
     const cwd = mkdtempSync(join(tmpdir(), "flux-cli-record-"));
-    const { FLUX_HARNESS: _h, FLUX_SESSION_ID: _s, ...clean } = process.env;
+    const { FLUX_HARNESS: _h, FLUX_SESSION_ID: _s, FLUX_RUNS_ROOT: _r, FLUX_CLAUDE_CMD: _c, ...clean } = process.env;
     const result = spawnSync("bun", ["run", join(import.meta.dir, "index.ts"), ...args], {
       cwd,
       encoding: "utf8",
