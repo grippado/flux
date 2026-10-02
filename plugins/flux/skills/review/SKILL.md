@@ -13,6 +13,7 @@ requires:
     - bin: gh
     - file: shared/review-body-template.md
     - vault
+    - checkout_local
     - index
 ---
 
@@ -71,11 +72,14 @@ perda no banner de perfil, que abre todo output.
 Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
 1. Resolver a **âncora** (alvo primeiro, `cwd` depois — ver `${FLUX_ROOT}/shared/flux-context.md`,
-   seção "Qual é a âncora") e procurar `flux-context.json` em `.claude/` subindo a árvore a partir
-   dela:
+   seção "Qual é a âncora") e procurar `flux-context.json` em `.claude/` ou `.cursor/` subindo a
+   árvore a partir dela (em cada nível `.claude/` é consultado antes de `.cursor/`, e o nível mais
+   fundo vence, como em `${FLUX_ROOT}/shared/flux-context.md`):
    ```
-   <cwd>/.claude/flux-context.json
+   <âncora>/.claude/flux-context.json
+   <âncora>/.cursor/flux-context.json
    <parent>/.claude/flux-context.json
+   <parent>/.cursor/flux-context.json
    ...
    ```
 
@@ -160,6 +164,26 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 | `/flux:review https://docs.google.com/document/d/.../edit` | `doc` (inferido) | idem |
 
 **Flag opcional:** `--solo` pode aparecer em qualquer posição (antes ou depois do verbo/target), em qualquer verbo. Quando ausente: roda holístico + specialists reconciliados (conforme `review-agents.md`). Quando presente: pula os specialists e roda só `<HOLISTIC>`.
+
+**`--record`** é consumido pela CLI (`flux review <PR> --record`), que abre o run. Se aparecer nos argumentos que este elo recebe (execução direta, sem CLI), ignore-o: o run só é aberto pela CLI.
+
+## Registro do run (só quando a mensagem de invocação traz `run_id:`)
+
+A fonte é **a mensagem que invocou este elo**: o bloco `--- PREFLIGHT RESOLVIDO (flux-cli ...) ---` que a CLI prepende ao comando. Se ele traz as linhas `run_id:`, `run_stage:` e `run_root:`, o `flux review --record` já abriu o run e a stage, e a própria CLI as fecha quando este elo terminar. O JSON de `flux preflight` (Step 0-cli) **não** traz esses campos e não é a fonte: a ausência de `run_id` nele não desliga esta seção. Leia o bloco da invocação antes de qualquer outro passo e guarde os três valores.
+
+Aqui o elo só **informa** três coisas ao writer, `${FLUX_ROOT}/scripts/run.sh` (contrato em `${FLUX_ROOT}/shared/run.md`). Sem as linhas `run_id:` na invocação, nada desta seção roda. Vale só para o pipeline `pr`; o `doc` não registra nada.
+
+Nunca bloqueante: se o `run.sh` falhar, avisar numa linha no chat (`Registro do run indisponível: {erro do run.sh}`) e seguir o review. O banner já foi emitido e não carrega essa falha, e não ganha token novo; a falha de abrir ou fechar o run é declarada pela CLI, no terminal. Só o `run.sh` escreve no run; nunca grave arquivo dele por conta própria. Em todos os comandos abaixo, `{run_id}`, `{run_stage}` e `{run_root}` são os valores do bloco, passados como `--run`, `--seq` e `--root` (o `--root` sempre entre aspas, porque o caminho pode ter espaço).
+
+1. **Output** (Step 6, logo depois de gravar o artefato no vault):
+   `bash "${FLUX_ROOT}/scripts/run.sh" output --run {run_id} --seq {run_stage} --root "{run_root}" --kind review --ref "vault:{path do artefato relativo a VAULT_ROOT}" --head-sha {HEAD_SHA}`.
+   Omitir `--head-sha` quando `HEAD_SHA` for desconhecido ou não for um SHA hexadecimal. Sem vault (review impresso no chat), não há o que apontar: não registrar output.
+2. **Gate** (Step 8, logo depois que o usuário escolher): `... gate --run {run_id} --seq {run_stage} --root "{run_root}" --kind {kind} --decision {decision} --via {via} --option "{rótulo da opção escolhida}"`.
+   - `kind`: `github-post` quando o menu foi o 8b (ou a opção `Postar comentários inline` do 8a); `commit-push` quando o 8a foi respondido com `Aplicar correções em commits semânticos` ou `Aplicar e dar push`.
+   - `decision`: `approved` para qualquer opção que age (aplicar, postar, postar e aprovar); `dismissed` para `Não fazer nada`, `Não postar` ou cancelar o gate; `rejected` só quando o usuário recusa explicitamente pelo campo livre.
+   - `via`: `askuser` quando o gate foi `AskUserQuestion`, `numbered-menu` quando virou lista numerada.
+   - Um registro por pergunta feita: a segunda pergunta do 8b (threads reverificadas) é outro gate, também `github-post`. Sem Step 8 (nada acionável), não há gate para registrar.
+3. **Fim do elo:** se `MODEL` ou `EFFORT` vieram de autorrelato do harness (`${FLUX_ROOT}/shared/preflight.md`), registrar com `... stage-set --run {run_id} --seq {run_stage} --root "{run_root}" --model {MODEL} --effort {EFFORT}` (omitir o que for `unknown`). Depois, `... stage-summary --run {run_id} --seq {run_stage} --root "{run_root}"` com 2 a 4 linhas no stdin: PR, `STATUS`, contagem por badge e o gate escolhido. Sem caminhos de arquivo nem trechos do código; o writer recusa o resumo se houver. O conteúdo completo do review fica só no artefato do vault; **não copiar findings para o run**.
 
 ## Pipeline `pr` (review de PR/branch)
 
@@ -464,11 +488,12 @@ STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificaç�
 - `## 🎯 Veredito & prioridades` no topo, com cada prioridade linkando pro `#fN` e pro código.
 - Frontmatter enriquecido: `pr_url`, `ticket_url`, `head_sha`, `counts` e `status` (vocabulário novo).
   `reverified_threads` entra só quando o Passo 4b rodou (com o tamanho de `REOPEN_CANDIDATES`);
-  sem Passo 4b, omitir o campo.
+  sem Passo 4b, omitir o campo. Com `run_id:` na invocação, o frontmatter ganha `run_id: "{run_id}"`
+  (topo do frontmatter, fora de `provenance`); sem run, omitir o campo.
 
 Gravar com a Write tool no caminho calculado (Step 5). Quando `VAULT_ROOT` não estiver definido (perfil
 genérico sem `--save`): imprimir o artefato no chat em vez de gravar; com `--save <dir>`, gravar em
-`<dir>/{filename}`.
+`<dir>/{filename}`. Com `run_id:` na invocação, registrar o output (item 1 de "Registro do run").
 
 ### 7. Resposta no chat
 
@@ -486,7 +511,7 @@ Em seguida, vá direto para o Step 8 (sem esperar input adicional do usuário). 
 
 ### 8. Oferecer ação pós-review (aplicar ou publicar)
 
-Se há PR aberta e comentários acionáveis no review (ou a exceção do Step 7 para veredito aprovar em PR de terceiros), abrir um **GATE** (`${FLUX_ROOT}/shared/hitl.md`) — uma única question, single-select. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline.
+Se há PR aberta e comentários acionáveis no review (ou a exceção do Step 7 para veredito aprovar em PR de terceiros), abrir um **GATE** (`${FLUX_ROOT}/shared/hitl.md`) — uma única question, single-select. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline. Com `run_id:` na invocação, registrar a decisão assim que o usuário escolher (item 2 de "Registro do run").
 
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 

@@ -73,6 +73,7 @@ head_sha: "{sha completo do head}"
 date: "{YYYY-MM-DD}"
 counts: { request-change: N, breaking-change: N, question: N, suggestion: N, praise: N, note: N }
 reverified_threads: {N ou omitir quando o Passo 4b não rodou}  # quantas threads próprias foram reverificadas nesta rodada
+run_id: "{run_id da invocação, ou omitir sem run}"
 pipeline: "flux:review (holistico {HOLISTIC} + specialists {lista}, reconciliados)"
 tags: [pr-review, {repo-slug}, {area-opcional}, {ticket-slug}]
 provenance:

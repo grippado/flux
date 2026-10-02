@@ -1,6 +1,6 @@
 import { mkdtempSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
-import { tmpdir, homedir } from "os";
+import { tmpdir, homedir, constants } from "os";
 import { markSessionEnded } from "./session.ts";
 
 export function escapeAppleScript(s: string): string {
@@ -94,24 +94,62 @@ export function buildShellCmd(invocation: string, filePath: string, sessionId?: 
 }
 
 export type HereDeps = {
-  spawn?: (argv: string[]) => number;
+  spawn?: (argv: string[]) => Promise<number>;
   writePromptFile?: (prompt: string) => string;
   shell?: string;
 };
 
-function spawnInherit(argv: string[]): number {
-  const proc = Bun.spawnSync(argv, { stdio: ["inherit", "inherit", "inherit"] });
-  return proc.exitCode ?? 1;
+export function exitCodeOf(proc: { exitCode: number | null; signalCode?: string | null }): number {
+  if (proc.exitCode !== null) return proc.exitCode;
+  const signal = proc.signalCode ? (constants.signals as Record<string, number>)[proc.signalCode] : undefined;
+  return signal ? 128 + signal : 1;
 }
 
-export function runHere(req: LaunchRequest, deps: HereDeps = {}): number {
-  const spawn = deps.spawn ?? spawnInherit;
+function spawnInherit(argv: string[]): number {
+  return exitCodeOf(Bun.spawnSync(argv, { stdio: ["inherit", "inherit", "inherit"] }));
+}
+
+function descendantsOf(pid: number): number[] {
+  const out = Bun.spawnSync(["pgrep", "-P", String(pid)], { stdout: "pipe", stderr: "ignore" });
+  const children = out.stdout
+    .toString()
+    .split("\n")
+    .map((l) => Number.parseInt(l, 10))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  return children.flatMap((c) => [...descendantsOf(c), c]);
+}
+
+function signalTree(pid: number, signal: NodeJS.Signals): void {
+  for (const target of [...descendantsOf(pid), pid]) {
+    try {
+      process.kill(target, signal);
+    } catch {}
+  }
+}
+
+async function spawnInheritForwarding(argv: string[]): Promise<number> {
+  const proc = Bun.spawn(argv, { stdio: ["inherit", "inherit", "inherit"] });
+  const onTerm = () => signalTree(proc.pid, "SIGTERM");
+  const onInt = () => {};
+  process.on("SIGTERM", onTerm);
+  process.on("SIGINT", onInt);
+  try {
+    await proc.exited;
+    return exitCodeOf(proc);
+  } finally {
+    process.off("SIGTERM", onTerm);
+    process.off("SIGINT", onInt);
+  }
+}
+
+export async function runHere(req: LaunchRequest, deps: HereDeps = {}): Promise<number> {
+  const spawn = deps.spawn ?? spawnInheritForwarding;
   const writeFile = deps.writePromptFile ?? writePromptToTempFile;
   const shell = deps.shell ?? process.env["SHELL"] ?? "/bin/zsh";
 
   const filePath = writeFile(req.body);
   const shellCmd = buildShellCmd(req.invocation, filePath, req.sessionId);
-  return spawn([shell, "-i", "-c", shellCmd]);
+  return await spawn([shell, "-i", "-c", shellCmd]);
 }
 
 export type RemoteRequest = {

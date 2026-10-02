@@ -44,10 +44,12 @@ export const VERB_REQUIREMENTS: Record<string, VerbRequirements> = {
     hard: [
       { type: "file", name: "shared/review-legend.md" },
       { type: "file", name: "shared/review-artifact-template.md" },
+      { type: "file", name: "shared/flux-context.md" },
       { type: "bin", name: "git" },
     ],
     soft: [
       { type: "bin", name: "gh" },
+      { type: "file", name: "shared/review-body-template.md" },
       { type: "vault", name: "vault" },
       { type: "checkout_local", name: "checkout_local" },
     ],

@@ -167,6 +167,7 @@ export FLUX_HOME=~/code/flux/plugins/flux
 | `--new` | abre aba nova (iTerm2/Terminal.app) em vez de rodar na aba atual (o padrão) |
 | `--remote [alias]` | roda na máquina do alias (`~/.ssh/config`); sem valor, pergunta interativamente |
 | `--yes`, `-y` | pula a prévia do banner antes de disparar |
+| `--record` | só em `flux review <PR>`, no modo here: grava um run local em `~/.flux/runs/<run_id>/` (`run.md`, `01-review.md`, `outcome.md`), privado e opt-in. Recusa `--new` e `--remote`. Com `--record`, um preflight que aborta (exit 3) impede o disparo, o que sem a flag não acontece. Ver [`run.md`](plugins/flux/shared/run.md) e a [PRIVACY.md](PRIVACY.md) |
 
 #### Exemplos
 
@@ -389,6 +390,7 @@ flux/
     ├── write-destination.md       onde artefato gerado pode nascer: cascata + guardas de symlink/git/dotfiles
     ├── chain.md                  gramática de chains: verbo, artefato, legalidade, baton, falha no meio
     ├── scope-gate.md             medir o tamanho do pedido antes de gastar tempo com ele: sinais, faixas, corte proposto
+    ├── run.md                     o registro local de uma execução (flux-run/1): layout, schema, níveis de garantia, privacidade
     ├── fanout-discipline.md       todo trabalho pesado vai para subagente, em paralelo
     ├── context-budget.md          leitura sob demanda, um root por sessão, delegação
     └── quality-gate-api.md        diagnóstico de gates Sonar via API (consultar em vez de deduzir)
@@ -481,6 +483,7 @@ Quando um verbo precisa de lógica determinística que não cabe em Markdown (po
 - **Invocação explícita.** Sempre `bash "${FLUX_ROOT}/scripts/<nome>.sh"` ou `python3 "${FLUX_ROOT}/scripts/<nome>.py"`, nunca o caminho direto. Assim o script não depende do bit de execução, que nem toda instalação preserva. Dentro do script, resolva caminhos relativos ao próprio arquivo, não ao cwd.
 - **Requisitos.** O script não se autodeclara: o verbo que o chama declara o que ele precisa, no `requires:` do `SKILL.md` (`bin: jq`, `bin: python3`, em `hard` se o verbo não funciona sem ele, em `soft` se degrada) e, para o CLI, em `VERB_REQUIREMENTS` em [`cli/src/preflight.ts`](cli/src/preflight.ts). O preflight avisa antes do verbo rodar; o script ainda confere a própria dependência e sai com `2`.
 - **Exemplo mínimo:** [`plugins/flux/scripts/example.sh`](plugins/flux/scripts/example.sh) (exige `jq`).
+- **Writer do run:** [`plugins/flux/scripts/run.sh`](plugins/flux/scripts/run.sh) (bash e utilitários POSIX, mais `iconv`; sem `jq` nem `git`; por isso não entra no `requires:`, ver [`run.md`](plugins/flux/shared/run.md)) é o único que grava o `~/.flux/runs/<run_id>/`; a CLI e as skills só o chamam. O contrato está em [`shared/run.md`](plugins/flux/shared/run.md) e o teste em [`scripts/test-run.sh`](scripts/test-run.sh).
 - **Gate de polling do watch:** [`plugins/flux/scripts/iterate-watch-gate.sh`](plugins/flux/scripts/iterate-watch-gate.sh) (exige `gh` e `jq`) faz fora da LLM o poll da PR e só sai quando há algo a fazer; o contrato de argumentos, eventos e códigos de saída está em `--help`. É lançado pelo watch do `flux:iterate`.
 
 Propostas de tradução, novos comandos, agents, melhorias de acessibilidade, integrações e novos
@@ -508,6 +511,8 @@ scripts/check-manifests.sh            # version e name iguais nos cinco manifest
 scripts/check-codex-agent-contract.sh # o adaptador Codex continua descrito nos shared/
 shellcheck plugins/flux/scripts/*.sh  # recomendado ao tocar em scripts (ver "Scripts auxiliares")
 scripts/test-iterate-watch-gate.sh    # ao tocar em iterate-watch-gate.sh: gh e sleep falsos, sem rede e sem espera
+scripts/test-run.sh                   # writer do run (run.sh): schema, permissões, recusa de path absoluto; roda em CI
+(cd cli && bun test)                  # CLI, inclusive a paridade entre VERB_REQUIREMENTS e o requires: do review; roda em CI
 ```
 
 Os dois `validate` conferem a forma de cada manifesto isoladamente, e recebem alvos disjuntos, então
