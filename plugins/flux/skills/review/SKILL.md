@@ -513,6 +513,8 @@ Em seguida, vá direto para o Step 8 (sem esperar input adicional do usuário). 
 
 Se há PR aberta e comentários acionáveis no review (ou a exceção do Step 7 para veredito aprovar em PR de terceiros), abrir um **GATE** (`${FLUX_ROOT}/shared/hitl.md`) — uma única question, single-select. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline. Com `run_id:` na invocação, registrar a decisão assim que o usuário escolher (item 2 de "Registro do run").
 
+**Gate pendente sem resposta:** se o gate cair no fallback numerado e ninguém responder, vale o contrato de `${FLUX_ROOT}/shared/hitl.md`, seção "Execução headless": gravar o sinal antes de encerrar, sem reescrever o schema aqui. O `kind` é o da opção recomendada: `kind` `commit-push` no 8a, `kind` `github-post` no 8b e na segunda pergunta do 8b-bis.
+
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 
 Postar comentário pra si mesmo não agrega; o valor é aplicar a correção. Antes de perguntar, se a PR ainda não tiver o usuário como assignee, atribuir:
@@ -818,6 +820,8 @@ artefato já traz as ações e as réplicas prontas na seção `⚡ Ações no d
 separado para colar seria redundante.
 
 #### d8a. Doc próprio (`IS_OWN_DOC == true`)
+
+Gate pendente sem resposta: `kind` `issue-write` (a opção recomendada cria issues), conforme `${FLUX_ROOT}/shared/hitl.md`, seção "Execução headless".
 
 - **Header:** `Ação no doc?`
 - **Question:** `O review de "{DOC_TITLE}" está no vault com as ações prontas. O que fazer a seguir?`

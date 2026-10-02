@@ -315,7 +315,9 @@ Com `mergeable` / `mergeStateStatus` coletados no passo 2:
      fan-out), que aplica a estratégia, roda o quality gate do repo e **para sem pushar**.
   4. **Gate humano antes do force-push**, inclusive com `--auto` e no watch, com a estratégia, a decisão
      por arquivo, o resultado dos gates e o antes/depois do `rev-list`. Push sempre com
-     `--force-with-lease`; merge da base não precisa de force.
+     `--force-with-lease`; merge da base não precisa de force. Se este gate ficar sem resposta no
+     fallback numerado, gravar o sinal de gate pendente com `kind` `commit-push`
+     (`${FLUX_ROOT}/shared/hitl.md`, "Execução headless").
 - **`BEHIND`** (sem conflito) → só atualizar se a proteção da base exigir branch atualizada. Não é
   conflito e não justifica force-push.
 
@@ -484,6 +486,8 @@ Integração roda em Docker. Se o daemon estiver down (`docker info` falha), **n
 
 Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + mensagem de commit), e abra um GATE (`${FLUX_ROOT}/shared/hitl.md`) (single-select). **As opções dependem de `IS_OWN_PR`:**
 
+**Gate pendente sem resposta:** se este gate cair no fallback numerado e ninguém responder, vale o contrato de `${FLUX_ROOT}/shared/hitl.md`, seção "Execução headless": gravar o sinal antes de encerrar, sem reescrever o schema aqui. O `kind` é o da opção recomendada (`kind` `github-post` nos dois menus abaixo, porque a recomendada começa postando as réplicas).
+
 **`IS_OWN_PR == true`** (comportamento atual, sem mudança):
 
 - **Header:** `Atualizar PR?`
@@ -533,7 +537,8 @@ estado persistente (ver "Estado persistente" no modo WATCH). Um novo `/flux:iter
 novo estado) sempre nasce em `no-push`; a concessão não atravessa runs.
 
 Nunca inferir o pedido de contexto (ex.: o usuário mencionar "pode commitar" numa thread não conta).
-A confirmação textual é o único caminho.
+A confirmação textual é o único caminho. Este pedido também é um gate: se ficar sem resposta, vale o
+sinal de gate pendente com `kind` `commit-push` (`${FLUX_ROOT}/shared/hitl.md`, "Execução headless").
 
 **Interação com o gate do passo 2b:**
 - Se o gate **resolveu** um conflito neste run e o force-push ainda não foi aprovado, a aprovação do force-push é **pergunta própria e anterior** a esta (feita no passo 2b, com estratégia + decisão por arquivo + gates), nunca embutida na opção 1. Reescrever histórico e postar réplicas são decisões de risco diferente, e juntá-las esconde a mais grave atrás da mais trivial. `--auto` dispensa **esta** confirmação, não aquela.
