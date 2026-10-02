@@ -6,6 +6,7 @@ import { runPreflight, type PreflightResult } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
 import { generateSessionId, isValidSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
+import { closeGateChannel, describeGateSignal, effectiveExitCode, planGateChannel, armGateChannel, readGateSignal, unavailableReason } from "./gate.ts";
 import { beginRecording, finishRecording, scriptAvailable, type RunHandle, type RunPromptInfo } from "./run.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
@@ -311,9 +312,14 @@ async function runVerb(opts: {
   if (harnessSource === "default") console.error(DEFAULT_HARNESS_WARNING);
   const invocationOpts = { safe, harness, claudeCmd: harnessOverride };
 
+  const gateChannel = planGateChannel(
+    unavailableReason({ harness, safe, here: !openNew || !(harness === "claude" || harnessSource === "override") }),
+  );
+  if (!gateChannel.available) console.error(`[flux] aviso: sinal de gate pendente indisponivel (${gateChannel.reason}); decisao pendente nao muda o exit code.`);
+
   let userComment: string | null = null;
   const composeBody = (run?: RunPromptInfo): string => {
-    const base = buildPromptBody(ctx, verb, args, { harness, harnessSource, run });
+    const base = buildPromptBody(ctx, verb, args, { harness, harnessSource, run, gateSignal: gateChannel });
     return userComment ? `${base}\n\n---\nComentário adicional do usuário:\n${userComment}` : base;
   };
 
@@ -406,8 +412,13 @@ async function runVerb(opts: {
   if (!openNew || !supportsNewTab) {
     let exitCode: number | null = null;
     try {
+      armGateChannel(gateChannel);
       exitCode = await runHere({ command, body, invocation, sessionId });
+      const gateSignal = readGateSignal(gateChannel);
+      if (gateSignal) console.error(describeGateSignal(gateSignal));
+      exitCode = effectiveExitCode(exitCode, gateSignal);
     } finally {
+      closeGateChannel(gateChannel);
       if (recording) {
         try {
           const finished = finishRecording(recording, exitCode);
