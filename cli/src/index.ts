@@ -406,7 +406,7 @@ async function runVerb(opts: {
   if (!openNew || !supportsNewTab) {
     let exitCode: number | null = null;
     try {
-      exitCode = runHere({ command, body, invocation, sessionId });
+      exitCode = await runHere({ command, body, invocation, sessionId });
     } finally {
       if (recording) {
         try {

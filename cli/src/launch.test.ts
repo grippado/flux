@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { readFileSync, mkdtempSync, writeFileSync, rmSync, readdirSync } from "fs";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync, readdirSync, existsSync } from "fs";
 import { spawnSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -112,12 +112,12 @@ describe("buildTerminalScript: do script + activate", () => {
 });
 
 describe("runHere: executa na aba atual via shell interativo, sem osascript", () => {
-  it("passa por zsh -i -c para resolver funcoes/aliases (ex.: FLUX_CLAUDE_CMD apontando pra uma shell function)", () => {
+  it("passa por zsh -i -c para resolver funcoes/aliases (ex.: FLUX_CLAUDE_CMD apontando pra uma shell function)", async () => {
     let argvUsed: string[] = [];
-    const exitCode = runHere(
+    const exitCode = await runHere(
       { command: "irrelevante", body: "--- PREFLIGHT RESOLVIDO ---\n/flux:iterate 4742", invocation: "scc" },
       {
-        spawn: (argv) => { argvUsed = argv; return 0; },
+        spawn: async (argv) => { argvUsed = argv; return 0; },
         writePromptFile: () => "/tmp/flux-prompt-test/prompt.txt",
         shell: "/bin/zsh",
       },
@@ -130,12 +130,41 @@ describe("runHere: executa na aba atual via shell interativo, sem osascript", ()
     expect(exitCode).toBe(0);
   });
 
-  it("propaga o exit code do processo filho", () => {
-    const exitCode = runHere(
+  it("propaga o exit code do processo filho", async () => {
+    const exitCode = await runHere(
       { command: "irrelevante", body: "hello", invocation: "claude" },
-      { spawn: () => 7, writePromptFile: () => "/tmp/flux-prompt-test/prompt.txt" },
+      { spawn: async () => 7, writePromptFile: () => "/tmp/flux-prompt-test/prompt.txt" },
     );
     expect(exitCode).toBe(7);
+  });
+
+  it("SIGTERM no flux chega ao processo final e o runHere retorna em vez de morrer", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "flux-sig-"));
+    try {
+      const child = join(dir, "child.sh");
+      const out = join(dir, "sig.out");
+      writeFileSync(
+        child,
+        `#!/bin/sh\ntrap 'echo TERM > ${out}; exit 9' TERM\ntrap 'echo INT > ${out}; exit 8' INT\necho ready > ${join(dir, "ready")}\nsleep 20 >/dev/null 2>&1 & wait $!\n`,
+        { mode: 0o755 },
+      );
+      const runner = `
+        import { runHere } from ${JSON.stringify(join(import.meta.dir, "launch.ts"))};
+        const code = await runHere({ command: "x", body: "b", invocation: ${JSON.stringify(child)} }, { shell: "/bin/sh", writePromptFile: () => ${JSON.stringify(join(dir, "p.txt"))} });
+        console.log("code=" + code);
+      `;
+      writeFileSync(join(dir, "p.txt"), "b");
+      const proc = Bun.spawn(["bun", "-e", runner], { stdout: "pipe", stderr: "ignore" });
+      for (let i = 0; i < 100 && !existsSync(join(dir, "ready")); i++) await Bun.sleep(50);
+      expect(existsSync(join(dir, "ready"))).toBe(true);
+      process.kill(proc.pid, "SIGTERM");
+      const stdout = await new Response(proc.stdout).text();
+      await proc.exited;
+      expect(readFileSync(out, "utf8").trim()).toBe("TERM");
+      expect(stdout).toContain("code=9");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
 

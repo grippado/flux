@@ -94,7 +94,7 @@ export function buildShellCmd(invocation: string, filePath: string, sessionId?: 
 }
 
 export type HereDeps = {
-  spawn?: (argv: string[]) => number;
+  spawn?: (argv: string[]) => Promise<number>;
   writePromptFile?: (prompt: string) => string;
   shell?: string;
 };
@@ -109,14 +109,29 @@ function spawnInherit(argv: string[]): number {
   return exitCodeOf(Bun.spawnSync(argv, { stdio: ["inherit", "inherit", "inherit"] }));
 }
 
-export function runHere(req: LaunchRequest, deps: HereDeps = {}): number {
-  const spawn = deps.spawn ?? spawnInherit;
+async function spawnInheritForwarding(argv: string[]): Promise<number> {
+  const proc = Bun.spawn(argv, { stdio: ["inherit", "inherit", "inherit"] });
+  const onTerm = () => proc.kill("SIGTERM");
+  const onInt = () => {};
+  process.on("SIGTERM", onTerm);
+  process.on("SIGINT", onInt);
+  try {
+    await proc.exited;
+    return exitCodeOf(proc);
+  } finally {
+    process.off("SIGTERM", onTerm);
+    process.off("SIGINT", onInt);
+  }
+}
+
+export async function runHere(req: LaunchRequest, deps: HereDeps = {}): Promise<number> {
+  const spawn = deps.spawn ?? spawnInheritForwarding;
   const writeFile = deps.writePromptFile ?? writePromptToTempFile;
   const shell = deps.shell ?? process.env["SHELL"] ?? "/bin/zsh";
 
   const filePath = writeFile(req.body);
   const shellCmd = buildShellCmd(req.invocation, filePath, req.sessionId);
-  return spawn([shell, "-i", "-c", shellCmd]);
+  return await spawn([shell, "-i", "-c", shellCmd]);
 }
 
 export type RemoteRequest = {

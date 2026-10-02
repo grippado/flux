@@ -71,7 +71,7 @@ status: active              # active | completed | failed
 started_at: 2026-10-01T17:40:06-03:00
 ended_at: null
 flux_version: 1.44.0        # lida do plugin.json do próprio writer
-cli_version: 1.30.0         # null sem CLI
+cli_version: 1.31.0         # null sem CLI
 ---
 ```
 
