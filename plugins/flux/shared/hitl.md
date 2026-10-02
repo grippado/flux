@@ -65,13 +65,81 @@ o gate **não desaparece** — muda de forma:
 1. Imprimir a pergunta e as opções **numeradas** no chat, com as mesmas descrições, mantendo a
    recomendada em primeiro e a saída inócua por último.
 2. **Parar e esperar a resposta.** Não seguir para o passo seguinte, não escolher a recomendada por
-   iniciativa própria, não interpretar silêncio como consentimento.
+   iniciativa própria, não interpretar silêncio como consentimento. Numa execução headless não há
+   quem responda: antes de encerrar, gravar o sinal da seção "Execução headless" abaixo.
 3. Declarar a degradação no banner de perfil, como qualquer `soft` ausente
    (`${FLUX_ROOT}/shared/preflight.md`, Passo 5).
 
 > **A degradação é de forma, nunca de rigor.** Um gate que vira "escolhi a recomendada porque não
 > tinha como perguntar" é pior do que não ter gate nenhum: produz uma ação não autorizada com
 > aparência de fluxo normal, e o usuário só descobre quando o comentário já está na PR.
+
+## Execução headless: o sinal `flux-gate/1`
+
+Um harness headless sai com código `0` mesmo quando o elo parou num gate esperando decisão humana, e
+texto final não é contrato. A CLI entrega à skill um canal estruturado: a linha `gate_signal:` do bloco
+`--- PREFLIGHT RESOLVIDO ---` da mensagem que invocou o elo (como `run_id`, só no bloco da invocação,
+nunca no JSON de `flux preflight`; ver `${FLUX_ROOT}/shared/step0-cli.md`). O lado da CLI (caminho por
+execução, exit code `10`, o que ela faz com o arquivo) está descrito em `cli/README.md`, seção "Gate
+pendente em execução headless", e não se repete aqui.
+
+**Gatilho exato.** O passo 2 acima foi alcançado (sem `AskUserQuestion`) **e** o bloco traz
+`gate_signal: <caminho>`. Nesse ponto, e só nesse, gravar o sinal no caminho **antes** de encerrar. A
+skill não tem como verificar se a sessão é headless: o critério é mecânico (o passo 2 foi alcançado),
+e o passo seguinte cobre o caso de a resposta chegar depois.
+
+- **Uma gravação, atômica:** escrever num arquivo temporário no mesmo diretório e renomear para o
+  caminho do sinal. Nunca gravar parcial.
+- **Não gravar** quando o gate foi respondido, nem quando `AskUserQuestion` abriu o gate normalmente.
+  O sinal diz "parei sem resposta", não "passei por um gate".
+- **Resposta que chega depois da gravação:** se a sessão receber a resposta humana ao gate depois de
+  o sinal ter sido gravado, **apagar o arquivo antes de agir**. Isso não cria recibo: continua
+  valendo que só a ausência do arquivo significa que não há gate pendente.
+- **Gravação que falha** (diretório ausente, sem permissão, rename recusado): dizer numa linha no chat
+  que o gate ficou pendente sem sinal, declarar no banner com o token `gate signal nao gravado`
+  (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) e **não** fingir cobertura. O sinal é melhor esforço:
+  nunca bloqueia o elo nem substitui parar no gate.
+- **Limite declarado:** um headless em que `AskUserQuestion` existe e ninguém responde não chega ao
+  passo 2 e não grava. Nesse caso o sinal não cobre, e o gate continua dependendo do texto da saída.
+- **Campo ausente, ou `gate_signal: indisponivel (<motivo>)`:** não há canal. Seguir o passo 2 como
+  sempre, **não** prometer detecção mecânica de gate pendente, e declarar o motivo no banner (token
+  `gate signal indisponivel`, `${FLUX_ROOT}/shared/preflight.md`, Passo 5). Campo ausente não gera
+  token: é o caso comum fora da CLI, e declarar o default é ruído.
+
+**Contrato do arquivo:**
+
+```json
+{"schema":"flux-gate/1","pending":true,"kind":"pr-open","question":"Abrir a PR draft?","options":["Abrir","Cancelar"]}
+```
+
+- `schema` (`flux-gate/1`), `pending` (sempre `true`) e `kind` são obrigatórios. Não existe recibo de
+  gate resolvido: gate resolvido não grava nada, e só a **ausência** do arquivo significa que o elo
+  não parou num gate. Qualquer arquivo existente que não seja um sinal pendente válido (vazio, JSON
+  inválido, outro `schema`, sem `pending: true`, `kind` ausente, nulo ou fora do vocabulário) a CLI
+  trata como gate pendente.
+- `kind` é uma categoria de `GATE_KINDS` em `${FLUX_ROOT}/scripts/run.sh` (o vocabulário que
+  `run.sh gate` valida, e que é o dono dele: a tabela abaixo o espelha, e a CLI tem teste de
+  paridade), obtida da ação que pediu o gate, pela tabela "Ações que exigem GATE":
+
+| ação da tabela | `kind` |
+|---|---|
+| postar comentário, review ou reação no GitHub | `github-post` |
+| criar ou editar issue no tracker | `issue-write` |
+| salvar rascunho ou reagir no Slack | `slack-write` |
+| commitar, pushar ou alterar o working tree | `commit-push` |
+| abrir PR (mesmo draft) | `pr-open` |
+| escrever artefato fora do repo alvo e fora do vault | `write-outside` |
+| escrever no manifesto de contexto | `write-manifest` |
+| escolher entre alvos ambíguos | `ambiguous-target` |
+
+- **Menu com opções de categorias diferentes** (por exemplo, "Aplicar correções" é `commit-push` e
+  "Postar comentários inline" é `github-post` no mesmo gate): o `kind` é o da **opção recomendada**,
+  a primeira do menu (seção "Como perguntar"). Num gate pendente ninguém escolheu, então o `kind`
+  descreve o que a recomendada faria, e a skill não escolhe por precedência própria.
+- `question` (texto) e `options` (lista de textos) são opcionais e só para exibição: a pergunta e os
+  rótulos do menu numerado do passo 1. No máximo 200 caracteres cada e 8 opções; a CLI trunca e remove
+  caracteres de controle. Nada de segredo, token nem trecho de código: o texto vai ao terminal e a CLI
+  não o grava no run.
 
 ## Subagente não tem canal com o usuário
 
