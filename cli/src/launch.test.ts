@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { readFileSync, mkdtempSync, writeFileSync, rmSync, readdirSync, existsSync } from "fs";
+import { readFileSync, mkdtempSync, writeFileSync, rmSync, readdirSync, existsSync, mkdirSync } from "fs";
 import { spawnSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
@@ -155,6 +155,40 @@ describe("runHere: executa na aba atual via shell interativo, sem osascript", ()
       `;
       writeFileSync(join(dir, "p.txt"), "b");
       const proc = Bun.spawn(["bun", "-e", runner], { stdout: "pipe", stderr: "ignore" });
+      for (let i = 0; i < 100 && !existsSync(join(dir, "ready")); i++) await Bun.sleep(50);
+      expect(existsSync(join(dir, "ready"))).toBe(true);
+      process.kill(proc.pid, "SIGTERM");
+      const stdout = await new Response(proc.stdout).text();
+      await proc.exited;
+      expect(readFileSync(out, "utf8").trim()).toBe("TERM");
+      expect(stdout).toContain("code=9");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("runHere: SIGTERM com a invocação sendo função de shell", () => {
+  it.skipIf(!Bun.which("zsh") || !Bun.which("pgrep"))("o processo final recebe o TERM mesmo sem exec no shell", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "flux-sigfn-"));
+    try {
+      const child = join(dir, "child.sh");
+      const out = join(dir, "sig.out");
+      writeFileSync(
+        child,
+        `#!/bin/sh\ntrap 'echo TERM > ${out}; exit 9' TERM\necho ready > ${join(dir, "ready")}\nsleep 20 >/dev/null 2>&1 & wait $!\n`,
+        { mode: 0o755 },
+      );
+      const zdot = join(dir, "zdot");
+      mkdirSync(zdot);
+      writeFileSync(join(zdot, ".zshrc"), 'fluxfn() { "$@"; }\n');
+      writeFileSync(join(dir, "p.txt"), "b");
+      const runner = `
+        import { runHere } from ${JSON.stringify(join(import.meta.dir, "launch.ts"))};
+        const code = await runHere({ command: "x", body: "b", invocation: "fluxfn ${child}" }, { shell: "zsh", writePromptFile: () => ${JSON.stringify(join(dir, "p.txt"))} });
+        console.log("code=" + code);
+      `;
+      const proc = Bun.spawn(["bun", "-e", runner], { stdout: "pipe", stderr: "ignore", env: { ...process.env, ZDOTDIR: zdot } });
       for (let i = 0; i < 100 && !existsSync(join(dir, "ready")); i++) await Bun.sleep(50);
       expect(existsSync(join(dir, "ready"))).toBe(true);
       process.kill(proc.pid, "SIGTERM");

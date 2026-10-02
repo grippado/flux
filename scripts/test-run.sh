@@ -209,6 +209,16 @@ t_true "run_id no corpo e em .git não contam" '[ "$(wc -l < "$WORK/rr.txt" | tr
 rm -f "$VAULT/personal/pr-reviews/2026-10-01-1836-flux-PR78.md"
 rs resolve-ref --run "$RUN" --vault-root "$VAULT" --ref "vault:0-inbox/so-no-corpo.md" > "$WORK/rr.txt" 2> /dev/null
 t_eq "nota sem run_id no frontmatter, só com a dica, ainda resolve pela dica" "0" "$?"
+for form in "run_id: \"$RUN\"  # ver shared/run.md" "run_id: '$RUN'" "run_id: \"$RUN\" " "run_id: $RUN"; do
+    printf -- '---\n%s\n---\n' "$form" > "$VAULT/0-inbox/forma.md"
+    rs resolve-ref --run "$RUN" --vault-root "$VAULT" --ref "vault:0-inbox/forma.md" > "$WORK/rr.txt" 2> /dev/null
+    t_has "forma YAML aceita: $form" "0-inbox/forma.md" "$WORK/rr.txt"
+done
+printf -- '---\r\nrun_id: "%s"\r\n---\r\n' "$RUN" > "$VAULT/0-inbox/crlf.md"
+rm -f "$VAULT/0-inbox/forma.md" "$VAULT/0-inbox/so-no-corpo.md"
+rs resolve-ref --run "$RUN" --vault-root "$VAULT" > "$WORK/rr.txt" 2> /dev/null
+t_has "nota com CRLF é achada pela varredura" "0-inbox/crlf.md" "$WORK/rr.txt"
+rm -f "$VAULT/0-inbox/crlf.md"
 rs resolve-ref --run "$RUN" --vault-root "$VAULT" 2> /dev/null
 t_eq "sem nota alguma sai 3" "3" "$?"
 rs resolve-ref --run "$RUN" --vault-root "$VAULT" --ref "vault:../fora.md" 2> /dev/null

@@ -39,7 +39,7 @@ Comandos:
   stage-summary --run ID --seq N          (texto do resumo no stdin, até 4096 bytes)
   stage-end    --run ID --seq N --status completed|failed|cancelled [--exit-code N]
   end          --run ID [--result completed|failed|cancelled]
-  resolve-ref  --run ID --vault-root DIR [--ref vault:<rel>]       imprime o path atual da nota (relativo)
+  resolve-ref  --run ID --vault-root DIR [--ref vault:<rel>]       imprime o path atual da nota (relativo; uma linha por nota que carregue o run_id)
 
 Flags comuns: --root DIR (padrão: $FLUX_RUNS_ROOT ou ~/.flux/runs).
 
@@ -736,9 +736,10 @@ cmd_resolve_ref() {
         if note_has_run_id "$file"; then
             found="${found}${file#"$root"/}"$'\n'
         fi
-    done < <(grep -rlF --include='*.md' --exclude-dir=.git -e "$RUN" "$root" 2> /dev/null | LC_ALL=C sort)
+    done < <(grep -rlF --include='*.md' --exclude-dir=.git --exclude-dir=node_modules -e "$RUN" "$root" 2> /dev/null | LC_ALL=C sort)
     if [ -z "$found" ]; then
         if [ -n "$hint" ] && [ -f "$root/$hint" ]; then
+            printf 'run.sh: resolvido só pela dica, sem run_id confirmado no frontmatter: %s\n' "$hint" >&2
             printf '%s\n' "$hint"
             return 0
         fi
@@ -749,9 +750,16 @@ cmd_resolve_ref() {
 
 note_has_run_id() {
     awk -v id="$RUN" '
+        { sub(/\r$/, "") }
         NR == 1 { if ($0 != "---") exit 1; next }
         $0 == "---" { exit (hit ? 0 : 1) }
-        $0 == "run_id: \"" id "\"" || $0 == "run_id: " id { hit = 1 }
+        /^run_id:/ {
+            v = $0
+            sub(/^run_id:[ \t]*/, "", v)
+            sub(/[ \t]+#.*$/, "", v)
+            sub(/[ \t]+$/, "", v)
+            if (v == id || v == "\"" id "\"" || v == "\047" id "\047") hit = 1
+        }
         END { if (!hit) exit 1 }
     ' "$1" 2> /dev/null
 }

@@ -109,9 +109,27 @@ function spawnInherit(argv: string[]): number {
   return exitCodeOf(Bun.spawnSync(argv, { stdio: ["inherit", "inherit", "inherit"] }));
 }
 
+function descendantsOf(pid: number): number[] {
+  const out = Bun.spawnSync(["pgrep", "-P", String(pid)], { stdout: "pipe", stderr: "ignore" });
+  const children = out.stdout
+    .toString()
+    .split("\n")
+    .map((l) => Number.parseInt(l, 10))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  return children.flatMap((c) => [...descendantsOf(c), c]);
+}
+
+function signalTree(pid: number, signal: NodeJS.Signals): void {
+  for (const target of [...descendantsOf(pid), pid]) {
+    try {
+      process.kill(target, signal);
+    } catch {}
+  }
+}
+
 async function spawnInheritForwarding(argv: string[]): Promise<number> {
   const proc = Bun.spawn(argv, { stdio: ["inherit", "inherit", "inherit"] });
-  const onTerm = () => proc.kill("SIGTERM");
+  const onTerm = () => signalTree(proc.pid, "SIGTERM");
   const onInt = () => {};
   process.on("SIGTERM", onTerm);
   process.on("SIGINT", onInt);
