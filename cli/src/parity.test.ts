@@ -2,6 +2,7 @@ import { describe, it, expect } from "bun:test";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { VERB_REQUIREMENTS, type RequirementSpec } from "./preflight.ts";
+import { GATE_KINDS } from "./gate.ts";
 
 const SKILLS_DIR = join(import.meta.dir, "..", "..", "plugins", "flux", "skills");
 
@@ -79,4 +80,15 @@ describe("paridade entre VERB_REQUIREMENTS (CLI) e requires: do SKILL.md", () =>
       expect(cliKeys(cli!.soft)).toEqual(skillKeys(skill.soft).map((k) => k.replace(/:\s+/, ":")));
     });
   }
+});
+
+describe("paridade entre GATE_KINDS (CLI) e o vocabulario de gates do run.sh", () => {
+  const runSh = readFileSync(join(import.meta.dir, "..", "..", "plugins", "flux", "scripts", "run.sh"), "utf8");
+
+  it("o vocabulario do CLI e o de run.sh gate sao o mesmo conjunto, na mesma ordem", () => {
+    const line = runSh.split("\n").find((l) => l.startsWith("GATE_KINDS="));
+    expect(line).toBeDefined();
+    const kinds = line!.replace(/^GATE_KINDS="/, "").replace(/"\s*$/, "").trim().split(/\s+/);
+    expect([...GATE_KINDS]).toEqual(kinds);
+  });
 });

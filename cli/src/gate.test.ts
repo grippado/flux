@@ -54,6 +54,24 @@ describe("canal do sinal: caminho novo por execucao, so criado ao armar", () => 
     expect(a.path).not.toBe(b.path);
   });
 
+  it("arm devolve o mesmo canal quando o diretorio e criado", () => {
+    const channel = planGateChannel(null, tmp);
+    expect(armGateChannel(channel)).toBe(channel);
+  });
+
+  it("arm que falha degrada o canal em vez de lancar, com o motivo", () => {
+    const channel = planGateChannel(null, join(tmp, "base-que-nao-existe"));
+    const armedChannel = armGateChannel(channel);
+    expect(armedChannel.available).toBe(false);
+    expect((armedChannel as { reason: string }).reason).toContain("nao foi possivel criar o diretorio do sinal");
+    expect(readGateSignal(armedChannel)).toBeNull();
+  });
+
+  it("arm sobre canal indisponivel nao faz nada", () => {
+    const channel = planGateChannel("motivo", tmp);
+    expect(armGateChannel(channel)).toBe(channel);
+  });
+
   it("com motivo, o canal e declarado indisponivel e nunca le nada", () => {
     const channel = planGateChannel("porque sim", tmp);
     expect(channel).toEqual({ available: false, reason: "porque sim" });
@@ -62,7 +80,7 @@ describe("canal do sinal: caminho novo por execucao, so criado ao armar", () => 
 });
 
 describe("unavailableReason: so desliga onde o canal sabidamente nao funciona", () => {
-  const base = { harness: "claude" as const, safe: false, here: true };
+  const base = { harness: "claude" as const, safe: false, observable: true };
 
   it("claude, cursor e codex sem --safe: disponivel", () => {
     expect(unavailableReason(base)).toBeNull();
@@ -79,7 +97,7 @@ describe("unavailableReason: so desliga onde o canal sabidamente nao funciona", 
   });
 
   it("fora do modo here (--new) o fim da sessao nao e observavel", () => {
-    expect(unavailableReason({ ...base, here: false })).toContain("--new");
+    expect(unavailableReason({ ...base, observable: false })).toContain("--new");
   });
 });
 
@@ -102,11 +120,6 @@ describe("readGateSignal", () => {
     });
   });
 
-  it("pending false e um recibo de gate resolvido: nao e sinal", () => {
-    const channel = armed();
-    writeFileSync(channel.path, JSON.stringify({ schema: "flux-gate/1", pending: false, kind: "pr-open" }));
-    expect(readGateSignal(channel)).toBeNull();
-  });
 
   for (const [name, content] of [
     ["arquivo vazio", ""],
@@ -114,6 +127,10 @@ describe("readGateSignal", () => {
     ["JSON que nao e objeto", "[1,2]"],
     ["schema desconhecido", JSON.stringify({ schema: "outro/9", pending: true })],
     ["schema ausente", JSON.stringify({ pending: true, kind: "pr-open" })],
+    ["pending false (nao existe recibo: so a ausencia do arquivo e sucesso)", JSON.stringify({ schema: "flux-gate/1", pending: false, kind: "pr-open" })],
+    ["pending ausente", JSON.stringify({ schema: "flux-gate/1", kind: "pr-open" })],
+    ["kind ausente", JSON.stringify({ schema: "flux-gate/1", pending: true })],
+    ["kind nulo", JSON.stringify({ schema: "flux-gate/1", pending: true, kind: null })],
   ] as const) {
     it(`${name}: tratado como pendente e malformado (direcao segura)`, () => {
       const channel = armed();
@@ -274,14 +291,14 @@ exit 0
   });
 
   it("o diretorio do sinal nao sobra no TMPDIR depois da execucao", () => {
-    runFlux("pending");
+    expect(runFlux("pending").status).toBe(GATE_PENDING_EXIT);
     const leftovers = Bun.spawnSync(["ls", tmp]).stdout.toString().split("\n").filter((n) => n.startsWith("flux-gate-"));
     expect(leftovers).toEqual([]);
   });
 });
 
-describe("runHere nao foi alterado: stdout do filho continua herdado", () => {
-  it("o filho real escreve o sinal e o codigo bruto continua 0 (a promocao e do CLI)", async () => {
+describe("runHere devolve o codigo bruto do filho; a promocao para gate pendente e do CLI", () => {
+  it("o filho real escreve o sinal e o codigo bruto continua 0", async () => {
     const channel = armed();
     const script = join(tmp, "child.sh");
     writeFileSync(script, `#!/bin/sh\nprintf '{"schema":"flux-gate/1","pending":true,"kind":"pr-open"}' > '${channel.path}'\nexit 0\n`);

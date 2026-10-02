@@ -46,9 +46,9 @@ function sanitize(s: string): string {
 export function unavailableReason(opts: {
   harness: Harness;
   safe: boolean;
-  here: boolean;
+  observable: boolean;
 }): string | null {
-  if (!opts.here) return "fim da sessao nao observavel fora do modo here (--new)";
+  if (!opts.observable) return "fim da sessao nao observavel fora do modo here (--new)";
   if (opts.harness === "codex" && opts.safe) {
     return "codex exec em modo seguro roda em sandbox read-only e nao consegue gravar o sinal";
   }
@@ -61,9 +61,17 @@ export function planGateChannel(reason: string | null, base: string = tmpdir()):
   return { available: true, dir, path: join(dir, GATE_SIGNAL_FILE) };
 }
 
-export function armGateChannel(channel: GateChannel): void {
-  if (!channel.available) return;
-  mkdirSync(channel.dir, { mode: 0o700 });
+export function armGateChannel(channel: GateChannel): GateChannel {
+  if (!channel.available) return channel;
+  try {
+    mkdirSync(channel.dir, { mode: 0o700 });
+    return channel;
+  } catch (err) {
+    return {
+      available: false,
+      reason: `nao foi possivel criar o diretorio do sinal: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
 }
 
 export function closeGateChannel(channel: GateChannel): void {
@@ -89,14 +97,14 @@ export function readGateSignal(channel: GateChannel): GateSignal | null {
 
   const obj = parsed as Record<string, unknown>;
   if (obj["schema"] !== GATE_SIGNAL_SCHEMA) return malformed;
-  if (obj["pending"] === false) return null;
+  if (obj["pending"] !== true) return malformed;
 
   const kind = (GATE_KINDS as readonly unknown[]).includes(obj["kind"]) ? (obj["kind"] as GateKind) : "unknown";
   const question = typeof obj["question"] === "string" && obj["question"].trim() !== "" ? sanitize(obj["question"]) : null;
   const options = Array.isArray(obj["options"])
     ? obj["options"].filter((o): o is string => typeof o === "string").slice(0, MAX_OPTIONS).map(sanitize)
     : [];
-  return { kind, question, options, malformed: kind === "unknown" && obj["kind"] !== undefined };
+  return { kind, question, options, malformed: kind === "unknown" };
 }
 
 export function effectiveExitCode(harnessExit: number | null, signal: GateSignal | null): number | null {

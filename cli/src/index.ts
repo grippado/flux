@@ -312,10 +312,10 @@ async function runVerb(opts: {
   if (harnessSource === "default") console.error(DEFAULT_HARNESS_WARNING);
   const invocationOpts = { safe, harness, claudeCmd: harnessOverride };
 
-  const gateChannel = planGateChannel(
-    unavailableReason({ harness, safe, here: !openNew || !(harness === "claude" || harnessSource === "override") }),
-  );
-  if (!gateChannel.available) console.error(`[flux] aviso: sinal de gate pendente indisponivel (${gateChannel.reason}); decisao pendente nao muda o exit code.`);
+  const supportsNewTab = harness === "claude" || harnessSource === "override";
+  const warnGateUnavailable = (reason: string): void =>
+    console.error(`[flux] aviso: sinal de gate pendente indisponivel (${reason}); decisao pendente nao muda o exit code.`);
+  let gateChannel = planGateChannel(unavailableReason({ harness, safe, observable: !openNew || !supportsNewTab }));
 
   let userComment: string | null = null;
   const composeBody = (run?: RunPromptInfo): string => {
@@ -332,6 +332,7 @@ async function runVerb(opts: {
     console.log(command);
     return;
   }
+  if (!gateChannel.available) warnGateUnavailable(gateChannel.reason);
 
   let preflight: PreflightResult | null = null;
   if (record) {
@@ -367,7 +368,6 @@ async function runVerb(opts: {
     process.exit(1);
   }
 
-  const supportsNewTab = harness === "claude" || harnessSource === "override";
   if (!supportsNewTab && openNew) {
     console.error(`[flux] --new não é suportado para o harness "${harness}" ainda. Rodando na aba atual.`);
   }
@@ -412,7 +412,13 @@ async function runVerb(opts: {
   if (!openNew || !supportsNewTab) {
     let exitCode: number | null = null;
     try {
-      armGateChannel(gateChannel);
+      const armed = armGateChannel(gateChannel);
+      if (gateChannel.available && !armed.available) {
+        warnGateUnavailable(armed.reason);
+        gateChannel = armed;
+        body = composeBody(recording ? { runId: recording.runId, sequence: recording.sequence, root: recording.root } : undefined);
+        command = buildCommand(body, invocationOpts);
+      }
       exitCode = await runHere({ command, body, invocation, sessionId });
       const gateSignal = readGateSignal(gateChannel);
       if (gateSignal) console.error(describeGateSignal(gateSignal));
