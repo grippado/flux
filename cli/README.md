@@ -434,9 +434,9 @@ Um CLI que afirmasse esses quatro estaria mentindo com aparência de precisão. 
 
 ## Gate pendente em execução headless
 
-Um harness headless (`codex exec`, `claude -p`) sai com `0` mesmo quando a skill parou num gate esperando decisão humana: o processo terminou bem, só a tarefa não. Ler o texto final atrás de `DECISION REQUIRED` não serve de contrato, porque o marcador é prosa do modelo e some ou muda de forma sem aviso. O CLI tem um canal estruturado, separado da saída do terminal.
+Um harness headless (`codex exec` e equivalentes) sai com `0` mesmo quando a skill parou num gate esperando decisão humana: o processo terminou bem, só a tarefa não. Ler o texto final atrás de `DECISION REQUIRED` não serve de contrato, porque o marcador é prosa do modelo e some ou muda de forma sem aviso. O CLI tem um canal estruturado, separado da saída do terminal.
 
-**Como funciona.** A cada `flux <verbo>` em modo here, o CLI sorteia um caminho novo, fora de qualquer repo (`$TMPDIR/flux-gate-<hex>/gate.json`), e o entrega à skill no bloco PREFLIGHT RESOLVIDO, como `gate_signal: <caminho>`. Não passa por variável de ambiente, pela mesma razão do `run_id` (`plugins/flux/shared/run.md`, "Propagação"). O diretório só é criado (`0700`) imediatamente antes do launch e é removido no fim; `--dry` e saídas antecipadas não deixam nada. Depois que o harness termina, o CLI procura o arquivo:
+**Como funciona.** A cada `flux <verbo>` em modo here, o CLI sorteia um caminho novo, fora de qualquer repo (`$TMPDIR/flux-gate-<hex>/gate.json`), e o entrega à skill no bloco PREFLIGHT RESOLVIDO, como `gate_signal: <caminho>`. Não passa por variável de ambiente, pela mesma razão do `run_id` (`plugins/flux/shared/run.md`, "Propagação"). O diretório só é criado (`0700`) imediatamente antes do launch e é removido no fim das saídas normais (SIGHUP e SIGKILL não passam pelo `finally` e deixam o diretório para trás, sem efeito sobre a correção); se a criação falhar, o canal vira `indisponivel` e o prompt é recomposto sem o caminho; `--dry` e saídas antecipadas não deixam nada. Depois que o harness termina, o CLI procura o arquivo:
 
 | harness | sinal presente | saída do `flux` |
 |---|---|---|
@@ -458,10 +458,10 @@ Um harness headless (`codex exec`, `claude -p`) sai com `0` mesmo quando a skill
 }
 ```
 
-- `schema` é obrigatório e vale `flux-gate/1`. `pending: false` é recibo de gate resolvido e não conta como sinal.
+- `schema` é obrigatório e vale `flux-gate/1`; `pending` é obrigatório e sempre `true`. Não existe recibo de gate resolvido: gate respondido não grava arquivo.
 - `kind` é uma das categorias que `run.sh gate` valida (`GATE_KINDS`), derivadas das ações de `plugins/flux/shared/hitl.md`: `github-post`, `commit-push`, `issue-write`, `slack-write`, `pr-open`, `write-outside`, `write-manifest`, `ambiguous-target`.
 - `question` e `options` são opcionais, só para exibição (sem controle de terminal, truncados em 200 caracteres, no máximo 8 opções). O `flux` não os grava no run.
-- **Direção segura:** arquivo existente mas vazio, com JSON inválido, de outro `schema` ou com `kind` fora do vocabulário conta como gate pendente (o stderr diz que o sinal era ilegível). Só a ausência do arquivo é sucesso.
+- **Direção segura:** arquivo existente mas vazio, com JSON inválido, de outro `schema`, sem `pending: true` ou com `kind` ausente, nulo ou fora do vocabulário conta como gate pendente (o stderr diz que o sinal era ilegível). Só a ausência do arquivo é sucesso.
 
 **Com `--record`** o código efetivo vale também para a stage: `10` fecha como `failed` com `exit_code: 10`, nunca `completed`. O schema `flux-run/1` não tem status "pendente"; criar um é decisão de contrato à parte.
 
@@ -471,12 +471,12 @@ Um harness headless (`codex exec`, `claude -p`) sai com `0` mesmo quando a skill
 - `--new`, porque o fim da sessão não é observável fora do modo here.
 - `FLUX_CLAUDE_CMD`: o canal é oferecido, mas o CLI não sabe se o comando customizado consegue gravar nele. Se não conseguir, o gate pendente volta a passar por sucesso.
 
-**Verificado e disponível:** `cursor agent --print` em workspace confiável (`--trust`) grava o sinal mesmo sem `--force`; em workspace não confiável o cursor recusa rodar headless e o problema nem chega ao sinal. `claude` não foi exercitado contra o harness real: em `--safe` o prompt de permissão cobre a gravação, e sem `--safe` a permissão é pulada.
+**Verificado e disponível:** `cursor agent --print` em workspace confiável (`--trust`) grava o sinal mesmo sem `--force`; em workspace não confiável o cursor recusa rodar headless e o problema nem chega ao sinal. `claude` não foi exercitado contra o harness real.
 
-**O que ainda falta para o fluxo estar completo.** Este repo entrega o lado do CLI: canal, exit code, stderr e testes. Ninguém escreve o arquivo ainda. O contrato exato que as skills precisam adotar, as do `flux` e as de `arco-ai-plugins` que hoje emitem `DECISION REQUIRED` (o marcador não existe neste repo):
+**O que ainda falta para o fluxo estar completo.** Este repo entrega o lado do CLI: canal, exit code, stderr e testes. Ninguém escreve o arquivo ainda. O contrato exato que as skills precisam adotar, as do `flux` e as skills externas que hoje emitem `DECISION REQUIRED` (o marcador não existe neste repo):
 
 1. Ler `gate_signal:` no bloco PREFLIGHT RESOLVIDO da mensagem que invocou a skill. Ausente ou `indisponivel (...)`: manter o comportamento atual e não prometer detecção mecânica.
-2. O gatilho é exato: o ponto em que `plugins/flux/shared/hitl.md` manda **imprimir o menu numerado e parar** (seção "Quando o harness não tem o mecanismo", passo 2), ou seja, quando `AskUserQuestion` não existe e não há resposta a esperar. Nesse ponto, gravar o JSON acima no caminho de `gate_signal` **antes** de encerrar. Uma gravação só, atômica (escrever e renomear). Não gravar nada quando o gate foi respondido, nem quando `AskUserQuestion` abriu o gate normalmente. O `kind` usa o vocabulário de `run.sh gate` (`GATE_KINDS`), que mapeia as categorias de ação do `hitl.md` (a tabela "Ações que exigem GATE" as descreve em prosa, não pelos slugs).
+2. O gatilho é exato: o ponto em que `plugins/flux/shared/hitl.md` manda **imprimir o menu numerado e parar** (seção "Quando o harness não tem o mecanismo", passos 1 e 2), ou seja, quando `AskUserQuestion` não existe e não há resposta a esperar. Nesse ponto, gravar o JSON acima no caminho de `gate_signal` **antes** de encerrar. Uma gravação só, atômica (escrever e renomear). Não gravar nada quando o gate foi respondido, nem quando `AskUserQuestion` abriu o gate normalmente. O `kind` usa o vocabulário de `run.sh gate` (`GATE_KINDS`), que mapeia as categorias de ação do `hitl.md` (a tabela "Ações que exigem GATE" as descreve em prosa, não pelos slugs).
 3. Manter o texto `DECISION REQUIRED` na saída: ele continua sendo a leitura humana, só deixou de ser o contrato.
 
 Até as skills fazerem o passo 2, uma execução que para num gate continua saindo `0`.
