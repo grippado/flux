@@ -140,6 +140,24 @@ describe("resolve: FLUX_MANIFEST", () => {
     }
   });
 
+  it("resolve o slug pelo workspace_root do manifesto fixado, sem varredura", async () => {
+    const ws = join(tmpDir, "ws");
+    makeManifest(ws, ".claude", { name: "pessoal", workspace_root: ws, repos: ["api"] });
+    const repo = makeGitRepo(ws, "api");
+    const outside = mkdtempSync(join(tmpdir(), "flux-outside-"));
+    const emptyRoot = mkdtempSync(join(tmpdir(), "flux-empty-"));
+    try {
+      process.env["FLUX_MANIFEST"] = join(ws, ".claude", "flux-context.json");
+      const ctx = await resolveContext({ cwd: outside, repoSlug: "api", searchRoots: [emptyRoot] });
+      expect(ctx.anchor).toBe(repo);
+      expect(ctx.profile).toBe("pessoal");
+      expect(ctx.warnings.some((w) => w.includes("varredura"))).toBe(false);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+      rmSync(emptyRoot, { recursive: true, force: true });
+    }
+  });
+
   it("valor invalido avisa e cai na busca a partir do cwd", async () => {
     const ws = join(tmpDir, "ws");
     makeManifest(ws, ".claude", { name: "local" });
