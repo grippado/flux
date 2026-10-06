@@ -490,6 +490,11 @@ STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificaç�
   `reverified_threads` entra só quando o Passo 4b rodou (com o tamanho de `REOPEN_CANDIDATES`);
   sem Passo 4b, omitir o campo. Com `run_id:` na invocação, o frontmatter ganha `run_id: "{run_id}"`
   (topo do frontmatter, fora de `provenance`); sem run, omitir o campo.
+- Preencher `provenance` com os valores do Passo 0: `harness` = `HARNESS`, `flux_version` =
+  `FLUX_VERSION`, `model` = `MODEL`, `effort` = `EFFORT`, e `stamp` = `{HARNESS} | flux:review@{FLUX_VERSION}`.
+  No rodapé do artefato, usar `HARNESS_LABEL`, `FLUX_VERSION`, `MODEL` e `EFFORT` no formato do
+  `review-artifact-template.md`, como última linha. Preservar `unknown`; nunca inferir nem usar os
+  valores dos subagents.
 
 Gravar com a Write tool no caminho calculado (Step 5). Quando `VAULT_ROOT` não estiver definido (perfil
 genérico sem `--save`): imprimir o artefato no chat em vez de gravar; com `--save <dir>`, gravar em
@@ -591,6 +596,9 @@ Regras para montar o payload (conforme `review-legend.md` — Banner do badge):
 - Cada comentário usa `side: "RIGHT"`. Range multi-linha → `start_line` + `line`. Linha única → só `line`.
 - **Validar os números de linha contra o diff real** antes de postar — os números no markdown do vault podem estar relativos a hunks ou desatualizados. Buscar a linha no novo arquivo (RIGHT side) procurando pelo trecho citado.
 - **O `body` da review segue `${FLUX_ROOT}/shared/review-body-template.md`** (fonte única): veredito em negrito no topo, `### Placar dos findings` com a tabela de badges (incluindo os zeros), a linha da legenda, e as seções opcionais de destaque. **Não escrever o corpo em prosa solta.** O placar é **contado a partir do payload que você está postando**, nunca de memória.
+- **O rodapé de proveniência do template é obrigatório e fica por último no `body` da review.** Usar os
+  valores desta sessão (`HARNESS_LABEL`, `FLUX_VERSION`, `MODEL`, `EFFORT`), inclusive `unknown` quando
+  não houver autorrelato explícito do harness. Não inferir valores nem usar model/effort de specialists.
 - `praise` sobre arquivo inteiro novo (ex: `.changeset/*`) vai no `body` da review (não dá pra inline em "arquivo todo"), como seção com banner próprio, e entra no placar marcado como "no corpo".
 - O `body` de cada comentário É o corpo do finding correspondente, que **já abre com o banner-imagem**
   (`[![{badge}]({img-url})]({link-url}) **título** — corpo`). **Confira que cada body começa com `[![`

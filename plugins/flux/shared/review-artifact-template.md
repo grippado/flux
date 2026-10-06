@@ -49,6 +49,18 @@ Nada de citação nua. Se o texto aponta para código, PR, thread, ticket ou doc
   para separar o trecho de código do texto corrido.
 - Sem em-dash (—) em qualquer campo que o usuário possa colar/postar quando `NO_EMDASH == true`.
 
+## Carimbo de execução (todos os perfis)
+
+O rodapé é sempre a última linha do corpo do artefato, depois de todas as seções do perfil:
+
+```markdown
+> Review feito com 🤖 {HARNESS_LABEL} · flux:review@{FLUX_VERSION} | {MODEL} - {EFFORT}
+```
+
+Usar os valores resolvidos no preflight da sessão que grava a nota. Preservar `unknown` quando model
+ou effort não tiverem sido declarados pelo harness; não inferir nem usar os valores de specialists.
+O frontmatter mantém os campos estruturados `harness`, `flux_version`, `model`, `effort` e `stamp`.
+
 ---
 
 ## Perfil PR
@@ -188,6 +200,8 @@ fix/decisão concreta. Convergência entre lentes: anotar "(corroborado por {spe
 - **Holístico:** {HOLISTIC} · **Specialists:** {lista dos que rodaram, ou "nenhum — repo sem suite", ou "modo --solo"}
 - **PR:** [#{number}]({pr_url}) · **Ticket:** [{TICKET}]({ticket_url})
 - **Docs/RFCs:** {links, ou omitir se nenhum}
+
+> Review feito com 🤖 {HARNESS_LABEL} · flux:review@{FLUX_VERSION} | {MODEL} - {EFFORT}
 ```
 
 Tradução do STATUS (conforme `review-legend.md`): `approved` → "Aprovar"; `approved-with-suggestions`
