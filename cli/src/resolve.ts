@@ -45,6 +45,7 @@ export interface ManifestRecord {
 }
 
 export function expandHome(p: string): string {
+  if (p === "~") return homedir();
   if (p.startsWith("~/")) return join(homedir(), p.slice(2));
   return p;
 }
@@ -158,7 +159,7 @@ export function scanForManifests(searchRoots: string[]): ManifestRecord[] {
   const seen = new Set<string>();
   const SKIP = new Set([
     ".git", "node_modules", ".cache", ".npm", ".yarn",
-    "Library", "Applications", "Pictures", "Movies", "Music", ".Trash", "go", ".local",
+    ".worktrees", "Library", "Applications", "Pictures", "Movies", "Music", ".Trash", "go", ".local",
   ]);
 
   function scan(dir: string, depth: number): void {
@@ -233,11 +234,27 @@ function resolveAnchor(targetArg: string | null, cwd: string, repo: string | nul
   return cwd;
 }
 
+function manifestFromEnv(warnings: string[] | null): { path: string; dir: string } | null {
+  const envPath = process.env["FLUX_MANIFEST"];
+  if (!envPath) return null;
+  const path = resolvePath(expandHome(envPath));
+  try {
+    const raw = JSON.parse(readFileSync(path, "utf-8"));
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      return { path, dir: dirname(dirname(path)) };
+    }
+    warnings?.push(`FLUX_MANIFEST=${path} não é um objeto JSON: ignorado, procurando a partir do cwd`);
+  } catch (e) {
+    warnings?.push(`FLUX_MANIFEST=${path} inválido ou inexistente (${(e as Error).message}): ignorado, procurando a partir do cwd`);
+  }
+  return null;
+}
+
 function resolveManifestFromCandidates(
   anchor: string,
   warnings: string[]
 ): { manifest: FluxManifest | null; path: string | null; dir: string | null } {
-  const found = findManifestUpward(anchor);
+  const found = manifestFromEnv(warnings) ?? findManifestUpward(anchor);
   if (!found) return { manifest: null, path: null, dir: null };
 
   let raw: unknown;
@@ -346,7 +363,7 @@ export async function resolveContext(opts: {
   if (unresolvedSlug) {
     const slug = unresolvedSlug;
 
-    const nearbyManifest = findManifestUpward(cwd);
+    const nearbyManifest = manifestFromEnv(null) ?? findManifestUpward(cwd);
     if (nearbyManifest) {
       try {
         const raw = JSON.parse(readFileSync(nearbyManifest.path, "utf-8")) as FluxManifest;

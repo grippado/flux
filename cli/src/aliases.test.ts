@@ -4,7 +4,7 @@ import { join } from "path";
 import { tmpdir } from "os";
 import { spawnSync } from "child_process";
 import { generateAliases, shellQuote, sanitizeName } from "./aliases.ts";
-import { SUPPORTED_VERBS } from "./index.ts";
+import { ALIAS_VERBS } from "./index.ts";
 import type { ManifestRecord } from "./resolve.ts";
 
 let tmpDir: string;
@@ -31,7 +31,7 @@ function makeManifestRecord(dir: string, manifest: object): ManifestRecord {
   };
 }
 
-const VERBS = SUPPORTED_VERBS.filter((v) => v !== "map");
+const VERBS = ALIAS_VERBS;
 
 function functionNames(script: string): string[] {
   return script
@@ -59,7 +59,9 @@ describe("generateAliases: formato e cobertura", () => {
   it("usa o formato exato com subshell e aspas simples", () => {
     const ws = makeWorkspace("ws");
     const { script } = generateAliases([makeManifestRecord(ws, { name: "ctx" })], ["review"]);
-    expect(script).toBe(`ctx-flux-review() { ( cd '${ws}' && flux review "$@" ) }\n`);
+    expect(script).toBe(
+      `ctx-flux-review() { ( builtin cd -- '${ws}' && FLUX_MANIFEST='${ws}/.claude/flux-context.json' flux review "$@" ) }\n`,
+    );
   });
 
   it("alias_prefix sobrescreve o name", () => {
@@ -71,13 +73,13 @@ describe("generateAliases: formato e cobertura", () => {
   it("sem workspace_root usa o diretorio do manifesto", () => {
     const ws = makeWorkspace("ws");
     const { script } = generateAliases([makeManifestRecord(ws, { name: "ctx" })], ["peek"]);
-    expect(script).toContain(`cd '${ws}'`);
+    expect(script).toContain(`cd -- '${ws}'`);
   });
 
   it("expande ~ em workspace_root", () => {
     const home = process.env["HOME"]!;
     const { script } = generateAliases([makeManifestRecord("/fake", { name: "ctx", workspace_root: "~/" })], ["peek"]);
-    expect(script).toContain(`cd '${home}'`);
+    expect(script).toContain(`cd -- '${home}'`);
   });
 });
 
@@ -88,7 +90,7 @@ describe("generateAliases: alias_cwd", () => {
       [makeManifestRecord(ws, { name: "pessoal", alias_prefix: "personal", workspace_root: ws, alias_cwd: "~/" })],
       ["peek"],
     );
-    expect(script).toBe(`personal-flux-peek() { ( cd '${process.env["HOME"]}' && flux peek "$@" ) }\n`);
+    expect(script).toBe(`personal-flux-peek() { ( builtin cd -- '${process.env["HOME"]}' && FLUX_MANIFEST='${ws}/.claude/flux-context.json' flux peek "$@" ) }\n`);
   });
 
   it("alias_cwd vale tambem para as funcoes por repo", () => {
@@ -98,7 +100,7 @@ describe("generateAliases: alias_cwd", () => {
       ["peek"],
       { repos: true },
     );
-    expect(script).toContain(`p-api-peek() { ( cd '${process.env["HOME"]}' && flux peek --repo 'api' "$@" ) }`);
+    expect(script).toContain(`p-api-peek() { ( builtin cd -- '${process.env["HOME"]}' && FLUX_MANIFEST='${ws}/.claude/flux-context.json' flux peek --repo 'api' "$@" ) }`);
   });
 
   it("alias_cwd inexistente pula o manifesto nomeando o campo", () => {
@@ -117,8 +119,34 @@ describe("generateAliases: alias_cwd", () => {
       [makeManifestRecord(ws, { name: "a", alias_cwd: "" }), makeManifestRecord(makeWorkspace("w2"), { name: "b", alias_cwd: 7 })],
       ["peek"],
     );
-    expect(script).toContain(`cd '${ws}'`);
-    expect(script).toContain(`cd '${join(tmpDir, "w2")}'`);
+    expect(script).toContain(`cd -- '${ws}'`);
+    expect(script).toContain(`cd -- '${join(tmpDir, "w2")}'`);
+  });
+});
+
+describe("generateAliases: alias_cwd relativo e FLUX_MANIFEST", () => {
+  it("alias_cwd relativo resolve contra o diretorio do manifesto", () => {
+    const ws = makeWorkspace("ws");
+    mkdirSync(join(ws, "sub"));
+    const { script } = generateAliases([makeManifestRecord(ws, { name: "ctx", alias_cwd: "sub" })], ["peek"]);
+    expect(script).toContain(`cd -- '${join(ws, "sub")}'`);
+  });
+
+  it("alias_cwd igual a ~ expande para o home", () => {
+    const ws = makeWorkspace("ws");
+    const { script } = generateAliases([makeManifestRecord(ws, { name: "ctx", alias_cwd: "~" })], ["peek"]);
+    expect(script).toContain(`cd -- '${process.env["HOME"]}'`);
+  });
+
+  it("a funcao fixa o manifesto: de um cwd fora da arvore o flux recebe FLUX_MANIFEST", () => {
+    const ws = makeWorkspace("ws");
+    const outside = makeWorkspace("outside");
+    const { script } = generateAliases([makeManifestRecord(ws, { name: "ctx", alias_cwd: outside })], ["peek"]);
+    const r = spawnSync("bash", ["-c", `flux() { echo "pwd:$(pwd) manifest:$FLUX_MANIFEST"; }\n${script}\nctx-flux-peek`], {
+      cwd: tmpDir,
+      encoding: "utf8",
+    });
+    expect(r.stdout).toBe(`pwd:${outside} manifest:${ws}/.claude/flux-context.json\n`);
   });
 });
 
@@ -138,8 +166,8 @@ describe("generateAliases: casos de borda com aviso", () => {
       [makeManifestRecord(a, { name: "ctx" }), makeManifestRecord(b, { name: "ctx" })],
       ["review"],
     );
-    expect(script).toContain(`cd '${a}'`);
-    expect(script).not.toContain(`cd '${b}'`);
+    expect(script).toContain(`cd -- '${a}'`);
+    expect(script).not.toContain(`cd -- '${b}'`);
     expect(warnings.some((w) => w.includes("já usado"))).toBe(true);
   });
 
@@ -169,7 +197,7 @@ describe("generateAliases: --repos", () => {
     const { script } = generateAliases([makeManifestRecord(ws, { name: "arco", repos: ["backoffice"] })], ["review"], {
       repos: true,
     });
-    expect(script).toContain(`arco-backoffice-review() { ( cd '${ws}' && flux review --repo 'backoffice' "$@" ) }`);
+    expect(script).toContain(`arco-backoffice-review() { ( builtin cd -- '${ws}' && FLUX_MANIFEST='${ws}/.claude/flux-context.json' flux review --repo 'backoffice' "$@" ) }`);
   });
 
   it("nao gera funcao por repo sem a flag", () => {
@@ -189,7 +217,9 @@ describe("generateAliases: --repos", () => {
     expect(lines).toHaveLength(1);
     expect(lines[0]).not.toContain("--repo");
     expect(script).toContain("personal-outro-review()");
-    expect(warnings.some((w) => w.includes("colisão") && w.includes("personal-flux-review"))).toBe(true);
+    const collision = warnings.filter((w) => w.includes("colisão"));
+    expect(collision).toHaveLength(1);
+    expect(collision[0]).toContain('repo "flux" em "personal": 1 funções colidem com as de contexto e foram ignoradas');
   });
 
   it("sanitiza slug de repo invalido com aviso e mantem o valor original quotado", () => {
@@ -348,6 +378,15 @@ describe("flux aliases: CLI", () => {
     writeFileSync(outFile, "velho\n", { mode: 0o644 });
     runCli(["aliases", "--out", outFile], home);
     expect(statSync(outFile).mode & 0o777).toBe(0o600);
+  });
+
+  it("--out cria o diretorio pai que nao existe", () => {
+    const home = makeHome();
+    const outFile = join(tmpDir, "novo", "fundo", "aliases.zsh");
+    const r = runCli(["aliases", "--out", outFile], home);
+    expect(r.status).toBe(0);
+    expect(statSync(outFile).mode & 0o777).toBe(0o600);
+    expect(statSync(join(tmpDir, "novo")).mode & 0o777).toBe(0o700);
   });
 
   it("--repos emite o aviso de colisao no stderr e mantem a funcao de contexto", () => {

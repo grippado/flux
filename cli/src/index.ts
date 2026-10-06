@@ -1,8 +1,8 @@
 import { resolveContext, scanForManifests } from "./resolve.ts";
 import { generateAliases, shellQuote } from "./aliases.ts";
-import { chmodSync, writeFileSync } from "fs";
+import { chmodSync, mkdirSync, writeFileSync } from "fs";
 import { homedir } from "os";
-import { resolve as resolvePath } from "path";
+import { dirname, resolve as resolvePath } from "path";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
 import { resolveHarness, harnessInstallHint, assertCanonicalHarness, CANONICAL_HARNESSES, DEFAULT_HARNESS_WARNING } from "./harness.ts";
 import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
@@ -15,6 +15,7 @@ import { beginRecording, finishRecording, scriptAvailable, type RunHandle, type 
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
 type Verb = typeof SUPPORTED_VERBS[number];
+export const ALIAS_VERBS: readonly string[] = SUPPORTED_VERBS.filter((v) => v !== "map");
 
 const VERB_HINTS: Record<Verb, string> = {
   review: "revisão formal de PR/doc (specialists + reviewer)",
@@ -759,12 +760,13 @@ async function main(): Promise<void> {
   if (subcommand === "aliases") {
     const result = generateAliases(
       scanForManifests([homedir()]),
-      SUPPORTED_VERBS.filter((v) => v !== "map"),
+      ALIAS_VERBS,
       { repos },
     );
     for (const w of result.warnings) console.error(`aviso: ${w}`);
     if (out) {
       const outPath = resolvePath(process.cwd(), out);
+      mkdirSync(dirname(outPath), { recursive: true, mode: 0o700 });
       writeFileSync(outPath, result.script, { mode: 0o600 });
       chmodSync(outPath, 0o600);
       console.log(`source ${shellQuote(outPath)}`);

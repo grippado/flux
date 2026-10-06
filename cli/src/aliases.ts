@@ -39,7 +39,7 @@ export function generateAliases(
   });
 
   const sorted = [...records].sort((a, b) => a.path.localeCompare(b.path));
-  const contexts: { prefix: string; dir: string; repos: string[] }[] = [];
+  const contexts: { prefix: string; dir: string; manifestPath: string; repos: string[] }[] = [];
   const usedPrefixes = new Set<string>();
 
   for (const record of sorted) {
@@ -75,7 +75,7 @@ export function generateAliases(
           ? m.workspace_root
           : record.dir;
     const dir = resolvePath(record.dir, expandHome(rawRoot));
-    if (CONTROL_CHARS.test(dir)) {
+    if (CONTROL_CHARS.test(dir) || CONTROL_CHARS.test(record.path)) {
       warnings.push(`manifesto ignorado, ${cwdField} com caractere de controle: ${describe(record)}`);
       continue;
     }
@@ -86,7 +86,7 @@ export function generateAliases(
 
     usedPrefixes.add(prefix);
     const repos = Array.isArray(m.repos) ? m.repos.filter((r): r is string => typeof r === "string" && r !== "") : [];
-    contexts.push({ prefix, dir, repos });
+    contexts.push({ prefix, dir, manifestPath: record.path, repos });
   }
 
   const emitted = new Set<string>();
@@ -97,7 +97,7 @@ export function generateAliases(
       const name = `${ctx.prefix}-flux-${verb}`;
       if (emitted.has(name)) continue;
       emitted.add(name);
-      lines.push(`${name}() { ( cd ${shellQuote(ctx.dir)} && flux ${verb} "$@" ) }`);
+      lines.push(`${name}() { ( builtin cd -- ${shellQuote(ctx.dir)} && FLUX_MANIFEST=${shellQuote(ctx.manifestPath)} flux ${verb} "$@" ) }`);
     }
   }
 
@@ -116,14 +116,20 @@ export function generateAliases(
         if (slug !== repo) {
           warnings.push(`slug de repo ${JSON.stringify(repo)} sanitizado para "${slug}" em "${ctx.prefix}"`);
         }
+        let collisions = 0;
         for (const verb of safeVerbs) {
           const name = `${ctx.prefix}-${slug}-${verb}`;
           if (emitted.has(name)) {
-            warnings.push(`colisão: "${name}" já existe, função de repo ignorada (a de contexto ou a primeira vence)`);
+            collisions++;
             continue;
           }
           emitted.add(name);
-          lines.push(`${name}() { ( cd ${shellQuote(ctx.dir)} && flux ${verb} --repo ${shellQuote(repo)} "$@" ) }`);
+          lines.push(
+            `${name}() { ( builtin cd -- ${shellQuote(ctx.dir)} && FLUX_MANIFEST=${shellQuote(ctx.manifestPath)} flux ${verb} --repo ${shellQuote(repo)} "$@" ) }`,
+          );
+        }
+        if (collisions > 0) {
+          warnings.push(`colisão: repo ${JSON.stringify(repo)} em "${ctx.prefix}": ${collisions} funções colidem com as de contexto e foram ignoradas`);
         }
       }
     }
