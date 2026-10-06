@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
-import { resolveContext } from "./resolve.ts";
+import { tmpdir, homedir } from "os";
+import { resolveContext, expandHome, scanForManifests } from "./resolve.ts";
 import { buildPrompt, buildCommand, resolveInvocation } from "./prompt.ts";
 import { resolveHarness, UNKNOWN_HARNESS } from "./harness.ts";
 import { SUPPORTED_VERBS, TICKET_PATTERN, LINEAR_URL_PATTERN } from "./index.ts";
@@ -110,6 +110,94 @@ describe("resolve: perfil generico sem manifesto", () => {
     } finally {
       rmSync(isolatedDir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("resolve: FLUX_MANIFEST", () => {
+  let saved: string | undefined;
+
+  beforeEach(() => {
+    saved = process.env["FLUX_MANIFEST"];
+  });
+
+  afterEach(() => {
+    if (saved === undefined) delete process.env["FLUX_MANIFEST"];
+    else process.env["FLUX_MANIFEST"] = saved;
+  });
+
+  it("usa o manifesto fixado mesmo com o cwd fora da arvore dele", async () => {
+    const ws = join(tmpDir, "ws");
+    makeManifest(ws, ".claude", { name: "pessoal" });
+    const outside = mkdtempSync(join(tmpdir(), "flux-outside-"));
+    try {
+      process.env["FLUX_MANIFEST"] = join(ws, ".claude", "flux-context.json");
+      const ctx = await resolveContext({ cwd: outside });
+      expect(ctx.profile).toBe("pessoal");
+      expect(ctx.manifest_path).toBe(join(ws, ".claude", "flux-context.json"));
+      expect(ctx.warnings.some((w) => w.includes("FLUX_MANIFEST"))).toBe(false);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("resolve o slug pelo workspace_root do manifesto fixado, sem varredura", async () => {
+    const ws = join(tmpDir, "ws");
+    makeManifest(ws, ".claude", { name: "pessoal", workspace_root: ws, repos: ["api"] });
+    const repo = makeGitRepo(ws, "api");
+    const outside = mkdtempSync(join(tmpdir(), "flux-outside-"));
+    const emptyRoot = mkdtempSync(join(tmpdir(), "flux-empty-"));
+    try {
+      process.env["FLUX_MANIFEST"] = join(ws, ".claude", "flux-context.json");
+      const ctx = await resolveContext({ cwd: outside, repoSlug: "api", searchRoots: [emptyRoot] });
+      expect(ctx.anchor).toBe(repo);
+      expect(ctx.profile).toBe("pessoal");
+      expect(ctx.warnings.some((w) => w.includes("varredura"))).toBe(false);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+      rmSync(emptyRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("valor invalido avisa e cai na busca a partir do cwd", async () => {
+    const ws = join(tmpDir, "ws");
+    makeManifest(ws, ".claude", { name: "local" });
+    process.env["FLUX_MANIFEST"] = join(tmpDir, "nao-existe.json");
+    const ctx = await resolveContext({ cwd: ws });
+    expect(ctx.profile).toBe("local");
+    expect(ctx.warnings.some((w) => w.includes("FLUX_MANIFEST"))).toBe(true);
+  });
+
+  it("JSON malformado no valor avisa e cai no comportamento atual", async () => {
+    const outside = mkdtempSync(join(tmpdir(), "flux-outside-"));
+    try {
+      const bad = join(tmpDir, "bad.json");
+      writeFileSync(bad, "{nope");
+      process.env["FLUX_MANIFEST"] = bad;
+      const ctx = await resolveContext({ cwd: outside });
+      expect(ctx.profile).toBe("generico");
+      expect(ctx.warnings.some((w) => w.includes("FLUX_MANIFEST"))).toBe(true);
+    } finally {
+      rmSync(outside, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("expandHome", () => {
+  it("expande ~ sozinho e ~/", () => {
+    expect(expandHome("~")).toBe(homedir());
+    expect(expandHome("~/x")).toBe(join(homedir(), "x"));
+    expect(expandHome("~x")).toBe("~x");
+  });
+});
+
+describe("scanForManifests: .worktrees", () => {
+  it("ignora manifestos dentro de .worktrees", () => {
+    const ws = join(tmpDir, "ws");
+    makeManifest(ws, ".claude", { name: "main" });
+    makeManifest(join(ws, ".worktrees", "branch"), ".claude", { name: "main" });
+    const found = scanForManifests([tmpDir]);
+    expect(found).toHaveLength(1);
+    expect(found[0].dir).toBe(ws);
   });
 });
 
