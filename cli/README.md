@@ -208,6 +208,29 @@ flux gather pr https://github.com/owner/repo/pull/8249 --out ./coleta --json
 
 `--threads` só é usado por quem vai responder threads (o `iterate`); o `peek` não pede, para não pagar por dado que não usa.
 
+### `flux aliases`
+
+Gera funções de shell por contexto e verbo a partir dos manifestos encontrados sob o `$HOME`, para chamar um verbo no workspace certo sem dar `cd` antes.
+
+```bash
+flux aliases                        # imprime as funções em stdout
+flux aliases --repos                # inclui também uma função por repo de repos[]
+flux aliases --out ~/.flux/aliases.zsh   # grava o arquivo e imprime a linha source
+```
+
+Cada função tem o formato `<prefixo>-flux-<verbo>() { ( cd '<workspace_root>' && flux <verbo> "$@" ) }`. O subshell mantém o diretório de quem digitou. O prefixo é `alias_prefix` do manifesto; sem ele, `name`. Todos os verbos são gerados, exceto `map`.
+
+Com `--repos`, sai também `<prefixo>-<repo>-<verbo>`, que injeta `--repo <repo>`. Se o nome colidir com uma função de contexto (um repo chamado `flux` num contexto de prefixo `personal` colide com `personal-flux-review`), a de contexto vence e o CLI avisa.
+
+| flag | efeito |
+|---|---|
+| `--repos` | gera também as funções por repo |
+| `--out <arquivo>` | grava o script com modo `0600` e imprime `source '<arquivo>'`. Nunca edita o `.zshrc` |
+
+Avisos vão para o stderr e não alteram o código de saída. São pulados com aviso: manifesto sem `name` e sem `alias_prefix`, prefixo repetido (vale o primeiro, em ordem de caminho), `workspace_root` inexistente. Slug de repo com caractere fora de `[A-Za-z0-9_-]` vira `-` no nome da função, e o valor original segue como argumento de `--repo`.
+
+Valores do manifesto são tratados como não confiáveis: caminhos e slugs entram entre aspas simples com escape de `'`, e o nome de função só carrega `[A-Za-z0-9_-]`.
+
 ---
 
 ## Flags
@@ -319,6 +342,7 @@ Ele é procurado em `.claude/flux-context.json` ou `.cursor/flux-context.json`, 
 | `name` | nome do perfil, aparece no banner |
 | `workspace_root` | onde os checkouts vivem. Sem ele, o diretório do manifesto |
 | `repos` | lista de slugs conhecidos, usada para validar e sugerir |
+| `alias_prefix` | prefixo das funções geradas por `flux aliases`. Sem ele, `name` |
 | `vault_root` / `vault_context` | onde os verbos persistem boards e relatórios |
 | `linear_org` | normaliza `LAB-142` em URL clicável |
 | `no_emdash` | proíbe travessão em texto que vai para o GitHub |
@@ -555,6 +579,7 @@ bun run src/index.ts <args>   # roda direto do fonte, sem compilar
 | `prompt.ts` | montagem do bloco `PREFLIGHT RESOLVIDO` e da linha de comando |
 | `launch.ts` | execução local, em aba nova (AppleScript) e remota (SSH) |
 | `gather.ts` | coleta de PR via `gh` |
+| `aliases.ts` | geração das funções de shell de `flux aliases` |
 | `github-url.ts` | parse de URL do GitHub |
 
 Testes ficam **ao lado** do fonte (`resolve.ts` + `resolve.test.ts`). Mantenha o padrão.

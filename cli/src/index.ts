@@ -1,4 +1,8 @@
-import { resolveContext } from "./resolve.ts";
+import { resolveContext, scanForManifests } from "./resolve.ts";
+import { generateAliases, shellQuote } from "./aliases.ts";
+import { chmodSync, writeFileSync } from "fs";
+import { homedir } from "os";
+import { resolve as resolvePath } from "path";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
 import { resolveHarness, harnessInstallHint, assertCanonicalHarness, CANONICAL_HARNESSES, DEFAULT_HARNESS_WARNING } from "./harness.ts";
 import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
@@ -41,6 +45,7 @@ function printUsage(): void {
   console.error("     flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
   console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
   console.error("     flux session end <id>  (ou defina FLUX_SESSION_ID no ambiente e omita <id>)");
+  console.error("     flux aliases [--repos] [--out <arquivo>]  (gera funções de shell <contexto>-flux-<verbo> a partir dos manifestos)");
   console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--new] [--remote [alias]] [--yes|-y] [--harness <claude|cursor|codex>]");
   console.error("     flux review <PR> --record  (grava o run local em ~/.flux/runs/<run_id>/; só review, modo here)");
   console.error("     flux <verbo> ... --remote  (sem alias: pergunta interativamente qual máquina alcançável usar)");
@@ -66,6 +71,7 @@ function parseArgs(argv: string[]): {
   threads: boolean;
   harness: string | null;
   record: boolean;
+  repos: boolean;
   rest: string[];
 } {
   const args = [...argv];
@@ -84,6 +90,7 @@ function parseArgs(argv: string[]): {
   let threads = false;
   let harness: string | null = null;
   let record = false;
+  let repos = false;
   const rest: string[] = [];
 
   if (args.length > 0) {
@@ -133,6 +140,9 @@ function parseArgs(argv: string[]): {
     } else if (a === "--threads") {
       threads = true;
       i++;
+    } else if (a === "--repos") {
+      repos = true;
+      i++;
     } else if (a === "--record") {
       record = true;
       i++;
@@ -158,7 +168,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, record, rest };
+  return { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, record, repos, rest };
 }
 
 async function runResolve(opts: {
@@ -673,7 +683,7 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, record, rest } = parseArgs(argv);
+  const { subcommand, target, repo, family, out, json, dry, safe, openNew, remote, remotePrompt, yes, threads, harness, record, repos, rest } = parseArgs(argv);
 
   if (!subcommand) {
     printUsage();
@@ -744,6 +754,24 @@ async function main(): Promise<void> {
     }
     console.error("Uso: flux session end <id>");
     process.exit(2);
+  }
+
+  if (subcommand === "aliases") {
+    const result = generateAliases(
+      scanForManifests([homedir()]),
+      SUPPORTED_VERBS.filter((v) => v !== "map"),
+      { repos },
+    );
+    for (const w of result.warnings) console.error(`aviso: ${w}`);
+    if (out) {
+      const outPath = resolvePath(process.cwd(), out);
+      writeFileSync(outPath, result.script, { mode: 0o600 });
+      chmodSync(outPath, 0o600);
+      console.log(`source ${shellQuote(outPath)}`);
+      return;
+    }
+    process.stdout.write(result.script);
+    return;
   }
 
   if (!isSupportedVerb(subcommand)) {

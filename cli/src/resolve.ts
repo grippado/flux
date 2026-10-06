@@ -14,6 +14,7 @@ export interface FluxManifest {
   linear_org?: string;
   no_emdash?: boolean;
   repos?: string[];
+  alias_prefix?: string;
   preferred_harness?: string;
   [key: string]: unknown;
 }
@@ -42,7 +43,7 @@ export interface ManifestRecord {
   manifest: FluxManifest;
 }
 
-function expandHome(p: string): string {
+export function expandHome(p: string): string {
   if (p.startsWith("~/")) return join(homedir(), p.slice(2));
   return p;
 }
@@ -151,7 +152,7 @@ function findCodexPluginMarker(): string | null {
   return null;
 }
 
-function scanForManifests(searchRoots: string[]): ManifestRecord[] {
+export function scanForManifests(searchRoots: string[]): ManifestRecord[] {
   const results: ManifestRecord[] = [];
   const seen = new Set<string>();
   const SKIP = new Set([
