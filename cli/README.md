@@ -147,7 +147,7 @@ O parse do chain no CLI **ainda não está implementado**: `chain` não está en
 
 ## Uso: os subcomandos mecânicos
 
-Além dos verbos, o CLI tem três subcomandos que **não abrem sessão nenhuma**: eles imprimem JSON e saem. Servem para as próprias skills consumirem, e para você depurar.
+Além dos verbos, o CLI tem quatro subcomandos mecânicos documentados abaixo (`resolve`, `preflight`, `gather` e `aliases`) que **não abrem sessão nenhuma**: os três primeiros imprimem JSON e saem, e o `aliases` imprime um script de shell. Servem para as próprias skills consumirem, e para você depurar.
 
 ### `flux resolve`
 
@@ -218,16 +218,18 @@ flux aliases --repos                # inclui também uma função por repo de re
 flux aliases --out ~/.flux/aliases.zsh   # grava o arquivo e imprime a linha source
 ```
 
-Cada função tem o formato `<prefixo>-flux-<verbo>() { ( cd '<alias_cwd ou workspace_root>' && flux <verbo> "$@" ) }`. O subshell mantém o diretório de quem digitou. O prefixo é `alias_prefix` do manifesto; sem ele, `name`. Todos os verbos são gerados, exceto `map`.
+Cada função tem o formato `<prefixo>-flux-<verbo>() { ( builtin cd -- '<alias_cwd ou workspace_root>' && FLUX_MANIFEST='<manifesto>' flux <verbo> "$@" ) }`. O subshell mantém o diretório de quem digitou, e `FLUX_MANIFEST` fixa o manifesto de origem, de modo que o contexto não se perde quando o diretório de entrada fica fora da árvore do manifesto. O prefixo é `alias_prefix` do manifesto; sem ele, `name`. São gerados todos os verbos suportados pelo CLI, exceto `map`, que não tem workspace alvo.
 
-Com `--repos`, sai também `<prefixo>-<repo>-<verbo>`, que injeta `--repo <repo>`. Se o nome colidir com uma função de contexto (um repo chamado `flux` num contexto de prefixo `personal` colide com `personal-flux-review`), a de contexto vence e o CLI avisa.
+Requer CLI >= 1.32.0 (`FLUX_MANIFEST` pede >= 1.33.0). O script gerado congela verbos e caminhos do momento: gere de novo ao atualizar o flux ou mudar um manifesto, ou use `eval "$(flux aliases)"`. A varredura lê `.claude/flux-context.json` e `.cursor/flux-context.json` sob o `$HOME` (até 4 níveis, ignorando `.worktrees`); o Codex usa o mesmo manifesto, então ele é descoberto por um desses dois caminhos.
+
+Com `--repos`, sai também `<prefixo>-<repo>-<verbo>`, que injeta `--repo <repo>`. Se o nome colidir com uma função de contexto (um repo chamado `flux` num contexto de prefixo `personal` colide com `personal-flux-review`), a de contexto vence e o CLI avisa uma vez por repo e contexto, com a contagem de funções ignoradas.
 
 | flag | efeito |
 |---|---|
 | `--repos` | gera também as funções por repo |
 | `--out <arquivo>` | grava o script com modo `0600` e imprime `source '<arquivo>'`. Nunca edita o `.zshrc` |
 
-Avisos vão para o stderr e não alteram o código de saída. São pulados com aviso: manifesto sem `name` e sem `alias_prefix`, prefixo repetido (vale o primeiro, em ordem de caminho), `workspace_root` inexistente. Slug de repo com caractere fora de `[A-Za-z0-9_-]` vira `-` no nome da função, e o valor original segue como argumento de `--repo`.
+Avisos vão para o stderr e não alteram o código de saída. São pulados com aviso: manifesto sem `name` e sem `alias_prefix`, prefixo sem nenhum caractere válido, prefixo repetido (vale o primeiro, em ordem de caminho), `alias_cwd` ou `workspace_root` inexistente, e `alias_cwd` ou `workspace_root` com caractere de controle. Sequências de caracteres fora de `[A-Za-z0-9_-]` (no prefixo e no slug de repo) viram um único `-` no nome da função, com as pontas aparadas, e o valor original de um repo segue como argumento de `--repo`. String vazia em `alias_prefix` ou `alias_cwd` conta como ausente. `--out` cria o diretório pai se ele não existir.
 
 Valores do manifesto são tratados como não confiáveis: caminhos e slugs entram entre aspas simples com escape de `'`, e o nome de função só carrega `[A-Za-z0-9_-]`.
 
@@ -343,7 +345,7 @@ Ele é procurado em `.claude/flux-context.json` ou `.cursor/flux-context.json`, 
 | `workspace_root` | onde os checkouts vivem. Sem ele, o diretório do manifesto |
 | `repos` | lista de slugs conhecidos, usada para validar e sugerir |
 | `alias_prefix` | prefixo das funções geradas por `flux aliases`. Sem ele, `name` |
-| `alias_cwd` | diretório onde as funções geradas dão `cd`. Sem ele, `workspace_root`. Aceita `~/`. Útil para abrir a sessão fora do workspace, onde o roteamento de conta por PWD cai na conta pessoal |
+| `alias_cwd` | diretório onde as funções geradas dão `cd`. Sem ele, `workspace_root`. Aceita `~` e `~/`; relativo resolve contra o diretório do manifesto. Útil quando algo do seu ambiente depende do diretório de entrada |
 | `vault_root` / `vault_context` | onde os verbos persistem boards e relatórios |
 | `linear_org` | normaliza `LAB-142` em URL clicável |
 | `no_emdash` | proíbe travessão em texto que vai para o GitHub |
@@ -543,6 +545,7 @@ Se você usa mais de uma conta ou contexto na máquina remota, envolva a chamada
 | variável | efeito |
 |---|---|
 | `FLUX_HOME` | caminho do `plugins/flux/`. Vence a heurística. **Defina se você tem mais de um config dir** |
+| `FLUX_MANIFEST` | caminho de um `flux-context.json`. Vence a busca a partir do cwd; inexistente ou inválido gera aviso e cai na busca normal. Exportada pelas funções de `flux aliases` |
 | `FLUX_CLAUDE_CMD` | substitui a invocação inteira. Serve para apontar a um wrapper próprio. É o primeiro degrau da cascata de harness |
 | `FLUX_HARNESS` | `claude`, `cursor` ou `codex`. Terceiro degrau da cascata, abaixo de `--harness` |
 | `CLAUDE_PLUGIN_ROOT` / `CURSOR_PLUGIN_ROOT` / `CODEX_PLUGIN_ROOT` | raiz do plugin, quando o harness a exporta |

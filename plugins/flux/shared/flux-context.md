@@ -95,6 +95,13 @@ argumento lê a working tree do `cwd`, e aí o `cwd` **é** o alvo).
 
 **4. Nada disso achou manifesto** → perfil genérico.
 
+**`FLUX_MANIFEST` (só o CLI lê).** Quando a variável de ambiente `FLUX_MANIFEST` aponta para um
+manifesto existente e com JSON válido, o `flux resolve` usa esse manifesto em vez de subir a árvore a
+partir da âncora; o diretório do contexto é o pai do `.claude/` (ou `.cursor/`) que o contém. Valor
+inexistente ou inválido gera aviso e cai na busca normal. As funções geradas por `flux aliases` a
+exportam, para o contexto não se perder quando o diretório de entrada fica fora da árvore do manifesto.
+As skills não leem a variável.
+
 ### Ordem obrigatória: parse do alvo antes da resolução de contexto
 
 Ancorar no alvo só é possível se o alvo já foi lido. Todo elo segue esta ordem, e não outra:
@@ -293,8 +300,16 @@ com o reviewer de outro time sem que nada acuse o problema.
   slug. **Sem o campo a fonte simplesmente não existe**: adivinhar repo a partir de nome de time é
   como o elo acaba rodando no contexto errado com aparência de acerto.
 - `repos` — repos conhecidos do contexto (usado por `flux:land` pra resolver targets cross-repo).
-- `alias_cwd` — opcional. Diretório onde as funções geradas por `flux aliases` dão `cd`; sem o campo, vale `workspace_root`. Aceita `~/`. Só o CLI lê; as skills ignoram.
-- `alias_prefix` — opcional. Prefixo das funções de shell geradas por `flux aliases` (`<alias_prefix>-flux-<verbo>`). Sem o campo, vale `name`. Só o CLI lê; as skills ignoram. Só `[A-Za-z0-9_-]` entra no nome da função: o resto vira `-`.
+- `alias_cwd` — opcional. Diretório onde as funções geradas por `flux aliases` dão `cd`; sem o campo (ou
+  com string vazia), vale `workspace_root`. Aceita `~` e `~/`; caminho relativo resolve contra o diretório
+  do manifesto (`workspace_root` relativo não segue essa regra). Útil quando algo do seu ambiente depende
+  do diretório de entrada. Só o CLI lê; as skills ignoram. Diretório inexistente ou com caractere de
+  controle faz o contexto ser pulado com aviso.
+- `alias_prefix` — opcional. Prefixo das funções de shell geradas por `flux aliases`
+  (`<alias_prefix>-flux-<verbo>`). Sem o campo (ou com string vazia), vale `name`. Só o CLI lê; as skills
+  ignoram. Só `[A-Za-z0-9_-]` entra no nome da função: cada sequência de caracteres inválidos vira um
+  único `-` e `-` nas pontas é aparado. Prefixo sem nenhum caractere válido faz o contexto ser pulado
+  com aviso.
 - `exec_command` — nome do comando **nativo de execução** dos repos deste contexto, usado pelo `flux:build`
   pra descobrir o motor (`<repo>/.claude/commands/<exec_command>.md`). Default: `workflow`.
 - `exec_fallback` — comando de implementação usado pelo `flux:build` quando o repo não tem motor
