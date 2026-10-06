@@ -147,7 +147,7 @@ O parse do chain no CLI **ainda não está implementado**: `chain` não está en
 
 ## Uso: os subcomandos mecânicos
 
-Além dos verbos, o CLI tem quatro subcomandos mecânicos documentados abaixo (`resolve`, `preflight`, `gather` e `aliases`) que **não abrem sessão nenhuma**: os três primeiros imprimem JSON e saem, e o `aliases` imprime um script de shell. Servem para as próprias skills consumirem, e para você depurar.
+Além dos verbos, o CLI tem subcomandos mecânicos que **não abrem sessão nenhuma**: `resolve`, `preflight` e `gather` imprimem JSON e saem, `aliases` imprime um script de shell, e `session end` marca uma sessão como encerrada. Servem para as próprias skills consumirem, e para você depurar.
 
 ### `flux resolve`
 
@@ -207,6 +207,16 @@ flux gather pr https://github.com/owner/repo/pull/8249 --out ./coleta --json
 ```
 
 `--threads` só é usado por quem vai responder threads (o `iterate`); o `peek` não pede, para não pagar por dado que não usa.
+
+### `flux session end`
+
+Marca como encerrada a sessão registrada em `~/.flux/sessions`. Usa o id passado como argumento ou, sem ele, `FLUX_SESSION_ID` do ambiente.
+
+```bash
+flux session end <id>
+```
+
+Id inválido ou ausente sai com código 2; id que não existe em `~/.flux/sessions` avisa e sai com 0.
 
 ### `flux aliases`
 
