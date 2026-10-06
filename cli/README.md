@@ -218,7 +218,7 @@ flux aliases --repos                # inclui também uma função por repo de re
 flux aliases --out ~/.flux/aliases.zsh   # grava o arquivo e imprime a linha source
 ```
 
-Cada função tem o formato `<prefixo>-flux-<verbo>() { ( cd '<workspace_root>' && flux <verbo> "$@" ) }`. O subshell mantém o diretório de quem digitou. O prefixo é `alias_prefix` do manifesto; sem ele, `name`. Todos os verbos são gerados, exceto `map`.
+Cada função tem o formato `<prefixo>-flux-<verbo>() { ( cd '<alias_cwd ou workspace_root>' && flux <verbo> "$@" ) }`. O subshell mantém o diretório de quem digitou. O prefixo é `alias_prefix` do manifesto; sem ele, `name`. Todos os verbos são gerados, exceto `map`.
 
 Com `--repos`, sai também `<prefixo>-<repo>-<verbo>`, que injeta `--repo <repo>`. Se o nome colidir com uma função de contexto (um repo chamado `flux` num contexto de prefixo `personal` colide com `personal-flux-review`), a de contexto vence e o CLI avisa.
 
@@ -343,6 +343,7 @@ Ele é procurado em `.claude/flux-context.json` ou `.cursor/flux-context.json`, 
 | `workspace_root` | onde os checkouts vivem. Sem ele, o diretório do manifesto |
 | `repos` | lista de slugs conhecidos, usada para validar e sugerir |
 | `alias_prefix` | prefixo das funções geradas por `flux aliases`. Sem ele, `name` |
+| `alias_cwd` | diretório onde as funções geradas dão `cd`. Sem ele, `workspace_root`. Aceita `~/`. Útil para abrir a sessão fora do workspace, onde o roteamento de conta por PWD cai na conta pessoal |
 | `vault_root` / `vault_context` | onde os verbos persistem boards e relatórios |
 | `linear_org` | normaliza `LAB-142` em URL clicável |
 | `no_emdash` | proíbe travessão em texto que vai para o GitHub |

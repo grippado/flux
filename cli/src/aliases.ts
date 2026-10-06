@@ -67,14 +67,20 @@ export function generateAliases(
       continue;
     }
 
-    const rawRoot = typeof m.workspace_root === "string" && m.workspace_root !== "" ? m.workspace_root : record.dir;
+    const cwdField = typeof m.alias_cwd === "string" && m.alias_cwd !== "" ? "alias_cwd" : "workspace_root";
+    const rawRoot =
+      cwdField === "alias_cwd"
+        ? (m.alias_cwd as string)
+        : typeof m.workspace_root === "string" && m.workspace_root !== ""
+          ? m.workspace_root
+          : record.dir;
     const dir = resolvePath(record.dir, expandHome(rawRoot));
     if (CONTROL_CHARS.test(dir)) {
-      warnings.push(`manifesto ignorado, workspace_root com caractere de controle: ${describe(record)}`);
+      warnings.push(`manifesto ignorado, ${cwdField} com caractere de controle: ${describe(record)}`);
       continue;
     }
     if (!existsSync(dir)) {
-      warnings.push(`manifesto ignorado, workspace_root inexistente (${dir}): ${describe(record)}`);
+      warnings.push(`manifesto ignorado, ${cwdField} inexistente (${dir}): ${describe(record)}`);
       continue;
     }
 

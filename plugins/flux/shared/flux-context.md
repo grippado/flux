@@ -293,6 +293,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   slug. **Sem o campo a fonte simplesmente não existe**: adivinhar repo a partir de nome de time é
   como o elo acaba rodando no contexto errado com aparência de acerto.
 - `repos` — repos conhecidos do contexto (usado por `flux:land` pra resolver targets cross-repo).
+- `alias_cwd` — opcional. Diretório onde as funções geradas por `flux aliases` dão `cd`; sem o campo, vale `workspace_root`. Aceita `~/`. Só o CLI lê; as skills ignoram.
 - `alias_prefix` — opcional. Prefixo das funções de shell geradas por `flux aliases` (`<alias_prefix>-flux-<verbo>`). Sem o campo, vale `name`. Só o CLI lê; as skills ignoram. Só `[A-Za-z0-9_-]` entra no nome da função: o resto vira `-`.
 - `exec_command` — nome do comando **nativo de execução** dos repos deste contexto, usado pelo `flux:build`
   pra descobrir o motor (`<repo>/.claude/commands/<exec_command>.md`). Default: `workflow`.

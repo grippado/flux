@@ -15,6 +15,7 @@ export interface FluxManifest {
   no_emdash?: boolean;
   repos?: string[];
   alias_prefix?: string;
+  alias_cwd?: string;
   preferred_harness?: string;
   [key: string]: unknown;
 }

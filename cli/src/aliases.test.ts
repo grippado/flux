@@ -81,6 +81,47 @@ describe("generateAliases: formato e cobertura", () => {
   });
 });
 
+describe("generateAliases: alias_cwd", () => {
+  it("alias_cwd vence o workspace_root no cd e nao muda o prefixo", () => {
+    const ws = makeWorkspace("ws");
+    const { script } = generateAliases(
+      [makeManifestRecord(ws, { name: "pessoal", alias_prefix: "personal", workspace_root: ws, alias_cwd: "~/" })],
+      ["peek"],
+    );
+    expect(script).toBe(`personal-flux-peek() { ( cd '${process.env["HOME"]}' && flux peek "$@" ) }\n`);
+  });
+
+  it("alias_cwd vale tambem para as funcoes por repo", () => {
+    const ws = makeWorkspace("ws");
+    const { script } = generateAliases(
+      [makeManifestRecord(ws, { name: "p", alias_cwd: "~/", repos: ["api"] })],
+      ["peek"],
+      { repos: true },
+    );
+    expect(script).toContain(`p-api-peek() { ( cd '${process.env["HOME"]}' && flux peek --repo 'api' "$@" ) }`);
+  });
+
+  it("alias_cwd inexistente pula o manifesto nomeando o campo", () => {
+    const ws = makeWorkspace("ws");
+    const { script, warnings } = generateAliases(
+      [makeManifestRecord(ws, { name: "ctx", alias_cwd: join(tmpDir, "nao-existe") })],
+      ["peek"],
+    );
+    expect(script).toBe("");
+    expect(warnings.join("\n")).toContain("alias_cwd inexistente");
+  });
+
+  it("alias_cwd vazio ou com tipo errado cai no workspace_root", () => {
+    const ws = makeWorkspace("ws");
+    const { script } = generateAliases(
+      [makeManifestRecord(ws, { name: "a", alias_cwd: "" }), makeManifestRecord(makeWorkspace("w2"), { name: "b", alias_cwd: 7 })],
+      ["peek"],
+    );
+    expect(script).toContain(`cd '${ws}'`);
+    expect(script).toContain(`cd '${join(tmpDir, "w2")}'`);
+  });
+});
+
 describe("generateAliases: casos de borda com aviso", () => {
   it("pula manifesto sem name e sem alias_prefix", () => {
     const ws = makeWorkspace("ws");
