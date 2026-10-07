@@ -516,7 +516,7 @@ Em seguida, vá direto para o Step 8 e apresente o GATE no mesmo encerramento do
 
 ### 8. Oferecer ação pós-review (aplicar ou publicar)
 
-Se há PR aberta e comentários acionáveis no review (ou a exceção do Step 7 para veredito aprovar em PR de terceiros), apresentar imediatamente o **GATE** definido em `${FLUX_ROOT}/shared/hitl.md`, no contexto principal. Cada pergunta é single-select. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline. No Codex, o adaptador não comprova round-trip estruturado, então use o fallback numerado: mostre todas as opções aplicáveis com os rótulos, descrições e recomendação definidos abaixo, sem truncar, e espere a escolha explícita. Se `REOPEN_CANDIDATES` não estiver vazio no ramo de aprovação, mostre também a pergunta sobre threads e suas opções no mesmo encerramento, mantendo-a como GATE separado; espere uma escolha explícita para cada GATE antes de agir. Uma aceitação técnica sem escolha não responde ao GATE. Com `run_id:` na invocação, registrar cada decisão assim que o usuário escolher (item 2 de "Registro do run").
+Se há PR aberta e comentários acionáveis no review (ou a exceção do Step 7 para veredito aprovar em PR de terceiros), apresentar imediatamente o **GATE** definido em `${FLUX_ROOT}/shared/hitl.md`, junto do encerramento do review. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline. Se `REOPEN_CANDIDATES` não estiver vazio no ramo de aprovação, apresentar também a pergunta sobre threads no mesmo encerramento, como GATE separado. Para o protocolo de apresentação, coleta da escolha e fallback do Codex, seguir `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`. Com `run_id:` na invocação, registrar cada decisão assim que o usuário escolher (item 2 de "Registro do run").
 
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 
@@ -555,7 +555,9 @@ Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
 
 - Em `approved-with-questions`, a opção 1 perde a marca `(Recomendado)` e a recomendada passa a ser `Prioridades + praise (Recomendado)`; a descrição da opção 1 acrescenta: `Atenção: aprovar libera o merge com perguntas ainda abertas.`
 - Sem comentário acionável (exceção do Step 7), o menu tem só `Postar e aprovar (Recomendado)` (posta o corpo e o placar, sem comentários inline, e aprova) e `Não postar`.
-- Com `REOPEN_CANDIDATES` não vazio, depois da primeira pergunta fazer uma **segunda** pergunta single-select, `Responder também as threads reverificadas?`, com `Sim` (executa o 8b-bis) e `Não`. A descrição de `Sim` é a da opção `Responder threads reverificadas` abaixo.
+- Com `REOPEN_CANDIDATES` não vazio, depois da primeira pergunta fazer uma **segunda** pergunta, `Responder também as threads reverificadas?`, com estas opções:
+  1. `Sim (Recomendado)` — descrição: `Executa o 8b-bis para cada thread reverificada: posta a réplica e a reação definidas pelo veredito do Passo 4b; resolve as que procedem e mantém abertas, com a justificativa, as que procedem parcialmente ou não procedem. É independente da publicação de uma review nova e não aprova a PR.`
+  2. `Não` — descrição: `Não posta réplicas, não reage e não altera o estado das threads reverificadas nesta rodada.`
 
 **Demais vereditos** (`request-changes`, `STATUS` ausente ou não reconhecido) e **PR própria** (inclusive quando o 8a reutiliza este menu pela opção `Postar comentários inline`, porque o GitHub não permite aprovar a própria PR): o menu é o de sempre, sem opção de aprovar.
 
@@ -566,7 +568,7 @@ Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
   5. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
 
 > A opção marcada `(Recomendado)` é sempre a primeira do menu, exceto em `approved-with-questions`, onde é `Prioridades + praise`, segunda.
-> No fallback textual numerado, reproduzir integralmente o menu do ramo aplicável, com os rótulos, a ordem, as descrições e as condições definidos acima; não limitar a quatro opções nem misturar opções de ramos diferentes. Quando o ramo de aprovação tiver `REOPEN_CANDIDATES`, apresentar junto o segundo GATE `Responder também as threads reverificadas?`, com as opções definidas acima, e aguardar as duas escolhas explícitas. Sem `REOPEN_CANDIDATES`, essa opção e esse segundo GATE não aparecem.
+> A apresentação e a coleta das escolhas seguem os contratos em `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`. Neste Step, o segundo GATE só aparece no ramo de aprovação quando `REOPEN_CANDIDATES` não está vazio; sem candidatos, não há essa pergunta.
 > Para rascunhar réplicas às threads abertas da PR, use `${FLUX_CMD}iterate <pr> --dry` (montar com o
 > `FLUX_CMD` do preflight, não com `/flux:` literal).
 > `Responder threads reverificadas` só existe quando o Passo 4b produziu `REOPEN_CANDIDATES`; sem reverificação nesta rodada, não há essa opção nem a segunda pergunta.
