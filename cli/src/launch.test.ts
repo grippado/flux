@@ -138,6 +138,29 @@ describe("runHere: executa na aba atual via shell interativo, sem osascript", ()
     expect(exitCode).toBe(7);
   });
 
+  it("o processo filho enxerga variavel de ambiente atribuida em process.env depois do start", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "flux-env-"));
+    const key = "FLUX_TAB_COLORED";
+    const saved = process.env[key];
+    try {
+      const child = join(dir, "child.sh");
+      const out = join(dir, "env.out");
+      writeFileSync(child, `#!/bin/sh\necho "v=$${key}" > ${out}\n`, { mode: 0o755 });
+      writeFileSync(join(dir, "p.txt"), "b");
+      process.env[key] = "1";
+      const code = await runHere(
+        { command: "x", body: "b", invocation: child },
+        { shell: "/bin/sh", writePromptFile: () => join(dir, "p.txt") },
+      );
+      expect(code).toBe(0);
+      expect(readFileSync(out, "utf8").trim()).toBe("v=1");
+    } finally {
+      if (saved === undefined) delete process.env[key];
+      else process.env[key] = saved;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it("SIGTERM no flux chega ao processo final e o runHere retorna em vez de morrer", async () => {
     const dir = mkdtempSync(join(tmpdir(), "flux-sig-"));
     try {

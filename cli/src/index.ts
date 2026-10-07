@@ -7,6 +7,7 @@ import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
 import { generateSessionId, isValidSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
 import { closeGateChannel, describeGateSignal, effectiveExitCode, planGateChannel, armGateChannel, readGateSignal, unavailableReason } from "./gate.ts";
+import { applyTabColor, TAB_COLOR_VERBS } from "./tab.ts";
 import { beginRecording, finishRecording, scriptAvailable, type RunHandle, type RunPromptInfo } from "./run.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
@@ -411,6 +412,7 @@ async function runVerb(opts: {
 
   if (!openNew || !supportsNewTab) {
     let exitCode: number | null = null;
+    const tab = (TAB_COLOR_VERBS as readonly string[]).includes(verb) ? applyTabColor(ctx.terminal_tab) : null;
     try {
       const armed = armGateChannel(gateChannel);
       if (gateChannel.available && !armed.available) {
@@ -424,6 +426,7 @@ async function runVerb(opts: {
       if (gateSignal) console.error(describeGateSignal(gateSignal));
       exitCode = effectiveExitCode(exitCode, gateSignal);
     } finally {
+      tab?.reset();
       closeGateChannel(gateChannel);
       if (recording) {
         try {

@@ -327,6 +327,7 @@ Ele é procurado em `.claude/flux-context.json` ou `.cursor/flux-context.json`, 
 | `specialists_root` | template de caminho para a suite L2, com `{repo}` |
 | `holistic_reviewer` | o reviewer L1 deste contexto |
 | `preferred_harness` | `claude`, `cursor` ou `codex`. Quarto degrau da cascata de harness; só o CLI o lê |
+| `terminal_tab` | `{ "iterm2": "rrggbb" }`, cor da aba do iTerm2 enquanto o elo roda. Hex minúsculo sem `#`; valor inválido é ignorado em silêncio. Só vale com `TERMINAL_APP=iterm2`; ver [A aba do iTerm2](#a-aba-do-iterm2) |
 
 **Sem manifesto o CLI funciona.** O perfil vira `generico`: a âncora é o `cwd`, os repos são os subdiretórios com `.git`, e nada é persistido em vault. O que se perde é declarado no banner, não descoberto no meio do caminho.
 
@@ -522,6 +523,22 @@ Se você usa mais de uma conta ou contexto na máquina remota, envolva a chamada
 | `FLUX_HARNESS` | `claude`, `cursor` ou `codex`. Terceiro degrau da cascata, abaixo de `--harness` |
 | `CLAUDE_PLUGIN_ROOT` / `CURSOR_PLUGIN_ROOT` / `CODEX_PLUGIN_ROOT` | raiz do plugin, quando o harness a exporta |
 | `SHELL` | shell usado para executar. Default `/bin/zsh` |
+| `TERMINAL_APP` | `iterm2` liga a coloração da aba pelo `terminal_tab` do manifesto. Sem ela, nenhum byte de controle é emitido |
+| `FLUX_TAB_COLORED` | **exportada pelo CLI** ao agente (`1`) quando, e só quando, a cor da aba foi aplicada. Não a defina à mão |
+
+### A aba do iTerm2
+
+Com `TERMINAL_APP=iterm2`, o CLI pinta a aba atual com a cor declarada em `terminal_tab.iterm2` no manifesto do repo alvo e a devolve ao normal quando o elo termina.
+
+```bash
+export TERMINAL_APP=iterm2
+flux review 8249 --repo backoffice
+```
+
+- Vale para `review`, `build` e `iterate`, no modo here (o padrão). Não vale com `--new`, `--remote` nem `--dry`.
+- O CLI escreve direto `ESC ] 1337 ; SetColors=tab=<rrggbb> BEL` no terminal, sem shell interativo e sem tocar o título da aba. O reset (`tab=default`) roda na saída normal, em erro e em `SIGINT`/`SIGTERM`.
+- Nenhum byte sai sem TTY, sem a variável, fora do iTerm2 (`TERM_PROGRAM`), sem o campo ou com valor fora de `^[0-9a-f]{6}$`.
+- O perfil é o do manifesto resolvido a partir do repo do alvo, não a conta do harness.
 
 ### `FLUX_CLAUDE_CMD` e funções de shell
 
@@ -554,6 +571,7 @@ bun run src/index.ts <args>   # roda direto do fonte, sem compilar
 | `preflight.ts` | requisitos por verbo, nível de capacidade, reviewer holístico |
 | `prompt.ts` | montagem do bloco `PREFLIGHT RESOLVIDO` e da linha de comando |
 | `launch.ts` | execução local, em aba nova (AppleScript) e remota (SSH) |
+| `tab.ts` | cor da aba do iTerm2 por perfil (OSC 1337), com reset em saída, erro e sinal |
 | `gather.ts` | coleta de PR via `gh` |
 | `github-url.ts` | parse de URL do GitHub |
 
