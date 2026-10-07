@@ -429,8 +429,8 @@ Uma única question, opções nesta ordem:
 3. **Só mostrar o plano** — imprime o veredito, os sinais lidos e o corte proposto, e **para**. Nada é
    despachado, nada é escrito no repo. Saída inócua.
 
-Sem `AskUserQuestion` no harness, o gate não desaparece: vira menu numerado no chat, com a mesma
-ordem, e a degradação é declarada no banner (`${FLUX_ROOT}/shared/hitl.md`).
+Sem round-trip estruturado comprovado, o gate não desaparece: siga o fallback numerado de
+`${FLUX_ROOT}/shared/hitl.md`, com a mesma ordem, e declare a degradação no banner.
 
 **O gate roda na main, nunca dentro de subagente** — subagente não tem canal com o usuário. Quem
 despacha resolve o gate primeiro e passa a decisão já tomada.
