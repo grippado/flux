@@ -38,6 +38,15 @@ um gate com o usuário.
 O resto do protocolo não muda e não é repetido aqui: vale
 [`fanout-discipline.md`](fanout-discipline.md) como está escrito.
 
+### Perguntas ao usuário
+
+Este adaptador não define uma ferramenta de pergunta estruturada ao usuário, nem um contrato
+verificado de entrega visual e retorno da escolha à mesma sessão. Portanto, no Codex o round-trip não
+está comprovado: para todo GATE, a main apresenta o fallback numerado de
+[`hitl.md`](hitl.md), com as opções e descrições completas aplicáveis, e espera uma escolha explícita
+no chat antes de agir. A disponibilidade de uma ferramenta ou a aceitação técnica de uma solicitação
+não muda esse caminho. Não delegar o gate a um subagente.
+
 ### Adaptador de instruções de agente
 
 Claude Code e Cursor resolvem um agente pelo `subagent_type` que o harness registrou. O Codex

@@ -53,7 +53,8 @@ opções prosseguem com o trabalho: o que se escolhe é só o canal, então não
    sem gravar preferência, porque a tentativa falhou e isso não foi uma escolha.
 2. **Não usar API, seguir por MCP**: grava a preferência no cache e segue direto pelo MCP nas próximas.
 
-Sem `AskUserQuestion` no harness, vira menu numerado na mesma ordem, com a degradação no banner.
+Sem round-trip estruturado comprovado, siga o fallback numerado de `${FLUX_ROOT}/shared/hitl.md`,
+na mesma ordem, com a degradação no banner.
 
 **Sem interação possível** (`--once`, watch, subagente de fan-out): não há a quem perguntar. Sem cache,
 o elo segue por MCP nesta execução, sem gravar preferência, e o banner sai com `transporte mcp (<canal>:
