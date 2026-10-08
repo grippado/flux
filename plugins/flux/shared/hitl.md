@@ -84,7 +84,7 @@ de forma:
    encerrar, gravar o sinal da seção "Execução headless" abaixo.
 3. Declarar no banner a degradação correspondente ao motivo do fallback, conforme o contrato do
    harness e a tabela de `${FLUX_ROOT}/shared/preflight.md`, Passo 5. No Codex, ferramenta estruturada
-   ausente ou round-trip ainda não comprovado gera `pergunta estruturada ausente`; menu que não cabe
+   ausente, aceita sem escolha ou vazia nas três tentativas gera `pergunta estruturada ausente`; menu que não cabe
    na ferramenta e sessão headless seguem o fallback numerado sem esse token, pois esses casos são
    tratados como caminhos esperados pelo adaptador (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
 

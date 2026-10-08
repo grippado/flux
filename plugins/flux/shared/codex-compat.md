@@ -44,30 +44,37 @@ No Codex, a pergunta estruturada é a ferramenta nativa `request_user_input`. El
 feature `default_mode_request_user_input` está ligada (`under development` e desligada por padrão no
 Codex; ligar é configuração da máquina, não do flux).
 
-Quando `request_user_input` estiver disponível na sessão e o round-trip estiver comprovado para a
-versão/configuração corrente, a main a usa para todo GATE, com uma question single-select por gate,
-e espera a escolha retornar à mesma sessão antes de agir. Sem essa comprovação, usa o fallback
-numerado abaixo. O gate continua na main: não delegar a um subagente.
+Quando `request_user_input` estiver disponível na sessão, a main a usa para todo GATE, com uma
+question single-select por gate, e espera a escolha retornar à mesma sessão antes de agir. O gate
+continua na main: não delegar a um subagente. O round-trip está comprovado para o Codex 0.161.0 ou
+superior com a feature ligada; uma resposta com escolha na própria sessão é a confirmação de que ele
+funciona ali, e não se exige prova adicional antes da primeira chamada.
 
 Round-trip comprovado em 2026-10-08, no Codex 0.161.0 com
 `-c features.default_mode_request_user_input=true`: a ferramenta desenhou o menu com seta e descrição
 por opção, e a escolha voltou à mesma sessão ("Questions 1/1 answered"). Esta comprovação vale para
-essa versão com a feature ligada. O comportamento em versões posteriores ainda precisa ser verificado.
-Não foi apurado o comportamento em `codex exec` headless nem com menus de 5 ou mais opções.
+essa versão com a feature ligada e se estende a versões posteriores até um caso em contrário. Não foi apurado o comportamento em `codex exec` headless nem com menus de 5 ou mais opções.
 
 Cai no fallback numerado de [`hitl.md`](hitl.md), com as opções e descrições completas e espera de
 escolha explícita no chat, quando qualquer destas condições valer:
 
-- a ferramenta não está disponível na sessão (feature desligada ou versão anterior à 0.161.0), ou o
-  round-trip ainda não foi comprovado para a versão/configuração corrente;
+- a ferramenta não está disponível na sessão (feature desligada ou versão anterior à 0.161.0);
+- a chamada é aceita sem devolver escolha nenhuma (por exemplo, `{"accepted":true}` da variante
+  assíncrona): isso não comprova round-trip, e o gate cai no numerado na hora;
+- a pergunta estruturada voltou vazia (`{"answers":{}}`) três vezes seguidas para o mesmo gate;
 - o menu do gate não cabe na ferramenta ou a chamada é recusada: nunca truncar opção em silêncio;
 - a sessão é headless (o bloco de preflight traz `gate_signal:`): vale o sinal `flux-gate/1` de
   `hitl.md`, "Execução headless".
 
-Quando cair no numerado porque a pergunta estruturada está ausente ou ainda não foi comprovada para a
-versão/configuração corrente, declarar `pergunta estruturada ausente` em `degradacoes:`
-(`${FLUX_ROOT}/shared/preflight.md`, Passo 5). A aceitação técnica de uma chamada sem escolha
-devolvida não comprova nada e não muda esse caminho.
+**Resposta vazia não é recusa.** A chamada espera a pessoa por um limite fixo (cerca de 120 segundos
+no Codex 0.161.0, sem chave de configuração conhecida) e devolve `{"answers":{}}` quando ele expira. Isso
+só diz que a pessoa ainda não respondeu: repetir a mesma pergunta estruturada, sem alterar texto nem
+opções, até três vezes, e só então cair no numerado. Nenhuma ação acontece sem escolha explícita, em
+nenhuma das tentativas.
+
+Quando cair no numerado porque a pergunta estruturada está ausente, foi aceita sem escolha ou voltou
+vazia nas três tentativas, declarar `pergunta estruturada ausente` em `degradacoes:`
+(`${FLUX_ROOT}/shared/preflight.md`, Passo 5).
 
 ### Adaptador de instruções de agente
 
