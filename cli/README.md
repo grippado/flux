@@ -535,7 +535,7 @@ export TERMINAL_APP=iterm2
 flux review 8249 --repo backoffice
 ```
 
-- Vale para `review`, `build` e `iterate`, no modo here (o padrão). Não vale com `--new`, `--remote` nem `--dry`.
+- Vale na aba atual, inclusive quando `--new` cai para ela por falta de aba nova no harness (cursor, codex sem override). Não vale com `--remote` nem `--dry`, e um `--new` que de fato abre aba nova não colore. Os verbos que coloram estão no bullet de `terminal_tab` em [`plugins/flux/shared/flux-context.md`](../plugins/flux/shared/flux-context.md), a fonte única.
 - O CLI escreve direto `ESC ] 1337 ; SetColors=tab=<rrggbb> BEL` no terminal, sem shell interativo e sem tocar o título da aba. O reset (`tab=default`) roda na saída normal, em erro e em `SIGINT`/`SIGTERM`.
 - Nenhum byte sai sem TTY, sem a variável, fora do iTerm2 (`TERM_PROGRAM`), sem o campo ou com valor fora de `^[0-9a-f]{6}$`.
 - O perfil é o do manifesto resolvido a partir do repo do alvo, não a conta do harness.

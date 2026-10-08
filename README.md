@@ -104,10 +104,11 @@ enviar como está (Enter no primeiro item), anexar um comentário extra ao banne
 `--yes`/`-y` pula essa prévia — útil pra quem já confia no fluxo e não quer o passo extra toda vez.
 
 **Cor da aba do iTerm2 por perfil.** Com `TERMINAL_APP=iterm2` e o campo `terminal_tab` no manifesto
-(`{ "iterm2": "6fa1f1" }`, hex minúsculo sem `#`), `review`, `build` e `iterate` pintam a aba atual
-com a cor do perfil do repo alvo e a devolvem ao normal ao terminar, inclusive em erro e em
-`SIGINT`/`SIGTERM`. Só o iTerm2, só com terminal interativo, só no modo here; o título da aba nunca é
-tocado. Sem a variável ou sem o campo, nenhum byte é emitido. Detalhes em
+(`{ "iterm2": "6fa1f1" }`, hex minúsculo sem `#`), o CLI pinta a aba atual com a cor do perfil do
+repo alvo e a devolve ao normal ao terminar, inclusive em erro e em `SIGINT`/`SIGTERM`. Só o iTerm2,
+só com terminal interativo; o título da aba nunca é tocado. Sem a variável ou sem o campo, nenhum byte
+é emitido. Quais verbos e quais modos colorem está no bullet de `terminal_tab` em
+[`plugins/flux/shared/flux-context.md`](plugins/flux/shared/flux-context.md). Detalhes em
 [`cli/README.md`](cli/README.md#a-aba-do-iterm2).
 
 **Rodar numa outra máquina, via SSH.** `--remote <alias>` reencaminha o comando inteiro pra um

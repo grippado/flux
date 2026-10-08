@@ -338,7 +338,9 @@ com o reviewer de outro time sem que nada acuse o problema.
   terminal enquanto roda um elo neste contexto, para distinguir contextos de relance. A chave é o
   terminal (hoje só `iterm2`) e o valor é hexadecimal minúsculo de seis dígitos, **sem `#`**
   (`^[0-9a-f]{6}$`). Só o CLI o lê, e só com `TERMINAL_APP=iterm2` no ambiente, dentro do iTerm2, com
-  terminal interativo e na aba atual (não em `--new`, `--remote` nem `--dry`). Nesse caso emite o OSC
+  terminal interativo e na aba atual, nos verbos `review`, `build` e `iterate`. A aba atual inclui o
+  `--new` que cai para ela por falta de aba nova no harness (cursor, codex sem override); não vale com
+  `--remote` nem `--dry`, e um `--new` que de fato abre aba nova não colore. Nesse caso emite o OSC
   `1337;SetColors=tab=<rrggbb>` antes de lançar o agente e `tab=default` ao sair, em erro e em
   `SIGINT`/`SIGTERM`; nunca toca o título. Quando a cor foi aplicada, exporta `FLUX_TAB_COLORED=1` ao
   agente. O perfil vem do manifesto resolvido a partir do repo do alvo, não da conta do harness.
