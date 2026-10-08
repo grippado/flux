@@ -42,6 +42,20 @@ describe("resolve: ancora por path", () => {
     expect(ctx.anchor).toBe(repoDir);
   });
 
+  it("expoe terminal_tab do manifesto e null quando ausente ou malformado", async () => {
+    makeManifest(tmpDir, ".claude", { name: "ctx", terminal_tab: { iterm2: "6fa1f1" } });
+    const withTab = await resolveContext({ targetPath: null, cwd: tmpDir });
+    expect(withTab.terminal_tab).toEqual({ iterm2: "6fa1f1" });
+
+    makeManifest(tmpDir, ".claude", { name: "ctx" });
+    const without = await resolveContext({ targetPath: null, cwd: tmpDir });
+    expect(without.terminal_tab).toBeNull();
+
+    makeManifest(tmpDir, ".claude", { name: "ctx", terminal_tab: "6fa1f1" });
+    const malformed = await resolveContext({ targetPath: null, cwd: tmpDir });
+    expect(malformed.terminal_tab).toBeNull();
+  });
+
   it("usa cwd como ancora quando path nao existe", async () => {
     makeManifest(tmpDir, ".claude", { name: "ctx" });
 

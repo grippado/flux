@@ -103,6 +103,14 @@ Claude Code a CLI mostra o banner completo que vai ser enviado e um menu de seta
 enviar como está (Enter no primeiro item), anexar um comentário extra ao banner, ou cancelar.
 `--yes`/`-y` pula essa prévia — útil pra quem já confia no fluxo e não quer o passo extra toda vez.
 
+**Cor da aba do iTerm2 por perfil.** Com `TERMINAL_APP=iterm2` e o campo `terminal_tab` no manifesto
+(`{ "iterm2": "6fa1f1" }`, hex minúsculo sem `#`), o CLI pinta a aba atual com a cor do perfil do
+repo alvo e a devolve ao normal ao terminar, inclusive em erro e em `SIGINT`/`SIGTERM`. Só o iTerm2 (o reconhecimento, inclusive por SSH, está no bullet de `terminal_tab` citado abaixo),
+só com terminal interativo; o título da aba nunca é tocado. Sem a variável ou sem o campo, nenhum byte
+é emitido. Quais verbos e quais modos colorem está no bullet de `terminal_tab` em
+[`plugins/flux/shared/flux-context.md`](plugins/flux/shared/flux-context.md). Detalhes em
+[`cli/README.md`](cli/README.md#a-aba-do-iterm2).
+
 **Rodar numa outra máquina, via SSH.** `--remote <alias>` reencaminha o comando inteiro pra um
 alias já configurado no seu `~/.ssh/config` — herda o terminal atual do outro lado, como se você
 tivesse aberto uma sessão SSH e rodado o `flux` de lá. Sem valor (`--remote` sozinho), a CLI lista
@@ -424,7 +432,8 @@ Um `flux-context.json` num `.claude/` (ou `.cursor/`) de workspace ou repo. O co
   "repos": ["backoffice", "rf-monorepo", "communication-api", "..."],
   "exec_command": "workflow",
   "exec_fallback": "acme:implement",
-  "no_emdash": true
+  "no_emdash": true,
+  "terminal_tab": { "iterm2": "6fa1f1" }
 }
 ```
 

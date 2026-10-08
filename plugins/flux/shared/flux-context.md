@@ -160,6 +160,7 @@ com o reviewer de outro time sem que nada acuse o problema.
     "slack": "mcp__plugin_slack_slack"
   },
   "no_emdash": true,
+  "terminal_tab": { "iterm2": "6fa1f1" },
   "env_vault": {
     "root": "~/.envault",
     "base": "~/code"
@@ -333,6 +334,22 @@ com o reviewer de outro time sem que nada acuse o problema.
   continuam neutras de harness e recebem o resultado já resolvido no bloco `PREFLIGHT RESOLVIDO`, como
   `harness:` e `harness_source: manifesto`. Ausente → o CLI segue para o degrau seguinte.
 - `no_emdash` — quando `true`, o output que pode ser postado no GitHub não usa travessão/en-dash.
+- `terminal_tab` — opcional. Mapa `{ "<terminal>": "<rrggbb>" }` com a cor que o **CLI** aplica à aba do
+  terminal enquanto roda um elo neste contexto, para distinguir contextos de relance. A chave é o
+  terminal (hoje só `iterm2`) e o valor é hexadecimal minúsculo de seis dígitos, **sem `#`**
+  (`^[0-9a-f]{6}$`). Só o CLI o lê, e só com `TERMINAL_APP=iterm2` no ambiente, dentro do iTerm2
+  (`TERM_PROGRAM=iTerm.app`, ou `LC_TERMINAL=iTerm2`, que o `ssh` encaminha quando cliente e servidor
+  aceitam `LC_*`), com
+  terminal interativo e na aba atual, nos verbos `review`, `build` e `iterate`. A aba atual inclui o
+  `--new` que cai para ela por falta de aba nova no harness (cursor, codex sem override); não vale com
+  `--remote` nem `--dry`, e um `--new` que de fato abre aba nova não colore. Nesse caso emite o OSC
+  `1337;SetColors=tab=<rrggbb>` antes de lançar o agente e `tab=default` ao sair, em erro e em
+  `SIGINT`/`SIGTERM`; nunca toca o título. Quando a cor foi aplicada, exporta `FLUX_TAB_COLORED=1` ao
+  agente. O perfil vem do manifesto resolvido a partir do repo do alvo, não da conta do harness.
+  Por SSH, `TERMINAL_APP=iterm2` precisa estar exportado no shell remoto, e a cor depende de o OSC
+  atravessar a sessão. Dentro de tmux a cor não deve aparecer: o CLI emite o OSC cru e não o embrulha
+  no passthrough do tmux (não testado numa aba real).
+  Ausente, ou com valor fora do padrão: nenhum byte e nenhum erro.
 - `env_vault` — bloco opcional que declara um **cofre de arquivos de ambiente** fora dos repos, para
   que uma worktree recém-criada nasça executável em vez de nascer sem `.env`. Consumido pelo
   provisionamento de `${FLUX_ROOT}/shared/worktree-discipline.md`:
@@ -416,6 +433,7 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
 - `kits` = ausente; a descoberta de kits sobra com os irmãos de `${FLUX_ROOT}` (Passo 1d do preflight),
   que é justamente o caminho de quem instalou um kit como plugin sem declarar manifesto nenhum. Não
   achando kit ali, não há kit, e isso é silêncio e não degradação.
+- `terminal_tab` = ausente; a aba do terminal não é colorida, sem aviso.
 - `write_destinations` = sem manifesto não há onde persistir a aprovação: ela vale só para a execução
   corrente, e o elo declara isso ao perguntar.
 - `vault_root` = não persiste por default (só imprime no chat); `flux:review` pode receber `--save <dir>`.

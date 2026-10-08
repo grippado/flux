@@ -128,7 +128,7 @@ function signalTree(pid: number, signal: NodeJS.Signals): void {
 }
 
 async function spawnInheritForwarding(argv: string[]): Promise<number> {
-  const proc = Bun.spawn(argv, { stdio: ["inherit", "inherit", "inherit"] });
+  const proc = Bun.spawn(argv, { stdio: ["inherit", "inherit", "inherit"], env: { ...process.env } });
   const onTerm = () => signalTree(proc.pid, "SIGTERM");
   const onInt = () => {};
   process.on("SIGTERM", onTerm);

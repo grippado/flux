@@ -15,6 +15,7 @@ export interface FluxManifest {
   no_emdash?: boolean;
   repos?: string[];
   preferred_harness?: string;
+  terminal_tab?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -32,6 +33,7 @@ export interface ResolvedContext {
   exec_command: string;
   exec_fallback: string | null;
   preferred_harness: string | null;
+  terminal_tab: Record<string, unknown> | null;
   lenses: Lens;
   warnings: string[];
 }
@@ -392,6 +394,11 @@ export async function resolveContext(opts: {
   const execFallback = resolveExecFallback(manifest, effectiveRepoSlug);
   const preferredHarness = typeof manifest?.preferred_harness === "string" ? manifest.preferred_harness : null;
 
+  const terminalTab =
+    typeof manifest?.terminal_tab === "object" && manifest.terminal_tab !== null && !Array.isArray(manifest.terminal_tab)
+      ? manifest.terminal_tab
+      : null;
+
   const repoCheckout = effectiveRepoSlug
     ? (() => {
         if (!repoSlug && existsSync(join(anchor, ".git"))) return anchor;
@@ -413,6 +420,7 @@ export async function resolveContext(opts: {
     exec_command: execCommand,
     exec_fallback: execFallback,
     preferred_harness: preferredHarness,
+    terminal_tab: terminalTab,
     lenses: { l2_paths: l2Paths, l3_paths: l3Paths },
     warnings,
   };
