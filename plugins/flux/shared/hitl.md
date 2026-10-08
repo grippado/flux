@@ -48,7 +48,14 @@ com gate, sem precisar emendar esta tabela.
 
 ## Como perguntar
 
-**Mecanismo preferido:** `AskUserQuestion`, single-select, uma única question por gate.
+**Mecanismo preferido:** uma pergunta estruturada single-select, com uma única question por GATE,
+quando o round-trip estiver comprovado na sessão atual: a pergunta e as opções chegam à pessoa e a
+escolha dela retorna ao mesmo contexto principal. A mera disponibilidade de uma ferramenta, a
+aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse round-trip.
+
+- Use `AskUserQuestion` só quando esse round-trip estiver comprovado.
+- Sem round-trip comprovado, use o fallback numerado abaixo, mesmo que a ferramenta esteja
+  disponível ou tenha aceitado a solicitação.
 
 - A opção **recomendada é a primeira**, e leva `(Recomendado)` no label.
 - Toda opção tem descrição dizendo **o que vai acontecer**, incluindo o que ela **não** faz
@@ -57,16 +64,19 @@ com gate, sem precisar emendar esta tabela.
   não é um gate, é um pedágio.
 - Multi-select só quando as escolhas forem de fato independentes. Na dúvida, single-select.
 
-## Quando o harness não tem o mecanismo
+## Fallback quando o round-trip não está comprovado
 
-`AskUserQuestion` é um tool do harness, não uma garantia da linguagem. Numa sessão que não o ofereça,
-o gate **não desaparece** — muda de forma:
+`AskUserQuestion` é um tool do harness, não uma garantia da linguagem nem da interface. Quando a
+sessão não oferece o mecanismo ou o round-trip não está comprovado, o gate **não desaparece** — muda
+de forma:
 
-1. Imprimir a pergunta e as opções **numeradas** no chat, com as mesmas descrições, mantendo a
-   recomendada em primeiro e a saída inócua por último.
-2. **Parar e esperar a resposta.** Não seguir para o passo seguinte, não escolher a recomendada por
-   iniciativa própria, não interpretar silêncio como consentimento. Numa execução headless não há
-   quem responda: antes de encerrar, gravar o sinal da seção "Execução headless" abaixo.
+1. Imprimir imediatamente a pergunta e todas as opções aplicáveis **numeradas** no chat, com os
+   mesmos rótulos e descrições, mantendo a recomendada em primeiro e a saída inócua por último. Não
+   truncar o menu por limite de opções de uma ferramenta estruturada.
+2. **Parar e esperar uma escolha explícita e válida.** Não seguir para o passo seguinte, não escolher
+   a recomendada por iniciativa própria, não interpretar silêncio, aceitação técnica da chamada ou
+   retorno sem escolha como consentimento. Numa execução headless não há quem responda: antes de
+   encerrar, gravar o sinal da seção "Execução headless" abaixo.
 3. Declarar a degradação no banner de perfil, como qualquer `soft` ausente
    (`${FLUX_ROOT}/shared/preflight.md`, Passo 5).
 
@@ -83,15 +93,15 @@ nunca no JSON de `flux preflight`; ver `${FLUX_ROOT}/shared/step0-cli.md`). O la
 execução, exit code `10`, o que ela faz com o arquivo) está descrito em `cli/README.md`, seção "Gate
 pendente em execução headless", e não se repete aqui.
 
-**Gatilho exato.** O passo 2 acima foi alcançado (sem `AskUserQuestion`) **e** o bloco traz
-`gate_signal: <caminho>`. Nesse ponto, e só nesse, gravar o sinal no caminho **antes** de encerrar. A
-skill não tem como verificar se a sessão é headless: o critério é mecânico (o passo 2 foi alcançado),
-e o passo seguinte cobre o caso de a resposta chegar depois.
+**Gatilho exato.** O fallback numerado foi usado porque não havia round-trip estruturado comprovado
+**e** o bloco traz `gate_signal: <caminho>`. Nesse ponto, e só nesse, gravar o sinal no caminho
+**antes** de encerrar. A skill não tem como verificar se a sessão é headless: o critério é mecânico
+(o fallback foi usado), e o passo seguinte cobre o caso de a resposta chegar depois.
 
 - **Uma gravação, atômica:** escrever num arquivo temporário no mesmo diretório e renomear para o
   caminho do sinal. Nunca gravar parcial.
-- **Não gravar** quando o gate foi respondido, nem quando `AskUserQuestion` abriu o gate normalmente.
-  O sinal diz "parei sem resposta", não "passei por um gate".
+- **Não gravar** quando o usuário respondeu explicitamente ao gate, seja pelo mecanismo estruturado
+  comprovado ou pelo menu numerado. O sinal diz "parei sem resposta", não "passei por um gate".
 - **Resposta que chega depois da gravação:** se a sessão receber a resposta humana ao gate depois de
   o sinal ter sido gravado, **apagar o arquivo antes de agir**. Isso não cria recibo: continua
   valendo que só a ausência do arquivo significa que não há gate pendente.
@@ -99,8 +109,9 @@ e o passo seguinte cobre o caso de a resposta chegar depois.
   que o gate ficou pendente sem sinal, declarar no banner com o token `gate signal nao gravado`
   (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) e **não** fingir cobertura. O sinal é melhor esforço:
   nunca bloqueia o elo nem substitui parar no gate.
-- **Limite declarado:** um headless em que `AskUserQuestion` existe e ninguém responde não chega ao
-  passo 2 e não grava. Nesse caso o sinal não cobre, e o gate continua dependendo do texto da saída.
+- **Limite declarado:** se um mecanismo estruturado é usado sem round-trip comprovado e a sessão
+  headless não consegue apresentar o fallback numerado, este sinal não cobre o caso; não alegue que
+  houve uma escolha ou que o gate foi resolvido.
 - **Campo ausente, ou `gate_signal: indisponivel (<motivo>)`:** não há canal. Seguir o passo 2 como
   sempre, **não** prometer detecção mecânica de gate pendente, e declarar o motivo no banner (token
   `gate signal indisponivel`, `${FLUX_ROOT}/shared/preflight.md`, Passo 5). Campo ausente não gera
