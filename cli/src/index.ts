@@ -7,7 +7,7 @@ import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
 import { generateSessionId, isValidSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
 import { closeGateChannel, describeGateSignal, effectiveExitCode, planGateChannel, armGateChannel, readGateSignal, unavailableReason } from "./gate.ts";
-import { applyTabColor, TAB_COLOR_VERBS } from "./tab.ts";
+import { withTabColor } from "./tab.ts";
 import { beginRecording, finishRecording, scriptAvailable, type RunHandle, type RunPromptInfo } from "./run.ts";
 
 export const SUPPORTED_VERBS = ["review", "refine", "issue", "build", "peek", "iterate", "land", "reply", "map", "equip"] as const;
@@ -412,7 +412,6 @@ async function runVerb(opts: {
 
   if (!openNew || !supportsNewTab) {
     let exitCode: number | null = null;
-    const tab = (TAB_COLOR_VERBS as readonly string[]).includes(verb) ? applyTabColor(ctx.terminal_tab) : null;
     try {
       const armed = armGateChannel(gateChannel);
       if (gateChannel.available && !armed.available) {
@@ -421,12 +420,11 @@ async function runVerb(opts: {
         body = composeBody(recording ? { runId: recording.runId, sequence: recording.sequence, root: recording.root } : undefined);
         command = buildCommand(body, invocationOpts);
       }
-      exitCode = await runHere({ command, body, invocation, sessionId });
+      exitCode = await withTabColor(verb, ctx.terminal_tab, () => runHere({ command, body, invocation, sessionId }));
       const gateSignal = readGateSignal(gateChannel);
       if (gateSignal) console.error(describeGateSignal(gateSignal));
       exitCode = effectiveExitCode(exitCode, gateSignal);
     } finally {
-      tab?.reset();
       closeGateChannel(gateChannel);
       if (recording) {
         try {

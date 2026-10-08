@@ -1,6 +1,6 @@
 import { describe, it, expect } from "bun:test";
 import { EventEmitter } from "events";
-import { applyTabColor, buildTabColorSequence, buildTabResetSequence, normalizeTabColor, pickTabColor } from "./tab.ts";
+import { applyTabColor, buildTabColorSequence, buildTabResetSequence, normalizeTabColor, pickTabColor, withTabColor } from "./tab.ts";
 
 function fakeProc() {
   const emitter = new EventEmitter();
@@ -136,17 +136,53 @@ describe("applyTabColor: cor valida", () => {
     expect(writes.join("")).not.toContain("\x1b]2;");
   });
 
-  it("reset em erro: o finally do chamador restaura a aba", () => {
-    const { writes, deps } = setup();
-    const handle = applyTabColor(TAB, deps)!;
-    expect(() => {
-      try {
+  it("withTabColor: erro dentro de fn ainda reseta a aba", async () => {
+    const { writes, env, fake, deps } = setup();
+    await expect(
+      withTabColor("review", TAB, async () => {
+        expect(env["FLUX_TAB_COLORED"]).toBe("1");
         throw new Error("boom");
-      } finally {
-        handle.reset();
-      }
-    }).toThrow("boom");
+      }, deps),
+    ).rejects.toThrow("boom");
     expect(writes.at(-1)).toBe("\x1b]1337;SetColors=tab=default\x07");
+    expect(env["FLUX_TAB_COLORED"]).toBeUndefined();
+    expect(fake.emitter.listenerCount("SIGINT")).toBe(0);
+  });
+
+  it("withTabColor: retorno normal também reseta e devolve o valor", async () => {
+    const { writes, deps } = setup();
+    const result = await withTabColor("build", TAB, async () => 7, deps);
+    expect(result).toBe(7);
+    expect(writes).toEqual([buildTabColorSequence("6fa1f1"), buildTabResetSequence()]);
+  });
+
+  it("withTabColor: só review, build e iterate coloram", async () => {
+    for (const verb of ["review", "build", "iterate"]) {
+      const { writes, deps } = setup();
+      await withTabColor(verb, TAB, async () => 0, deps);
+      expect(writes.length).toBe(2);
+    }
+    for (const verb of ["peek", "issue", "land", "refine", "probe", "reply", "chain", "equip", "map"]) {
+      const { writes, env, deps } = setup();
+      const result = await withTabColor(verb, TAB, async () => {
+        expect(env["FLUX_TAB_COLORED"]).toBeUndefined();
+        return 3;
+      }, deps);
+      expect(result).toBe(3);
+      expect(writes).toEqual([]);
+    }
+  });
+
+  it("write que lança na cor: retorna null, sem listeners e sem FLUX_TAB_COLORED", () => {
+    const { env, fake, deps } = setup({
+      write: () => {
+        throw new Error("EPIPE");
+      },
+    });
+    expect(applyTabColor(TAB, deps)).toBeNull();
+    expect(fake.emitter.listenerCount("SIGINT")).toBe(0);
+    expect(fake.emitter.listenerCount("SIGTERM")).toBe(0);
+    expect(env["FLUX_TAB_COLORED"]).toBeUndefined();
   });
 
   it("restaura o valor anterior de FLUX_TAB_COLORED", () => {

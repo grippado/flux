@@ -140,7 +140,7 @@ describe("runHere: executa na aba atual via shell interativo, sem osascript", ()
 
   it("o processo filho enxerga variavel de ambiente atribuida em process.env depois do start", async () => {
     const dir = mkdtempSync(join(tmpdir(), "flux-env-"));
-    const key = "FLUX_TAB_COLORED";
+    const key = `FLUX_TEST_ENV_${process.pid}_${Date.now()}`;
     const saved = process.env[key];
     try {
       const child = join(dir, "child.sh");
