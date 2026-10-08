@@ -67,7 +67,8 @@ escolha explícita no chat, quando qualquer destas condições valer:
   `hitl.md`, "Execução headless".
 
 **Resposta vazia não é recusa.** A chamada espera a pessoa por um limite fixo (cerca de 120 segundos
-no Codex 0.161.0, sem chave de configuração conhecida) e devolve `{"answers":{}}` quando ele expira. Isso
+no Codex 0.161.0, sem chave de configuração conhecida; acompanhamento em
+[openai/codex#37472](https://github.com/openai/codex/issues/37472)) e devolve `{"answers":{}}` quando ele expira. Isso
 só diz que a pessoa ainda não respondeu: repetir a mesma pergunta estruturada, sem alterar texto nem
 opções, até três vezes, e só então cair no numerado. Nenhuma ação acontece sem escolha explícita, em
 nenhuma das tentativas.
