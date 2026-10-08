@@ -54,7 +54,7 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:review`
 
 ## Step 0-cli: atalho mecânico (tentar primeiro)
 
-Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight review [alvo] --json` antes de
+Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight review [alvo] [--repo <slug>] --json` antes de
 qualquer resolução agentica. JSON válido resolve o Step 0-preflight e o Step 0-context abaixo —
 revalidar só o que `session_revalidation_required` lista, e usar `flux gather pr <n> --threads --json`
 na coleta do pipeline `pr` (`--threads` traz review threads + issue comments, insumo obrigatório

@@ -5,11 +5,31 @@
 > contrato dos dois documentos continua normativo: este shared só muda **quem** executa a parte
 > determinística, nunca o que ela significa.
 
+## Passo 0 — ler o bloco da invocação
+
+Se a mensagem que invocou o elo traz o bloco `--- PREFLIGHT RESOLVIDO (flux-cli ...) ---` (o
+`flux <verbo>` o prepende ao comando), ele foi resolvido pela CLI **antes** da sessão, com o repo e o
+harness já conhecidos. Guardar dele, como fatos: `perfil`, `manifesto`, `ancora`, `flux_root`,
+`flux_root_source`, `exec_command`, `exec_fallback`, `lentes` (`l2_paths`, `l3_paths`), `avisos`,
+`harness` e `harness_source`. Guardar também o slug da linha de invocação (`--repo <slug>`), que
+a CLI acrescenta sempre que resolveu o repo.
+
+Sem o bloco (execução direta, sem CLI), este passo não faz nada e o Passo único segue como antes.
+
 ## Passo único — tentar o CLI
 
 ```bash
-flux preflight <VERBO> [ALVO] --json 2>/dev/null
+flux preflight <VERBO> [ALVO] [--repo <slug>] --json 2>/dev/null
 ```
+
+**Passar `--repo <slug>` sempre que a invocação o trouxer.** Sem ele o CLI não sabe de qual repo se
+trata: ancora no cwd, pode tomar o próprio alvo (`87`) por slug, e devolve `exec_fallback: null`,
+lentes vazias e `capability_level_hint: THIN`, uma resolução mais pobre que a do bloco.
+
+**O bloco vence o JSON.** Com bloco, o `flux preflight` só complementa o que o bloco não traz
+(`holistic`, `kit_roots`, `degradations[]`, `capability_level_hint`, `requirements`). Em campo que os
+dois trazem, valem os valores do bloco, e uma divergência não é refeita por tool call. Isso inclui
+`harness`: o bloco o declara, então `HARNESS` vem dele e não da tabela de `flux_root_source` abaixo.
 
 Três resultados possíveis, e só três:
 
@@ -30,7 +50,7 @@ mensagem já montada.
   degradações que só a sessão enxerga.
 - `capability_level_hint` → provisório; o nível definitivo sai da revalidação abaixo.
 - `HARNESS` e `FLUX_VERSION` (campos do banner e do bloco `provenance`) **não chegam prontos no
-  JSON** e são derivados localmente: `HARNESS` é lido de `flux_root_source` pela tabela de
+  JSON** e são derivados localmente (`HARNESS`: o `harness:` do bloco, se houver; senão): `HARNESS` é lido de `flux_root_source` pela tabela de
   `preflight.md §1a-harness` (`env:CLAUDE_PLUGIN_ROOT` → `claude-code`,
   `env:CURSOR_PLUGIN_ROOT` → `cursor`, `env:CODEX_PLUGIN_ROOT` → `codex`, qualquer outra fonte
   incluindo `env:FLUX_HOME` → `unknown`); `FLUX_VERSION` é lido do campo `version` de

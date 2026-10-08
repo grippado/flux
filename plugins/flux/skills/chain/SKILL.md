@@ -83,7 +83,7 @@ chain resolveu, sem que o executor finja capacidade que não tem. Não gravar na
 
 Só chega aqui um chain executável (hoje, `review>iterate`).
 
-Seguir `${FLUX_ROOT}/shared/step0-cli.md`: `flux preflight chain [alvo] --json`. O CLI resolve o
+Seguir `${FLUX_ROOT}/shared/step0-cli.md`: `flux preflight chain [alvo] [--repo <slug>] --json`. O CLI resolve o
 perfil padrão para `chain` (sem união dos elos: `chain.md`, "O que não está implementado"), então o
 requisito de cada elo é verificado aqui, à mão. CLI ausente ou saída inválida → `preflight.md` inteiro.
 

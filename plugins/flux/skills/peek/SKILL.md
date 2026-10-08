@@ -35,7 +35,7 @@ preflight vai verificar no passo seguinte.
 
 ## Step 0-cli: atalho mecânico (tentar primeiro)
 
-Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight peek [alvo] --json` logo após o
+Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight peek [alvo] [--repo <slug>] --json` logo após o
 parse do alvo. JSON válido resolve os itens 1, 2, 4 e a parte de disco do 3 e do 5 abaixo —
 revalidar só o que `session_revalidation_required` lista; alvo PR usa `flux gather pr <n> --json`
 (sem `--threads`: o peek não consome threads). CLI ausente ou saída inválida → seguir o step

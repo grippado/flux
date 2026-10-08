@@ -72,7 +72,7 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:iterate
 
 ## Step 0-cli: atalho mecânico (tentar primeiro)
 
-Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight iterate [alvo] --json` antes da
+Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight iterate [alvo] [--repo <slug>] --json` antes da
 resolução agentica. JSON válido resolve o Step 0-context abaixo — revalidar só o que
 `session_revalidation_required` lista — e a coleta da PR usa `flux gather pr <n> --threads --json`
 (threads são insumo obrigatório deste elo; `degraded` sem threads → tratar como a perda que o
