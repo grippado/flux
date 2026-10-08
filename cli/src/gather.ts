@@ -58,11 +58,12 @@ function defaultGh(cwd: string): GhRunner {
   };
 }
 
-const THREADS_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
+const THREADS_QUERY = `query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
-      reviewThreads(first: 100) {
+      reviewThreads(first: 100, after: $cursor) {
         nodes {
+          id
           isResolved
           path
           line
@@ -74,12 +75,77 @@ const THREADS_QUERY = `query($owner: String!, $name: String!, $number: Int!) {
               body
               createdAt
             }
+            pageInfo { hasNextPage endCursor }
           }
         }
+        pageInfo { hasNextPage endCursor }
       }
     }
   }
 }`;
+
+const THREAD_COMMENTS_QUERY = `query($threadId: ID!, $cursor: String) {
+  node(id: $threadId) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $cursor) {
+        nodes {
+          databaseId
+          url
+          author { login }
+          body
+          createdAt
+        }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}`;
+
+interface GraphqlPage<T> {
+  nodes: T[];
+  hasNextPage: boolean;
+  endCursor: string | null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value != null && typeof value === "object" && !Array.isArray(value);
+}
+
+function parseGraphqlPayload(stdout: string, label: string): Record<string, unknown> {
+  const payload: unknown = JSON.parse(stdout);
+  if (!isRecord(payload)) throw new Error(`${label}: resposta GraphQL inválida`);
+  if (payload["errors"] !== undefined && !Array.isArray(payload["errors"])) {
+    throw new Error(`${label}: errors inválido na resposta GraphQL`);
+  }
+  if (Array.isArray(payload["errors"]) && payload["errors"].length > 0) {
+    throw new Error(`${label}: GraphQL retornou erros`);
+  }
+  if (!isRecord(payload["data"])) {
+    throw new Error(`${label}: data ausente ou inválido`);
+  }
+  return payload["data"];
+}
+
+function readGraphqlPage<T>(connection: unknown, label: string): GraphqlPage<T> {
+  if (!isRecord(connection)) {
+    throw new Error(`${label}: conexão ausente na resposta GraphQL`);
+  }
+  const value = connection as { nodes?: unknown; pageInfo?: unknown };
+  if (!Array.isArray(value.nodes)) throw new Error(`${label}: nodes ausente ou inválido`);
+  if (value.nodes.some((node) => !isRecord(node))) {
+    throw new Error(`${label}: node inválido`);
+  }
+  if (!isRecord(value.pageInfo)) {
+    throw new Error(`${label}: pageInfo ausente ou inválido`);
+  }
+  const pageInfo = value.pageInfo as { hasNextPage?: unknown; endCursor?: unknown };
+  if (typeof pageInfo.hasNextPage !== "boolean") {
+    throw new Error(`${label}: hasNextPage ausente ou inválido`);
+  }
+  const endCursor = typeof pageInfo.endCursor === "string" ? pageInfo.endCursor : null;
+  if (pageInfo.hasNextPage && !endCursor) throw new Error(`${label}: próxima página sem endCursor`);
+  return { nodes: value.nodes as T[], hasNextPage: pageInfo.hasNextPage, endCursor };
+}
 
 export interface GatherPrResult {
   schema_version: string;
@@ -300,67 +366,130 @@ export async function gatherPr(opts: {
 
   if (opts.threads) {
     const [owner, name] = repoFull.split("/");
-    const threadsRes = gh([
-      "api", "graphql",
-      "-f", `query=${THREADS_QUERY}`,
-      "-f", `owner=${owner}`,
-      "-f", `name=${name}`,
-      "-F", `number=${parsed.pr_number}`,
-    ]);
-    if (threadsRes.ok) {
-      try {
-        const data = JSON.parse(threadsRes.stdout);
-        const rawNodes: unknown[] =
-          data?.data?.repository?.pullRequest?.reviewThreads?.nodes ?? [];
-        const nodes: Record<string, unknown>[] = rawNodes.filter(
-          (n): n is Record<string, unknown> => n != null && typeof n === "object",
-        );
-        const fullBody = (comment: { database_id: unknown; body: unknown }): unknown => {
-          if (typeof comment.body !== "string" || comment.body.length < 200) return comment.body;
-          if (typeof comment.database_id !== "number") return comment.body;
-          const rest = gh(["api", `repos/${repoFull}/pulls/comments/${comment.database_id}`, "-q", ".body"]);
-          if (rest.ok && rest.stdout.length > 0) {
-            const full = rest.stdout.replace(/\n$/, "");
-            return full.length >= comment.body.length ? full : comment.body;
+    try {
+      const rawThreads: Record<string, unknown>[] = [];
+      let cursor: string | null = null;
+      const seenThreadCursors = new Set<string>();
+      let hasNextPage = true;
+
+      while (hasNextPage) {
+        const args = [
+          "api", "graphql",
+          "-f", `query=${THREADS_QUERY}`,
+          "-f", `owner=${owner}`,
+          "-f", `name=${name}`,
+          "-F", `number=${parsed.pr_number}`,
+        ];
+        if (cursor) args.push("-f", `cursor=${cursor}`);
+        const threadsRes = gh(args);
+        if (!threadsRes.ok) {
+          throw new Error(`consulta de reviewThreads falhou: ${threadsRes.stderr.trim().slice(0, 200)}`);
+        }
+
+        const data = parseGraphqlPayload(threadsRes.stdout, "reviewThreads");
+        const repository = data["repository"] as Record<string, unknown> | null;
+        const pullRequest = repository?.["pullRequest"] as Record<string, unknown> | null;
+        const page = readGraphqlPage<Record<string, unknown>>(pullRequest?.["reviewThreads"], "reviewThreads");
+        rawThreads.push(...page.nodes);
+        hasNextPage = page.hasNextPage;
+        if (hasNextPage && page.endCursor) {
+          if (seenThreadCursors.has(page.endCursor)) {
+            throw new Error("reviewThreads repetiu o cursor de paginação");
           }
-          return comment.body;
-        };
-        const threads = nodes.map((t) => {
-          const comments = ((t["comments"] as { nodes?: Record<string, unknown>[] })?.nodes ?? []).map((c) => {
-            const base = {
-              database_id: c["databaseId"],
-              url: c["url"],
-              author: (c["author"] as { login?: string } | null)?.login ?? null,
-              body: c["body"],
-              created_at: c["createdAt"],
-            };
-            return { ...base, body: fullBody(base) };
-          });
-          const first = comments[0] ?? null;
-          return {
-            is_resolved: t["isResolved"],
-            path: t["path"],
-            line: t["line"],
-            database_id: first?.database_id ?? null,
-            url: first?.url ?? null,
-            author: first?.author ?? null,
-            body: first?.body ?? null,
-            replies: comments.slice(1),
-          };
-        });
-        result.thread_count = threads.length;
-        result.unresolved_thread_count = threads.filter((t) => !t.is_resolved).length;
-        const threadsPath = join(outDir, `${repoFull.replace("/", "-")}-pr${parsed.pr_number}-threads.json`);
-        try {
-          writeFileSync(threadsPath, JSON.stringify(threads, null, 2));
-          result.threads_path = threadsPath;
-        } catch {}
-        result.threads = threads;
-      } catch {
-        result.degradations.push("resposta GraphQL de threads invalida — threads nao coletadas");
+          seenThreadCursors.add(page.endCursor);
+        }
+        cursor = page.endCursor;
       }
-    } else {
-      result.degradations.push(`coleta de threads falhou: ${threadsRes.stderr.trim().slice(0, 200)}`);
+
+      const fetchRemainingComments = (
+        threadId: string,
+        initial: GraphqlPage<Record<string, unknown>>,
+      ): Record<string, unknown>[] => {
+        const comments = [...initial.nodes];
+        let commentsCursor = initial.endCursor;
+        const seenCommentsCursors = new Set<string>();
+        let commentsHaveNextPage = initial.hasNextPage;
+
+        while (commentsHaveNextPage) {
+          if (!commentsCursor || seenCommentsCursors.has(commentsCursor)) {
+            throw new Error(`comments da thread ${threadId}: cursor de paginação inválido`);
+          }
+          seenCommentsCursors.add(commentsCursor);
+          const commentsRes = gh([
+            "api", "graphql",
+            "-f", `query=${THREAD_COMMENTS_QUERY}`,
+            "-f", `threadId=${threadId}`,
+            "-f", `cursor=${commentsCursor}`,
+          ]);
+          if (!commentsRes.ok) {
+            throw new Error(`comments da thread ${threadId} falhou: ${commentsRes.stderr.trim().slice(0, 200)}`);
+          }
+          const commentsData = parseGraphqlPayload(commentsRes.stdout, `comments da thread ${threadId}`);
+          const node = commentsData["node"] as Record<string, unknown> | null;
+          const page = readGraphqlPage<Record<string, unknown>>(node?.["comments"], `comments da thread ${threadId}`);
+          comments.push(...page.nodes);
+          commentsHaveNextPage = page.hasNextPage;
+          commentsCursor = page.endCursor;
+        }
+        return comments;
+      };
+
+      const fullBody = (comment: { database_id: unknown; body: unknown }): unknown => {
+        if (typeof comment.body !== "string" || comment.body.length < 200) return comment.body;
+        if (typeof comment.database_id !== "number") return comment.body;
+        const rest = gh(["api", `repos/${repoFull}/pulls/comments/${comment.database_id}`, "-q", ".body"]);
+        if (rest.ok && rest.stdout.length > 0) {
+          const full = rest.stdout.replace(/\n$/, "");
+          return full.length >= comment.body.length ? full : comment.body;
+        }
+        return comment.body;
+      };
+
+      const threads = rawThreads.map((thread) => {
+        const threadId = thread["id"];
+        if (typeof threadId !== "string" || typeof thread["isResolved"] !== "boolean") {
+          throw new Error("reviewThreads retornou uma thread sem id ou isResolved válido");
+        }
+        const initialComments = readGraphqlPage<Record<string, unknown>>(thread["comments"], `comments da thread ${threadId}`);
+        const rawComments = initialComments.hasNextPage
+          ? fetchRemainingComments(threadId, initialComments)
+          : initialComments.nodes;
+        const comments = rawComments.map((comment) => {
+          const base = {
+            database_id: comment["databaseId"],
+            url: comment["url"],
+            author: (comment["author"] as { login?: string } | null)?.login ?? null,
+            body: comment["body"],
+            created_at: comment["createdAt"],
+          };
+          return { ...base, body: fullBody(base) };
+        });
+        const first = comments[0] ?? null;
+        return {
+          is_resolved: thread["isResolved"],
+          path: thread["path"],
+          line: thread["line"],
+          database_id: first?.database_id ?? null,
+          url: first?.url ?? null,
+          author: first?.author ?? null,
+          body: first?.body ?? null,
+          replies: comments.slice(1),
+        };
+      });
+      result.thread_count = threads.length;
+      result.unresolved_thread_count = threads.filter((thread) => !thread.is_resolved).length;
+      const threadsPath = join(outDir, `${repoFull.replace("/", "-")}-pr${parsed.pr_number}-threads.json`);
+      try {
+        writeFileSync(threadsPath, JSON.stringify(threads, null, 2));
+        result.threads_path = threadsPath;
+      } catch {}
+      result.threads = threads;
+    } catch (error) {
+      result.threads = null;
+      result.thread_count = null;
+      result.unresolved_thread_count = null;
+      const reason = error instanceof Error ? error.message : String(error);
+      result.degradations.push(`threads indisponiveis: ${reason}`);
     }
 
     const comments = gh(["api", `repos/${repoFull}/issues/${parsed.pr_number}/comments`]);
