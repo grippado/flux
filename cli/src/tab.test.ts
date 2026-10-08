@@ -90,6 +90,22 @@ describe("applyTabColor: quando nao emite nenhum byte", () => {
     expect(writes).toEqual([]);
   });
 
+  it("LC_TERMINAL com outro valor e sem TERM_PROGRAM", () => {
+    const { writes, env, deps } = setup();
+    delete env["TERM_PROGRAM"];
+    env["LC_TERMINAL"] = "Ghostty";
+    expect(applyTabColor(TAB, deps)).toBeNull();
+    expect(writes).toEqual([]);
+  });
+
+  it("sem TERM_PROGRAM e sem LC_TERMINAL", () => {
+    const { writes, env, deps } = setup();
+    delete env["TERM_PROGRAM"];
+    delete env["LC_TERMINAL"];
+    expect(applyTabColor(TAB, deps)).toBeNull();
+    expect(writes).toEqual([]);
+  });
+
   it("sem TTY", () => {
     const { writes, deps } = setup({ isTTY: false });
     expect(applyTabColor(TAB, deps)).toBeNull();
@@ -127,6 +143,25 @@ describe("applyTabColor: cor valida", () => {
     expect(env["FLUX_TAB_COLORED"]).toBeUndefined();
     expect(deps.proc.listenerCount("SIGINT")).toBe(0);
     expect(deps.proc.listenerCount("SIGTERM")).toBe(0);
+  });
+
+  it("LC_TERMINAL=iTerm2 sem TERM_PROGRAM colore (sessao SSH)", () => {
+    const { writes, env, deps } = setup();
+    delete env["TERM_PROGRAM"];
+    env["LC_TERMINAL"] = "iTerm2";
+    const handle = applyTabColor(TAB, deps);
+    expect(handle).not.toBeNull();
+    expect(writes).toEqual(["\x1b]1337;SetColors=tab=6fa1f1\x07"]);
+    handle!.reset();
+  });
+
+  it("TERM_PROGRAM=iTerm.app colore sem LC_TERMINAL", () => {
+    const { writes, env, deps } = setup();
+    delete env["LC_TERMINAL"];
+    const handle = applyTabColor(TAB, deps);
+    expect(handle).not.toBeNull();
+    expect(writes).toEqual(["\x1b]1337;SetColors=tab=6fa1f1\x07"]);
+    handle!.reset();
   });
 
   it("nunca escreve titulo", () => {

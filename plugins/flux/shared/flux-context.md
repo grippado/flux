@@ -337,13 +337,16 @@ com o reviewer de outro time sem que nada acuse o problema.
 - `terminal_tab` — opcional. Mapa `{ "<terminal>": "<rrggbb>" }` com a cor que o **CLI** aplica à aba do
   terminal enquanto roda um elo neste contexto, para distinguir contextos de relance. A chave é o
   terminal (hoje só `iterm2`) e o valor é hexadecimal minúsculo de seis dígitos, **sem `#`**
-  (`^[0-9a-f]{6}$`). Só o CLI o lê, e só com `TERMINAL_APP=iterm2` no ambiente, dentro do iTerm2, com
+  (`^[0-9a-f]{6}$`). Só o CLI o lê, e só com `TERMINAL_APP=iterm2` no ambiente, dentro do iTerm2
+  (`TERM_PROGRAM=iTerm.app`, ou `LC_TERMINAL=iTerm2`, que o iTerm2 envia pelo SSH), com
   terminal interativo e na aba atual, nos verbos `review`, `build` e `iterate`. A aba atual inclui o
   `--new` que cai para ela por falta de aba nova no harness (cursor, codex sem override); não vale com
   `--remote` nem `--dry`, e um `--new` que de fato abre aba nova não colore. Nesse caso emite o OSC
   `1337;SetColors=tab=<rrggbb>` antes de lançar o agente e `tab=default` ao sair, em erro e em
   `SIGINT`/`SIGTERM`; nunca toca o título. Quando a cor foi aplicada, exporta `FLUX_TAB_COLORED=1` ao
   agente. O perfil vem do manifesto resolvido a partir do repo do alvo, não da conta do harness.
+  Por SSH, `TERMINAL_APP=iterm2` precisa estar exportado no shell remoto, e a cor depende de o OSC
+  atravessar a sessão (dentro de tmux depende de `allow-passthrough`; isso não foi verificado).
   Ausente, ou com valor fora do padrão: nenhum byte e nenhum erro.
 - `env_vault` — bloco opcional que declara um **cofre de arquivos de ambiente** fora dos repos, para
   que uma worktree recém-criada nasça executável em vez de nascer sem `.env`. Consumido pelo

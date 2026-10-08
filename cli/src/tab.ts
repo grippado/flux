@@ -37,7 +37,7 @@ export function applyTabColor(terminalTab: unknown, deps: TabColorDeps = {}): Ta
   const env = deps.env ?? process.env;
   if (env["TERMINAL_APP"] !== "iterm2") return null;
   const termProgram = "termProgram" in deps ? deps.termProgram : env["TERM_PROGRAM"];
-  if (termProgram !== "iTerm.app") return null;
+  if (termProgram !== "iTerm.app" && env["LC_TERMINAL"] !== "iTerm2") return null;
   const isTTY = deps.isTTY ?? Boolean(process.stdin.isTTY && process.stdout.isTTY);
   if (!isTTY) return null;
   const color = pickTabColor(terminalTab, "iterm2");
