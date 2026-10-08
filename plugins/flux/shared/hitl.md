@@ -82,8 +82,11 @@ de forma:
    a recomendada por iniciativa própria, não interpretar silêncio, aceitação técnica da chamada ou
    retorno sem escolha como consentimento. Numa execução headless não há quem responda: antes de
    encerrar, gravar o sinal da seção "Execução headless" abaixo.
-3. Declarar a degradação no banner de perfil, como qualquer `soft` ausente
-   (`${FLUX_ROOT}/shared/preflight.md`, Passo 5).
+3. Declarar no banner a degradação correspondente ao motivo do fallback, conforme o contrato do
+   harness e a tabela de `${FLUX_ROOT}/shared/preflight.md`, Passo 5. No Codex, ferramenta estruturada
+   ausente ou round-trip ainda não comprovado gera `pergunta estruturada ausente`; menu que não cabe
+   na ferramenta e sessão headless seguem o fallback numerado sem esse token, pois esses casos são
+   tratados como caminhos esperados pelo adaptador (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
 
 > **A degradação é de forma, nunca de rigor.** Um gate que vira "escolhi a recomendada porque não
 > tinha como perguntar" é pior do que não ter gate nenhum: produz uma ação não autorizada com
