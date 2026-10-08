@@ -47,6 +47,12 @@ export function applyTabColor(terminalTab: unknown, deps: TabColorDeps = {}): Ta
   const proc = deps.proc ?? process;
   const previous = env[TAB_COLOR_ENV];
 
+  try {
+    write(buildTabColorSequence(color));
+  } catch {
+    return null;
+  }
+
   let active = true;
   const signalHandlers = new Map<string, () => void>();
 
@@ -72,7 +78,20 @@ export function applyTabColor(terminalTab: unknown, deps: TabColorDeps = {}): Ta
     proc.on(signal, handler);
   }
 
-  write(buildTabColorSequence(color));
   env[TAB_COLOR_ENV] = "1";
   return { reset };
+}
+
+export async function withTabColor<T>(
+  verb: string,
+  terminalTab: unknown,
+  fn: () => Promise<T>,
+  deps: TabColorDeps = {},
+): Promise<T> {
+  const tab = (TAB_COLOR_VERBS as readonly string[]).includes(verb) ? applyTabColor(terminalTab, deps) : null;
+  try {
+    return await fn();
+  } finally {
+    tab?.reset();
+  }
 }

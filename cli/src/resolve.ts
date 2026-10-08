@@ -15,7 +15,7 @@ export interface FluxManifest {
   no_emdash?: boolean;
   repos?: string[];
   preferred_harness?: string;
-  terminal_tab?: Record<string, string>;
+  terminal_tab?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -33,7 +33,7 @@ export interface ResolvedContext {
   exec_command: string;
   exec_fallback: string | null;
   preferred_harness: string | null;
-  terminal_tab: Record<string, string> | null;
+  terminal_tab: Record<string, unknown> | null;
   lenses: Lens;
   warnings: string[];
 }
