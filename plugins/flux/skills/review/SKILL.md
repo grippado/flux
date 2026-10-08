@@ -147,10 +147,10 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 
 - Não rodar `pnpm test` / `pnpm typecheck` / `pnpm lint` / qualquer suite de testes — EXCETO no modo "aplicar correções" do Step 8 (PR própria), onde rodar a verificação dos arquivos tocados é obrigatório
 - Não fazer commit, push, nem modificar arquivos do repo sob review — EXCETO no modo "aplicar correções" do Step 8 (PR própria), e mesmo aí só após o usuário escolher essa opção
-- Não mergear (`gh pr merge`). Aprovar a PR só acontece pela opção explícita `Postar e aprovar` do Step 8b (PR de terceiros, veredito aprovar), escolhida pelo usuário no gate; em nenhum outro caminho
+- Não mergear (`gh pr merge`). Aprovar a PR só acontece pela opção explícita `Postar e aprovar` do Step 8b (PR de terceiros, veredito aprovar e `OPEN_BLOCKERS` vazio, Passo 4c), escolhida pelo usuário no gate; em nenhum outro caminho
 - Não escrever em lugar nenhum exceto: o arquivo final no vault; e (opcionalmente) a review da PR via `gh api` no Step 8; e, no modo "aplicar correções", os arquivos de código + commit na branch da PR própria.
 
-**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via GATE (`${FLUX_ROOT}/shared/hitl.md`), a ação pós-review. Quando o Step 8 se aplica, apresente a pergunta e o menu completo no mesmo encerramento do review, sem esperar que a pessoa peça as opções. No Codex, siga o fallback numerado de `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`; mantenha o gate no contexto principal e aguarde uma escolha explícita. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Em PR de terceiros, quando o Passo 4b encontrou threads próprias reverificadas, o menu do Step 8b ganha uma opção extra (8b-bis) para responder + reagir + resolver essas threads. A opção `Postar e aprovar` do Step 8b é o único caminho que aprova a PR, só aparece em PR de terceiros com veredito aprovar, e só roda quando o usuário a escolhe. Nunca agir sem o usuário escolher uma opção positiva.
+**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via GATE (`${FLUX_ROOT}/shared/hitl.md`), a ação pós-review. Quando o Step 8 se aplica, apresente a pergunta e o menu completo no mesmo encerramento do review, sem esperar que a pessoa peça as opções. No Codex, siga o fallback numerado de `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`; mantenha o gate no contexto principal e aguarde uma escolha explícita. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Em PR de terceiros, quando o Passo 4b encontrou threads próprias reverificadas, o menu do Step 8b ganha uma opção extra (8b-bis) para responder + reagir + resolver essas threads. A opção `Postar e aprovar` do Step 8b é o único caminho que aprova a PR, só aparece em PR de terceiros com veredito aprovar e sem bloqueio aberto (`OPEN_BLOCKERS` vazio, Passo 4c), e só roda quando o usuário a escolhe. Nunca agir sem o usuário escolher uma opção positiva.
 
 ## Inputs aceitos
 
@@ -432,6 +432,20 @@ tabela nova — a regra de ouro do painel permanece valendo) `## 🔁 Threads re
 `SELF_THREADS` vazio → omitir a seção inteira (não escrever "nenhuma", ela só existe quando há o que
 recapitular).
 
+### 4c. Blockers abertos que travam a aprovação
+
+O `STATUS` do Step 7 é calculado só com os findings **desta rodada**. Ele não enxerga um `request-change` ou `breaking-change` levantado numa rodada anterior que continua aberto: com a rodada nova só trazendo `question` e `suggestion`, o `STATUS` sai `approved-with-*` e o 8b ofereceria `Postar e aprovar` por cima de um bloqueio vivo. Este passo fecha esse buraco. Pular quando `PR_THREADS == null` e `IS_OWN_PR` é verdadeiro.
+
+Calcular `OPEN_BLOCKERS` como a união de:
+
+- **Desta rodada:** todo finding `request-change` ou `breaking-change` do `FINAL_REPORT`.
+- **De rodadas anteriores:** toda thread de `PR_THREADS.open` cujo primeiro comentário abre com o banner de `request-change` ou `breaking-change` (`badge/request--change` ou `badge/breaking--change` no corpo), de qualquer autor, **exceto** as que o Passo 4b reverificou como `PROCEDE` (correção confirmada no código atual). `PROCEDE_PARCIALMENTE` e `NAO_PROCEDE` continuam bloqueando, e thread sem réplica do autor também.
+- **Do vault:** finding `request-change` ou `breaking-change` de `PREV_REVIEW_COMMENTS` cuja thread de origem ainda esteja em `PR_THREADS.open` (já coberto pelo item anterior; só vale como pista quando o `url` bate).
+
+`APPROVE_ELIGIBLE` é verdadeiro só quando o `STATUS` é `approved`, `approved-with-suggestions` ou `approved-with-questions` **e** `OPEN_BLOCKERS` está vazio. `question`, `suggestion`, `praise` e `note` nunca entram em `OPEN_BLOCKERS`: pergunta aberta continua sendo decisão do usuário, com o aviso do 8b.
+
+Com `OPEN_BLOCKERS` não vazio, o Step 7 imprime uma linha a mais depois do veredito: `Aprovação indisponível: {n} bloqueio(s) aberto(s) ({lista curta de f{n} ou thread url}).` E o 8b trata a PR como de veredito não-aprovar.
+
 ### 5. Computar nome do arquivo
 
 Convenção:
@@ -512,7 +526,7 @@ Veredito: {STATUS} — {1 frase do veredito}.
 
 **Não** repita o conteúdo do review no chat. **Não** faça resumo expandido. O arquivo é a fonte de verdade.
 
-Em seguida, vá direto para o Step 8 e apresente o GATE no mesmo encerramento do review, sem esperar input adicional do usuário. Se o review **não tem PR number** (branch local sem PR aberta) ou se o `FINAL_REPORT` não retornou nenhum comentário acionável (`request-change`, `breaking-change`, `question`, `suggestion`, `praise`), **pule o Step 8** — apenas terminar. Exceção: em PR de terceiros (`IS_OWN_PR` falso) com `STATUS` `approved`, `approved-with-suggestions` ou `approved-with-questions`, o 8b abre mesmo sem comentário acionável (a PR continua precisando de number).
+Em seguida, vá direto para o Step 8 e apresente o GATE no mesmo encerramento do review, sem esperar input adicional do usuário. Se o review **não tem PR number** (branch local sem PR aberta) ou se o `FINAL_REPORT` não retornou nenhum comentário acionável (`request-change`, `breaking-change`, `question`, `suggestion`, `praise`), **pule o Step 8** — apenas terminar. Exceção: em PR de terceiros (`IS_OWN_PR` falso) com `APPROVE_ELIGIBLE` (Passo 4c: `STATUS` `approved`, `approved-with-suggestions` ou `approved-with-questions` e nenhum bloqueio aberto), o 8b abre mesmo sem comentário acionável (a PR continua precisando de number).
 
 ### 8. Oferecer ação pós-review (aplicar ou publicar)
 
@@ -546,7 +560,7 @@ Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
 - **Question:** `Quer postar algum subset dos comentários direto na PR #{number}?`
 - **Options (nessa ordem):** depende do `STATUS` do Step 7, lido como já impresso, sem reanalisar o relatório.
 
-**Veredito aprovar** (`approved`, `approved-with-suggestions` ou `approved-with-questions`; só PR de terceiros). O menu tem no máximo 4 opções, o limite do `AskUserQuestion`:
+**Veredito aprovar** (`APPROVE_ELIGIBLE` do Passo 4c: `approved`, `approved-with-suggestions` ou `approved-with-questions`, sem `OPEN_BLOCKERS`; só PR de terceiros). O menu tem no máximo 4 opções, o limite do `AskUserQuestion`:
 
   1. `Postar e aprovar (Recomendado)` — descrição: `Posta a revisão (prioridades + praise inline, event COMMENT) e, só depois de a postagem dar certo e o commit revisado continuar sendo o head da PR, aprova em chamada separada, sem corpo. Aprovar é decisão sua: só acontece se você escolher esta opção.`
   2. `Prioridades + praise` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline, sem aprovar a PR. Padrão histórico do usuário.`
@@ -559,7 +573,7 @@ Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
   1. `Sim (Recomendado)` — descrição: `Executa o 8b-bis para cada thread reverificada: posta a réplica e a reação definidas pelo veredito do Passo 4b; resolve as que procedem e mantém abertas, com a justificativa, as que procedem parcialmente ou não procedem. É independente da publicação de uma review nova e não aprova a PR.`
   2. `Não` — descrição: `Não posta réplicas, não reage e não altera o estado das threads reverificadas nesta rodada.`
 
-**Demais vereditos** (`request-changes`, `STATUS` ausente ou não reconhecido) e **PR própria** (inclusive quando o 8a reutiliza este menu pela opção `Postar comentários inline`, porque o GitHub não permite aprovar a própria PR): o menu é o de sempre, sem opção de aprovar.
+**Demais vereditos** (`request-changes`, `STATUS` ausente ou não reconhecido, ou `OPEN_BLOCKERS` não vazio mesmo com `STATUS` `approved-with-*`) e **PR própria** (inclusive quando o 8a reutiliza este menu pela opção `Postar comentários inline`, porque o GitHub não permite aprovar a própria PR): o menu é o de sempre, sem opção de aprovar.
 
   1. `Prioridades + praise (Recomendado)` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline. Padrão histórico do usuário.`
   2. `Só prioridades` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE inline. Sem praise.`

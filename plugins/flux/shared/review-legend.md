@@ -92,6 +92,8 @@ Calculadas a partir dos badges presentes (substituem as regras da legenda emoji)
 - **`approved-with-suggestions`** — 0 blocker, 0 `question`, ≥1 `suggestion`
 - **`approved`** — só `praise`/`note`, ou nada
 
+O STATUS é calculado só com os findings da rodada. Ele não substitui o gate de aprovação do `flux:review`: bloqueio aberto de rodada anterior (thread com banner `request-change` ou `breaking-change` ainda aberta) impede a opção `Postar e aprovar` mesmo com STATUS `approved-with-*` (ver Passo 4c do `review`).
+
 Tradução do STATUS para PT-BR (título da seção Decisão):
 
 - `approved` → "Aprovar"
