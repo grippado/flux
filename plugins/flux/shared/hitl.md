@@ -53,7 +53,12 @@ quando o round-trip estiver comprovado na sessão atual: a pergunta e as opçõe
 escolha dela retorna ao mesmo contexto principal. A mera disponibilidade de uma ferramenta, a
 aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse round-trip.
 
-- Use `AskUserQuestion` só quando esse round-trip estiver comprovado.
+- Use `AskUserQuestion` (Claude Code, Cursor) ou `request_user_input` (Codex) só quando esse
+  round-trip estiver comprovado. A comprovação e as condições de queda de cada harness vivem em
+  `${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário".
+- O Codex acrescenta sozinho a opção "None of the above" com campo de notas ao menu de
+  `request_user_input`. Não declará-la no menu: a saída inócua continua sendo a última opção
+  declarada.
 - Sem round-trip comprovado, use o fallback numerado abaixo, mesmo que a ferramenta esteja
   disponível ou tenha aceitado a solicitação.
 
@@ -66,7 +71,7 @@ aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse 
 
 ## Fallback quando o round-trip não está comprovado
 
-`AskUserQuestion` é um tool do harness, não uma garantia da linguagem nem da interface. Quando a
+`AskUserQuestion` e `request_user_input` são tools do harness, não uma garantia da linguagem nem da interface. Quando a
 sessão não oferece o mecanismo ou o round-trip não está comprovado, o gate **não desaparece** — muda
 de forma:
 
@@ -77,8 +82,11 @@ de forma:
    a recomendada por iniciativa própria, não interpretar silêncio, aceitação técnica da chamada ou
    retorno sem escolha como consentimento. Numa execução headless não há quem responda: antes de
    encerrar, gravar o sinal da seção "Execução headless" abaixo.
-3. Declarar a degradação no banner de perfil, como qualquer `soft` ausente
-   (`${FLUX_ROOT}/shared/preflight.md`, Passo 5).
+3. Declarar no banner a degradação correspondente ao motivo do fallback, conforme o contrato do
+   harness e a tabela de `${FLUX_ROOT}/shared/preflight.md`, Passo 5. No Codex, ferramenta estruturada
+   ausente, aceita sem escolha ou vazia nas três tentativas gera `pergunta estruturada ausente`; menu que não cabe
+   na ferramenta e sessão headless seguem o fallback numerado sem esse token, pois esses casos são
+   tratados como caminhos esperados pelo adaptador (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
 
 > **A degradação é de forma, nunca de rigor.** Um gate que vira "escolhi a recomendada porque não
 > tinha como perguntar" é pior do que não ter gate nenhum: produz uma ação não autorizada com
