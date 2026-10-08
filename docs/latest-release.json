@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.46.0",
+    "tag": "v1.46.0",
+    "published_at": "2026-10-08T20:30:39Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.46.0",
+    "summary": {
+      "en": "Codex gates use native request_user_input when available and the round-trip is verified for the current version/configuration; otherwise they use the numbered fallback.",
+      "pt": "Gates no Codex usam request_user_input quando disponível e com round-trip verificado para a versão/configuração corrente; caso contrário, usam o fallback numerado."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.45.1",
     "tag": "v1.45.1",
     "published_at": "2026-10-06T21:23:13Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "📝 docs(review): carimbar proveniência da review",
       "pt": "📝 docs(review): carimbar proveniência da review"
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.45.0",
-    "tag": "v1.45.0",
-    "published_at": "2026-10-02T16:20:42Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.45.0",
-    "summary": {
-      "en": "Gate signal protocol (flux-gate/1) and the gate_signal field move into the shared contracts so skills can report pending human decisions in headless runs.",
-      "pt": "Protocolo de sinal de gate (flux-gate/1) e campo gate_signal entram nos contratos shared, para as skills sinalizarem decisão humana pendente em execuções headless."
     },
     "changelog_source": "tag_message"
   },
