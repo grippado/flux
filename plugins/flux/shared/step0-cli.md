@@ -67,7 +67,13 @@ flux gather pr <N|URL> [--repo owner/repo] [--threads] --json 2>/dev/null
 - `--threads` só nos elos que consomem threads (review, iterate); o peek não paga esse custo.
 - O diff chega em `diff_path` (arquivo) e só vem inline (`diff`) até 32KB. **Ler o arquivo é
   decisão de quem analisa**: diff grande não entra inteiro no contexto por acidente.
-- `is_own_pr`, `ticket`, `author`, contagens de threads/comments → fatos, sem re-coleta.
+- `is_own_pr`, `ticket`, `author`, contagens de threads/comments → fatos, sem re-coleta, exceto
+  quando o elo requer prova de completude além de contagens.
+- `--threads` retorna `threads` apenas quando toda a conexão externa `reviewThreads` e todas as
+  conexões internas `comments` foram paginadas até `hasNextPage == false`. Em falha de qualquer
+  página, a CLI descarta os dados parciais, retorna `threads: null`, zera as contagens para `null` e
+  inclui `threads indisponiveis` em `degradations[]`. Uma lista vazia só prova que não há threads
+  quando `threads` é `[]` sem esse token.
 - `status: "degraded"` → as `degradations[]` nomeiam o que faltou; declarar no banner e seguir a
   regra do elo para aquela perda (ex.: threads indisponíveis no iterate é hard na prática).
 - Falha do CLI (exit 127 / não-JSON) → fallback para a sequência `gh` que o pipeline do elo já

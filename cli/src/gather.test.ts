@@ -65,8 +65,11 @@ describe("isBotComment", () => {
   });
 });
 
-function fakeGh(responses: Record<string, { ok: boolean; stdout: string; stderr?: string }>): GhRunner {
+type GhResponse = { ok: boolean; stdout: string; stderr?: string };
+
+function fakeGh(responses: Record<string, GhResponse> | ((args: string[]) => GhResponse)): GhRunner {
   return (args: string[]) => {
+    if (typeof responses === "function") return responses(args);
     const key = args.slice(0, 2).join(" ");
     const match =
       responses[args.join(" ")] ??
@@ -139,25 +142,64 @@ describe("gatherPr", () => {
   });
 
   test("--threads coleta threads GraphQL e issue comments filtrando bots", async () => {
-    const graphql = {
+    const firstThreadPage = {
       data: {
         repository: {
           pullRequest: {
             reviewThreads: {
+              pageInfo: { hasNextPage: true, endCursor: "thread-cursor" },
               nodes: [
                 {
+                  id: "thread-1",
                   isResolved: false,
                   path: "src/x.ts",
                   line: 84,
                   comments: {
                     nodes: [
                       { databaseId: 1, url: "u1", author: { login: "senior" }, body: "TTL configuravel?", createdAt: "2026-08-21T00:00:00Z" },
-                      { databaseId: 2, url: "u2", author: { login: "marcelino" }, body: "feito", createdAt: "2026-08-21T01:00:00Z" },
                     ],
+                    pageInfo: { hasNextPage: true, endCursor: "comment-cursor" },
                   },
                 },
               ],
             },
+          },
+        },
+      },
+    };
+    const secondThreadPage = {
+      data: {
+        repository: {
+          pullRequest: {
+            reviewThreads: {
+              pageInfo: { hasNextPage: false, endCursor: "thread-cursor-2" },
+              nodes: [
+                {
+                  id: "thread-2",
+                  isResolved: true,
+                  path: "src/y.ts",
+                  line: 10,
+                  comments: {
+                    nodes: [
+                      { databaseId: 3, url: "u3", author: { login: "senior" }, body: "resolvido", createdAt: "2026-08-21T02:00:00Z" },
+                    ],
+                    pageInfo: { hasNextPage: false, endCursor: "comment-cursor-2" },
+                  },
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+    const commentPage = {
+      data: {
+        node: {
+          comments: {
+            nodes: [
+              { databaseId: 2, url: "u2", author: { login: "marcelino" }, body: "feito", createdAt: "2026-08-21T01:00:00Z" },
+            ],
+            pageInfo: { hasNextPage: false, endCursor: "comment-cursor-2" },
           },
         },
       },
@@ -172,25 +214,33 @@ describe("gatherPr", () => {
       cwd: tmp,
       threads: true,
       outDir: join(tmp, "out"),
-      gh: fakeGh({
-        "pr view": { ok: true, stdout: JSON.stringify(PR_VIEW) },
-        "pr diff": { ok: true, stdout: "diff" },
-        "api users/marcelino -q .name": { ok: true, stdout: "" },
-        "api user -q .login": { ok: true, stdout: "gabriel\n" },
-        "api graphql": { ok: true, stdout: JSON.stringify(graphql) },
-        "api repos/acme/api/issues/247/comments": { ok: true, stdout: JSON.stringify(comments) },
+      gh: fakeGh((args) => {
+        if (args[0] === "api" && args[1] === "graphql") {
+          if (args.includes("threadId=thread-1")) return { ok: true, stdout: JSON.stringify(commentPage) };
+          if (args.includes("cursor=thread-cursor")) return { ok: true, stdout: JSON.stringify(secondThreadPage) };
+          return { ok: true, stdout: JSON.stringify(firstThreadPage) };
+        }
+        const key = args.slice(0, 2).join(" ");
+        if (key === "pr view") return { ok: true, stdout: JSON.stringify(PR_VIEW) };
+        if (key === "pr diff") return { ok: true, stdout: "diff" };
+        if (args.join(" ") === "api users/marcelino -q .name") return { ok: true, stdout: "" };
+        if (args.join(" ") === "api user -q .login") return { ok: true, stdout: "gabriel\n" };
+        if (args.join(" ") === "api repos/acme/api/issues/247/comments") return { ok: true, stdout: JSON.stringify(comments) };
+        return { ok: false, stdout: "", stderr: `sem mock para: ${args.join(" ")}` };
       }),
     });
-    expect(r.thread_count).toBe(1);
+    expect(r.status).toBe("ok");
+    expect(r.thread_count).toBe(2);
     expect(r.unresolved_thread_count).toBe(1);
     const thread = r.threads?.[0] as Record<string, unknown>;
     expect(thread["author"]).toBe("senior");
     expect((thread["replies"] as unknown[]).length).toBe(1);
+    expect(r.threads?.map((t) => (t as Record<string, unknown>)["path"])).toEqual(["src/x.ts", "src/y.ts"]);
     expect(r.issue_comment_count).toBe(1);
     expect(r.threads_path).not.toBeNull();
   });
 
-  test("entrada null dentro de nodes do GraphQL nao quebra o map", async () => {
+  test("node GraphQL inválido torna a coleção indisponível", async () => {
     const graphql = {
       data: {
         repository: {
@@ -230,10 +280,51 @@ describe("gatherPr", () => {
         "api repos/acme/api/issues/247/comments": { ok: true, stdout: "[]" },
       }),
     });
-    expect(r.status).toBe("ok");
-    expect(r.thread_count).toBe(1);
-    const thread = r.threads?.[0] as Record<string, unknown>;
-    expect(thread["author"]).toBe("senior");
+    expect(r.status).toBe("degraded");
+    expect(r.threads).toBeNull();
+    expect(r.thread_count).toBeNull();
+    expect(r.degradations.some((degradation) => degradation.startsWith("threads indisponiveis"))).toBe(true);
+  });
+
+  test("erros GraphQL com dados parciais tornam a coleção indisponível", async () => {
+    const graphql = {
+      errors: [{ message: "partial response" }],
+      data: {
+        repository: {
+          pullRequest: {
+            reviewThreads: {
+              nodes: [
+                {
+                  id: "thread-1",
+                  isResolved: false,
+                  comments: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: null },
+            },
+          },
+        },
+      },
+    };
+    const r = await gatherPr({
+      target: "247",
+      repo: "acme/api",
+      cwd: tmp,
+      threads: true,
+      outDir: join(tmp, "out"),
+      gh: fakeGh({
+        "pr view": { ok: true, stdout: JSON.stringify(PR_VIEW) },
+        "pr diff": { ok: true, stdout: "diff" },
+        "api users/marcelino -q .name": { ok: true, stdout: "" },
+        "api user -q .login": { ok: true, stdout: "gabriel\n" },
+        "api graphql": { ok: true, stdout: JSON.stringify(graphql) },
+        "api repos/acme/api/issues/247/comments": { ok: true, stdout: "[]" },
+      }),
+    });
+    expect(r.status).toBe("degraded");
+    expect(r.threads).toBeNull();
+    expect(r.thread_count).toBeNull();
+    expect(r.degradations.some((degradation) => degradation.startsWith("threads indisponiveis"))).toBe(true);
   });
 
   test("body de thread com 200+ chars busca o completo via REST", async () => {
@@ -246,6 +337,7 @@ describe("gatherPr", () => {
             reviewThreads: {
               nodes: [
                 {
+                  id: "thread-1",
                   isResolved: false,
                   path: "src/x.ts",
                   line: 10,
@@ -253,9 +345,11 @@ describe("gatherPr", () => {
                     nodes: [
                       { databaseId: 77, url: "u", author: { login: "senior" }, body: truncated, createdAt: "2026-08-21T00:00:00Z" },
                     ],
+                    pageInfo: { hasNextPage: false, endCursor: "comment-cursor" },
                   },
                 },
               ],
+              pageInfo: { hasNextPage: false, endCursor: "thread-cursor" },
             },
           },
         },
@@ -288,17 +382,94 @@ describe("gatherPr", () => {
       cwd: tmp,
       threads: true,
       outDir: join(tmp, "out"),
-      gh: fakeGh({
-        "pr view": { ok: true, stdout: JSON.stringify(PR_VIEW) },
-        "pr diff": { ok: true, stdout: "diff" },
-        "api users/marcelino -q .name": { ok: true, stdout: "" },
-        "api user -q .login": { ok: true, stdout: "gabriel\n" },
-        "api graphql": { ok: false, stdout: "", stderr: "rate limit" },
-        "api repos/acme/api/issues/247/comments": { ok: true, stdout: "[]" },
+      gh: fakeGh((args) => {
+        if (args[0] === "api" && args[1] === "graphql") {
+          if (args.includes("cursor=thread-cursor")) return { ok: false, stdout: "", stderr: "rate limit" };
+          return {
+            ok: true,
+            stdout: JSON.stringify({
+              data: {
+                repository: {
+                  pullRequest: {
+                    reviewThreads: {
+                      nodes: [
+                        {
+                          id: "thread-1",
+                          isResolved: false,
+                          comments: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
+                        },
+                      ],
+                      pageInfo: { hasNextPage: true, endCursor: "thread-cursor" },
+                    },
+                  },
+                },
+              },
+            }),
+          };
+        }
+        const key = args.slice(0, 2).join(" ");
+        if (key === "pr view") return { ok: true, stdout: JSON.stringify(PR_VIEW) };
+        if (key === "pr diff") return { ok: true, stdout: "diff" };
+        if (args.join(" ") === "api users/marcelino -q .name") return { ok: true, stdout: "" };
+        if (args.join(" ") === "api user -q .login") return { ok: true, stdout: "gabriel\n" };
+        if (args.join(" ") === "api repos/acme/api/issues/247/comments") return { ok: true, stdout: "[]" };
+        return { ok: false, stdout: "", stderr: `sem mock para: ${args.join(" ")}` };
       }),
     });
     expect(r.status).toBe("degraded");
-    expect(r.degradations.some((d) => d.includes("threads"))).toBe(true);
+    expect(r.degradations.some((d) => d.startsWith("threads indisponiveis"))).toBe(true);
+    expect(r.threads).toBeNull();
+    expect(r.thread_count).toBeNull();
     expect(r.title).toBe("feat(auth): refresh [CPU-100]");
+  });
+
+  test("falha ao paginar comments descarta threads parciais", async () => {
+    const graphql = {
+      data: {
+        repository: {
+          pullRequest: {
+            reviewThreads: {
+              nodes: [
+                {
+                  id: "thread-1",
+                  isResolved: false,
+                  path: "src/x.ts",
+                  line: 10,
+                  comments: {
+                    nodes: [{ databaseId: 1, url: "u1", author: { login: "senior" }, body: "primeiro", createdAt: "2026-08-21T00:00:00Z" }],
+                    pageInfo: { hasNextPage: true, endCursor: "comment-cursor" },
+                  },
+                },
+              ],
+              pageInfo: { hasNextPage: false, endCursor: "thread-cursor" },
+            },
+          },
+        },
+      },
+    };
+    const r = await gatherPr({
+      target: "247",
+      repo: "acme/api",
+      cwd: tmp,
+      threads: true,
+      outDir: join(tmp, "out"),
+      gh: fakeGh((args) => {
+        if (args[0] === "api" && args[1] === "graphql") {
+          if (args.includes("threadId=thread-1")) return { ok: false, stdout: "", stderr: "rate limit" };
+          return { ok: true, stdout: JSON.stringify(graphql) };
+        }
+        const key = args.slice(0, 2).join(" ");
+        if (key === "pr view") return { ok: true, stdout: JSON.stringify(PR_VIEW) };
+        if (key === "pr diff") return { ok: true, stdout: "diff" };
+        if (args.join(" ") === "api users/marcelino -q .name") return { ok: true, stdout: "" };
+        if (args.join(" ") === "api user -q .login") return { ok: true, stdout: "gabriel\n" };
+        if (args.join(" ") === "api repos/acme/api/issues/247/comments") return { ok: true, stdout: "[]" };
+        return { ok: false, stdout: "", stderr: `sem mock para: ${args.join(" ")}` };
+      }),
+    });
+    expect(r.status).toBe("degraded");
+    expect(r.degradations.some((degradation) => degradation.startsWith("threads indisponiveis"))).toBe(true);
+    expect(r.threads).toBeNull();
+    expect(r.thread_count).toBeNull();
   });
 });

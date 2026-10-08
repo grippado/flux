@@ -92,6 +92,8 @@ Calculadas a partir dos badges presentes (substituem as regras da legenda emoji)
 - **`approved-with-suggestions`** — 0 blocker, 0 `question`, ≥1 `suggestion`
 - **`approved`** — só `praise`/`note`, ou nada
 
+O STATUS é calculado só com os findings da rodada. A regra normativa de elegibilidade para aprovar — incluindo bloqueios de rodadas anteriores e a completude da coleta — vive no Passo 4c do [`flux:review`](../skills/review/SKILL.md). Esta legenda traduz o STATUS e não duplica esse contrato.
+
 Tradução do STATUS para PT-BR (título da seção Decisão):
 
 - `approved` → "Aprovar"

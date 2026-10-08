@@ -36,6 +36,13 @@ degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, 
 que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
 improvisado, com campos inventados e sem o `nivel`.
 
+Na pipeline `pr`, resolva o perfil e as degradações de preflight no Step 0, mas só emita o banner
+depois da coleta do Step 3. A completude de `reviewThreads` só fica conhecida ali. Não emita banner
+provisório com `nenhuma` nem omita uma degradação que a coleta acabou de revelar. Quando a coleta
+estiver ausente ou incompleta, inclua o token canônico `threads indisponiveis` em `degradacoes:` e
+repita-o no artefato e na resposta do Step 7. Na pipeline `doc`, sem coleta de threads, emita o
+banner após o preflight como antes.
+
 Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
 em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
 
@@ -58,14 +65,19 @@ Seguir `${FLUX_ROOT}/shared/step0-cli.md`: tentar `flux preflight review [alvo] 
 qualquer resolução agentica. JSON válido resolve o Step 0-preflight e o Step 0-context abaixo —
 revalidar só o que `session_revalidation_required` lista, e usar `flux gather pr <n> --threads --json`
 na coleta do pipeline `pr` (`--threads` traz review threads + issue comments, insumo obrigatório
-deste elo). CLI ausente ou saída inválida → seguir os dois steps abaixo como sempre.
+deste elo). A CLI só retorna `threads` quando todas as páginas externas e internas foram coletadas;
+`threads: null` ou a degradação `threads indisponiveis` significa coleção incompleta, nunca zero
+threads. Definir `PR_THREADS_COMPLETE = true` somente quando `threads` for um array e não houver
+`threads indisponiveis`; caso contrário, definir `false`. Uma degradação por outra causa não muda
+essa flag. CLI ausente ou saída inválida → seguir os dois steps abaixo como sempre.
 
 ## Step 0-preflight: verificar pré-requisitos
 
 Seguir `${FLUX_ROOT}/shared/preflight.md` **antes de coletar o alvo**. Ele resolve `FLUX_ROOT`, verifica
 os `requires` do frontmatter, confere a existência do agente holístico e classifica o nível de
 capacidade. Faltou um `hard` → abortar sem efeito colateral. Faltou um `soft` → seguir e declarar a
-perda no banner de perfil, que abre todo output.
+perda no banner de perfil, que abre todo output. Na pipeline `pr`, o preflight prepara os campos do
+banner, mas a emissão espera a coleta do Step 3 para incluir qualquer degradação descoberta ali.
 
 ## Step 0-context: resolver perfil de contexto
 
@@ -147,10 +159,10 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 
 - Não rodar `pnpm test` / `pnpm typecheck` / `pnpm lint` / qualquer suite de testes — EXCETO no modo "aplicar correções" do Step 8 (PR própria), onde rodar a verificação dos arquivos tocados é obrigatório
 - Não fazer commit, push, nem modificar arquivos do repo sob review — EXCETO no modo "aplicar correções" do Step 8 (PR própria), e mesmo aí só após o usuário escolher essa opção
-- Não mergear (`gh pr merge`). Aprovar a PR só acontece pela opção explícita `Postar e aprovar` do Step 8b (PR de terceiros, veredito aprovar), escolhida pelo usuário no gate; em nenhum outro caminho
+- Não mergear (`gh pr merge`). Aprovar a PR só acontece no Step 8b, em PR de terceiros com `APPROVE_ELIGIBLE` verdadeiro conforme o Passo 4c, como desfecho de uma opção de postagem escolhida pelo usuário no gate (cada uma diz `e aprovar` no rótulo); `Não postar` nunca aprova; em nenhum outro caminho
 - Não escrever em lugar nenhum exceto: o arquivo final no vault; e (opcionalmente) a review da PR via `gh api` no Step 8; e, no modo "aplicar correções", os arquivos de código + commit na branch da PR própria.
 
-**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via GATE (`${FLUX_ROOT}/shared/hitl.md`), a ação pós-review. Quando o Step 8 se aplica, apresente a pergunta e o menu completo no mesmo encerramento do review, sem esperar que a pessoa peça as opções. No Codex, siga o fallback numerado de `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`; mantenha o gate no contexto principal e aguarde uma escolha explícita. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Em PR de terceiros, quando o Passo 4b encontrou threads próprias reverificadas, o menu do Step 8b ganha uma opção extra (8b-bis) para responder + reagir + resolver essas threads. A opção `Postar e aprovar` do Step 8b é o único caminho que aprova a PR, só aparece em PR de terceiros com veredito aprovar, e só roda quando o usuário a escolhe. Nunca agir sem o usuário escolher uma opção positiva.
+**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via GATE (`${FLUX_ROOT}/shared/hitl.md`), a ação pós-review. Quando o Step 8 se aplica, apresente a pergunta e o menu completo no mesmo encerramento do review, sem esperar que a pessoa peça as opções. No Codex, siga o fallback numerado de `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`; mantenha o gate no contexto principal e aguarde uma escolha explícita. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Em PR de terceiros, quando o Passo 4b encontrou threads próprias reverificadas, o menu do Step 8b ganha uma opção extra (8b-bis) para responder + reagir + resolver essas threads. Em PR de terceiros com `APPROVE_ELIGIBLE` verdadeiro conforme o Passo 4c, toda opção de postagem do Step 8b termina aprovando a PR, e o rótulo da opção diz isso; é o único caminho que aprova, e só roda depois de o usuário escolher uma opção de postar. Nunca agir sem o usuário escolher uma opção positiva.
 
 ## Inputs aceitos
 
@@ -297,10 +309,10 @@ Se houver arquivo(s), ler o mais recente e extrair apenas a seção `## Comentá
 
 ```bash
 gh api graphql -f query='
-{
+query($cursor: String) {
   repository(owner: "OWNER", name: "REPO") {
     pullRequest(number: PR) {
-      reviewThreads(first: 100) {
+      reviewThreads(first: 100, after: $cursor) {
         nodes {
           id
           isResolved
@@ -312,17 +324,46 @@ gh api graphql -f query='
             pageInfo { hasNextPage endCursor }
           }
         }
+        pageInfo { hasNextPage endCursor }
       }
     }
   }
 }'
 ```
 
-**Cadeia completa de comentários, não só a primeira página.** A rodada 2 (Passo 4b abaixo) precisa
-saber se o autor da PR respondeu depois da última postagem do reviewer. Guardar `pageInfo` e, para
-cada thread cujo `hasNextPage` seja `true`, paginar `comments` pelo `id` da `reviewThread` e pelo
-`endCursor` até `hasNextPage == false`, concatenando as páginas em ordem cronológica. Só então guardar
-a lista completa `comments` (cada item com `databaseId`, `url`, `author.login`, `createdAt`, `body`).
+**Páginas completas, não só a primeira.** A conexão externa `reviewThreads` e cada conexão interna
+`comments` precisam terminar em `hasNextPage == false`. Paginar `reviewThreads` pelo cursor externo
+até não haver próxima página. Para cada thread cujo `comments.pageInfo.hasNextPage` seja `true`,
+consultar a conexão pelo `id` da thread, passar o `endCursor` como `after`, e repetir até terminar;
+concatenar os comentários em ordem cronológica. Só então a coleta pode ser marcada como completa.
+Se qualquer consulta falhar, `pageInfo` estiver ausente/inválido ou não houver cursor para uma próxima
+página, descartar a coleção parcial: definir `PR_THREADS = null`, `PR_THREADS_COMPLETE = false`,
+contagens de threads como desconhecidas, e declarar `threads indisponiveis`. Não interpretar `null`
+como lista vazia nem usar dados parciais para afirmar que não há bloqueadores.
+
+Para continuar uma conexão `comments` cujo `pageInfo.hasNextPage` seja `true`, consultar pelo id da
+thread e pelo cursor retornado:
+
+```bash
+gh api graphql -f query='
+query($threadId: ID!, $cursor: String) {
+  node(id: $threadId) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $cursor) {
+        nodes { databaseId url author { login } createdAt body }
+        pageInfo { hasNextPage endCursor }
+      }
+    }
+  }
+}' -f threadId="$THREAD_ID" -f cursor="$CURSOR"
+```
+
+Na conexão externa, repetir a query anterior com `-f cursor="$CURSOR"` após cada página. Na
+conexão interna, usar `-f threadId="$THREAD_ID" -f cursor="$CURSOR"`. Em ambos os casos, validar
+`pageInfo` a cada chamada e só parar quando `hasNextPage == false`.
+
+Quando todas as páginas externas e internas terminarem sem erro, definir `PR_THREADS_COMPLETE = true`
+e guardar `PR_THREADS` (dois conjuntos: `open` + `resolved`) com as listas completas de comentários.
 
 Para comentários com body truncado (> 200 chars), buscar o body completo via REST:
 
@@ -340,8 +381,12 @@ gh api repos/$REPO_FULL/issues/$PR_NUMBER/comments \
 Descarte os ecos de bot (CI, sincronização de ticket, reviewer automático que só informa que não achou nada) e trate o restante como parte do material de review, no mesmo pé das threads. Um review que ignora esses comentários reporta cobertura que não teve.
 
 Guardar como `PR_THREADS` (dois conjuntos: `open` + `resolved`), com a lista `comments` inteira de
-cada thread (não só o primeiro). Se a query GraphQL falhar (rate limit, permissão), continuar com
-`PR_THREADS = null` e avisar no chat (o Passo 4b abaixo também fica pulado nesse caso).
+cada thread (não só o primeiro). Se o caminho CLI foi usado, `threads: []` com status de coleta
+completa significa nenhuma thread; `threads: null` ou `threads indisponiveis` significa coleta
+incompleta. `status: degraded` por outra causa não invalida threads quando a coleção está presente
+e completa. Se o caminho GraphQL falhar em qualquer página, continuar a análise sem threads, com
+`PR_THREADS = null` e `PR_THREADS_COMPLETE = false`; o Passo 4b fica pulado e a elegibilidade do
+Passo 4c falha fechada. Emitir o banner só agora, já com o token de degradação quando necessário.
 
 ### 4. Análise: holístico + specialists reconciliados
 
@@ -366,7 +411,8 @@ O `FINAL_REPORT` segue o formato `SUMARIO / COMENTARIOS / CHECKLIST / VEREDITO /
 
 Roda **na mesma passada** do Passo 4, sem substituí-lo: o Passo 4 continua achando findings novos
 introduzidos desde a rodada anterior, e este passo é adicional, cobrindo o que a rodada anterior já
-apontou. Pular quando `PR_THREADS == null` (a query do 3b falhou) ou quando não há threads abertas.
+apontou. Pular quando `PR_THREADS_COMPLETE != true`, `PR_THREADS == null`, ou quando não há threads
+abertas. A ausência de uma coleção completa não significa que não há threads.
 
 **1. Selecionar `SELF_THREADS`.** Filtrar `PR_THREADS.open` pelas duas condições, ambas necessárias:
 
@@ -431,6 +477,38 @@ tabela nova — a regra de ouro do painel permanece valendo) `## 🔁 Threads re
 
 `SELF_THREADS` vazio → omitir a seção inteira (não escrever "nenhuma", ela só existe quando há o que
 recapitular).
+
+### 4c. Elegibilidade de aprovação (`APPROVE_ELIGIBLE`)
+
+O `STATUS` do Step 7 é calculado só com os findings **desta rodada**. Este passo decide se a PR é aprovável sem deixar um bloqueio antigo passar despercebido e sem exigir uma opção especial quando não há bloqueio.
+
+Se `PR_THREADS_COMPLETE != true`, para qualquer PR, definir `OPEN_BLOCKERS = unknown` e
+`APPROVE_ELIGIBLE = false`; não calcular uma lista vazia a partir de `PR_THREADS = null` ou de dados
+parciais, nem executar a reverificação de threads como se a coleta estivesse completa. Nesse caso,
+a aprovação está indisponível porque bloqueios anteriores não puderam ser verificados. Com a coleta
+completa, `IS_OWN_PR == true` também define `APPROVE_ELIGIBLE = false` (o GitHub não permite aprovar
+a própria PR) e pula o cálculo abaixo.
+
+Com `PR_THREADS_COMPLETE == true` e `IS_OWN_PR == false`, calcular `OPEN_BLOCKERS` como a união de:
+
+- **Desta rodada:** todo finding `request-change` ou `breaking-change` do `FINAL_REPORT`.
+- **Threads abertas (`PR_THREADS.open`) de rodadas anteriores, de qualquer autor, inclusive bot,** cujo primeiro comentário seja bloqueante: banner `request-change` ou `breaking-change` (`badge/request--change` ou `badge/breaking--change` no corpo), ou, para bot, severidade crítica (corpo abrindo com `🔴`, ou tag de severidade `critical`, `high` ou `blocker`). Severidade média ou baixa (`🟡`, `🟢`, `medium`, `low`) de bot **não** bloqueia.
+- **Do vault:** finding `request-change` ou `breaking-change` de `PREV_REVIEW_COMMENTS` cuja thread de origem ainda esteja em `PR_THREADS.open` (já coberto pelo item anterior; só vale como pista quando o `url` bate).
+
+**Reverificar antes de contar.** Thread bloqueante que não é própria (`SELF_THREADS` do Passo 4b) também passa pela reverificação do Passo 4b, com a mesma mecânica de fan-out, perguntando se o ponto foi endereçado no `HEAD_SHA`. Só continua em `OPEN_BLOCKERS` a thread cujo veredito não foi `PROCEDE` (`PROCEDE_PARCIALMENTE`, `NAO_PROCEDE`, ou sem como verificar). Isso evita que um alerta de bot já corrigido no código, mas ainda não resolvido na UI, trave a aprovação. Para thread de terceiro essa reverificação só alimenta o `OPEN_BLOCKERS` e o vault: **não** posta réplica, reação nem resolve (isso continua exclusivo do 8b-bis, sobre threads próprias).
+
+`APPROVE_ELIGIBLE` é verdadeiro somente quando a coleção está completa, `IS_OWN_PR == false`, o
+`STATUS` é `approved`, `approved-with-suggestions` ou `approved-with-questions` e `OPEN_BLOCKERS`
+está vazio. `question`,
+`suggestion`, `praise` e `note` nunca entram em `OPEN_BLOCKERS`: pergunta aberta não impede a
+aprovação, só ganha o aviso do 8b. Esta é a regra normativa de elegibilidade; o `review-legend.md`
+apenas aponta para este passo.
+
+Com `OPEN_BLOCKERS` não vazio, o Step 7 imprime uma linha a mais depois do veredito: `Aprovação
+indisponível: {n} bloqueio(s) aberto(s) ({lista curta de f{n} ou thread url}).` Com
+`OPEN_BLOCKERS = unknown`, imprimir `Aprovação indisponível: threads indisponiveis (bloqueios
+anteriores não verificados).` A mesma frase e o token vão no início de `## 🎯 Veredito & prioridades`
+do artefato. Em ambos os casos, o 8b trata a PR como de veredito não-aprovar.
 
 ### 5. Computar nome do arquivo
 
@@ -508,11 +586,12 @@ Depois de gravar com sucesso, responda com:
 Review salvo em {caminho-completo-do-arquivo}.
 
 Veredito: {STATUS} — {1 frase do veredito}.
+{Se PR_THREADS_COMPLETE != true: Aprovação indisponível: threads indisponiveis (bloqueios anteriores não verificados).}
 ```
 
 **Não** repita o conteúdo do review no chat. **Não** faça resumo expandido. O arquivo é a fonte de verdade.
 
-Em seguida, vá direto para o Step 8 e apresente o GATE no mesmo encerramento do review, sem esperar input adicional do usuário. Se o review **não tem PR number** (branch local sem PR aberta) ou se o `FINAL_REPORT` não retornou nenhum comentário acionável (`request-change`, `breaking-change`, `question`, `suggestion`, `praise`), **pule o Step 8** — apenas terminar. Exceção: em PR de terceiros (`IS_OWN_PR` falso) com `STATUS` `approved`, `approved-with-suggestions` ou `approved-with-questions`, o 8b abre mesmo sem comentário acionável (a PR continua precisando de number).
+Em seguida, vá direto para o Step 8 e apresente o GATE no mesmo encerramento do review, sem esperar input adicional do usuário. Se o review **não tem PR number** (branch local sem PR aberta) ou se o `FINAL_REPORT` não retornou nenhum comentário acionável (`request-change`, `breaking-change`, `question`, `suggestion`, `praise`), **pule o Step 8** — apenas terminar. Exceção: em PR de terceiros (`IS_OWN_PR` falso) com `APPROVE_ELIGIBLE` verdadeiro no Passo 4c, o 8b abre mesmo sem comentário acionável (a PR continua precisando de number). Como `APPROVE_ELIGIBLE` exige `PR_THREADS_COMPLETE == true`, coleta ausente/incompleta nunca abre um menu com opção de aprovação.
 
 ### 8. Oferecer ação pós-review (aplicar ou publicar)
 
@@ -546,20 +625,21 @@ Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
 - **Question:** `Quer postar algum subset dos comentários direto na PR #{number}?`
 - **Options (nessa ordem):** depende do `STATUS` do Step 7, lido como já impresso, sem reanalisar o relatório.
 
-**Veredito aprovar** (`approved`, `approved-with-suggestions` ou `approved-with-questions`; só PR de terceiros). O menu tem no máximo 4 opções, o limite do `AskUserQuestion`:
+**Veredito aprovar**: `APPROVE_ELIGIBLE == true` conforme o Passo 4c, em PR de terceiros. **Toda opção de postagem termina aprovando a PR**, depois de a postagem dar certo e de o commit revisado continuar sendo o head. O menu tem no máximo 4 opções, o limite do `AskUserQuestion`:
 
-  1. `Postar e aprovar (Recomendado)` — descrição: `Posta a revisão (prioridades + praise inline, event COMMENT) e, só depois de a postagem dar certo e o commit revisado continuar sendo o head da PR, aprova em chamada separada, sem corpo. Aprovar é decisão sua: só acontece se você escolher esta opção.`
-  2. `Prioridades + praise` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline, sem aprovar a PR. Padrão histórico do usuário.`
-  3. `Tudo` — descrição: `Posta todos os comentários do review (request-change, breaking-change, question, suggestion, praise) inline. note nunca vai. Para só prioridades, sem praise, use o campo livre "Other".`
-  4. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
+  1. `Prioridades + praise e aprovar (Recomendado)` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline (event COMMENT) e, só depois de a postagem dar certo e o commit revisado continuar sendo o head da PR, aprova em chamada separada, sem corpo. Não há bloqueio aberto, nesta rodada nem nas anteriores.`
+  2. `Tudo e aprovar` — descrição: `Posta todos os comentários do review (request-change, breaking-change, question, suggestion, praise) inline. note nunca vai. Depois aprova, nas mesmas condições da opção 1.`
+  3. `Só prioridades e aprovar` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE inline, sem praise. Depois aprova, nas mesmas condições da opção 1.`
+  4. `Não postar` — descrição: `Review fica só no vault, e a PR não é aprovada. Eu reviso antes de decidir.`
 
-- Em `approved-with-questions`, a opção 1 perde a marca `(Recomendado)` e a recomendada passa a ser `Prioridades + praise (Recomendado)`; a descrição da opção 1 acrescenta: `Atenção: aprovar libera o merge com perguntas ainda abertas.`
-- Sem comentário acionável (exceção do Step 7), o menu tem só `Postar e aprovar (Recomendado)` (posta o corpo e o placar, sem comentários inline, e aprova) e `Não postar`.
+- Para postar **sem** aprovar, o usuário usa o campo livre "Other" ("sem aprovar"): a postagem corre igual e o passo de aprovação é pulado. Nunca aprovar contra uma instrução explícita.
+- Em `approved-with-questions`, a descrição de cada opção de postagem acrescenta: `Atenção: aprova com perguntas ainda abertas.`
+- Sem comentário acionável (exceção do Step 7), o menu tem só `Aprovar (Recomendado)` (posta o corpo e o placar, sem comentários inline, e aprova) e `Não postar`.
 - Com `REOPEN_CANDIDATES` não vazio, depois da primeira pergunta fazer uma **segunda** pergunta, `Responder também as threads reverificadas?`, com estas opções:
   1. `Sim (Recomendado)` — descrição: `Executa o 8b-bis para cada thread reverificada: posta a réplica e a reação definidas pelo veredito do Passo 4b; resolve as que procedem e mantém abertas, com a justificativa, as que procedem parcialmente ou não procedem. É independente da publicação de uma review nova e não aprova a PR.`
   2. `Não` — descrição: `Não posta réplicas, não reage e não altera o estado das threads reverificadas nesta rodada.`
 
-**Demais vereditos** (`request-changes`, `STATUS` ausente ou não reconhecido) e **PR própria** (inclusive quando o 8a reutiliza este menu pela opção `Postar comentários inline`, porque o GitHub não permite aprovar a própria PR): o menu é o de sempre, sem opção de aprovar.
+**Quando `APPROVE_ELIGIBLE` não for verdadeiro** e **PR própria** (inclusive quando o 8a reutiliza este menu pela opção `Postar comentários inline`, porque o GitHub não permite aprovar a própria PR): o menu é o de sempre, sem opção de aprovar.
 
   1. `Prioridades + praise (Recomendado)` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline. Padrão histórico do usuário.`
   2. `Só prioridades` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE inline. Sem praise.`
@@ -567,13 +647,13 @@ Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
   4. **(só quando `REOPEN_CANDIDATES` não está vazio)** `Responder threads reverificadas` — descrição: `Para cada thread própria reaberta com réplica pendente (Passo 4b): posta réplica + reação 👍/👎 + resolve via GraphQL a que procedeu; mantém aberta, com a justificativa, a que não procedeu. Independente de postar review nova.`
   5. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
 
-> A opção marcada `(Recomendado)` é sempre a primeira do menu, exceto em `approved-with-questions`, onde é `Prioridades + praise`, segunda.
+> A opção marcada `(Recomendado)` é sempre a primeira do menu.
 > A apresentação e a coleta das escolhas seguem os contratos em `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`. Neste Step, o segundo GATE só aparece no ramo de aprovação quando `REOPEN_CANDIDATES` não está vazio; sem candidatos, não há essa pergunta.
 > Para rascunhar réplicas às threads abertas da PR, use `${FLUX_CMD}iterate <pr> --dry` (montar com o
 > `FLUX_CMD` do preflight, não com `/flux:` literal).
 > `Responder threads reverificadas` só existe quando o Passo 4b produziu `REOPEN_CANDIDATES`; sem reverificação nesta rodada, não há essa opção nem a segunda pergunta.
 
-Se o usuário escolher uma opção de postar (`Postar e aprovar`, `Prioridades + praise`, `Só prioridades` ou `Tudo`), montar a review e postar via `gh api`:
+Se o usuário escolher uma opção de postar (`Prioridades + praise`, `Só prioridades` ou `Tudo`, com ou sem o sufixo `e aprovar`), montar a review e postar via `gh api`:
 
 ```bash
 gh api -X POST repos/{owner}/{repo}/pulls/{number}/reviews --input <json-file>
@@ -594,7 +674,7 @@ JSON shape esperado:
 
 Regras para montar o payload (conforme `review-legend.md` — Banner do badge):
 
-- `event` **sempre** `COMMENT` na postagem, inclusive em `Postar e aprovar`. Nunca `REQUEST_CHANGES` sem pedido explícito separado, e nunca `APPROVE` dentro deste payload: a aprovação de `Postar e aprovar` é uma chamada separada, descrita abaixo.
+- `event` **sempre** `COMMENT` na postagem, inclusive nas opções `e aprovar`. Nunca `REQUEST_CHANGES` sem pedido explícito separado, e nunca `APPROVE` dentro deste payload: a aprovação é uma chamada separada, descrita abaixo.
 - Cada comentário usa `side: "RIGHT"`. Range multi-linha → `start_line` + `line`. Linha única → só `line`.
 - **Validar os números de linha contra o diff real** antes de postar — os números no markdown do vault podem estar relativos a hunks ou desatualizados. Buscar a linha no novo arquivo (RIGHT side) procurando pelo trecho citado.
 - **O `body` da review segue `${FLUX_ROOT}/shared/review-body-template.md`** (fonte única): veredito em negrito no topo, `### Placar dos findings` com a tabela de badges (incluindo os zeros), a linha da legenda, e as seções opcionais de destaque. **Não escrever o corpo em prosa solta.** O placar é **contado a partir do payload que você está postando**, nunca de memória.
@@ -617,9 +697,9 @@ Review postada: {html_url}
 {n} inline + {m} praise no corpo. Submetida como COMMENTED (não-bloqueante).
 ```
 
-**Opção `Postar e aprovar`: aprovação depois da postagem.** A ordem é fixa e a aprovação é uma chamada separada, nunca parte do payload acima:
+**Opções `e aprovar`: aprovação depois da postagem.** A ordem é fixa e a aprovação é uma chamada separada, nunca parte do payload acima:
 
-1. Postar a revisão como descrito acima (`event: COMMENT`), com o mesmo subset da opção `Prioridades + praise` (prioridades + praise); sem comentário acionável, só o corpo e o placar, sem comentários inline.
+1. Postar a revisão como descrito acima (`event: COMMENT`), com o subset da opção escolhida; sem comentário acionável, só o corpo e o placar, sem comentários inline.
 2. Só se o `gh api` da postagem retornou sucesso, reler o head da PR e comparar com o `HEAD_SHA` guardado no Step 3:
 
 ```bash
@@ -627,7 +707,7 @@ gh pr view {number} --json headRefOid -q .headRefOid
 ```
 
    - Se divergir: **não aprovar**, avisar que a PR mudou desde a revisão e que a revisão postada permanece.
-   - Se for igual, aprovar fixando o commit, com corpo vazio (a revisão já foi postada no `COMMENT` anterior):
+   - Se for igual **e `PR_THREADS_COMPLETE == true`**, aprovar fixando o commit, com corpo vazio (a revisão já foi postada no `COMMENT` anterior):
 
 ```bash
 gh api -X POST repos/{owner}/{repo}/pulls/{number}/reviews -f event=APPROVE -f commit_id=$HEAD_SHA
@@ -636,12 +716,16 @@ gh api -X POST repos/{owner}/{repo}/pulls/{number}/reviews -f event=APPROVE -f c
 3. Se a postagem falhou: **não aprovar**, não retentar, e avisar o usuário do erro e de que a PR não foi aprovada.
 4. Se a postagem deu certo e a aprovação falhou: **manter a revisão postada**, não desfazer nada, e informar a falha da aprovação (com o erro do `gh api`) e que a PR segue sem aprovação.
 
-Resposta no chat de `Postar e aprovar`, em vez da acima: a mesma, acrescida de `PR #{number} aprovada.` quando a aprovação deu certo, `Aprovação falhou: {erro}. A revisão continua postada; a PR não foi aprovada.` quando falhou, ou `A PR mudou desde a revisão; não aprovei. A revisão continua postada.` quando o head divergiu.
+   Se `PR_THREADS_COMPLETE != true` em qualquer ponto, bloquear a chamada de aprovação mesmo que
+   uma opção antiga ou uma instrução malformada tente acioná-la; manter a postagem `COMMENT` se ela
+   já ocorreu e reportar `Aprovação indisponível: threads indisponiveis`.
+
+Resposta no chat de uma opção `e aprovar`, em vez da acima: a mesma, acrescida de `PR #{number} aprovada.` quando a aprovação deu certo, `Aprovação falhou: {erro}. A revisão continua postada; a PR não foi aprovada.` quando falhou, ou `A PR mudou desde a revisão; não aprovei. A revisão continua postada.` quando o head divergiu.
 
 Se o usuário escolher "Não postar" ou cancelar a question, apenas terminar (sem mensagem extra).
 
 Se o usuário escolher `Responder threads reverificadas` (ou responder `Sim` à segunda pergunta), seguir para **8b-bis** abaixo —
-nada impede escolher isso numa rodada seguinte depois de já ter postado com `Postar e aprovar`, `Prioridades + praise`, `Só prioridades` ou `Tudo` noutra, já que são
+nada impede escolher isso numa rodada seguinte depois de já ter postado com qualquer opção de postagem, com ou sem `e aprovar`, noutra, já que são
 ações independentes sobre coisas diferentes (review nova vs. threads antigas).
 
 #### 8b-bis. Fechar as threads reverificadas do Passo 4b
@@ -678,7 +762,7 @@ Regras:
 - **Verificação obrigatória** nos arquivos tocados, antes de commitar: typecheck + lint + os testes unitários afetados. Respeitar a versão de Node pinada do repo (`.nvmrc` via fnm/nvm) quando houver. Se algum gate falhar por motivo ambiental (registry/auth/deps faltando), confirmar que é idêntico ao baseline `main` e registrar; se falhar por causa da mudança, corrigir antes de commitar.
 - **Commits semânticos:** Conventional Commits + emoji, PT-BR com acentuação correta. Agrupar por tema (um commit por finding ou por grupo coerente, a critério). Trailer **obrigatório** `Co-Authored-By: Claude <noreply@anthropic.com>` via HEREDOC. Se o repo tiver hook (husky/lint-staged) quebrado por ambiente, usar `--no-verify` e registrar o motivo.
 - **Push:** só na opção 2 (Aplicar e dar push), e só na branch `headRefName` da PR (nunca `main`). Opção 1 deixa os commits locais.
-- **Nunca** postar comentário, aprovar nem mergear neste modo (aprovar só existe na opção `Postar e aprovar` do 8b, em PR de terceiros).
+- **Nunca** postar comentário, aprovar nem mergear neste modo (aprovar só existe nas opções `e aprovar` do 8b, em PR de terceiros com `APPROVE_ELIGIBLE`).
 - **Atualizar a descrição da PR** quando a correção mudar materialmente o que a PR faz (ex.: removeu/alterou algo descrito no corpo): editar via `gh pr edit $PR_NUMBER --repo $REPO_FULL --body-file <arquivo>`. Sem em-dashes quando `NO_EMDASH == true` (texto externo).
 
 Resposta no chat ao final: tabela curta `{finding | aplicado/pulado | arquivos}`, depois `{commit(s) SHA, resultado da verificação, e range de push se houve}`. Sinalizar findings pulados (improcedentes/ambíguos) e o que precisa de decisão do usuário.
