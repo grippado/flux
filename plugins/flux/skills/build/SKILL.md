@@ -505,6 +505,18 @@ ou, no fallback:
    subagente devolve o plano no retorno para o gate acontecer na main. Nunca deixe um gate travar
    em silêncio dentro do subagente. Na dúvida, avise o usuário e ofereça rodar em repo mode.
 
+   **Sinal de gate pendente.** O `gate_signal: <caminho>` chega só na mensagem que invocou este elo,
+   nunca na do motor. Quando a linha existir e não for `indisponivel (...)`, repasse-a ao prompt do
+   motor (inline em repo mode, no prompt do subagente em workspace mode), como informação de que o
+   canal existe. **Quem grava é a main, uma vez:** o subagente não abre gate nem enxerga o bloco da
+   invocação, então, quando ele devolver um bloqueio por decisão humana (bloqueios, perguntas em
+   aberto, ou um final que começa com `DECISION REQUIRED:`), a main grava o sinal conforme
+   `${FLUX_ROOT}/shared/hitl.md`, seção "Execução headless", antes de encerrar, sem reescrever o
+   schema aqui. O `kind` é o da opção recomendada do gate que ficou aberto (`kind` `pr-open` quando o
+   que falta decidir é abrir a PR). O prefixo `DECISION REQUIRED:` é só um dos sinais de bloqueio que
+   a main reconhece: a ausência dele não prova que não houve gate. Em repo mode o motor roda inline,
+   na mesma sessão, e segue o mesmo `hitl.md`.
+
 A partir daqui **o motor assume**. O dispatcher não interfere, não opina no meio, não duplica gates.
 
 ---
