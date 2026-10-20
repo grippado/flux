@@ -81,14 +81,9 @@ _Review via {HARNESS_LABEL} · flux:review@{FLUX_VERSION}_
    dois-pontos, parênteses, ou quebrar a frase.
 9. **Não repetir os inline.** O corpo aponta e prioriza; o detalhe mora no comentário ancorado.
 10. **PT-BR com acentuação correta**, `code inline` em todo identificador.
-11. **O rodapé de proveniência é obrigatório e sempre a última linha do corpo.** Renderizar como uma
-    linha em itálico, sem blockquote nem emoji. Começar com `Review via {HARNESS_LABEL}` se `HARNESS`
-    for conhecido, ou `Review via Flux` se não for. Acrescentar `flux:review@{FLUX_VERSION}` quando a
-    versão for conhecida. Acrescentar `MODEL` e `EFFORT` somente quando cada valor estiver disponível;
-    pôr `EFFORT` entre parênteses após `MODEL`, ou escrever `effort={EFFORT}` quando só o esforço
-    estiver disponível. Omitir campos vazios ou `unknown` por completo. Nunca inferir valores nem usar
-    model/effort de specialists; preservar `unknown` somente na proveniência estruturada do artefato.
-    Exemplo para Codex sem model ou effort verificáveis: `_Review via Codex · flux:review@1.46.1_`.
+11. **O rodapé de proveniência é obrigatório e sempre a última linha do corpo.** Para compor a linha
+    e escolher quais valores incluir, siga a seção [Carimbo de execução](review-artifact-template.md#carimbo-de-execucao-todos-os-perfis),
+    fonte canônica desta regra para os dois formatos.
 
 ## Blocker mitigado
 
