@@ -54,12 +54,18 @@ Nada de citação nua. Se o texto aponta para código, PR, thread, ticket ou doc
 O rodapé é sempre a última linha do corpo do artefato, depois de todas as seções do perfil:
 
 ```markdown
-> Review feito com 🤖 {HARNESS_LABEL} · flux:review@{FLUX_VERSION} | {MODEL} - {EFFORT}
+_Review via {HARNESS_LABEL} · flux:review@{FLUX_VERSION}_
 ```
 
-Usar os valores resolvidos no preflight da sessão que grava a nota. Preservar `unknown` quando model
-ou effort não tiverem sido declarados pelo harness; não inferir nem usar os valores de specialists.
-O frontmatter mantém os campos estruturados `harness`, `flux_version`, `model`, `effort` e `stamp`.
+Montar esta linha em itálico, sem blockquote nem emoji. Começar com `Review via {HARNESS_LABEL}` se
+`HARNESS` estiver verificado, ou `Review via Flux` se não estiver. Acrescentar
+`flux:review@{FLUX_VERSION}` quando a versão estiver disponível. Acrescentar `MODEL` e `EFFORT`
+somente quando cada valor estiver disponível; pôr `EFFORT` entre parênteses após `MODEL`, ou escrever
+`effort={EFFORT}` quando só o esforço estiver disponível. Omitir campos vazios ou `unknown` por
+completo; nunca inferir nem usar os valores de specialists. Exemplo para Codex sem model ou effort
+verificáveis: `_Review via Codex · flux:review@1.46.1_`. O frontmatter mantém os campos estruturados
+`harness`, `flux_version`, `model`, `effort` e `stamp`, incluindo `unknown` quando um dado não estiver
+disponível.
 
 ---
 
@@ -201,7 +207,7 @@ fix/decisão concreta. Convergência entre lentes: anotar "(corroborado por {spe
 - **PR:** [#{number}]({pr_url}) · **Ticket:** [{TICKET}]({ticket_url})
 - **Docs/RFCs:** {links, ou omitir se nenhum}
 
-> Review feito com 🤖 {HARNESS_LABEL} · flux:review@{FLUX_VERSION} | {MODEL} - {EFFORT}
+_Review via {HARNESS_LABEL} · flux:review@{FLUX_VERSION}_
 ```
 
 Tradução do STATUS (conforme `review-legend.md`): `approved` → "Aprovar"; `approved-with-suggestions`

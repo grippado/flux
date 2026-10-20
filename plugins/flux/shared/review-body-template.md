@@ -56,7 +56,7 @@ inteiro.}
 
 {Recado final: o que falta pro merge, checagem manual, screenshot ausente, decisão do autor.}
 
-> Review feito com 🤖 {HARNESS_LABEL} · flux:review@{FLUX_VERSION} | {MODEL} - {EFFORT}
+_Review via {HARNESS_LABEL} · flux:review@{FLUX_VERSION}_
 ```
 
 ## Regras
@@ -81,10 +81,14 @@ inteiro.}
    dois-pontos, parênteses, ou quebrar a frase.
 9. **Não repetir os inline.** O corpo aponta e prioriza; o detalhe mora no comentário ancorado.
 10. **PT-BR com acentuação correta**, `code inline` em todo identificador.
-11. **O rodapé de proveniência é obrigatório e sempre a última linha do corpo.** Usar o `HARNESS_LABEL`,
-    `FLUX_VERSION`, `MODEL` e `EFFORT` resolvidos no preflight desta sessão, no formato do esqueleto.
-    Manter `unknown` quando o harness não declarar model ou effort; nunca inferir nem usar os valores
-    de um specialist.
+11. **O rodapé de proveniência é obrigatório e sempre a última linha do corpo.** Renderizar como uma
+    linha em itálico, sem blockquote nem emoji. Começar com `Review via {HARNESS_LABEL}` se `HARNESS`
+    for conhecido, ou `Review via Flux` se não for. Acrescentar `flux:review@{FLUX_VERSION}` quando a
+    versão for conhecida. Acrescentar `MODEL` e `EFFORT` somente quando cada valor estiver disponível;
+    pôr `EFFORT` entre parênteses após `MODEL`, ou escrever `effort={EFFORT}` quando só o esforço
+    estiver disponível. Omitir campos vazios ou `unknown` por completo. Nunca inferir valores nem usar
+    model/effort de specialists; preservar `unknown` somente na proveniência estruturada do artefato.
+    Exemplo para Codex sem model ou effort verificáveis: `_Review via Codex · flux:review@1.46.1_`.
 
 ## Blocker mitigado
 

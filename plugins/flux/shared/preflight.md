@@ -42,13 +42,14 @@ localizada.
 
 > **A família não sabe em qual harness roda, e não deve saber.** Os candidatos nomeados acima são a
 > única menção a harness específico em todo o flux, com exceção da seção 1a-harness abaixo, que
-> deriva `HARNESS`, `HARNESS_LABEL` e `FLUX_VERSION` do candidato que resolveu, e `MODEL`/`EFFORT` por
-> autorrelato do harness (mecanismo diferente, ver abaixo — não vêm do candidato que resolveu
-> `FLUX_ROOT`). Nomear um harness aqui só é
-> legítimo quando o candidato é **verificável**: uma variável que a sessão de fato define, ou um
-> marcador que existe no disco. Um candidato que nomeia um produto sem ter como confirmar a raiz
-> não resolve nada e transforma este passo numa lista de boas intenções. Tudo abaixo deste passo
-> é escrito contra `${FLUX_ROOT}` e `${FLUX_CMD}`, nunca contra o nome de um produto.
+> resolve `HARNESS` pelo marcador de execução ativo ou pelo candidato que resolveu, `HARNESS_LABEL`
+> a partir de `HARNESS`, e `FLUX_VERSION` pelo manifesto; `MODEL`/`EFFORT` vêm do autorrelato do
+> harness (mecanismo diferente, ver abaixo — não vêm do candidato que resolveu `FLUX_ROOT`). Nomear
+> um harness aqui só é
+> legítimo quando o sinal da execução ativa é **verificável**. Um marcador de manifesto pode resolver
+> `FLUX_ROOT`, mas não identifica o harness quando todas as instalações carregam os mesmos manifests.
+> Tudo abaixo deste passo é escrito contra `${FLUX_ROOT}` e `${FLUX_CMD}`, nunca contra o nome de um
+> produto.
 
 > **Um kit não entra nesta cascata.** Um kit é um plugin com raiz própria
 > (`${FLUX_ROOT}/shared/kit-format.md`), e a raiz dele é resolvida à parte, no Passo 1d. Acrescentá-lo
@@ -61,7 +62,15 @@ localizada.
 Derivados no mesmo passo, para que o bloco `provenance` dos artefatos e o carimbo do banner
 incluam o contexto de execução verificável.
 
-**`HARNESS`** — determinado pelo candidato que resolveu `FLUX_ROOT`:
+**`HARNESS`** — primeiro reconhecer o ambiente da execução atual; na ausência de um marcador de
+execução, usar a origem que resolveu `FLUX_ROOT`:
+
+1. Se `CODEX_THREAD_ID` estiver presente e não vazio no ambiente do shell desta execução, `HARNESS`
+   é `codex`. O Codex injeta esse identificador nas execuções de ferramentas de shell; ele identifica
+   a sessão ativa mesmo quando a CLI encontrou `FLUX_ROOT` por uma heurística que escolheu o cache de
+   outro harness. Usar somente a presença, nunca gravar o valor do identificador. Isso não muda a
+   resolução de `FLUX_ROOT`.
+2. Sem esse marcador, aplicar a tabela:
 
 | candidato que resolveu | `HARNESS` |
 |---|---|
@@ -70,13 +79,12 @@ incluam o contexto de execução verificável.
 | 3 — `${CODEX_PLUGIN_ROOT}` | `codex` |
 | 4, 5, 6 | `unknown` |
 
-O candidato 4 (marcador `.codex-plugin/plugin.json`) não identifica o harness com confiança: toda
-instalação da família inclui os três manifests (`.claude-plugin/`, `.cursor-plugin/`,
-`.codex-plugin/`), portanto a presença do arquivo não confirma Codex. A regra de verificabilidade do
-Passo 1a vale aqui da mesma forma — harness só é nomeado quando o candidato é uma variável que o
-harness de fato define. Na prática, o Codex resolve pela cascata pelo candidato 4 (porque
-`CODEX_PLUGIN_ROOT` raramente é exposto pela sessão), e portanto terá `HARNESS = unknown` na maioria
-das instalações — isso é degradação declarada, não defeito.
+O candidato 4 (marcador `.codex-plugin/plugin.json`) sozinho não identifica o harness com confiança:
+toda instalação da família inclui os três manifests (`.claude-plugin/`, `.cursor-plugin/`,
+`.codex-plugin/`), portanto a presença do arquivo não confirma Codex. Sem `CODEX_THREAD_ID`, a regra
+de verificabilidade do Passo 1a vale aqui da mesma forma — harness só é nomeado quando o candidato
+é uma variável que o harness de fato define. Se o marcador de execução não estiver disponível e
+`CODEX_PLUGIN_ROOT` não for exposto, `HARNESS` continua `unknown`.
 
 O mapeamento pressupõe que cada variável de ambiente é exclusiva do harness que a define. Se essa
 exclusividade deixar de valer — por exemplo, um Cursor que exporte `CLAUDE_PLUGIN_ROOT` para
@@ -457,7 +465,7 @@ que o banner precisa ser.
 | `kit nao avaliado` | o casamento daquele kit **dependeria** de `files`/`any_of` — ele não declara `repos`, ou declara e não casou por ele — e não há checkout local para testar. Nunca "casa por arquivo": o que não pôde ser testado não passou nem falhou | idem |
 | `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4, 5 ou 6 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
 | `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) |
-| `harness nao verificavel` | `HARNESS = unknown`: nenhum dos candidatos 1–3 resolveu `FLUX_ROOT`, portanto o harness não pôde ser identificado — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
+| `harness nao verificavel` | `HARNESS = unknown`: `CODEX_THREAD_ID` não está presente e nenhum dos candidatos 1–3 resolveu `FLUX_ROOT`, portanto o harness não pôde ser identificado — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
 | `transporte mcp` | um canal com dois caminhos (`${FLUX_ROOT}/shared/api-first.md`) foi servido pelo MCP em vez da API — sai com o canal e o motivo em grafia fixa: `transporte mcp (linear: sem token \| token nao autentica \| alvo nao enxergado \| canario falhou \| leitura falhou \| opt-out)`. Caminho por API não gera token: é o default, e declarar o default é ruído | o elo que aplicou o contrato (`issue`, `build`, `land`) |
 | `versao ilegivel` | `FLUX_VERSION = unknown`: nenhum dos três manifests (`plugin.json`) foi lido com sucesso ou o campo `version` estava ausente — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
 | `chain interrompido` | um elo do chain parou por falha, ou deixou decisão sem resposta, e os elos seguintes **não rodaram** — sai com o elo e o motivo, e acompanha o bloco de estado do chain. Usuário que escolhe a saída inócua de um gate **não** gera este token: é decisão, não interrupção | o `flux:chain` (`${FLUX_ROOT}/shared/chain.md`, "Falha no meio") |
