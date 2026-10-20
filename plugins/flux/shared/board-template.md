@@ -215,7 +215,7 @@ provenance:
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
   session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
   harness: "<claude-code | cursor | codex | unknown>"
-  flux_version: "<versão do manifesto lida de ${FLUX_ROOT}/.claude-plugin/plugin.json, ou unknown>"
+  flux_version: "<versão pela cascata de manifestos definida em preflight.md, ou unknown>"
   model: "<autorreportado pelo harness, ou unknown>"
   effort: "<autorreportado pelo harness, ou unknown>"
   stamp: "<harness> | flux:<verbo>@<flux_version>"
@@ -262,11 +262,13 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
   5. Nenhum candidato (perfil genérico sem `VAULT_ROOT`, `cwd` sem diretório de transcripts, ou todos
      já referenciados): gravar `session_sources: []`.
 
-- **`harness`**: o harness que resolveu `FLUX_ROOT` — `claude-code`, `cursor`, `codex` ou `unknown`
-  quando o candidato que resolveu não é verificável (candidatos 4, 5 ou 6 da cascata do Passo 1a do
-  preflight). Ver `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness.
-- **`flux_version`**: o campo `version` de `${FLUX_ROOT}/.claude-plugin/plugin.json`, ou `unknown`
-  se o arquivo não existir ou a leitura falhar. Os cinco manifests são sincronizados por CI.
+- **`harness`**: o harness da execução que gravou o artefato — `codex` quando `CODEX_THREAD_ID` está
+  presente no shell ativo; sem esse marcador, vem da origem que resolveu `FLUX_ROOT` (`claude-code`,
+  `cursor`, `codex` ou `unknown`). Ver `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness.
+- **`flux_version`**: o campo `version` do primeiro `plugin.json` existente na cascata definida em
+  `${FLUX_ROOT}/shared/preflight.md`. Se nenhum manifesto existir ou se o primeiro arquivo existente
+  estiver ilegível ou sem o campo `version`, gravar `unknown`. Os cinco manifests são sincronizados
+  por CI.
 - **`model`** e **`effort`**: autorreportados pelo próprio harness (ver `${FLUX_ROOT}/shared/preflight.md`,
   seção 1a-harness), nunca inferidos pelo LLM sobre si mesmo. São os da **sessão que grava este
   bloco**, não os de um subagente que ela tenha despachado no meio do trabalho (ex.: os specialists
