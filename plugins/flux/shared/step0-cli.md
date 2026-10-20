@@ -30,9 +30,10 @@ mensagem já montada.
   degradações que só a sessão enxerga.
 - `capability_level_hint` → provisório; o nível definitivo sai da revalidação abaixo.
 - `HARNESS` e `FLUX_VERSION` (campos do banner e do bloco `provenance`) **não chegam prontos no
-  JSON** e são derivados localmente: se `CODEX_THREAD_ID` estiver presente no ambiente do shell
-  desta execução, `HARNESS = codex`; sem ele, `HARNESS` é lido de `flux_root_source` pela tabela de
-  `preflight.md §1a-harness` (`env:CLAUDE_PLUGIN_ROOT` → `claude-code`,
+  JSON** e são derivados localmente: se `CODEX_THREAD_ID` estiver presente e não vazio no
+  ambiente do shell desta execução, `HARNESS = codex`; sem ele, `HARNESS` é lido de
+  `flux_root_source` pela tabela de `preflight.md §1a-harness`
+  (`env:CLAUDE_PLUGIN_ROOT` → `claude-code`,
   `env:CURSOR_PLUGIN_ROOT` → `cursor`, `env:CODEX_PLUGIN_ROOT` → `codex`, qualquer outra fonte
   incluindo `env:FLUX_HOME` → `unknown`). `FLUX_VERSION` segue a cascata de manifestos do Passo
   1a-harness do preflight: o primeiro `plugin.json` existente entre `.claude-plugin/`,

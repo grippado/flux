@@ -265,9 +265,10 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
 - **`harness`**: o harness da execução que gravou o artefato — `codex` quando `CODEX_THREAD_ID` está
   presente no shell ativo; sem esse marcador, vem da origem que resolveu `FLUX_ROOT` (`claude-code`,
   `cursor`, `codex` ou `unknown`). Ver `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness.
-- **`flux_version`**: o campo `version` resolvido pela cascata de manifestos definida em
-  `${FLUX_ROOT}/shared/preflight.md`, ou `unknown` se nenhum manifesto for legível. Os cinco
-  manifests são sincronizados por CI.
+- **`flux_version`**: o campo `version` do primeiro `plugin.json` existente na cascata definida em
+  `${FLUX_ROOT}/shared/preflight.md`. Se nenhum manifesto existir ou se o primeiro arquivo existente
+  estiver ilegível ou sem o campo `version`, gravar `unknown`. Os cinco manifests são sincronizados
+  por CI.
 - **`model`** e **`effort`**: autorreportados pelo próprio harness (ver `${FLUX_ROOT}/shared/preflight.md`,
   seção 1a-harness), nunca inferidos pelo LLM sobre si mesmo. São os da **sessão que grava este
   bloco**, não os de um subagente que ela tenha despachado no meio do trabalho (ex.: os specialists
