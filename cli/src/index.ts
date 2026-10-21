@@ -4,6 +4,7 @@ import { resolveHarness, harnessInstallHint, assertCanonicalHarness, CANONICAL_H
 import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
 import { runPreflight, type PreflightResult } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
+import { TICKET_PATTERN, ticketFromLinearUrl } from "./ticket.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
 import { generateSessionId, isValidSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
 import { closeGateChannel, describeGateSignal, effectiveExitCode, planGateChannel, armGateChannel, readGateSignal, unavailableReason } from "./gate.ts";
@@ -25,7 +26,7 @@ const VERB_HINTS: Record<Verb, string> = {
   equip: "equipa um repo com motor de execução + specialists",
 };
 
-export const TICKET_PATTERN = /^[A-Z]{2,5}-\d+$/;
+export { TICKET_PATTERN };
 export const LINEAR_URL_PATTERN = /^https?:\/\/linear\.app\//;
 
 function isTicket(s: string): boolean {
@@ -265,8 +266,7 @@ async function runVerb(opts: {
   let effectiveTarget = target;
   let effectiveRepo = repo;
   if (target && LINEAR_URL_PATTERN.test(target)) {
-    const idMatch = target.match(/\/issue\/([A-Z]{2,5}-\d+)/i);
-    const ticketId = idMatch ? idMatch[1].toUpperCase() : null;
+    const ticketId = ticketFromLinearUrl(target);
     if (!effectiveRepo) {
       const hint = ticketId ?? "<ID>";
       effectiveRepo = promptForRepo(`Alvo de ticket Linear "${hint}" requer --repo`);
