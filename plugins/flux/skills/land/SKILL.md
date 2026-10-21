@@ -53,7 +53,7 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:land` n
 
 | Forma | Significado |
 |-------|-------------|
-| `/flux:land <url-issue-linear>` | Descobre as PRs da issue (ex.: ticket CPU-/MOM-) |
+| `/flux:land <url-issue-linear>` | Descobre as PRs da issue (ex.: ticket ENG-XXXX) |
 | `/flux:land ENG-4335 ENG-4262 ENG-4261` | Múltiplas issues, entrega agregada |
 | `/flux:land <url-pr> <url-pr> ...` | Conjunto explícito de PRs (quando o naming não ajuda) |
 | `/flux:land ... --once` | Uma passada só (desliga o watch consolidado) |
@@ -150,7 +150,7 @@ ONCE=false; SOLO=false; BOARD=""
 
 Para cada target:
 
-- **Issue Linear** (`CPU-XXXX`/`MOM-XXXX` ou URL): pegar metadados, sub-issues **e anexos/links** — API primeiro, MCP como degrau declarado (`${FLUX_ROOT}/shared/api-first.md`, canal `linear`; descida para MCP vai a `degradacoes:` como `transporte mcp (linear: <motivo>)`; a query de leitura já traz `children` e `attachments`) — a integração GitHub do Linear costuma auto-linkar PRs mencionadas na descrição/branch à issue; isso é a fonte mais confiável quando disponível. Derivar o `ticket-id` em lowercase.
+- **Issue Linear** (`ENG-XXXX` ou URL): pegar metadados, sub-issues **e anexos/links** — API primeiro, MCP como degrau declarado (`${FLUX_ROOT}/shared/api-first.md`, canal `linear`; descida para MCP vai a `degradacoes:` como `transporte mcp (linear: <motivo>)`; a query de leitura já traz `children` e `attachments`) — a integração GitHub do Linear costuma auto-linkar PRs mencionadas na descrição/branch à issue; isso é a fonte mais confiável quando disponível. Derivar o `ticket-id` em lowercase.
 
 - **Descoberta primária (por conteúdo, todos os repos de `REPOS`):**
 

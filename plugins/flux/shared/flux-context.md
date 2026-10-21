@@ -126,7 +126,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   auditável:
 
   ```
-  perfil: arco (âncora: alvo ~/code/acme/api-gateway) · nivel: FULL · ...
+  perfil: acme (âncora: alvo ~/code/acme/api-gateway) · nivel: FULL · ...
   ```
 
 ### Campos
@@ -180,8 +180,8 @@ com o reviewer de outro time sem que nada acuse o problema.
   "quality_gate": {
     "provider": "sonarcloud",
     "host": "https://sonarcloud.io",
-    "org": "olaisaac",
-    "project_key_template": "OlaIsaac_{repo}",
+    "org": "acme",
+    "project_key_template": "Acme_{repo}",
     "token_env": "SONAR_TOKEN",
     "secrets_file": "~/.secrets"
   }

@@ -105,7 +105,7 @@ registrada e não deve ser passado como se fosse. Nesta seção, portanto, toda 
 
 O nome configurado continua útil como documentação para Claude/Cursor, mas no Codex o identificador
 auditável é o caminho da fonte efetivamente lida. Assim, um manifesto que declare
-`arco-pr-reviewer` sem arquivo correspondente não bloqueia nem finge executar esse agente: o
+`acme-pr-reviewer` sem arquivo correspondente não bloqueia nem finge executar esse agente: o
 banner declara a configuração indisponível e, quando presente, o `pr-reviewer.md` genérico é a
 L1 que realmente rodou.
 

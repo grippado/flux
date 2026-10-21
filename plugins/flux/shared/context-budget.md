@@ -1,6 +1,6 @@
 # Orçamento de contexto — disciplina compartilhada da família `flux:`
 
-> Fonte única. Todo comando `flux:*` (e qualquer orquestrador longo do cangaço) segue este
+> Fonte única. Todo comando `flux:*` (e qualquer orquestrador longo que adote a família) segue este
 > documento. Editar a disciplina de contexto = editar este arquivo.
 
 ## O problema que isto resolve

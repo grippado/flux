@@ -298,7 +298,7 @@ Ele é procurado em `.claude/flux-context.json` ou `.cursor/flux-context.json`, 
   "workspace_root": "~/www/acme",
   "repos": ["api-gateway", "web-monorepo", "payments"],
 
-  "vault_root": "~/.notes",
+  "vault_root": "~/notes",
   "vault_context": "acme",
   "linear_org": "acme-eng",
   "no_emdash": true,
@@ -528,7 +528,7 @@ Se você usa mais de uma conta ou contexto na máquina remota, envolva a chamada
 O CLI executa via `[$SHELL, "-i", "-c", ...]`, um shell **interativo**. Isso significa que o seu `.zshrc` é carregado, e portanto **funções de shell funcionam** como alvo:
 
 ```bash
-FLUX_CLAUDE_CMD="minha-funcao arco" flux review 8249 --repo backoffice
+FLUX_CLAUDE_CMD="minha-funcao trabalho" flux review 8249 --repo api-gateway
 ```
 
 É o mecanismo para rotear a sessão por um wrapper próprio: escolher conta, exportar variáveis, o que for. O CLI não valida o alvo de um override, porque não tem como: quem ditou a invocação sabe o que ela é.
