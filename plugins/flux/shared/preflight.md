@@ -346,7 +346,7 @@ Tipos de requisito:
 > [`codex-compat.md`](codex-compat.md): `holistic_reviewer` do manifesto (somente se for path
 > explícito e legível), override do checkout (`.claude/agents/reviewer.md`, depois
 > `.cursor/agents/reviewer.md`), depois `${FLUX_ROOT}/agents/pr-reviewer.md`. Um
-> `holistic_reviewer` que seja apenas nome (como `arco-pr-reviewer`) não prova que há arquivo nem
+> `holistic_reviewer` que seja apenas nome (como `acme-pr-reviewer`) não prova que há arquivo nem
 > agente registrado. Declarar essa tentativa como degradação e só anunciar/invocar a fonte que foi
 > realmente lida pelo subagente nativo. As regras abaixo, sobre `subagent_type`, continuam para
 > Claude Code e Cursor.

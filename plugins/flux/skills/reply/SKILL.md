@@ -67,7 +67,7 @@ Sem manifesto: `VAULT_ROOT` = não persiste por default (só imprime o board no 
 
 | Verbo | Aliases | Semântica | Saída |
 |-------|---------|-----------|-------|
-| `responder` | `draft`, `reply` | Núcleo. Lê a conversa, colhe dados, redige resposta embasada, julga (Maria Bonita), cria/atualiza o board, oferece rascunho. Depois fica vigiando (watch default), salvo `--once`. | board em `<VAULT_ROOT>/0-inbox/` + rascunho Slack |
+| `responder` | `draft`, `reply` | Núcleo. Lê a conversa, colhe dados, redige resposta embasada, julga (carimbo de veredito), cria/atualiza o board, oferece rascunho. Depois fica vigiando (watch default), salvo `--once`. | board em `<VAULT_ROOT>/0-inbox/` + rascunho Slack |
 | `acompanhar` | `watch` | Igual ao `responder`, forma explícita do modo watch (fica de olho nas superfícies do caso; novidades realimentam o board). | mesmo board, cresce por rodada |
 | `mudou` | `migrou`, `move` | **Migração explícita de contexto.** O o usuário informa que o caso continua em outro lugar. Registra a superfície nova no board existente (sem criar board novo), lê o que já rolou lá, reconcilia o que foi levado contra o dossiê, e segue o pipeline normal a partir da superfície nova. | mesmo board + nova superfície |
 
@@ -258,7 +258,7 @@ Passar também, quando o board já existe: as **pendências em aberto** do paine
 
 O answerer retorna `JULGAMENTO` (`responder|reagir|nada` + emoji se `reagir`), `RASCUNHO` (Slack-safe), `PONTO_DE_ATENCAO` e `ATA` (a matéria-prima da Timeline Verbosa e do delta do painel). Guardar como `ANSWER`.
 
-### 6. Carimbo Maria Bonita
+### 6. Carimbo de veredito
 
 Invocar `Skill(maria-bonita)` uma vez para carimbar o veredito de 1 linha no chat e sanity-check do corte `responder/reagir/nada`. É a voz de fechamento; não duplica a lógica (que já vive no answerer), só confirma e dá o tom.
 
@@ -320,7 +320,7 @@ Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nun
 3. `Rascunhar resposta mesmo assim` — cai no fluxo de `responder`.
 4. `Não fazer nada`.
 
-**`JULGAMENTO = nada`** — "Maria Bonita: essa thread não pede sua interação agora. Confirmar?":
+**`JULGAMENTO = nada`** — "Veredito: essa thread não pede sua interação agora. Confirmar?":
 1. `Só documentar e encerrar (Recomendado)`.
 2. `Acompanhar mesmo assim` (entra no watch, caso espere desdobramento).
 3. `Forçar rascunho de resposta`.

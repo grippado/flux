@@ -31,7 +31,7 @@ Três razões, em ordem de gravidade:
    threads, ficar verde e declarar "assentou" com `mergeable: CONFLICTING` é entrega pela metade,
    pelo mesmo motivo que título e descrição em drift são (ver passo 8a do iterate).
 
-**Caso real que originou este gate:** `OlaIsaac/arco-ai-plugins#252`, 0 review threads, 0 issue
+**Caso real que originou este gate (ilustrativo):** uma PR de um repo privado de plugins, 0 review threads, 0 issue
 comments acionáveis, CI 13/13 verde, e `mergeStateStatus: DIRTY` com a `main` 24 commits à frente.
 O iterate declarou "nada acionável" e encerrou a passada. O único trabalho real que existia na PR era
 exatamente o que ele não olhava.

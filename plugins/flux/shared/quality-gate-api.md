@@ -14,7 +14,7 @@
 Gate externo é dado consultável, não adivinhação. Quando o CI falha num quality gate do SonarCloud
 ou SonarQube, a action só loga o resultado agregado — `FAILED` — sem nomear a condição que reprovou.
 Deduzir a causa a partir desse log é trabalho de chute: um chute pode custar um SHA inteiro de
-commits equivocados. O caso real que originou este shared: num projeto `OlaIsaac_arco-ai-plugins`,
+commits equivocados. O caso real que originou este shared, ilustrativo: num projeto privado de plugins,
 dois pushes tentando corrigir cobertura enquanto a condição que reprovava era de vulnerabilidade em
 arquivo de CI. Sem a API, a causa nunca apareceria no log.
 
@@ -34,8 +34,8 @@ O `flux-context.json` pode declarar o bloco abaixo (todos os campos são opciona
 "quality_gate": {
   "provider": "sonarcloud",
   "host": "https://sonarcloud.io",
-  "org": "olaisaac",
-  "project_key_template": "OlaIsaac_{repo}",
+  "org": "acme",
+  "project_key_template": "Acme_{repo}",
   "token_env": "SONAR_TOKEN",
   "secrets_file": "~/.secrets"
 }
@@ -91,7 +91,7 @@ Resolver o `PROJECT_KEY` aplicando `{repo}` no `project_key_template` (mesmo mec
 `specialists_root`). Codificar o nome da branch para URL:
 
 ```bash
-PROJECT_KEY="OlaIsaac_${REPO_SLUG}"          # ou conforme project_key_template
+PROJECT_KEY="Acme_${REPO_SLUG}"              # ou conforme project_key_template
 BRANCH_ENC=$(python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.stdin.read().strip()))' <<< "$BRANCH")
 
 curl -s \
@@ -188,8 +188,8 @@ por código e trata como pendência humana.
 
 ## Armadilhas documentadas (caso real, 2026-08-05)
 
-**Armadilha 1 — Fix de cobertura que introduz vulnerabilidades de Actions.** No projeto
-`OlaIsaac_arco-ai-plugins`, branch `gripp-w-claude/aiprod-609-guardrail-push-main`: para satisfazer
+**Armadilha 1 — Fix de cobertura que introduz vulnerabilidades de Actions.** Num projeto
+privado de plugins, numa branch que adicionava um guardrail de push na `main`: para satisfazer
 o gate de cobertura, foi adicionado um step de CI no workflow do GitHub Actions. Esse step introduziu
 duas vulnerabilidades detectadas pelo Sonar:
 

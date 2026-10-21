@@ -42,6 +42,9 @@ jobs:
       - name: check-codex-agent-contract
         run: scripts/check-codex-agent-contract.sh
 
+      - name: check-public-residue
+        run: scripts/check-public-residue.sh
+
       - name: shellcheck
         run: shellcheck plugins/flux/scripts/run.sh scripts/test-run.sh
 

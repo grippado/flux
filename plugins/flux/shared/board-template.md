@@ -161,10 +161,10 @@ iterate_board: "<path do board do iterate, quando o handoff acontecer>"
 # single-PR (iterate):
 pr: <número>
 repo: "<repo-slug>"                 # slug puro, sem a org
-ticket: <CPU-XXXX|MOM-XXXX|null>
+ticket: <ENG-XXXX|null>
 parent_board: "<path do board do delivery-flow, se este iterate nasceu de um>"  # só quando --parent-board
 # multi-PR (delivery):
-issues: [CPU-XXXX, ...]
+issues: [ENG-XXXX, ...]
 repos: [...]
 iterate_boards: ["<path do board de iterate da PR #A>", "<...#B>"]   # preenchido conforme os filhos nascem
 # conversa (slack):
