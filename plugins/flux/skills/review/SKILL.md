@@ -256,7 +256,7 @@ git diff main..HEAD
 git diff main..HEAD --stat
 ```
 
-Extrair ticket Linear do título da PR ou nome da branch (regex `[A-Z]{2,5}-\d+`).
+Extrair ticket Linear do título da PR ou nome da branch (regex `\b[A-Z]{2,10}-\d+\b`).
 
 Se tiver checkout local do repo alvo, também leia:
 

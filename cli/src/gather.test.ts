@@ -48,6 +48,16 @@ describe("extractTicket", () => {
     expect(t).toEqual({ id: "LAB-107", url: null });
   });
 
+  test("AIPROD-123 no titulo nao vira IPROD-123", () => {
+    const t = extractTicket("fix: corrige AIPROD-123 no build", "fix/coisa", "acme");
+    expect(t).toEqual({ id: "AIPROD-123", url: "https://linear.app/acme/issue/AIPROD-123" });
+  });
+
+  test("AIPROD-123 na branch", () => {
+    const t = extractTicket("fix: coisa", "gabriel/AIPROD-123-alvo", null);
+    expect(t).toEqual({ id: "AIPROD-123", url: null });
+  });
+
   test("sem ticket retorna null", () => {
     expect(extractTicket("chore: bump", "chore/bump", "acme")).toBeNull();
   });

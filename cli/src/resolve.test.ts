@@ -450,7 +450,8 @@ describe("ticket como alvo: fora da v0", () => {
     expect(TICKET_PATTERN.test("ENG-1234")).toBe(true);
     expect(TICKET_PATTERN.test("AB-1")).toBe(true);
     expect(TICKET_PATTERN.test("meu-repo")).toBe(false);
-    expect(TICKET_PATTERN.test("ABCDEF-1")).toBe(false);
+    expect(TICKET_PATTERN.test("AIPROD-123")).toBe(true);
+    expect(TICKET_PATTERN.test("ABCDEFGHIJK-1")).toBe(false);
     expect(TICKET_PATTERN.test("abc-1")).toBe(false);
   });
 

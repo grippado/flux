@@ -204,7 +204,7 @@ Se o verbo é `mudou` (ou a superfície é nova), executar aqui a rotina de `## 
 
 Do texto da thread, extrair:
 - **Repos citados** — casar contra a lista de `REPOS` do contexto resolvido (ou contra repos detectados localmente em `WORKSPACE_ROOT` se sem manifesto).
-- **PRs / tickets** — regex `#\d+` e `[A-Z]{2,5}-\d+` (ex.: `ENG-4122`).
+- **PRs / tickets** — regex `#\d+` e `\b[A-Z]{2,10}-\d+\b` (ex.: `ENG-4122`).
 - **Claims / perguntas** — as afirmações e dúvidas que pedem embasamento de código.
 
 Mapear cada repo → checkout `<WORKSPACE_ROOT>/<repo-slug>` (confirmar com `ls`). Repo sem checkout local vira alvo cross-repo → LACUNA (o answerer degrada com tom assertivo + hedge, decisão do usuário).
@@ -294,7 +294,7 @@ rascunho e conferir, uma a uma, que **nenhuma** destas formas aparece fora de um
 
 - `` `<algo>.<ext>:<numero>` `` — citação de código nua.
 - `` `#<numero>` `` ou `#<numero>` solto — PR nua.
-- `[A-Z]{2,5}-\d+` fora de link — ticket nu.
+- `\b[A-Z]{2,10}-\d+\b` fora de link — ticket nu.
 
 Achou alguma: **resolver o link e reescrever antes de salvar**. Não resolveu (repo sem checkout, SHA
 indisponível): tirar os backticks de citação daquele trecho, dizer em uma frase por que não há link, e

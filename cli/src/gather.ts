@@ -2,10 +2,10 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { resolveContext, type FluxManifest } from "./resolve.ts";
+import { findTicket } from "./ticket.ts";
 
 export const GATHER_SCHEMA_VERSION = "1.0.0";
 
-const TICKET_PATTERN = /[A-Z]{2,5}-\d+/;
 const PR_URL_PATTERN = /^https?:\/\/github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/;
 const INLINE_DIFF_MAX_BYTES = 32768;
 
@@ -27,9 +27,8 @@ export function parsePrTarget(target: string, repoFlag: string | null): PrTarget
 }
 
 export function extractTicket(title: string, headRef: string, linearOrg: string | null): { id: string; url: string | null } | null {
-  const match = title.match(TICKET_PATTERN) ?? headRef.match(TICKET_PATTERN);
-  if (!match) return null;
-  const id = match[0];
+  const id = findTicket(title) ?? findTicket(headRef);
+  if (!id) return null;
   return { id, url: linearOrg ? `https://linear.app/${linearOrg}/issue/${id}` : null };
 }
 
