@@ -70,7 +70,7 @@ Detectar pelo argumento e colher o **pedido** + os **repos/temas** envolvidos:
 
 - **Permalink do Slack** (`https://<ws>.slack.com/archives/<CH>/p<DIGITS>[?thread_ts=...]`): reusar o
   Step 1/3 do `${FLUX_ROOT}/skills/reply/SKILL.md` — decompor a URL, `slack_read_thread`, e
-  varrer o texto por repos citados (contra `REPOS`), PRs (`#\d+`), tickets (`[A-Z]{2,5}-\d+`) e os
+  varrer o texto por repos citados (contra `REPOS`), PRs (`#\d+`), tickets (`\b[A-Z]{2,10}-\d+\b`) e os
   claims/pedidos. O pedido central = o que a thread está pedindo pra fazer.
 - **PR (número/URL)**: `gh pr view <n> --json title,body,files,url,headRefOid` + `gh pr diff <n>` pra
   contexto; o pedido = o gap/follow-up que a PR sugere.
