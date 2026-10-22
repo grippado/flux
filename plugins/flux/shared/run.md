@@ -26,9 +26,9 @@ Não é observability, nem event stream, nem banco. É identidade e evidência d
 
 ## Quem escreve o quê
 
-| O writer (`run.sh`) controla | O modelo informa |
+| O writer (`run.sh`) controla | A sessão fornece |
 |---|---|
-| diretório, nomes de arquivo, `run_id`, `sequence`, `verb`, timestamps, `status`, `exit_code`, `session_id`, `writer`, versões, snapshot de capacidades, `gates`, `outputs`, `retry_of` | resumo da stage, conteúdo do review (que fica no artefato do vault), `model` e `effort` quando só o harness os sabe |
+| diretório, nomes de arquivo, `run_id`, `sequence`, `verb`, timestamps, `status`, `exit_code`, `session_id`, `writer`, versões, snapshot de capacidades, `gates`, `outputs`, `retry_of` | resumo da stage, conteúdo do review (que fica no artefato do vault), `model` por declaração explícita do system prompt e `effort` por `CLAUDE_EFFORT` ou, sem ela, por declaração explícita do system prompt |
 
 O modelo nunca edita arquivo de run: chama `run.sh`, que valida e grava de forma atômica.
 
@@ -124,7 +124,10 @@ outputs:
 Regras de campo:
 
 - `harness.value` e `harness.source` são fatos da CLI, nunca inferência. `source: cli-launch` quando o harness foi escolhido (flag, `FLUX_HARNESS` ou manifesto) e lançado; `source: default` quando a CLI assumiu `claude` por falta de declaração (o valor é o que ela lançou, mas a escolha não foi do usuário); com `FLUX_CLAUDE_CMD` o que foi lançado é um comando arbitrário e o valor é `unknown`.
-- `model` e `effort` só valem por autorrelato do harness (`shared/preflight.md`); senão ficam `unknown`. Nunca se inventa valor.
+- `model` só vale por declaração explícita do system prompt; sem ela fica `unknown`. `effort` vem do
+  valor não vazio de `CLAUDE_EFFORT`; sem essa variável, usa a declaração explícita do system prompt;
+  sem os dois sinais, fica `unknown`. Nunca se inventa valor. Ver as regras de fonte e precedência em
+  `shared/preflight.md`.
 - `capabilities` é uma **projeção** do `PreflightResult` da CLI e nunca carrega path: o nível (`capability_level_hint`), só os requisitos que **faltaram** (nome e `kind: hard|soft`) e as degradações. O que estava presente não é listado: ausência de um nome significa que ele estava disponível.
 - `gates` e `outputs` crescem por `append`; o writer recusa decisões, `via` e `kind` fora do vocabulário: gates `github-post`, `commit-push`, `issue-write`, `slack-write`, `pr-open`, `write-outside`, `write-manifest`, `ambiguous-target` (as categorias de ação de `shared/hitl.md`, mapeadas para estes slugs na tabela de "Execução headless"); outputs `review`, `board`, `pr`, `issue`.
 - `outputs[].ref` é referência, nunca conteúdo: `vault:<path relativo a VAULT_ROOT>`, `url:<url>` ou `git:<ref>`. Não se copia finding para o run.
