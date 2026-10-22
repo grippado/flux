@@ -293,21 +293,17 @@ quanto os rascunhos do `--dry`. Verbo novo que grave o bloco entra neste enum an
      precedente do `/context-save`.
   5. Nenhum candidato (perfil genérico sem `VAULT_ROOT`, `cwd` sem diretório de transcripts, ou todos
      já referenciados): gravar `session_sources: []`.
-- **`harness`**: o harness da execução que gravou o artefato — `codex` quando `CODEX_THREAD_ID` está
-  presente no shell ativo; sem esse marcador, vem da origem que resolveu `FLUX_ROOT`. Ver
-  `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness. O vocabulário é fechado: `claude-code`,
+- **`harness`**: o valor de `HARNESS` resolvido no Step 0 pelo Passo 1a-harness de
+  `${FLUX_ROOT}/shared/preflight.md`, copiado sem reavaliar. O vocabulário é fechado: `claude-code`,
   `cursor`, `codex` ou `unknown`. Nome de produto, versão de harness ou rótulo de exibição (como o
   `HARNESS_LABEL` do carimbo de PR) não entram aqui.
-- **`flux_version`**: o campo `version` do primeiro `plugin.json` existente na cascata definida em
-  `${FLUX_ROOT}/shared/preflight.md`. Se nenhum manifesto existir ou se o primeiro arquivo existente
-  estiver ilegível ou sem o campo `version`, gravar `unknown`. Os cinco manifests são sincronizados
-  por CI.
-- **`model`** e **`effort`**: autorreportados pelo próprio harness (ver `${FLUX_ROOT}/shared/preflight.md`,
-  seção 1a-harness), nunca inferidos pelo LLM sobre si mesmo. São os da **sessão que grava este
-  bloco**, não os de um subagente que ela tenha despachado no meio do trabalho (ex.: os specialists
-  de `review-agents.md` podem rodar com outro model/effort). Sem uma afirmação explícita do harness
-  no contexto da sessão, os dois ficam `unknown`. Não gera token no banner de degradação (ver
-  `preflight.md`, "Tokens canônicos de `degradacoes:`").
+- **`flux_version`**: o valor de `FLUX_VERSION` resolvido no Step 0 pelo mesmo Passo 1a-harness,
+  copiado sem reavaliar.
+- **`model`** e **`effort`**: os valores de `MODEL` e `EFFORT` resolvidos no Step 0 pelo mesmo Passo
+  1a-harness, copiados sem reavaliar. São os da **sessão que grava este bloco**, não os de um
+  subagente que ela tenha despachado no meio do trabalho (ex.: os specialists de `review-agents.md`
+  podem rodar com outro model/effort). `unknown` nestes dois campos não gera token no banner de
+  degradação (ver `preflight.md`, "Tokens canônicos de `degradacoes:`").
 - **`stamp`**: string de auditoria pronta para query — `<harness> | flux:<verbo>@<flux_version>`,
   onde `<verbo>` é o `generator` sem o prefixo `flux-` (`flux-build` → verbo `build`; stamp usa
   dois-pontos: `flux:build@1.34.0`). **Derivado, nunca digitado**: montado a partir dos valores de
