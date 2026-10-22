@@ -586,7 +586,7 @@ Testes ficam **ao lado** do fonte (`resolve.ts` + `resolve.test.ts`). Mantenha o
 
 ### CI
 
-O workflow `checks.yml` roda em toda PR, mas executa apenas os **checks de contrato** (`check-manifests.sh` e `check-codex-agent-contract.sh`). Ele **não roda `bun test`**. Um verde de CI na PR não significa que a suíte do CLI passou: rode localmente, senão ninguém roda.
+O workflow `checks.yml` roda em toda PR e em todo push para a `main`. Além dos **checks de contrato** (`check-manifests.sh`, `check-codex-agent-contract.sh`, `shellcheck` e `test-run.sh`), ele roda a suíte do CLI com `bun test` dentro de `cli/` (passo `cli tests`). Um verde de CI na PR significa que a suíte passou no Linux do runner; rodar localmente antes do push continua sendo o jeito mais rápido de saber.
 
 ### Sobre comentários no código
 
