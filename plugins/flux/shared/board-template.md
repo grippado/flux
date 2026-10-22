@@ -317,12 +317,13 @@ quanto os rascunhos do `--dry`. Verbo novo que grave o bloco entra neste enum an
 
 ### Quando `unknown` é permitido
 
-Só em `harness`, `flux_version`, `model` e `effort`, e só quando a fonte verificável daquela chave
-falhou: nenhum marcador de harness resolvido, nenhum manifesto legível na cascata, nenhuma
-afirmação explícita do harness sobre model ou effort. `unknown` é sinal verificado como indisponível,
-não esquecimento nem atalho: gravar `unknown` num campo cuja fonte respondeu é tão errado quanto
-inventar um valor. Nas demais chaves a fonte nunca falha (`hostname -s`, o comando literal, o verbo
-que está rodando, o `date`), então `unknown` ali é defeito.
+Só em `harness`, `flux_version`, `model` e `effort`, e exatamente quando o Passo 1a-harness de
+`${FLUX_ROOT}/shared/preflight.md` os resolve como `unknown`. As condições moram lá e não são
+relistadas aqui: o gravador copia os valores que o Passo 0 calculou (`HARNESS`, `FLUX_VERSION`,
+`MODEL`, `EFFORT`) e nunca reavalia a fonte na hora de gravar. `unknown` é sinal verificado como
+indisponível, não esquecimento nem atalho: gravar `unknown` onde o Passo 0 resolveu um valor é tão
+errado quanto trocar por um valor o `unknown` que ele resolveu. Nas demais chaves a fonte nunca falha
+(`hostname -s`, o texto invocado, o verbo que está rodando, o `date`), então `unknown` ali é defeito.
 
 ### Checklist antes de gravar
 
@@ -332,8 +333,9 @@ Quem grava o bloco confere, **antes** do Write, e corrige o que falhar em vez de
    topo do frontmatter).
 2. **`generator`**: está no enum, e é o verbo que abriu o artefato.
 3. **`harness`**: está em `claude-code | cursor | codex | unknown`.
-4. **`unknown`**: aparece só em `harness`, `flux_version`, `model` ou `effort`, e em cada um deles a
-   fonte de fato falhou.
+4. **`unknown`**: como valor inteiro de chave, aparece só em `harness`, `flux_version`, `model` ou
+   `effort`, e cada um é o valor que o Passo 0 resolveu (ver "Quando `unknown` é permitido"). Dentro
+   do `stamp` ele aparece por herança, e isso não viola este item.
 5. **`captured_at`**: casa com `YYYY-MM-DD HH:MM ±HHMM` e veio de um `date` desta escrita (sem `T`,
    sem `Z`, sem segundos).
 6. **`session_sources`**: lista; cada item é path absoluto terminado em `.jsonl`, ou a lista é `[]`.
