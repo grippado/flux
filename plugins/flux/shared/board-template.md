@@ -210,7 +210,7 @@ scope: cabe                          # cabe | cabe-raso | nao-cabe  (só quando 
 tags: [board, <build|iterate|delivery|slack|issue-draft>, orchestration]
 provenance:                           # contrato e checklist antes de gravar: seção Bloco `provenance`, abaixo
   machine: "<hostname -s>"            # piso mínimo, sem depender de env var de instalação pessoal
-  invocation: "<comando que gerou este board, ex: '/flux:build flux LAB-149'>"
+  invocation: "<texto invocado que gerou o artefato, como digitado; ex. no Claude Code: '/flux:build flux LAB-149'>"
   generator: "<verbo que abriu o artefato; enum na seção Bloco `provenance`, abaixo>"
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
   session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
@@ -240,7 +240,7 @@ artefato de volta à sessão e à máquina que o produziram.
 | chave | valor | `unknown` permitido? |
 |---|---|---|
 | `machine` | `hostname -s` | não |
-| `invocation` | o comando que gerou o artefato, literal (ex.: `/flux:build flux LAB-149`) | não |
+| `invocation` | o texto invocado que gerou o artefato, como digitado (ex. no Claude Code: `/flux:build flux LAB-149`) | não |
 | `generator` | um valor do enum abaixo | não |
 | `captured_at` | `date "+%Y-%m-%d %H:%M %z"`, literal | não |
 | `session_sources` | lista de paths absolutos de `.jsonl`, ou `[]` | não (`[]` é o valor de ausência) |
@@ -315,9 +315,9 @@ quanto os rascunhos do `--dry`. Verbo novo que grave o bloco entra neste enum an
 
 Só em `harness`, `flux_version`, `model` e `effort`, e exatamente quando o Passo 1a-harness de
 `${FLUX_ROOT}/shared/preflight.md` os resolve como `unknown`. As condições moram lá e não são
-relistadas aqui: o gravador copia os valores que o Passo 0 calculou (`HARNESS`, `FLUX_VERSION`,
+relistadas aqui: o gravador copia os valores que o Step 0 calculou (`HARNESS`, `FLUX_VERSION`,
 `MODEL`, `EFFORT`) e nunca reavalia a fonte na hora de gravar. `unknown` é sinal verificado como
-indisponível, não esquecimento nem atalho: gravar `unknown` onde o Passo 0 resolveu um valor é tão
+indisponível, não esquecimento nem atalho: gravar `unknown` onde o Step 0 resolveu um valor é tão
 errado quanto trocar por um valor o `unknown` que ele resolveu. Nas demais chaves a fonte nunca falha
 (`hostname -s`, o texto invocado, o verbo que está rodando, o `date`), então `unknown` ali é defeito.
 
@@ -330,7 +330,7 @@ Quem grava o bloco confere, **antes** do Write, e corrige o que falhar em vez de
 2. **`generator`**: está no enum, e é o verbo que abriu o artefato.
 3. **`harness`**: está em `claude-code | cursor | codex | unknown`.
 4. **`unknown`**: como valor inteiro de chave, aparece só em `harness`, `flux_version`, `model` ou
-   `effort`, e cada um é o valor que o Passo 0 resolveu (ver "Quando `unknown` é permitido"). Dentro
+   `effort`, e cada um é o valor que o Step 0 resolveu (ver "Quando `unknown` é permitido"). Dentro
    do `stamp` ele aparece por herança, e isso não viola este item.
 5. **`captured_at`**: casa com `YYYY-MM-DD HH:MM ±HHMM` e veio de um `date` desta escrita (sem `T`,
    sem `Z`, sem segundos).

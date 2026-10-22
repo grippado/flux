@@ -96,7 +96,7 @@ pipeline: "flux:review (holistico {HOLISTIC} + specialists {lista}, reconciliado
 tags: [pr-review, {repo-slug}, {area-opcional}, {ticket-slug}]
 provenance:                         # contrato: board-template.md, seção "Bloco `provenance` (todos os perfis)"
   machine: "<hostname -s>"
-  invocation: "<comando que gerou esta review, ex: '/flux:review 5'>"
+  invocation: "<texto invocado que gerou esta review, como digitado; ex. no Claude Code: '/flux:review 5'>"
   generator: "flux-review"
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"
   session_sources: ["<path do .jsonl>", "..."]
