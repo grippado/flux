@@ -333,8 +333,8 @@ de `${FLUX_ROOT}/shared/board-template.md` (`type: flux-build`).
 2. **Frontmatter:** herda o bloco comum aos cinco perfis do `board-template.md` inteiro (`title`,
    `date`, `updated`, `type: flux-build`, `context`, `pending_organize: true`, `tags: [board, build,
    orchestration]` e `provenance`), mais os campos específicos do perfil execução: `repo`, `ticket`,
-   `engine`, `engine_kind` (`nativo`/`fallback`), `worktree`, `branch`, `pr: null`, `scope`, `iterate_board: null`. Montar o
-   frontmatter olhando a seção **Frontmatter** do `board-template.md` diretamente, nunca só esta lista
+   `engine`, `engine_kind` (`nativo`/`fallback`), `worktree`, `branch`, `pr: null`, `scope`,
+   `iterate_board: null`. Montar o frontmatter olhando a seção **Frontmatter** do `board-template.md` diretamente, nunca só esta lista
    resumida — ela existe para nomear a diferença, não para substituir o gabarito completo.
    O bloco `provenance` segue o contrato da seção **Bloco `provenance` (todos os perfis)** do
    `board-template.md`, com `generator: "flux-build"` e verbo `build` no `stamp`, e passa pelo

@@ -208,10 +208,10 @@ scope: cabe                          # cabe | cabe-raso | nao-cabe  (só quando 
                                      # veredito de T1, ver scope-gate.md — omitido se ele não rodou)
 # todos os perfis:
 tags: [board, <build|iterate|delivery|slack|issue-draft>, orchestration]
-provenance:
+provenance:                           # contrato e checklist antes de gravar: seção Bloco `provenance`, abaixo
   machine: "<hostname -s>"            # piso mínimo, sem depender de env var de instalação pessoal
   invocation: "<comando que gerou este board, ex: '/flux:build flux LAB-149'>"
-  generator: "<verbo que abriu o board; enum na seção Bloco `provenance`, abaixo>"
+  generator: "<verbo que abriu o artefato; enum na seção Bloco `provenance`, abaixo>"
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
   session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
   harness: "<claude-code | cursor | codex | unknown>"
@@ -269,7 +269,7 @@ quanto os rascunhos do `--dry`. Verbo novo que grave o bloco entra neste enum an
 - **`machine`**: `hostname -s`. Não depende de nenhuma env var de convenção pessoal de instalação —
   este repo é distribuído publicamente, e uma env var como `$DOTFILES_AI_MACHINE` (usada por
   ferramentas pessoais do tipo `/context-save`) não existe pra quem instala o plugin do zero.
-- **`invocation`**: o comando/skill que gerou o artefato, literal, com o nome invocável já resolvido.
+- **`invocation`**: o texto literal que o usuário invocou para gerar o artefato, como foi digitado.
 - **`captured_at`**: **mesmo formato e mesma leitura de `updated:`** (ver Disciplina de carimbo de
   data) — uma leitura só, nunca estimativa, e nunca ISO8601: a disciplina de relógio deste arquivo
   não produz ISO8601, e inventar uma conversão de cabeça é o mesmo modo de falha que a Disciplina de
