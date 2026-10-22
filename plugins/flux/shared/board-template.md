@@ -216,8 +216,8 @@ provenance:                           # contrato e checklist antes de gravar: se
   session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
   harness: "<claude-code | cursor | codex | unknown>"
   flux_version: "<versão pela cascata de manifestos definida em preflight.md, ou unknown>"
-  model: "<autorreportado pelo harness, ou unknown>"
-  effort: "<autorreportado pelo harness, ou unknown>"
+  model: "<autorreportado no system prompt, ou unknown>"
+  effort: "<CLAUDE_EFFORT, fallback do system prompt, ou unknown>"
   stamp: "<harness> | flux:<verbo>@<flux_version>"  # derivado dos campos acima, nunca digitado
 ---
 ```
@@ -246,8 +246,8 @@ artefato de volta à sessão e à máquina que o produziram.
 | `session_sources` | lista de paths absolutos de `.jsonl`, ou `[]` | não (`[]` é o valor de ausência) |
 | `harness` | `claude-code` \| `cursor` \| `codex` \| `unknown` | sim |
 | `flux_version` | `version` do primeiro `plugin.json` da cascata | sim |
-| `model` | autorreportado pelo harness | sim |
-| `effort` | autorreportado pelo harness | sim |
+| `model` | `MODEL` resolvido no Step 0 (preflight, 1a-harness) | sim |
+| `effort` | `EFFORT` resolvido no Step 0 (preflight, 1a-harness) | sim |
 | `stamp` | derivado: `<harness> \| flux:<verbo>@<flux_version>` | não (herda o `unknown` dos campos de que deriva) |
 
 Chave ausente é defeito do gravador, não ausência de dado. Dado indisponível tem valor próprio:

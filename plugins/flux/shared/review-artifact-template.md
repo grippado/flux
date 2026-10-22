@@ -102,8 +102,8 @@ provenance:                         # contrato: board-template.md, seção "Bloc
   session_sources: ["<path do .jsonl>", "..."]
   harness: "<claude-code | cursor | codex | unknown>"
   flux_version: "<versão do manifesto, ou unknown>"
-  model: "<autorreportado pelo harness, ou unknown>"
-  effort: "<autorreportado pelo harness, ou unknown>"
+  model: "<autorreportado no system prompt, ou unknown>"
+  effort: "<CLAUDE_EFFORT, fallback do system prompt, ou unknown>"
   stamp: "<harness> | flux:review@<flux_version>"
 ---
 ```
