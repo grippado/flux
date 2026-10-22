@@ -254,9 +254,17 @@ describe("flux --dry: nunca aciona a previa do banner (reviewBanner), mesmo com 
 
 describe("flux resume <uuid>", () => {
   const uuid = "0f8fad5b-d9cb-469f-a165-70867728950e";
+  const tmpDirs: string[] = [];
+
+  afterEach(() => {
+    for (const dir of tmpDirs.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
 
   function resumeEnv(): { env: Record<string, string>; marker: string; home: string } {
     const root = mkdtempSync(join(tmpdir(), "flux-resume-"));
+    tmpDirs.push(root);
     const home = join(root, "home");
     const bin = join(root, "bin");
     mkdirSync(home);
@@ -332,18 +340,43 @@ describe("flux resume <uuid>", () => {
     }
   });
 
-  it("--remote, --new e --record saem != 0 sem spawn", () => {
-    for (const args of [["--remote", "personal"], ["--remote"], ["--new"], ["--record"]]) {
+  it("--remote, --new e --record saem 1 com a mensagem de cada um, sem spawn", () => {
+    const cases: [string[], string][] = [
+      [["--remote", "personal"], "[flux] resume não suporta --remote: a sessão mora no config dir desta máquina."],
+      [["--remote"], "[flux] resume não suporta --remote: a sessão mora no config dir desta máquina."],
+      [["--new"], "[flux] resume não suporta --new: roda sempre na aba atual."],
+      [["--record"], '[flux] --record só vale em "flux review <PR>" (recebido: "resume").'],
+    ];
+    for (const [args, message] of cases) {
       const { env, marker } = resumeEnv();
       const r = runCli(["resume", uuid, ...args], env);
-      expect(r.status).not.toBe(0);
+      expect(r.status).toBe(1);
+      expect(r.stderr).toContain(message);
       expect(existsSync(marker)).toBe(false);
     }
+  });
+
+  it("FLUX_HARNESS=cursor sem --harness sai 1 com a recusa de harness, sem spawn", () => {
+    const { env, marker } = resumeEnv();
+    const r = runCli(["resume", uuid], { ...env, FLUX_HARNESS: "cursor" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("[flux] resume só existe no harness claude (resolvido: cursor).");
+    expect(existsSync(marker)).toBe(false);
+  });
+
+  it("FLUX_CLAUDE_CMD com metacaractere de shell e --dry sai 1 sem imprimir a linha", () => {
+    const { env, marker } = resumeEnv();
+    const r = runCli(["resume", uuid, "--dry"], { ...env, FLUX_CLAUDE_CMD: "x; y" });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toContain("metacaractere de shell não permitido");
+    expect(r.stdout).toBe("");
+    expect(existsSync(marker)).toBe(false);
   });
 
   it("binário claude ausente no PATH sai 1 sem spawn", () => {
     const { env, marker } = resumeEnv();
     const onlyBun = mkdtempSync(join(tmpdir(), "flux-resume-path-"));
+    tmpDirs.push(onlyBun);
     symlinkSync(process.execPath, join(onlyBun, "bun"));
     const r = runCli(["resume", uuid], { ...env, PATH: `${onlyBun}:/usr/bin:/bin` });
     expect(r.status).toBe(1);
