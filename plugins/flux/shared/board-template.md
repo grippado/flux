@@ -211,40 +211,72 @@ tags: [board, <build|iterate|delivery|slack|issue-draft>, orchestration]
 provenance:
   machine: "<hostname -s>"            # piso mínimo, sem depender de env var de instalação pessoal
   invocation: "<comando que gerou este board, ex: '/flux:build flux LAB-149'>"
-  generator: "<verbo que abriu o board: flux-build | flux-iterate | flux-land | flux-issue | flux-reply | flux-probe | flux-refine>"
+  generator: "<verbo que abriu o board; enum na seção Bloco `provenance`, abaixo>"
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
   session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
   harness: "<claude-code | cursor | codex | unknown>"
   flux_version: "<versão pela cascata de manifestos definida em preflight.md, ou unknown>"
   model: "<autorreportado pelo harness, ou unknown>"
   effort: "<autorreportado pelo harness, ou unknown>"
-  stamp: "<harness> | flux:<verbo>@<flux_version>"
+  stamp: "<harness> | flux:<verbo>@<flux_version>"  # derivado dos campos acima, nunca digitado
 ---
 ```
 
 ## Bloco `provenance` (todos os perfis)
 
-Todo board nasce com o bloco `provenance` acima, resolvido no Step 0 de cada elo (o mesmo passo que já
-resolve o contexto), e gravado uma vez, no nascimento do board — nunca recalculado nos ticks
-seguintes. Ele é o que permite associar um board de volta à sessão/máquina que o produziu, algo que
-hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do usuário).
+Esta seção é o **contrato único** do bloco `provenance`. Vale para todo artefato que a família grava
+com esse bloco, seja board ou não: os boards dos cinco perfis, o artefato de review
+(`review-artifact-template.md`), o parecer do `flux:peek --save` e os rascunhos do `flux:iterate --dry`.
+Um verbo que grava o bloco **aponta para esta seção** e declara só o valor de `generator` e de
+`<verbo>` que lhe cabe; nunca redescreve chave, formato ou vocabulário. Redescrever é como o `peek`
+passou a gravar `captured_at` em ISO e o `iterate` passou a gravar o bloco pela metade.
+
+O bloco é resolvido no Step 0 de cada elo (o mesmo passo que já resolve o contexto) e gravado uma vez,
+no nascimento do artefato, nunca recalculado nos ticks seguintes. Ele é o que permite associar um
+artefato de volta à sessão e à máquina que o produziram.
+
+### As dez chaves (todas obrigatórias na gravação)
+
+| chave | valor | `unknown` permitido? |
+|---|---|---|
+| `machine` | `hostname -s` | não |
+| `invocation` | o comando que gerou o artefato, literal (ex.: `/flux:build flux LAB-149`) | não |
+| `generator` | um valor do enum abaixo | não |
+| `captured_at` | `date "+%Y-%m-%d %H:%M %z"`, literal | não |
+| `session_sources` | lista de paths absolutos de `.jsonl`, ou `[]` | não (`[]` é o valor de ausência) |
+| `harness` | `claude-code` \| `cursor` \| `codex` \| `unknown` | sim |
+| `flux_version` | `version` do primeiro `plugin.json` da cascata | sim |
+| `model` | autorreportado pelo harness | sim |
+| `effort` | autorreportado pelo harness | sim |
+| `stamp` | derivado: `<harness> \| flux:<verbo>@<flux_version>` | não (herda o `unknown` dos campos de que deriva) |
+
+Chave ausente é defeito do gravador, não ausência de dado. Dado indisponível tem valor próprio:
+`unknown` nas quatro chaves que o admitem, `[]` em `session_sources`.
+
+### Enum de `generator`
+
+`flux-build` · `flux-iterate` · `flux-land` · `flux-issue` · `flux-reply` · `flux-probe` ·
+`flux-refine` · `flux-review` · `flux-peek`
+
+`generator` registra **o verbo que efetivamente abriu o artefato**, não o `type` canônico. No perfil
+exploração o `type` é sempre `flux-issue`, mesmo quando quem abriu foi o `flux:probe` ou o
+`flux:refine` (ver `probe/SKILL.md`, "O infixo é `flux-probe` porque é o verbo que abriu o board"), e
+`generator` grava `flux-probe` ou `flux-refine`. O `flux-iterate` cobre tanto o board single-PR
+quanto os rascunhos do `--dry`. Verbo novo que grave o bloco entra neste enum antes de gravar.
+
+### Regras de cada chave
 
 - **`machine`**: `hostname -s`. Não depende de nenhuma env var de convenção pessoal de instalação —
   este repo é distribuído publicamente, e uma env var como `$DOTFILES_AI_MACHINE` (usada por
   ferramentas pessoais do tipo `/context-save`) não existe pra quem instala o plugin do zero.
-  `hostname -s` sozinho já basta como identificador de máquina.
-- **`invocation`**: o comando/skill que gerou o board, literal (ex.: `/flux:build flux LAB-149`).
-- **`generator`**: **o verbo que efetivamente abriu o board** — não o `type` canônico, que no perfil
-  exploração é sempre `flux-issue` mesmo quando quem abriu foi o `flux:probe` ou o `flux:refine` (ver
-  `probe/SKILL.md`, "O infixo é `flux-probe` porque é o verbo que abriu o board"). `generator` segue
-  essa mesma regra: registra quem abriu, não o `type`. Por isso o enum inclui `flux-probe` e
-  `flux-refine` além dos cinco verbos que já geram board diretamente.
-- **`captured_at`**: **mesmo formato e mesma leitura de `updated:`** (`date "+%Y-%m-%d %H:%M %z"`, ver
-  Disciplina de carimbo de data) — uma leitura só, nunca estimativa, e nunca ISO8601: a disciplina de
-  relógio deste arquivo não produz ISO8601, e inventar uma conversão de cabeça é o mesmo modo de falha
-  que a Disciplina de carimbo de data existe para eliminar.
+- **`invocation`**: o comando/skill que gerou o artefato, literal, com o nome invocável já resolvido.
+- **`captured_at`**: **mesmo formato e mesma leitura de `updated:`** (ver Disciplina de carimbo de
+  data) — uma leitura só, nunca estimativa, e nunca ISO8601: a disciplina de relógio deste arquivo
+  não produz ISO8601, e inventar uma conversão de cabeça é o mesmo modo de falha que a Disciplina de
+  carimbo de data existe para eliminar. Vale também para artefato sem `updated:` (review, peek,
+  rascunho do iterate): o formato é este, sem exceção.
 - **`session_sources`**: lista de **paths absolutos** para as transcripts de sessão (`.jsonl`)
-  candidatas a terem gerado este board — mesmo campo e mesmo formato de valor (path absoluto, não
+  candidatas a terem gerado o artefato — mesmo campo e mesmo formato de valor (path absoluto, não
   UUID solto) que o `/context-save` do usuário já grava, e que permite a um pipeline de leitura
   externo linkar a nota à sessão que a produziu. Resolvido no mesmo Step 0:
   1. Localizar o diretório de transcripts do `cwd` atual em `~/.claude/projects/<cwd-codificado>/`,
@@ -261,10 +293,11 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
      precedente do `/context-save`.
   5. Nenhum candidato (perfil genérico sem `VAULT_ROOT`, `cwd` sem diretório de transcripts, ou todos
      já referenciados): gravar `session_sources: []`.
-
 - **`harness`**: o harness da execução que gravou o artefato — `codex` quando `CODEX_THREAD_ID` está
-  presente no shell ativo; sem esse marcador, vem da origem que resolveu `FLUX_ROOT` (`claude-code`,
-  `cursor`, `codex` ou `unknown`). Ver `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness.
+  presente no shell ativo; sem esse marcador, vem da origem que resolveu `FLUX_ROOT`. Ver
+  `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness. O vocabulário é fechado: `claude-code`,
+  `cursor`, `codex` ou `unknown`. Nome de produto, versão de harness ou rótulo de exibição (como o
+  `HARNESS_LABEL` do carimbo de PR) não entram aqui.
 - **`flux_version`**: o campo `version` do primeiro `plugin.json` existente na cascata definida em
   `${FLUX_ROOT}/shared/preflight.md`. Se nenhum manifesto existir ou se o primeiro arquivo existente
   estiver ilegível ou sem o campo `version`, gravar `unknown`. Os cinco manifests são sincronizados
@@ -273,17 +306,43 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
   seção 1a-harness), nunca inferidos pelo LLM sobre si mesmo. São os da **sessão que grava este
   bloco**, não os de um subagente que ela tenha despachado no meio do trabalho (ex.: os specialists
   de `review-agents.md` podem rodar com outro model/effort). Sem uma afirmação explícita do harness
-  no contexto da sessão, os dois ficam `unknown` — mesma honestidade-de-ausência do resto deste
-  bloco: campo `unknown` é sinal verificado como indisponível, não esquecimento. Não gera token no
-  banner de degradação (ver `preflight.md`, "Tokens canônicos de `degradacoes:`").
+  no contexto da sessão, os dois ficam `unknown`. Não gera token no banner de degradação (ver
+  `preflight.md`, "Tokens canônicos de `degradacoes:`").
 - **`stamp`**: string de auditoria pronta para query — `<harness> | flux:<verbo>@<flux_version>`,
-  onde `<verbo>` é o verbo que abriu o board (mesma lógica de `generator`, que usa hífen:
-  `flux-build` → verbo `build`; stamp usa dois-pontos: `flux:build@1.34.0`). É redundante de
+  onde `<verbo>` é o `generator` sem o prefixo `flux-` (`flux-build` → verbo `build`; stamp usa
+  dois-pontos: `flux:build@1.34.0`). **Derivado, nunca digitado**: montado a partir dos valores de
+  `harness`, `generator` e `flux_version` já gravados no mesmo bloco, depois deles. É redundante de
   propósito: a surface `provenance->>'stamp'` agrupa artefatos por ferramenta+versão sem exigir
   parsing de `generator` e `flux_version` separados.
 
-Board antigo sem este bloco continua válido: os campos são aditivos, e ferramentas que os leem devem
-tratar ausência como "não informado", nunca como erro.
+### Quando `unknown` é permitido
+
+Só em `harness`, `flux_version`, `model` e `effort`, e só quando a fonte verificável daquela chave
+falhou: nenhum marcador de harness resolvido, nenhum manifesto legível na cascata, nenhuma
+afirmação explícita do harness sobre model ou effort. `unknown` é sinal verificado como indisponível,
+não esquecimento nem atalho: gravar `unknown` num campo cuja fonte respondeu é tão errado quanto
+inventar um valor. Nas demais chaves a fonte nunca falha (`hostname -s`, o comando literal, o verbo
+que está rodando, o `date`), então `unknown` ali é defeito.
+
+### Checklist antes de gravar
+
+Quem grava o bloco confere, **antes** do Write, e corrige o que falhar em vez de gravar mesmo assim:
+
+1. **Chaves**: as dez estão presentes, nenhuma a mais dentro de `provenance` (`run_id` e afins vão no
+   topo do frontmatter).
+2. **`generator`**: está no enum, e é o verbo que abriu o artefato.
+3. **`harness`**: está em `claude-code | cursor | codex | unknown`.
+4. **`unknown`**: aparece só em `harness`, `flux_version`, `model` ou `effort`, e em cada um deles a
+   fonte de fato falhou.
+5. **`captured_at`**: casa com `YYYY-MM-DD HH:MM ±HHMM` e veio de um `date` desta escrita (sem `T`,
+   sem `Z`, sem segundos).
+6. **`session_sources`**: lista; cada item é path absoluto terminado em `.jsonl`, ou a lista é `[]`.
+7. **`stamp`**: é exatamente `<harness> | flux:<verbo>@<flux_version>` com os valores deste mesmo
+   bloco, e `<verbo>` é `generator` sem o prefixo `flux-`.
+
+Artefato antigo sem este bloco, ou com ele parcial, continua válido para leitura: os campos são
+aditivos, e ferramentas que os leem devem tratar ausência como "não informado", nunca como erro. O
+checklist vale para **gravação nova**; ele não autoriza reescrever artefato antigo.
 
 > **`source` é a chave de identidade do perfil exploração**, como `surfaces` é a do perfil conversa.
 > Antes de criar board novo, procurar um board cujo `source` case com o alvo em `<VAULT_ROOT>/0-inbox/`

@@ -94,12 +94,12 @@ reverified_threads: {N ou omitir quando o Passo 4b não rodou}  # quantas thread
 run_id: "{run_id da invocação, ou omitir sem run}"
 pipeline: "flux:review (holistico {HOLISTIC} + specialists {lista}, reconciliados)"
 tags: [pr-review, {repo-slug}, {area-opcional}, {ticket-slug}]
-provenance:
-  machine: "<hostname -s>"            # ver board-template.md, seção "Bloco provenance"
+provenance:                         # contrato: board-template.md, seção "Bloco `provenance` (todos os perfis)"
+  machine: "<hostname -s>"
   invocation: "<comando que gerou esta review, ex: '/flux:review 5'>"
   generator: "flux-review"
-  captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `date:`, ver board-template.md
-  session_sources: ["<path do .jsonl>", "..."]  # ver board-template.md, seção "Bloco provenance"; [] quando não há candidato
+  captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"
+  session_sources: ["<path do .jsonl>", "..."]
   harness: "<claude-code | cursor | codex | unknown>"
   flux_version: "<versão do manifesto, ou unknown>"
   model: "<autorreportado pelo harness, ou unknown>"
@@ -108,11 +108,11 @@ provenance:
 ---
 ```
 
-O bloco `provenance` segue a mesma disciplina do `board-template.md` (ver lá, seção "Bloco
-`provenance` (todos os perfis)") — mesmos campos, mesmo `hostname -s` como piso, sem depender de env
-var de instalação pessoal. Inclui `harness`, `flux_version`, `model`, `effort` e `stamp`, com a
-mesma origem e degradação descritas naquela seção. O perfil doc herda o bloco sem alteração (não é
-uma das diferenças listadas abaixo).
+O bloco `provenance` segue o contrato único de `board-template.md`, seção "Bloco `provenance`
+(todos os perfis)": as dez chaves, os formatos, o vocabulário de `harness`, o `stamp` derivado e o
+checklist antes de gravar vêm de lá, e não são redefinidos aqui. O que é deste artefato:
+`generator: "flux-review"` e verbo `review` no `stamp`. O perfil doc herda o bloco sem alteração (não
+é uma das diferenças listadas abaixo).
 
 ### Corpo
 

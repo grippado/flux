@@ -132,12 +132,10 @@ look é o relance rápido; o formato completo (painel, permalinks, ação) é do
 - Se `LOOK_REPORT` vier vazio (sem findings): imprimir só o `SUMARIO` com a conclusão do subagent.
 
 **Com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-flux-peek-{alvo-slug}.md` além de
-imprimir no chat. O arquivo inclui um frontmatter com bloco `provenance` herdado de
-`${FLUX_ROOT}/shared/board-template.md` (seção "Bloco `provenance` (todos os perfis)"), contendo
-os dez campos: `machine` (`hostname -s`), `invocation` (comando literal), `generator: "flux-peek"`,
-`captured_at` (timestamp ISO), `session_sources` (paths dos `.jsonl` de sessão, ou `[]` quando
-`VAULT_ROOT` não está resolvido), `harness`, `flux_version`, `model`, `effort` e `stamp`
-(`<harness> | flux:peek@<flux_version>`).
+imprimir no chat. O arquivo inclui um frontmatter com o bloco `provenance` conforme o contrato de
+`${FLUX_ROOT}/shared/board-template.md`, seção "Bloco `provenance` (todos os perfis)": as dez chaves,
+os formatos e o vocabulário vêm de lá, e o checklist daquela seção roda antes do Write. O que é deste
+verbo: `generator: "flux-peek"` e verbo `peek` no `stamp`.
 Só o bloco `provenance` é herdado; campos de board como `type`, `context` e `pending_organize`
 não fazem sentido fora do vault e não são incluídos. Não persiste no vault automaticamente
 (escolha explícita do usuário).
