@@ -273,7 +273,8 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
   estiver ilegível ou sem o campo `version`, gravar `unknown`. Os cinco manifests são sincronizados
   por CI.
 - **`model`** e **`effort`**: `model` vem do autorrelato explícito no system prompt; `effort` vem de
-  `CLAUDE_EFFORT` quando presente e, sem essa variável, do autorrelato explícito no system prompt
+  `CLAUDE_EFFORT` quando presente e não vazio; sem essa variável, vem do autorrelato explícito no
+  system prompt
   (ver `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness). Nunca inferir valores. São os da
   **sessão que grava este bloco**, não os de um subagente que ela tenha despachado no meio do trabalho
   (ex.: os specialists de `review-agents.md` podem rodar com outro model/effort). Sem os sinais

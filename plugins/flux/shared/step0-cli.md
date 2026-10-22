@@ -30,17 +30,10 @@ mensagem já montada.
   degradações que só a sessão enxerga.
 - `capability_level_hint` → provisório; o nível definitivo sai da revalidação abaixo.
 - `HARNESS` e `FLUX_VERSION` (campos do banner e do bloco `provenance`) **não chegam prontos no
-  JSON** e são derivados localmente. Se `CODEX_THREAD_ID` estiver presente e não vazio no ambiente
-  do shell desta execução, `HARNESS = codex`; esse marcador vence qualquer outro. Sem ele, aplicar
-  os marcadores de `preflight.md §1a-harness`: `CLAUDECODE` presente ou `CLAUDE_CODE_ENTRYPOINT`
-  não vazio → `claude-code`, assim como `env:CLAUDE_PLUGIN_ROOT` não vazio;
-  `env:CURSOR_PLUGIN_ROOT` não vazio → `cursor` e `env:CODEX_PLUGIN_ROOT` não vazio → `codex`. Se
-  marcadores apontarem para harnesses diferentes, usar `unknown`; se nenhum marcador verificável
-  estiver presente, usar `unknown` (inclusive para `env:FLUX_HOME` e fontes por arquivo).
-  `FLUX_VERSION` segue a cascata de manifestos do Passo
-  1a-harness do preflight: o primeiro `plugin.json` existente entre `.claude-plugin/`,
-  `.cursor-plugin/` e `.codex-plugin/` dentro de `${flux_root}`.
-  Derivar `HARNESS_LABEL` da tabela desse mesmo passo após resolver `HARNESS`; não passar o valor cru
+  JSON** e são derivados localmente conforme o contrato normativo em
+  `${FLUX_ROOT}/shared/preflight.md`, seção `1a-harness`. Obter `FLUX_VERSION` pela cascata de
+  manifestos definida ali. Derivar `HARNESS_LABEL` da tabela desse mesmo passo após resolver
+  `HARNESS`; não passar o valor cru
   de `HARNESS` onde o texto público espera o label legível.
 - `gate_signal` **também não vem no JSON** de `flux preflight`: a CLI sorteia o caminho por execução (também com
   `--dry`; o diretório só é criado ao lançar o harness) e o entrega **somente** no bloco `--- PREFLIGHT RESOLVIDO ---` da mensagem que
