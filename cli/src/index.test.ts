@@ -335,7 +335,7 @@ describe("flux resume <uuid>", () => {
       const { env, marker } = resumeEnv();
       const r = runCli(["resume", uuid, "--harness", h], env);
       expect(r.status).toBe(1);
-      expect(r.stderr).toContain(`[flux] resume só existe no harness claude (resolvido: ${h}).`);
+      expect(r.stderr).toContain(`[flux] resume só existe no harness claude (resolvido: ${h}). Use --harness claude ou ajuste o preferred_harness.`);
       expect(existsSync(marker)).toBe(false);
     }
   });
@@ -356,11 +356,30 @@ describe("flux resume <uuid>", () => {
     }
   });
 
+  it("flags de outros subcomandos (--json, --threads, --family, --out) saem 1 com recusa, sem spawn", () => {
+    const cases: [string[], string][] = [
+      [["--json"], "--json"],
+      [["--threads"], "--threads"],
+      [["--family", "x"], "--family"],
+      [["--out", "dir"], "--out"],
+    ];
+    for (const [args, flag] of cases) {
+      for (const extra of [[], ["--dry"]]) {
+        const { env, marker } = resumeEnv();
+        const r = runCli(["resume", uuid, ...args, ...extra], env);
+        expect(r.status).toBe(1);
+        expect(r.stderr).toContain(`[flux] resume não aceita ${flag}.`);
+        expect(r.stdout).toBe("");
+        expect(existsSync(marker)).toBe(false);
+      }
+    }
+  });
+
   it("FLUX_HARNESS=cursor sem --harness sai 1 com a recusa de harness, sem spawn", () => {
     const { env, marker } = resumeEnv();
     const r = runCli(["resume", uuid], { ...env, FLUX_HARNESS: "cursor" });
     expect(r.status).toBe(1);
-    expect(r.stderr).toContain("[flux] resume só existe no harness claude (resolvido: cursor).");
+    expect(r.stderr).toContain("[flux] resume só existe no harness claude (resolvido: cursor). Use --harness claude ou ajuste o preferred_harness.");
     expect(existsSync(marker)).toBe(false);
   });
 

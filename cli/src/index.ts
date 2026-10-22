@@ -466,6 +466,10 @@ async function runResumeCommand(opts: {
   remotePrompt: boolean;
   rest: string[];
   harnessFlag: string | null;
+  json: boolean;
+  threads: boolean;
+  family: string | null;
+  out: string | null;
 }): Promise<void> {
   const { target, repo, dry, safe } = opts;
 
@@ -485,6 +489,18 @@ async function runResumeCommand(opts: {
     console.error("[flux] resume não suporta --new: roda sempre na aba atual.");
     process.exit(1);
   }
+  const foreignFlags: [boolean, string][] = [
+    [opts.json, "--json"],
+    [opts.threads, "--threads"],
+    [opts.family !== null, "--family"],
+    [opts.out !== null, "--out"],
+  ];
+  for (const [present, flag] of foreignFlags) {
+    if (present) {
+      console.error(`[flux] resume não aceita ${flag}.`);
+      process.exit(1);
+    }
+  }
 
   const ctx = await resolveContext({ repoSlug: repo, targetPath: null, cwd: process.cwd() });
 
@@ -498,7 +514,7 @@ async function runResumeCommand(opts: {
   const { harness, source: harnessSource, override: harnessOverride } = harnessResolution;
   if (harnessSource === "default") console.error(DEFAULT_HARNESS_WARNING);
   if (harness !== "claude" && harnessSource !== "override") {
-    console.error(`[flux] resume só existe no harness claude (resolvido: ${harness}).`);
+    console.error(`[flux] resume só existe no harness claude (resolvido: ${harness}). Use --harness claude ou ajuste o preferred_harness.`);
     process.exit(1);
   }
 
@@ -819,7 +835,7 @@ async function main(): Promise<void> {
   }
 
   if (subcommand === "resume") {
-    await runResumeCommand({ target, repo, dry, safe, openNew, remote, remotePrompt, rest, harnessFlag: harness });
+    await runResumeCommand({ target, repo, dry, safe, openNew, remote, remotePrompt, rest, harnessFlag: harness, json, threads, family, out });
     return;
   }
 

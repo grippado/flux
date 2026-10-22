@@ -229,7 +229,7 @@ A linha executada é `<invocação> --resume '<uuid>' --fork-session`; no defaul
 | `--harness claude` | o único harness aceito. `cursor` e `codex` não têm `--resume` e saem 1 |
 | `FLUX_CLAUDE_CMD` | aceito como wrapper de claude: o override vira prefixo e os argumentos de resume vão depois |
 
-Saídas: `2` sem uuid ou com argumento a mais; `1` para uuid inválido, harness `cursor`/`codex`, `--remote`, `--new`, `--record` ou binário ausente no PATH; nos demais casos, o exit do `claude` (`128+sinal` quando morto por sinal).
+Saídas: `2` sem uuid ou com argumento a mais; `1` para uuid inválido, harness `cursor`/`codex`, `--remote`, `--new`, `--record`, `--json`, `--threads`, `--family`, `--out` ou binário ausente no PATH; nos demais casos, o exit do `claude` (`128+sinal` quando morto por sinal).
 
 **Limite de cwd e conta.** Rode no **mesmo diretório** e na **mesma conta** (`CLAUDE_CONFIG_DIR`) da sessão original. O Claude Code guarda as sessões em `<config dir>/projects/<cwd codificado>/`, então a hipótese forte é que o `--resume` não acha a sessão fora disso. Ainda sem evidência: o `flux` não muda de diretório, não detecta nem corrige, e repassa o erro do `claude`.
 
