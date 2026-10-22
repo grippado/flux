@@ -1,11 +1,11 @@
 import { resolveContext } from "./resolve.ts";
 import { buildPromptBody, buildCommand, resolveInvocation } from "./prompt.ts";
-import { resolveHarness, harnessInstallHint, assertCanonicalHarness, CANONICAL_HARNESSES, DEFAULT_HARNESS_WARNING } from "./harness.ts";
-import { launchClaude, runHere, runRemote, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
+import { resolveHarness, harnessInstallHint, assertCanonicalHarness, CANONICAL_HARNESSES, DEFAULT_HARNESS_WARNING, type HarnessResolution } from "./harness.ts";
+import { launchClaude, runHere, runRemote, runResume, buildResumeCmd, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
 import { runPreflight, type PreflightResult } from "./preflight.ts";
 import { gatherPr } from "./gather.ts";
 import { repoSlugFromTarget } from "./github-url.ts";
-import { generateSessionId, isValidSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
+import { generateSessionId, isValidClaudeSessionId, isValidSessionId, markSessionEnded, sessionsDir, writeSessionFile } from "./session.ts";
 import { closeGateChannel, describeGateSignal, effectiveExitCode, planGateChannel, armGateChannel, readGateSignal, unavailableReason } from "./gate.ts";
 import { beginRecording, finishRecording, scriptAvailable, type RunHandle, type RunPromptInfo } from "./run.ts";
 
@@ -41,6 +41,7 @@ function printUsage(): void {
   console.error("     flux preflight <verbo> [alvo] [--repo <slug>] [--family <f>] --json");
   console.error("     flux gather pr <n|URL> [--repo owner/repo] [--threads] [--out <dir>] --json");
   console.error("     flux session end <id>  (ou defina FLUX_SESSION_ID no ambiente e omita <id>)");
+  console.error("     flux resume <uuid> [--repo <slug>] [--yes|-y] [--dry] [--safe] [--harness claude]  (retoma uma sessão do Claude Code como fork; mesmo cwd e conta da sessão original)");
   console.error("     flux <verbo> [alvo] [--repo <slug>] [--dry] [--safe] [--new] [--remote [alias]] [--yes|-y] [--harness <claude|cursor|codex>]");
   console.error("     flux review <PR> --record  (grava o run local em ~/.flux/runs/<run_id>/; só review, modo here)");
   console.error("     flux <verbo> ... --remote  (sem alias: pergunta interativamente qual máquina alcançável usar)");
@@ -449,6 +450,93 @@ async function runVerb(opts: {
   await launchClaude({ command, body, invocation, sessionId });
 }
 
+const RESUME_USAGE = "Uso: flux resume <uuid> [--repo <slug>] [--yes|-y] [--dry] [--safe] [--harness claude]";
+
+export function resumeForkWarning(uuid: string): string {
+  return `[flux] retomando a sessão ${uuid} como fork (--fork-session): a sessão original fica intacta e a conversa continua num id novo.`;
+}
+
+async function runResumeCommand(opts: {
+  target: string | null;
+  repo: string | null;
+  dry: boolean;
+  safe: boolean;
+  openNew: boolean;
+  remote: string | null;
+  remotePrompt: boolean;
+  rest: string[];
+  harnessFlag: string | null;
+  json: boolean;
+  threads: boolean;
+  family: string | null;
+  out: string | null;
+}): Promise<void> {
+  const { target, repo, dry, safe } = opts;
+
+  if (!target || opts.rest.length > 0) {
+    console.error(RESUME_USAGE);
+    process.exit(2);
+  }
+  if (!isValidClaudeSessionId(target)) {
+    console.error(`[flux] id de sessão inválido: ${JSON.stringify(target)}. Esperado um UUID minúsculo (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).`);
+    process.exit(1);
+  }
+  if (opts.remote || opts.remotePrompt) {
+    console.error("[flux] resume não suporta --remote: a sessão mora no config dir desta máquina.");
+    process.exit(1);
+  }
+  if (opts.openNew) {
+    console.error("[flux] resume não suporta --new: roda sempre na aba atual.");
+    process.exit(1);
+  }
+  const foreignFlags: [boolean, string][] = [
+    [opts.json, "--json"],
+    [opts.threads, "--threads"],
+    [opts.family !== null, "--family"],
+    [opts.out !== null, "--out"],
+  ];
+  for (const [present, flag] of foreignFlags) {
+    if (present) {
+      console.error(`[flux] resume não aceita ${flag}.`);
+      process.exit(1);
+    }
+  }
+
+  const ctx = await resolveContext({ repoSlug: repo, targetPath: null, cwd: process.cwd() });
+
+  let harnessResolution: HarnessResolution;
+  try {
+    harnessResolution = resolveHarness({ harness: opts.harnessFlag, preferredHarness: ctx.preferred_harness });
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : String(err));
+    process.exit(1);
+  }
+  const { harness, source: harnessSource, override: harnessOverride } = harnessResolution;
+  if (harnessSource === "default") console.error(DEFAULT_HARNESS_WARNING);
+  if (harness !== "claude" && harnessSource !== "override") {
+    console.error(`[flux] resume só existe no harness claude (resolvido: ${harness}). Use --harness claude ou ajuste o preferred_harness.`);
+    process.exit(1);
+  }
+
+  const invocation = resolveInvocation({ safe, harness, claudeCmd: harnessOverride });
+  const line = buildResumeCmd(invocation, target);
+
+  console.error(resumeForkWarning(target));
+  if (dry) {
+    console.log(line);
+    return;
+  }
+
+  const binary = invocation.split(" ")[0]!;
+  if (harnessSource !== "override" && !commandExists(binary)) {
+    console.error(`[flux] ${binary} não encontrado no PATH.`);
+    console.error(`Instale o harness "${harness}": ${harnessInstallHint(harness)}`);
+    process.exit(1);
+  }
+
+  process.exit(await runResume({ invocation, uuid: target }));
+}
+
 export type MenuItem = { value: string; label: string; hint?: string };
 
 function renderMenuLines(items: MenuItem[], selected: number): string[] {
@@ -744,6 +832,11 @@ async function main(): Promise<void> {
     }
     console.error("Uso: flux session end <id>");
     process.exit(2);
+  }
+
+  if (subcommand === "resume") {
+    await runResumeCommand({ target, repo, dry, safe, openNew, remote, remotePrompt, rest, harnessFlag: harness, json, threads, family, out });
+    return;
   }
 
   if (!isSupportedVerb(subcommand)) {

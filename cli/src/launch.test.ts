@@ -3,7 +3,7 @@ import { readFileSync, mkdtempSync, writeFileSync, rmSync, readdirSync, existsSy
 import { spawnSync } from "child_process";
 import { tmpdir } from "os";
 import { join } from "path";
-import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, runRemote, assertSafeInvocation, buildShellCmd, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
+import { escapeAppleScript, buildITermScript, buildTerminalScript, launchClaude, runHere, runRemote, assertSafeInvocation, buildShellCmd, buildResumeCmd, runResume, buildRemoteSshArgv, listSshHostAliases, checkRemotesReachable } from "./launch.ts";
 
 function captureWrites(): { stdout: string[]; stderr: string[]; restore: () => void } {
   const stdout: string[] = [];
@@ -491,5 +491,72 @@ describe("checkRemotesReachable: filtra so os aliases que respondem via ssh", ()
   it("nenhum alcancavel: retorna lista vazia", async () => {
     const reachable = await checkRemotesReachable(["a", "b"], () => false);
     expect(reachable).toEqual([]);
+  });
+});
+
+describe("buildResumeCmd: linha de retomada de sessão do Claude Code", () => {
+  const uuid = "0f8fad5b-d9cb-469f-a165-70867728950e";
+
+  it("default: bypass, --resume com o uuid entre aspas simples e --fork-session no fim", () => {
+    expect(buildResumeCmd("claude --dangerously-skip-permissions", uuid)).toBe(
+      `claude --dangerously-skip-permissions --resume '${uuid}' --fork-session`,
+    );
+  });
+
+  it("--safe: sem bypass", () => {
+    expect(buildResumeCmd("claude", uuid)).toBe(`claude --resume '${uuid}' --fork-session`);
+  });
+
+  it("override vira prefixo e os argumentos de resume vão depois", () => {
+    expect(buildResumeCmd("minha-funcao arco", uuid)).toBe(`minha-funcao arco --resume '${uuid}' --fork-session`);
+  });
+
+  it("não carrega prompt, arquivo de prompt nem FLUX_SESSION_ID", () => {
+    const line = buildResumeCmd("claude", uuid);
+    expect(line).not.toContain("/flux:");
+    expect(line).not.toContain("$(cat");
+    expect(line).not.toContain("FLUX_SESSION_ID");
+  });
+
+  it("rejeita invocação com metacaractere de shell", () => {
+    expect(() => buildResumeCmd("claude; rm -rf /", uuid)).toThrow(/metacaractere/);
+  });
+
+  it("rejeita uuid fora do formato canônico", () => {
+    for (const bad of [uuid.slice(0, -1), `${uuid}x`, uuid.toUpperCase(), "-x", "--help", `${uuid}'; echo pwned '`]) {
+      expect(() => buildResumeCmd("claude", bad)).toThrow(/inválido/);
+    }
+  });
+});
+
+describe("runResume: executa a linha de resume no shell interativo, sem arquivo de prompt", () => {
+  const uuid = "0f8fad5b-d9cb-469f-a165-70867728950e";
+
+  it("spawna [shell, -i, -c, linha] e não grava arquivo", async () => {
+    let argvUsed: string[] = [];
+    const exitCode = await runResume(
+      { invocation: "claude --dangerously-skip-permissions", uuid },
+      {
+        spawn: async (argv) => { argvUsed = argv; return 0; },
+        writePromptFile: () => { throw new Error("runResume não deveria gravar arquivo de prompt"); },
+        shell: "/bin/zsh",
+      },
+    );
+    expect(argvUsed).toEqual(["/bin/zsh", "-i", "-c", `claude --dangerously-skip-permissions --resume '${uuid}' --fork-session`]);
+    expect(exitCode).toBe(0);
+  });
+
+  it("propaga o exit code do filho", async () => {
+    for (const code of [0, 1, 7]) {
+      expect(await runResume({ invocation: "claude", uuid }, { spawn: async () => code, shell: "/bin/sh" })).toBe(code);
+    }
+  });
+
+  it("uuid inválido lança antes de qualquer spawn", async () => {
+    let spawned = false;
+    await expect(
+      runResume({ invocation: "claude", uuid: "nao-uuid" }, { spawn: async () => { spawned = true; return 0; }, shell: "/bin/sh" }),
+    ).rejects.toThrow(/inválido/);
+    expect(spawned).toBe(false);
   });
 });

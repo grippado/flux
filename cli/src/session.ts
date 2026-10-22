@@ -29,6 +29,12 @@ export function isValidSessionId(sessionId: string): boolean {
   return SESSION_ID_PATTERN.test(sessionId);
 }
 
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export function isValidClaudeSessionId(id: string): boolean {
+  return UUID_PATTERN.test(id);
+}
+
 export function sessionFilePath(sessionId: string, dir: string = sessionsDir()): string {
   if (!isValidSessionId(sessionId)) {
     throw new Error(`sessionId inválido: ${JSON.stringify(sessionId)}`);

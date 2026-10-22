@@ -4,6 +4,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import {
   generateSessionId,
+  isValidClaudeSessionId,
   markSessionEnded,
   readSessionFile,
   sessionFilePath,
@@ -109,5 +110,27 @@ describe("markSessionEnded: fim de watch normal", () => {
 
   it("sessao morta sem arquivo (terminal fechado antes do spawn gravar) retorna false, nao lanca", () => {
     expect(markSessionEnded("nuncaexi-deadbeef", dir)).toBe(false);
+  });
+});
+
+describe("isValidClaudeSessionId: UUID canônico minúsculo, ponta a ponta", () => {
+  it("aceita UUID minúsculo", () => {
+    expect(isValidClaudeSessionId("0f8fad5b-d9cb-469f-a165-70867728950e")).toBe(true);
+  });
+
+  it("rejeita truncado, sufixo, maiúsculas, sem hífens e opções", () => {
+    for (const bad of [
+      "0f8fad5b-d9cb-469f-a165-70867728950",
+      "0f8fad5b-d9cb-469f-a165-70867728950ex",
+      "x0f8fad5b-d9cb-469f-a165-70867728950e",
+      "0F8FAD5B-D9CB-469F-A165-70867728950E",
+      "0f8fad5bd9cb469fa16570867728950e",
+      "0f8fad5b-d9cb-469f-a165-70867728950e\n",
+      "-x",
+      "--help",
+      "",
+    ]) {
+      expect(isValidClaudeSessionId(bad)).toBe(false);
+    }
   });
 });
