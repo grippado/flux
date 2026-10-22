@@ -147,7 +147,7 @@ O parse do chain no CLI **ainda não está implementado**: `chain` não está en
 
 ## Uso: os subcomandos mecânicos
 
-Além dos verbos, o CLI tem três subcomandos que **não abrem sessão nenhuma**: eles imprimem JSON e saem. Servem para as próprias skills consumirem, e para você depurar.
+Além dos verbos, o CLI tem três subcomandos que **não abrem sessão nenhuma**: eles imprimem JSON e saem. Servem para as próprias skills consumirem, e para você depurar. O quarto, `flux resume`, abre sessão, mas sem prompt de verbo: só retoma uma conversa existente.
 
 ### `flux resolve`
 
@@ -208,6 +208,31 @@ flux gather pr https://github.com/owner/repo/pull/8249 --out ./coleta --json
 
 `--threads` só é usado por quem vai responder threads (o `iterate`); o `peek` não pede, para não pagar por dado que não usa.
 
+### `flux resume`
+
+Retoma uma sessão do Claude Code pelo id, sob a mesma invocação (e o mesmo bypass) das outras runs. Não monta prompt `/flux:<verbo>`, não grava arquivo de prompt, não abre a prévia do banner e não grava `~/.flux/sessions`.
+
+```bash
+flux resume 0f8fad5b-d9cb-469f-a165-70867728950e
+flux resume 0f8fad5b-d9cb-469f-a165-70867728950e --dry
+```
+
+A linha executada é `<invocação> --resume '<uuid>' --fork-session`; no default, `claude --dangerously-skip-permissions --resume '<uuid>' --fork-session`, via `[$SHELL, "-i", "-c", linha]`. Sempre como fork: a sessão original fica intacta e a conversa continua num id novo. O aviso disso sai no stderr antes de rodar, inclusive com `--yes` e no `--dry` (que imprime só a linha no stdout).
+
+| entrada | efeito |
+|---|---|
+| `<uuid>` | obrigatório, UUID canônico minúsculo (`xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`). Validado antes de qualquer execução, sem normalizar |
+| `--repo <slug>` | só alimenta a resolução de contexto (o `preferred_harness` do manifesto). Não muda o diretório |
+| `--safe` | tira o bypass, como nos verbos |
+| `--dry` | imprime a linha e sai 0 |
+| `--yes` / `-y` | aceito e sem efeito (não há banner); existe para o argv de quem automatiza ficar uniforme |
+| `--harness claude` | o único harness aceito. `cursor` e `codex` não têm `--resume` e saem 1 |
+| `FLUX_CLAUDE_CMD` | aceito como wrapper de claude: o override vira prefixo e os argumentos de resume vão depois |
+
+Saídas: `2` sem uuid ou com argumento a mais; `1` para uuid inválido, harness `cursor`/`codex`, `--remote`, `--new`, `--record` ou binário ausente no PATH; nos demais casos, o exit do `claude` (`128+sinal` quando morto por sinal).
+
+**Limite de cwd e conta.** Rode no **mesmo diretório** e na **mesma conta** (`CLAUDE_CONFIG_DIR`) da sessão original. O Claude Code guarda as sessões em `<config dir>/projects/<cwd codificado>/`, então a hipótese forte é que o `--resume` não acha a sessão fora disso. Ainda sem evidência: o `flux` não muda de diretório, não detecta nem corrige, e repassa o erro do `claude`.
+
 ---
 
 ## Flags
@@ -220,7 +245,7 @@ flux gather pr https://github.com/owner/repo/pull/8249 --out ./coleta --json
 | `--safe` | tira o bypass de permissões da invocação |
 | `--new` | abre em aba nova do terminal em vez da atual |
 | `--remote [alias]` | roda em outra máquina via SSH. Sem alias, pergunta qual |
-| `--yes` / `-y` | pula a prévia do banner |
+| `--yes` / `-y` | pula a prévia do banner (no `resume`, sem efeito) |
 | `--json` | saída JSON. Usado pelos subcomandos mecânicos |
 
 ### `--dry` é a ferramenta de inspeção

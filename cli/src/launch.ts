@@ -1,7 +1,7 @@
 import { mkdtempSync, writeFileSync, readFileSync } from "fs";
 import { join } from "path";
 import { tmpdir, homedir, constants } from "os";
-import { markSessionEnded } from "./session.ts";
+import { isValidClaudeSessionId, markSessionEnded } from "./session.ts";
 
 export function escapeAppleScript(s: string): string {
   return s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
@@ -93,6 +93,14 @@ export function buildShellCmd(invocation: string, filePath: string, sessionId?: 
   return `${sessionEnv}${invocation} -- "$(cat ${shellQuoteArg(filePath)})"`;
 }
 
+export function buildResumeCmd(invocation: string, uuid: string): string {
+  assertSafeInvocation(invocation);
+  if (!isValidClaudeSessionId(uuid)) {
+    throw new Error(`id de sessão inválido para --resume: ${JSON.stringify(uuid)}`);
+  }
+  return `${invocation} --resume ${shellQuoteArg(uuid)} --fork-session`;
+}
+
 export type HereDeps = {
   spawn?: (argv: string[]) => Promise<number>;
   writePromptFile?: (prompt: string) => string;
@@ -150,6 +158,17 @@ export async function runHere(req: LaunchRequest, deps: HereDeps = {}): Promise<
   const filePath = writeFile(req.body);
   const shellCmd = buildShellCmd(req.invocation, filePath, req.sessionId);
   return await spawn([shell, "-i", "-c", shellCmd]);
+}
+
+export type ResumeRequest = {
+  invocation: string;
+  uuid: string;
+};
+
+export async function runResume(req: ResumeRequest, deps: HereDeps = {}): Promise<number> {
+  const spawn = deps.spawn ?? spawnInheritForwarding;
+  const shell = deps.shell ?? process.env["SHELL"] ?? "/bin/zsh";
+  return await spawn([shell, "-i", "-c", buildResumeCmd(req.invocation, req.uuid)]);
 }
 
 export type RemoteRequest = {
