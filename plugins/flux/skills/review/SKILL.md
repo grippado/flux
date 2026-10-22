@@ -183,7 +183,15 @@ Nunca bloqueante: se o `run.sh` falhar, avisar numa linha no chat (`Registro do 
    - `decision`: `approved` para qualquer opção que age (aplicar, postar, postar e aprovar); `dismissed` para `Não fazer nada`, `Não postar` ou cancelar o gate; `rejected` só quando o usuário recusa explicitamente pelo campo livre.
    - `via`: `askuser` quando o gate foi `AskUserQuestion`, `numbered-menu` quando virou lista numerada.
    - Um registro por pergunta feita: a segunda pergunta do 8b (threads reverificadas) é outro gate, também `github-post`. Sem Step 8 (nada acionável), não há gate para registrar.
-3. **Fim do elo:** se `MODEL` ou `EFFORT` vieram de autorrelato do harness (`${FLUX_ROOT}/shared/preflight.md`), registrar com `... stage-set --run {run_id} --seq {run_stage} --root "{run_root}" --model {MODEL} --effort {EFFORT}` (omitir o que for `unknown`). Depois, `... stage-summary --run {run_id} --seq {run_stage} --root "{run_root}"` com 2 a 4 linhas no stdin: PR, `STATUS`, contagem por badge e o gate escolhido. Sem caminhos de arquivo nem trechos do código; o writer recusa o resumo se houver. O conteúdo completo do review fica só no artefato do vault; **não copiar findings para o run**.
+3. **Fim do elo:** se `MODEL` ou `EFFORT` tiverem valor conhecido pelas regras de fonte do harness
+   (`MODEL` por afirmação explícita do system prompt; `EFFORT` por `CLAUDE_EFFORT` ou autorrelato
+   explícito de fallback; ver `${FLUX_ROOT}/shared/preflight.md`), registrar com
+   `... stage-set --run {run_id} --seq {run_stage} --root "{run_root}" --model {MODEL} --effort {EFFORT}`
+   (omitir flags para valores `unknown`). Depois,
+   `... stage-summary --run {run_id} --seq {run_stage} --root "{run_root}"` com 2 a 4 linhas no stdin:
+   PR, `STATUS`, contagem por badge e o gate escolhido. Sem caminhos de arquivo nem trechos do código;
+   o writer recusa o resumo se houver. O conteúdo completo do review fica só no artefato do vault;
+   **não copiar findings para o run**.
 
 ## Pipeline `pr` (review de PR/branch)
 

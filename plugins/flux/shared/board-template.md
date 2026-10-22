@@ -216,8 +216,8 @@ provenance:
   session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
   harness: "<claude-code | cursor | codex | unknown>"
   flux_version: "<versão pela cascata de manifestos definida em preflight.md, ou unknown>"
-  model: "<autorreportado pelo harness, ou unknown>"
-  effort: "<autorreportado pelo harness, ou unknown>"
+  model: "<autorreportado no system prompt, ou unknown>"
+  effort: "<CLAUDE_EFFORT, fallback do system prompt, ou unknown>"
   stamp: "<harness> | flux:<verbo>@<flux_version>"
 ---
 ```
@@ -262,20 +262,25 @@ hoje só existe em ferramentas fora da família `flux:` (ex.: `/context-save` do
   5. Nenhum candidato (perfil genérico sem `VAULT_ROOT`, `cwd` sem diretório de transcripts, ou todos
      já referenciados): gravar `session_sources: []`.
 
-- **`harness`**: o harness da execução que gravou o artefato — `codex` quando `CODEX_THREAD_ID` está
-  presente no shell ativo; sem esse marcador, vem da origem que resolveu `FLUX_ROOT` (`claude-code`,
-  `cursor`, `codex` ou `unknown`). Ver `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness.
+- **`harness`**: o harness da execução que gravou o artefato, resolvido pelos marcadores e pela
+  precedência de `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness. `CODEX_THREAD_ID` não vazio
+  vence os demais. Sem ele, a presença de `CLAUDECODE` ou um `CLAUDE_CODE_ENTRYPOINT` não vazio
+  identifica Claude Code; marcadores de plugin identificam o harness correspondente. Sinais
+  conflitantes sem precedência resultam em `unknown`; Cursor sem marcador verificável também fica
+  `unknown`.
 - **`flux_version`**: o campo `version` do primeiro `plugin.json` existente na cascata definida em
   `${FLUX_ROOT}/shared/preflight.md`. Se nenhum manifesto existir ou se o primeiro arquivo existente
   estiver ilegível ou sem o campo `version`, gravar `unknown`. Os cinco manifests são sincronizados
   por CI.
-- **`model`** e **`effort`**: autorreportados pelo próprio harness (ver `${FLUX_ROOT}/shared/preflight.md`,
-  seção 1a-harness), nunca inferidos pelo LLM sobre si mesmo. São os da **sessão que grava este
-  bloco**, não os de um subagente que ela tenha despachado no meio do trabalho (ex.: os specialists
-  de `review-agents.md` podem rodar com outro model/effort). Sem uma afirmação explícita do harness
-  no contexto da sessão, os dois ficam `unknown` — mesma honestidade-de-ausência do resto deste
-  bloco: campo `unknown` é sinal verificado como indisponível, não esquecimento. Não gera token no
-  banner de degradação (ver `preflight.md`, "Tokens canônicos de `degradacoes:`").
+- **`model`** e **`effort`**: `model` vem do autorrelato explícito no system prompt; `effort` vem de
+  `CLAUDE_EFFORT` quando presente e não vazio; sem essa variável, vem do autorrelato explícito no
+  system prompt
+  (ver `${FLUX_ROOT}/shared/preflight.md`, seção 1a-harness). Nunca inferir valores. São os da
+  **sessão que grava este bloco**, não os de um subagente que ela tenha despachado no meio do trabalho
+  (ex.: os specialists de `review-agents.md` podem rodar com outro model/effort). Sem os sinais
+  aplicáveis, cada campo fica `unknown` — mesma honestidade-de-ausência do resto deste bloco: campo
+  `unknown` é sinal verificado como indisponível, não esquecimento. Não gera token no banner de
+  degradação (ver `preflight.md`, "Tokens canônicos de `degradacoes:`").
 - **`stamp`**: string de auditoria pronta para query — `<harness> | flux:<verbo>@<flux_version>`,
   onde `<verbo>` é o verbo que abriu o board (mesma lógica de `generator`, que usa hífen:
   `flux-build` → verbo `build`; stamp usa dois-pontos: `flux:build@1.34.0`). É redundante de
