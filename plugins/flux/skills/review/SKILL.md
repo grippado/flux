@@ -498,9 +498,10 @@ STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificaç�
   `reverified_threads` entra só quando o Passo 4b rodou (com o tamanho de `REOPEN_CANDIDATES`);
   sem Passo 4b, omitir o campo. Com `run_id:` na invocação, o frontmatter ganha `run_id: "{run_id}"`
   (topo do frontmatter, fora de `provenance`); sem run, omitir o campo.
-- Preencher `provenance` com os valores do Passo 0: `harness` = `HARNESS`, `flux_version` =
-  `FLUX_VERSION`, `model` = `MODEL`, `effort` = `EFFORT`, e `stamp` = `{HARNESS} | flux:review@{FLUX_VERSION}`.
-  Preservar `unknown` nos campos estruturados quando necessário. No rodapé, seguir a composição do
+- Preencher `provenance` conforme o contrato de `${FLUX_ROOT}/shared/board-template.md`, seção
+  "Bloco `provenance` (todos os perfis)", com os valores do Passo 0 (`HARNESS`, `FLUX_VERSION`,
+  `MODEL`, `EFFORT`), `generator: "flux-review"` e verbo `review` no `stamp`; rodar o checklist
+  daquela seção antes do Write. No rodapé, seguir a composição do
   `review-artifact-template.md`: usar somente campos conhecidos e não imprimir placeholders `unknown`.
 
 Gravar com a Write tool no caminho calculado (Step 5). Quando `VAULT_ROOT` não estiver definido (perfil
