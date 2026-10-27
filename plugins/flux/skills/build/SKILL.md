@@ -2,6 +2,9 @@
 name: build
 description: "Orquestrador `flux:build` — elo de execução da família: recebe um ticket/descrição e um repo, e despacha para o motor de execução nativo daquele repo (`/workflow`), caindo no `exec_fallback` do perfil ou no modo autônomo quando o repo não tem motor próprio. Produz código + PR draft. Não reimplementa pipeline de implementação. Global, resolve contexto via `flux-context.md`. Local apenas — CI e Forja ficam fora."
 user-invocable: true
+requires:
+  soft:
+    - bin: gh
 ---
 
 # /flux:build
@@ -527,11 +530,19 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    **Aqui e não antes**: quem pediu um build quer código, e uma entrevista sobre ferramental antes do
    trabalho é ruído. As duas ofertas cabem num gate só quando as duas faltas existirem.
 2. **Codex: validar e alinhar os metadados antes da atribuição.** A main faz esta conciliação depois
-   do retorno do motor; não reabre a implementação. Parse `PR_NUMBER` e `REPO_FULL` da URL retornada
-   e leia com `gh pr view <PR_NUMBER> --repo <REPO_FULL> --json url,title,body,author,isDraft,headRefName,baseRefName`.
-   Confirme que URL, repo, branch de origem e base correspondem ao alvo e às convenções do repo;
-   compare `author.login` com o resultado de `gh api user -q .login`. PR de terceiro: não edite título,
-   corpo nem atribuição; registre esse bloqueio. O motor deve abrir a PR como draft: se uma PR própria
+   do retorno do motor; não reabre a implementação. Sem PR (`pr: null`), não há conciliação. Se o
+   preflight declarou `gh` ausente, pare esta auditoria: registre `NÃO VERIFICADO` com o motivo no
+   board e no handoff; não edite metadados nem atribuição e não conclua o handoff como se a auditoria
+   tivesse passado. Parse `PR_NUMBER` e `REPO_FULL` da URL retornada. Com `gh` disponível, leia a
+   identidade uma única vez com `gh api user -q .login` e guarde o resultado em `ME`; leia também a PR
+   com `gh pr view <PR_NUMBER> --repo <REPO_FULL> --json url,title,body,author,isDraft,headRefName,baseRefName`.
+   Se alguma consulta falhar, `ME` vier vazio ou a URL não puder ser analisada, registre `NÃO VERIFICADO`
+   com o motivo no board e no handoff; não edite metadados nem atribuição e não conclua o handoff como
+   se a auditoria tivesse passado. Não leia nem imprima credenciais.
+   Confirme que URL, repo, branch de origem e base correspondem ao alvo e às convenções do repo.
+   Defina `IS_OWN_PR = (author.login == ME)` uma única vez, reutilizando o guard de autoria de
+   `${FLUX_ROOT}/shared/pr-attribution.md` para esta auditoria e para a atribuição. PR de terceiro:
+   não edite título, corpo nem atribuição; registre esse bloqueio. O motor deve abrir a PR como draft: se uma PR própria
    não estiver em draft, converta-a com `gh pr ready <PR_NUMBER> --repo <REPO_FULL> --undo` e releia
    para confirmar `isDraft: true`; sem essa confirmação, registre o bloqueio e não conclua o handoff.
    - Determine convenções no próprio repo: leia `AGENTS.md`/`CLAUDE.md`, as regras de contribuição e
@@ -562,9 +573,11 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    um harness não verificável (`AI agent`), sem inferir produto pelo motor. Se a forma for ambígua,
    preservar o body e não compactar. Motor sem PR (`pr: null`) → nada a conciliar. `PR_NUMBER` e
    `REPO_FULL` são parseados da URL de PR devolvida pelo motor (`github.com/<owner>/<repo>/pull/<n>`);
-   `SCRATCH` é o diretório temporário da sessão (mesmo conceito do `flux:iterate`); `IS_OWN_PR` é
-   conferido com `gh api user -q .login` contra o autor da PR — normalmente verdadeiro, pois o motor
-   abriu a PR com a conta autenticada; se não for, não carimbar.
+   `SCRATCH` é o diretório temporário da sessão (mesmo conceito do `flux:iterate`); `IS_OWN_PR` é o
+   resultado da única comparação `author.login == ME` feita no item 2 com o guard do contrato
+   `${FLUX_ROOT}/shared/pr-attribution.md` — normalmente verdadeiro, pois o motor abriu a PR com a
+   conta autenticada. Reutilize esse valor, sem consultar `gh api user` de novo. Se for falso, não
+   carimbar.
 4. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.
