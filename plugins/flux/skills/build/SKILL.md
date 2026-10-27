@@ -526,7 +526,34 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 
    **Aqui e não antes**: quem pediu um build quer código, e uma entrevista sobre ferramental antes do
    trabalho é ruído. As duas ofertas cabem num gate só quando as duas faltas existirem.
-2. **Conciliar a atribuição da PR.** Se o motor abriu PR, aplicar `flux:build@<FLUX_VERSION>` e
+2. **Codex: validar e alinhar os metadados antes da atribuição.** A main faz esta conciliação depois
+   do retorno do motor; não reabre a implementação. Parse `PR_NUMBER` e `REPO_FULL` da URL retornada
+   e leia com `gh pr view <PR_NUMBER> --repo <REPO_FULL> --json url,title,body,author,isDraft,headRefName,baseRefName`.
+   Confirme que URL, repo, branch de origem e base correspondem ao alvo e às convenções do repo;
+   compare `author.login` com o resultado de `gh api user -q .login`. PR de terceiro: não edite título,
+   corpo nem atribuição; registre esse bloqueio. O motor deve abrir a PR como draft: se uma PR própria
+   não estiver em draft, converta-a com `gh pr ready <PR_NUMBER> --repo <REPO_FULL> --undo` e releia
+   para confirmar `isDraft: true`; sem essa confirmação, registre o bloqueio e não conclua o handoff.
+   - Determine convenções no próprio repo: leia `AGENTS.md`/`CLAUDE.md`, as regras de contribuição e
+     procure template de PR na raiz, em `.github/` ou `docs/`. Sem template, consulte até três PRs
+     abertas recentes e comparáveis do mesmo repo, título e corpo (pelo menos duas quando disponíveis).
+     Não importe exemplos de outro repo.
+   - Derive o título do formato do repo, do ticket real recebido (se houver) e das mudanças; sem um
+     identificador fornecido, não invente um. Compare título/corpo remoto com as convenções e com as
+     evidências: diff e commits reais da branch (`git diff`/`git log`), checks verificados pelo motor
+     e bloqueios reportados. Nunca invente mudança, commit, resultado ou bloqueio.
+   - Só edite título/corpo de PR própria quando o formato ou os fatos estiverem desalinhados ou
+     incompletos. Salve o corpo remoto em `SCRATCH`, faça uma cópia editável e revise o diff antes de
+     `gh pr edit --title ... --body-file ...`. Preserve links, seções úteis ou desconhecidas, notas
+     manuais, códigos, linhas de release (`Summary-en:`/`Summary-pt:`), proveniência e trailers. Atualize
+     só o que estiver ausente ou comprovadamente desalinhado; se algo for ambíguo, preserve e relate o
+     bloqueio.
+   - A descrição deve deixar explícitos ticket real, mudanças implementadas, commits, resultado de
+     cada check e bloqueios. Só declare aprovado o que tem evidência; checks que falharam continuam
+     como falhos, checks bloqueados recebem `BLOQUEADO` com o motivo, e os que não rodaram ou não
+     puderam ser verificados ficam como `NÃO EXECUTADO`/`NÃO VERIFICADO`, com motivo. Depois do edit,
+     releia e confirme título, corpo, autor e draft.
+3. **Conciliar a atribuição da PR.** Se o motor abriu PR, aplicar `flux:build@<FLUX_VERSION>` e
    conciliar uma entrada legada `Gerado por: <par-do-motor>` na linha canônica
    `🤖 Generated with ...`, seguindo `${FLUX_ROOT}/shared/pr-attribution.md`. Quem aplica é a main,
    depois do retorno do motor, e não o motor: o body é criado pelo motor do repo (nativo,
@@ -538,13 +565,13 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    `SCRATCH` é o diretório temporário da sessão (mesmo conceito do `flux:iterate`); `IS_OWN_PR` é
    conferido com `gh api user -q .login` contra o autor da PR — normalmente verdadeiro, pois o motor
    abriu a PR com a conta autenticada; se não for, não carimbar.
-3. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
+4. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.
-4. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
+5. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
    vai para `done` quando a PR nasce, e o board do `${FLUX_CMD}iterate` assume dali. Gravar
    `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
-5. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
+6. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
    válido e é o que torna a falha investigável depois. Não apagar o board.
 
 Ao final, o resultado é o do motor (tipicamente PR draft + CI monitorado). Feche apontando o próximo elo, escolhendo **um**:
