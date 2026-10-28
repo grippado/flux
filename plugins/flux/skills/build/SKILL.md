@@ -2,6 +2,9 @@
 name: build
 description: "Orquestrador `flux:build` — elo de execução da família: recebe um ticket/descrição e um repo, e despacha para o motor de execução nativo daquele repo (`/workflow`), caindo no `exec_fallback` do perfil ou no modo autônomo quando o repo não tem motor próprio. Produz código + PR draft. Não reimplementa pipeline de implementação. Global, resolve contexto via `flux-context.md`. Local apenas — CI e Forja ficam fora."
 user-invocable: true
+requires:
+  soft:
+    - bin: gh
 ---
 
 # /flux:build
@@ -526,25 +529,73 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 
    **Aqui e não antes**: quem pediu um build quer código, e uma entrevista sobre ferramental antes do
    trabalho é ruído. As duas ofertas cabem num gate só quando as duas faltas existirem.
-2. **Conciliar a atribuição da PR.** Se o motor abriu PR, aplicar `flux:build@<FLUX_VERSION>` e
+2. **Validar e alinhar os metadados da PR antes da atribuição.** A main faz esta conciliação depois
+   do retorno do motor; não reabre a implementação. Sem PR (`pr: null`), não há conciliação: seguir
+   para o item 4.
+   - **Pré-condições, na main.** Se o preflight declarou `gh` ausente, parar esta auditoria e
+     registrar `NÃO VERIFICADO` com o motivo. Parsear `PR_NUMBER` e `REPO_FULL` da URL retornada. Ler
+     a identidade uma única vez com `gh api user -q .login` e guardar em `ME`; ler a PR com
+     `gh pr view <PR_NUMBER> --repo <REPO_FULL> --json url,title,body,author,isDraft,headRefName,baseRefName`.
+     Se alguma consulta falhar, `ME` vier vazio ou a URL não puder ser analisada, registrar
+     `NÃO VERIFICADO` com o motivo. Não ler nem imprimir credenciais. Conferir que URL, repo, branch
+     de origem e base correspondem ao alvo. Definir `IS_OWN_PR = (author.login == ME)` uma única vez,
+     com o guard de autoria de `${FLUX_ROOT}/shared/pr-attribution.md` (§Guardrails), valendo para
+     esta auditoria e para a atribuição. PR de terceiro: não editar título, corpo nem atribuição;
+     registrar o bloqueio.
+   - **Draft.** O estado de uma PR aberta pelo motor do repo não é do dispatcher: PR própria fora de
+     draft vira o bloqueio `PR aberta pronta, não draft`, sem conversão. A única exceção é o caminho
+     C do Step 2 (modo autônomo), em que o draft é regra do próprio flux: ali, converter com
+     `gh pr ready <PR_NUMBER> --repo <REPO_FULL> --undo`, reler e confirmar `isDraft: true`; sem a
+     confirmação, registrar o bloqueio.
+   - **Apuração de convenções, fora da main.** Em workspace mode, despachar um subagente com prompt
+     autocontido (repo, `PR_NUMBER`, branch, título e corpo remotos, checks e bloqueios devolvidos
+     pelo motor), conforme `${FLUX_ROOT}/shared/fanout-discipline.md`; em repo mode, rodar inline,
+     como o motor. A apuração lê `AGENTS.md`/`CLAUDE.md`, as regras de contribuição e o template de
+     PR do repo (raiz, `.github/` ou `docs/`); sem template, compara com até três PRs mergeadas
+     recentes do mesmo repo, sem autores bot, e nunca com exemplos de outro repo. Confronta título e
+     corpo com essas convenções e com as evidências (diff e commits reais da branch, checks
+     verificados pelo motor, bloqueios reportados) e devolve só o veredito: `alinhado`, ou
+     `desalinhado` com os campos, o título proposto e o corpo proposto gravado no `SCRATCH`. Sem
+     identificador fornecido, não cria um; nunca inventa mudança, commit, resultado ou bloqueio.
+   - **Conteúdo do corpo proposto.** Ticket real, mudanças implementadas, commits, resultado de cada
+     check e bloqueios. Só é aprovado o que tem evidência: checks que falharam continuam falhos, os
+     bloqueados recebem `BLOQUEADO` com o motivo, e os que não rodaram ou não puderam ser verificados
+     ficam como `NÃO EXECUTADO`/`NÃO VERIFICADO`, com motivo. Atualizar só o que estiver ausente ou
+     comprovadamente desalinhado, preservando links, seções úteis ou desconhecidas, notas manuais,
+     códigos, proveniência e trailers; o que for ambíguo fica como está e vira bloqueio relatado.
+   - **Publicação: um ciclo só, junto com o item 3.** O corpo proposto entra na cópia `body-after`
+     da §Mecânica de `${FLUX_ROOT}/shared/pr-attribution.md`, o algoritmo de atribuição do item 3
+     roda sobre essa mesma cópia, e só então sai um único `gh pr edit` (com `--title` quando o título
+     mudou), com os pós-checks do contrato. Antes de publicar, mostrar o diff de título e corpo e
+     pedir confirmação pelo gate de `${FLUX_ROOT}/shared/hitl.md`; recusado, publicar só a
+     atribuição. Com `NO_EMDASH`, título e corpo seguem a regra. Depois, reler e confirmar título,
+     corpo, autor e draft.
+   - **Quando a auditoria não passa** (`NÃO VERIFICADO`, PR de terceiro, PR fora de draft, edição
+     recusada ou não confirmada): o item 3 só carimba se `IS_OWN_PR` estiver verificado, os itens 4 a
+     6 seguem, o bloqueio entra na Timeline do board e no handoff, `execution_status` não vai para
+     `done`, e o handoff aponta `${FLUX_CMD}iterate <pr>` com o bloqueio nomeado.
+3. **Conciliar a atribuição da PR.** Se o motor abriu PR, aplicar `flux:build@<FLUX_VERSION>` e
    conciliar uma entrada legada `Gerado por: <par-do-motor>` na linha canônica
-   `🤖 Generated with ...`, seguindo `${FLUX_ROOT}/shared/pr-attribution.md`. Quem aplica é a main,
-   depois do retorno do motor, e não o motor: o body é criado pelo motor do repo (nativo,
+   `🤖 Generated with ...`, seguindo `${FLUX_ROOT}/shared/pr-attribution.md`, no mesmo ciclo de
+   publicação do item 2. Quem aplica é a main, depois do retorno do motor, e não o motor: o body é
+   criado pelo motor do repo (nativo,
    `exec_fallback` ou autônomo), e nenhum deles é obrigado a conhecer esta regra. O algoritmo usa
    `HARNESS_LABEL` do preflight, portanto funciona da mesma forma para Claude Code, Cursor, Codex e
    um harness não verificável (`AI agent`), sem inferir produto pelo motor. Se a forma for ambígua,
    preservar o body e não compactar. Motor sem PR (`pr: null`) → nada a conciliar. `PR_NUMBER` e
    `REPO_FULL` são parseados da URL de PR devolvida pelo motor (`github.com/<owner>/<repo>/pull/<n>`);
-   `SCRATCH` é o diretório temporário da sessão (mesmo conceito do `flux:iterate`); `IS_OWN_PR` é
-   conferido com `gh api user -q .login` contra o autor da PR — normalmente verdadeiro, pois o motor
-   abriu a PR com a conta autenticada; se não for, não carimbar.
-3. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
+   `SCRATCH` é o diretório temporário da sessão (mesmo conceito do `flux:iterate`); `IS_OWN_PR` é o
+   resultado da única comparação `author.login == ME` feita no item 2 com o guard do contrato
+   `${FLUX_ROOT}/shared/pr-attribution.md` — normalmente verdadeiro, pois o motor abriu a PR com a
+   conta autenticada. Reutilize esse valor, sem consultar `gh api user` de novo. Se for falso, não
+   carimbar.
+4. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.
-4. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
-   vai para `done` quando a PR nasce, e o board do `${FLUX_CMD}iterate` assume dali. Gravar
-   `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
-5. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
+5. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
+   vai para `done` quando a PR nasce sem bloqueio do item 2, e o board do `${FLUX_CMD}iterate`
+   assume dali. Gravar `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
+6. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
    válido e é o que torna a falha investigável depois. Não apagar o board.
 
 Ao final, o resultado é o do motor (tipicamente PR draft + CI monitorado). Feche apontando o próximo elo, escolhendo **um**:
