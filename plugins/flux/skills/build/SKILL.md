@@ -529,45 +529,56 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 
    **Aqui e não antes**: quem pediu um build quer código, e uma entrevista sobre ferramental antes do
    trabalho é ruído. As duas ofertas cabem num gate só quando as duas faltas existirem.
-2. **Codex: validar e alinhar os metadados antes da atribuição.** A main faz esta conciliação depois
-   do retorno do motor; não reabre a implementação. Sem PR (`pr: null`), não há conciliação. Se o
-   preflight declarou `gh` ausente, pare esta auditoria: registre `NÃO VERIFICADO` com o motivo no
-   board e no handoff; não edite metadados nem atribuição e não conclua o handoff como se a auditoria
-   tivesse passado. Parse `PR_NUMBER` e `REPO_FULL` da URL retornada. Com `gh` disponível, leia a
-   identidade uma única vez com `gh api user -q .login` e guarde o resultado em `ME`; leia também a PR
-   com `gh pr view <PR_NUMBER> --repo <REPO_FULL> --json url,title,body,author,isDraft,headRefName,baseRefName`.
-   Se alguma consulta falhar, `ME` vier vazio ou a URL não puder ser analisada, registre `NÃO VERIFICADO`
-   com o motivo no board e no handoff; não edite metadados nem atribuição e não conclua o handoff como
-   se a auditoria tivesse passado. Não leia nem imprima credenciais.
-   Confirme que URL, repo, branch de origem e base correspondem ao alvo e às convenções do repo.
-   Defina `IS_OWN_PR = (author.login == ME)` uma única vez, reutilizando o guard de autoria de
-   `${FLUX_ROOT}/shared/pr-attribution.md` para esta auditoria e para a atribuição. PR de terceiro:
-   não edite título, corpo nem atribuição; registre esse bloqueio. O motor deve abrir a PR como draft: se uma PR própria
-   não estiver em draft, converta-a com `gh pr ready <PR_NUMBER> --repo <REPO_FULL> --undo` e releia
-   para confirmar `isDraft: true`; sem essa confirmação, registre o bloqueio e não conclua o handoff.
-   - Determine convenções no próprio repo: leia `AGENTS.md`/`CLAUDE.md`, as regras de contribuição e
-     procure template de PR na raiz, em `.github/` ou `docs/`. Sem template, consulte até três PRs
-     abertas recentes e comparáveis do mesmo repo, título e corpo (pelo menos duas quando disponíveis).
-     Não importe exemplos de outro repo.
-   - Derive o título do formato do repo, do ticket real recebido (se houver) e das mudanças; sem um
-     identificador fornecido, não invente um. Compare título/corpo remoto com as convenções e com as
-     evidências: diff e commits reais da branch (`git diff`/`git log`), checks verificados pelo motor
-     e bloqueios reportados. Nunca invente mudança, commit, resultado ou bloqueio.
-   - Só edite título/corpo de PR própria quando o formato ou os fatos estiverem desalinhados ou
-     incompletos. Salve o corpo remoto em `SCRATCH`, faça uma cópia editável e revise o diff antes de
-     `gh pr edit --title ... --body-file ...`. Preserve links, seções úteis ou desconhecidas, notas
-     manuais, códigos, linhas de release (`Summary-en:`/`Summary-pt:`), proveniência e trailers. Atualize
-     só o que estiver ausente ou comprovadamente desalinhado; se algo for ambíguo, preserve e relate o
-     bloqueio.
-   - A descrição deve deixar explícitos ticket real, mudanças implementadas, commits, resultado de
-     cada check e bloqueios. Só declare aprovado o que tem evidência; checks que falharam continuam
-     como falhos, checks bloqueados recebem `BLOQUEADO` com o motivo, e os que não rodaram ou não
-     puderam ser verificados ficam como `NÃO EXECUTADO`/`NÃO VERIFICADO`, com motivo. Depois do edit,
-     releia e confirme título, corpo, autor e draft.
+2. **Validar e alinhar os metadados da PR antes da atribuição.** A main faz esta conciliação depois
+   do retorno do motor; não reabre a implementação. Sem PR (`pr: null`), não há conciliação: seguir
+   para o item 4.
+   - **Pré-condições, na main.** Se o preflight declarou `gh` ausente, parar esta auditoria e
+     registrar `NÃO VERIFICADO` com o motivo. Parsear `PR_NUMBER` e `REPO_FULL` da URL retornada. Ler
+     a identidade uma única vez com `gh api user -q .login` e guardar em `ME`; ler a PR com
+     `gh pr view <PR_NUMBER> --repo <REPO_FULL> --json url,title,body,author,isDraft,headRefName,baseRefName`.
+     Se alguma consulta falhar, `ME` vier vazio ou a URL não puder ser analisada, registrar
+     `NÃO VERIFICADO` com o motivo. Não ler nem imprimir credenciais. Conferir que URL, repo, branch
+     de origem e base correspondem ao alvo. Definir `IS_OWN_PR = (author.login == ME)` uma única vez,
+     com o guard de autoria de `${FLUX_ROOT}/shared/pr-attribution.md` (§Guardrails), valendo para
+     esta auditoria e para a atribuição. PR de terceiro: não editar título, corpo nem atribuição;
+     registrar o bloqueio.
+   - **Draft.** O estado de uma PR aberta pelo motor do repo não é do dispatcher: PR própria fora de
+     draft vira o bloqueio `PR aberta pronta, não draft`, sem conversão. A única exceção é o caminho
+     C do Step 2 (modo autônomo), em que o draft é regra do próprio flux: ali, converter com
+     `gh pr ready <PR_NUMBER> --repo <REPO_FULL> --undo`, reler e confirmar `isDraft: true`; sem a
+     confirmação, registrar o bloqueio.
+   - **Apuração de convenções, fora da main.** Em workspace mode, despachar um subagente com prompt
+     autocontido (repo, `PR_NUMBER`, branch, título e corpo remotos, checks e bloqueios devolvidos
+     pelo motor), conforme `${FLUX_ROOT}/shared/fanout-discipline.md`; em repo mode, rodar inline,
+     como o motor. A apuração lê `AGENTS.md`/`CLAUDE.md`, as regras de contribuição e o template de
+     PR do repo (raiz, `.github/` ou `docs/`); sem template, compara com até três PRs mergeadas
+     recentes do mesmo repo, sem autores bot, e nunca com exemplos de outro repo. Confronta título e
+     corpo com essas convenções e com as evidências (diff e commits reais da branch, checks
+     verificados pelo motor, bloqueios reportados) e devolve só o veredito: `alinhado`, ou
+     `desalinhado` com os campos, o título proposto e o corpo proposto gravado no `SCRATCH`. Sem
+     identificador fornecido, não cria um; nunca inventa mudança, commit, resultado ou bloqueio.
+   - **Conteúdo do corpo proposto.** Ticket real, mudanças implementadas, commits, resultado de cada
+     check e bloqueios. Só é aprovado o que tem evidência: checks que falharam continuam falhos, os
+     bloqueados recebem `BLOQUEADO` com o motivo, e os que não rodaram ou não puderam ser verificados
+     ficam como `NÃO EXECUTADO`/`NÃO VERIFICADO`, com motivo. Atualizar só o que estiver ausente ou
+     comprovadamente desalinhado, preservando links, seções úteis ou desconhecidas, notas manuais,
+     códigos, proveniência e trailers; o que for ambíguo fica como está e vira bloqueio relatado.
+   - **Publicação: um ciclo só, junto com o item 3.** O corpo proposto entra na cópia `body-after`
+     da §Mecânica de `${FLUX_ROOT}/shared/pr-attribution.md`, o algoritmo de atribuição do item 3
+     roda sobre essa mesma cópia, e só então sai um único `gh pr edit` (com `--title` quando o título
+     mudou), com os pós-checks do contrato. Antes de publicar, mostrar o diff de título e corpo e
+     pedir confirmação pelo gate de `${FLUX_ROOT}/shared/hitl.md`; recusado, publicar só a
+     atribuição. Com `NO_EMDASH`, título e corpo seguem a regra. Depois, reler e confirmar título,
+     corpo, autor e draft.
+   - **Quando a auditoria não passa** (`NÃO VERIFICADO`, PR de terceiro, PR fora de draft, edição
+     recusada ou não confirmada): o item 3 só carimba se `IS_OWN_PR` estiver verificado, os itens 4 a
+     6 seguem, o bloqueio entra na Timeline do board e no handoff, `execution_status` não vai para
+     `done`, e o handoff aponta `${FLUX_CMD}iterate <pr>` com o bloqueio nomeado.
 3. **Conciliar a atribuição da PR.** Se o motor abriu PR, aplicar `flux:build@<FLUX_VERSION>` e
    conciliar uma entrada legada `Gerado por: <par-do-motor>` na linha canônica
-   `🤖 Generated with ...`, seguindo `${FLUX_ROOT}/shared/pr-attribution.md`. Quem aplica é a main,
-   depois do retorno do motor, e não o motor: o body é criado pelo motor do repo (nativo,
+   `🤖 Generated with ...`, seguindo `${FLUX_ROOT}/shared/pr-attribution.md`, no mesmo ciclo de
+   publicação do item 2. Quem aplica é a main, depois do retorno do motor, e não o motor: o body é
+   criado pelo motor do repo (nativo,
    `exec_fallback` ou autônomo), e nenhum deles é obrigado a conhecer esta regra. O algoritmo usa
    `HARNESS_LABEL` do preflight, portanto funciona da mesma forma para Claude Code, Cursor, Codex e
    um harness não verificável (`AI agent`), sem inferir produto pelo motor. Se a forma for ambígua,
@@ -582,8 +593,8 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.
 5. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
-   vai para `done` quando a PR nasce, e o board do `${FLUX_CMD}iterate` assume dali. Gravar
-   `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
+   vai para `done` quando a PR nasce sem bloqueio do item 2, e o board do `${FLUX_CMD}iterate`
+   assume dali. Gravar `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
 6. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
    válido e é o que torna a falha investigável depois. Não apagar o board.
 
