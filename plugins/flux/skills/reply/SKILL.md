@@ -205,7 +205,8 @@ Se o verbo é `mudou` (ou a superfície é nova), executar aqui a rotina de `## 
 Do texto da thread, extrair:
 - **Repos citados** — casar contra a lista de `REPOS` do contexto resolvido (ou contra repos detectados localmente em `WORKSPACE_ROOT` se sem manifesto).
 - **PRs / tickets** — regex `#\d+` e `[A-Z]{2,5}-\d+` (ex.: `ENG-4122`).
-- **Claims / perguntas** — as afirmações e dúvidas que pedem embasamento de código.
+- **Claims** — as afirmações que pedem embasamento de código.
+- **`PERGUNTAS_ABERTAS`** — as perguntas e dúvidas dirigidas a quem responde, deixadas pelo interlocutor na mensagem que motivou esta rodada, **verbatim** ("Não sei se entendo isso aqui", "Tem alguma sugestão de como fazer?"). Cada uma exige resposta própria no rascunho. Pergunta retórica ou já respondida na thread não entra.
 
 Mapear cada repo → checkout `<WORKSPACE_ROOT>/<repo-slug>` (confirmar com `ls`). Repo sem checkout local vira alvo cross-repo → LACUNA (o answerer degrada com tom assertivo + hedge, decisão do usuário).
 
@@ -253,6 +254,7 @@ Delegar ao `<ANSWERER>` (um só) via Task tool, passando:
 - Os perfis dos interlocutores (nomes + `user_id`).
 - As reações existentes na mensagem-alvo.
 - Contexto: canal, se a raiz é do próprio usuário, e qual mensagem motivou esta rodada.
+- `PERGUNTAS_ABERTAS` (passo 3), com a regra de formato inteira, que é a única definição dela neste elo: cada pergunta sai como `> pergunta`, verbatim (pergunta de várias linhas leva `>` em cada linha), seguida da resposta, que **começa respondendo** e fica em 1 a 3 frases, com o embasamento e o contexto depois. Sem inventário de achados que ninguém pediu. Com `PERGUNTAS_ABERTAS` não vazia, o `JULGAMENTO` esperado é `responder`. Sem pergunta aberta, o rascunho segue o formato normal.
 
 Passar também, quando o board já existe: as **pendências em aberto** do painel (para o rascunho não repetir pergunta já feita nem ignorar pergunta que ficou sem resposta) e o **dossiê acumulado** (para o rascunho poder citar fato de rodada anterior sem reprospecção).
 
@@ -302,6 +304,8 @@ registrar a lacuna nos 🔬 Achados. Um rascunho não vai para o Slack com cita�
 
 Esta verificação é da main e não vai para subagente: quem escreveu o texto é quem sabe o que cada
 citação estava tentando provar.
+
+**Também conferir as perguntas abertas.** Cada item de `PERGUNTAS_ABERTAS` tem que estar no rascunho no formato definido no passo 5. Rascunho com pergunta aberta que virou lista genérica de pontos é o defeito que esta checagem existe para pegar. Falhou (pergunta sem citação, sem resposta clara, ou `JULGAMENTO` diferente de `responder` com a lista não vazia, caso em que nem há rascunho para varrer): volta ao answerer **uma vez**, com a pergunta que faltou nomeada. Falhou de novo: não insistir. O rascunho segue marcado, cada pergunta sem resposta vira pendência `🟡 ABERTA` no painel do board, nomeada, e o relatório do chat declara isso. No watch vale o mesmo, antes de auto-salvar o draft.
 
 ### 9. Menu de ação (GATE — `${FLUX_ROOT}/shared/hitl.md` —, só na passada interativa)
 
@@ -403,6 +407,7 @@ Em qualquer saída: relatório no chat (rodadas, superfícies varridas, **rascun
 - **PT-BR com acentuação correta** em todo o conteúdo. Termos técnicos em inglês quando natural.
 - **Sem em-dashes** (—) em qualquer texto que possa ir para o Slack (rascunho, reação) quando `NO_EMDASH == true`. Vírgula, dois-pontos, parênteses no lugar.
 - **Citações viram hyperlink**: toda menção a PR (`#NNNN`), issue do Linear (`ABC-NNNN`) **e código** (`arquivo:linha`, permalink de blob no SHA) no rascunho é renderizada como link mrkdwn `<url|texto>` (ver `## Convenção de citações` e o passo 8a). Texto cru só quando a URL não puder ser resolvida com confiança, e sempre com a lacuna declarada.
+- **Pergunta aberta é respondida citando-a**: `> pergunta` verbatim e, logo abaixo, a resposta direta. Formato no passo 5, verificação no passo 8a.
 - **Resposta no chat é minimalista**: path do board + veredito de 1 linha. Não repetir o rascunho no chat.
 - **Um caso, um board.** Antes de criar, procurar (`## Casos multi-superfície`). Caso espalhado em várias notas é o problema que o board existe para resolver.
 - **O dossiê é o ativo.** Os 🔬 Achados sobrevivem às rodadas e são o insumo direto de `/flux:issue` quando o caso vira issue. Reprospectar o que já está ancorado é desperdício; contradizer sem riscar o antigo é perda de rastro.
