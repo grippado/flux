@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.48.0",
+    "tag": "v1.48.0",
+    "published_at": "2026-10-29T21:42:59Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.48.0",
+    "summary": {
+      "en": "Flux reply answers each open question by quoting it verbatim and replying right below, with grounding and context.",
+      "pt": "O Flux reply responde cada pergunta aberta citando-a verbatim e respondendo logo abaixo, com embasamento e contexto."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.47.1",
     "tag": "v1.47.1",
     "published_at": "2026-10-29T21:42:32Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "Flux build verifies PR metadata after execution, reports unavailable GitHub checks as unverified, and reuses one ownership check.",
       "pt": "O Flux build verifica metadados após a execução, registra falhas de acesso ao GitHub como não verificadas e reutiliza a checagem de autoria."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.46.0",
-    "tag": "v1.46.0",
-    "published_at": "2026-10-08T20:30:39Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.46.0",
-    "summary": {
-      "en": "Codex gates use native request_user_input when available and the round-trip is verified for the current version/configuration; otherwise they use the numbered fallback.",
-      "pt": "Gates no Codex usam request_user_input quando disponível e com round-trip verificado para a versão/configuração corrente; caso contrário, usam o fallback numerado."
     },
     "changelog_source": "tag_message"
   },
