@@ -313,7 +313,7 @@ Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nun
 
 **`JULGAMENTO = responder`** — "Rascunho pronto para a thread em `#{canal}`. O que fazer?":
 1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`. Fica nos drafts do usuário para revisar e enviar. **Nunca** `slack_send_message`.
-2. `Salvar rascunho + acompanhar` — grava o draft e entra no watch.
+2. `Salvar rascunho assinado` — igual à 1, com a assinatura da `## Assinatura do rascunho` no fim, para divulgação da família.
 3. `Só documentar (não rascunhar agora)` — o board já está atualizado, encerra.
 4. `Reagir com emoji em vez de responder` — mostra emoji sugerido, confirma, `slack_add_reaction`.
 5. `Não fazer nada`.
@@ -329,7 +329,7 @@ Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nun
 2. `Acompanhar mesmo assim` (entra no watch, caso espere desdobramento).
 3. `Forçar rascunho de resposta`.
 
-**Heurística de PR própria:** se a mensagem **raiz** da thread é do próprio usuário e o que falta é resposta de terceiros, a recomendada de `responder` passa a ser a opção `Salvar rascunho + acompanhar` (o próximo movimento é dos outros, não dele).
+**Heurística de PR própria:** se a mensagem **raiz** da thread é do próprio usuário e o que falta é resposta de terceiros, o watch segue ligado (default-on) e acompanha a resposta dos outros (o próximo movimento é deles, não dele); a recomendada continua sendo a 1.
 
 Se a thread é só ruído (nada acionável e `JULGAMENTO = nada` sem desdobramento esperado), pular o passo 9 e encerrar.
 
@@ -352,6 +352,20 @@ Parâmetros específicos deste comando:
 ### Regra Slack-safe (vale para os blocos de rascunho dentro do board)
 
 Dentro de qualquer bloco de rascunho: nada de headers `#` nem tabelas markdown. Só `*bold*`, `_italic_`, bullets, crase tripla, `>`, `<@ID>` e hyperlinks `<url|texto>`. Toda citação de PR, issue **e código** linkada conforme `## Convenção de citações`, e verificada pelo passo 8a. O resto do board é markdown normal (é doc interno do vault).
+
+### Assinatura do rascunho
+
+Só na opção `Salvar rascunho assinado`. Última linha do texto, separada por uma linha em branco, em
+blockquote:
+
+```
+> Análise gerada com {emoji} {MODEL} | {EFFORT} - flux:reply@{FLUX_VERSION}
+```
+
+- `{emoji}` = `:claude:` quando `HARNESS = claude`, `:codex:` quando `HARNESS = codex`; qualquer outro harness: omitir o emoji.
+- `MODEL`, `EFFORT` e `FLUX_VERSION` vêm do `1a-harness` do `${FLUX_ROOT}/shared/preflight.md`. Campo `unknown` é omitido junto com o separador dele; nunca inventar.
+- Hífen simples, nunca travessão. A assinatura entra só no rascunho enviado ao Slack, não é regravada no board.
+- No watch em background (auto-save) o rascunho sai sem assinatura: assinar é escolha do usuário na passada interativa.
 
 ## Modo watch (default-on)
 
