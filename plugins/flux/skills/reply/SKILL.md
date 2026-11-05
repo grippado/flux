@@ -362,7 +362,7 @@ blockquote:
 > Análise gerada com {emoji} {MODEL} | {EFFORT} - flux:reply@{FLUX_VERSION}
 ```
 
-- `{emoji}` = `:claude:` quando `HARNESS = claude`, `:codex:` quando `HARNESS = codex`; qualquer outro harness: omitir o emoji.
+- `{emoji}` = `:claude:` quando `HARNESS = claude-code`, `:codex:` quando `HARNESS = codex`; qualquer outro harness: omitir o emoji.
 - `MODEL`, `EFFORT` e `FLUX_VERSION` vêm do `1a-harness` do `${FLUX_ROOT}/shared/preflight.md`. Campo `unknown` é omitido junto com o separador dele; nunca inventar.
 - Hífen simples, nunca travessão. A assinatura entra só no rascunho enviado ao Slack, não é regravada no board.
 - No watch em background (auto-save) o rascunho sai sem assinatura: assinar é escolha do usuário na passada interativa.
