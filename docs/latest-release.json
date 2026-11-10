@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.49.0",
+    "tag": "v1.49.0",
+    "published_at": "2026-11-10T15:41:25Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.49.0",
+    "summary": {
+      "en": "Verify third-party-resolved review threads against current code, track changes in watch, and bump Flux to 1.49.0.",
+      "pt": "Verifica threads resolvidas por terceiros contra o código atual, acompanha mudanças no watch e atualiza Flux para 1.49.0."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.48.1",
     "tag": "v1.48.1",
     "published_at": "2026-11-05T18:13:09Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "✨ feat(reply): opção de salvar rascunho assinado",
       "pt": "✨ feat(reply): opção de salvar rascunho assinado"
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.48.0",
-    "tag": "v1.48.0",
-    "published_at": "2026-10-29T21:42:59Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.48.0",
-    "summary": {
-      "en": "Flux reply answers each open question by quoting it verbatim and replying right below, with grounding and context.",
-      "pt": "O Flux reply responde cada pergunta aberta citando-a verbatim e respondendo logo abaixo, com embasamento e contexto."
     },
     "changelog_source": "tag_message"
   },
