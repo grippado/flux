@@ -166,8 +166,13 @@ fx_threads() {
 }
 
 thread() {
+    local resolver="${6:-me}" last_id="${7:-1}"
     jq -cn --arg id "$1" --argjson r "$2" --arg a "$3" --arg b "$4" --argjson t "$5" \
-        '{id: $id, isResolved: $r, isOutdated: false, comments: {totalCount: $t, nodes: [{databaseId: 1, author: {login: $a}, body: $b}]}}'
+        --arg resolver "$resolver" --argjson last_id "$last_id" \
+        '{id: $id, isResolved: $r, isOutdated: false,
+          resolvedBy: (if $r and $resolver != "" then {login: $resolver} else null end),
+          comments: {totalCount: $t, nodes: [{databaseId: 1, author: {login: $a}, body: $b}]},
+          lastComment: {nodes: [{databaseId: $last_id}]}}'
 }
 
 comment() {
@@ -179,7 +184,7 @@ mkstate() {
     jq -n --arg now "$(NOW_ISO)" \
         '{pr: 7, repo: "o/r", round: 1, lastHeadSha: "aaa", lastCiConclusion: "success", lastMergeable: "MERGEABLE",
           conflictAttemptedAtBaseSha: null, noRebase: false, bodySyncedAtSha: null, titleSyncedAtSha: null,
-          quietTicks: 0, startedAt: $now, resolvedThreadIds: [], answeredCommentIds: []} | '"$1" > "$STATE"
+          quietTicks: 0, startedAt: $now, resolvedThreadIds: [], verifiedResolvedThreads: [], answeredCommentIds: []} | '"$1" > "$STATE"
 }
 
 red_idle_state() {
