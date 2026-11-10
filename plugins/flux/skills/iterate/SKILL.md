@@ -21,7 +21,7 @@ requires:
 
 # /flux:iterate
 
-Comando orquestrador para **fechar o loop** de uma rodada de review: lê as threads abertas, verifica cada alegação contra o código real, aplica o que é pertinente, responde/reage/resolve no GitHub, **olha o estado do CI** e tenta corrigir o que for atribuível ao próprio push, atualiza a PR com commit + push e **reconcilia título e descrição da PR** com o que a rodada decidiu. Por padrão, fica vivo monitorando CI e novas rodadas do bot até a PR assentar.
+Comando orquestrador para **fechar o loop** de uma rodada de review: lê threads abertas e threads resolvidas por terceiros/unknown, verifica cada alegação contra o código real, aplica o que é pertinente, responde/reage/resolve no GitHub, **olha o estado do CI** e tenta corrigir o que for atribuível ao próprio push, atualiza a PR com commit + push e **reconcilia título e descrição da PR** com o que a rodada decidiu. Por padrão, fica vivo monitorando CI e novas rodadas do bot até a PR assentar.
 
 Toda escrita acontece num **git worktree dedicado à branch da PR**, nunca na árvore principal do repo (ver `${FLUX_ROOT}/shared/worktree-discipline.md`), e todo trabalho pesado — verificar alegação contra o código, aplicar correção, rodar quality gate — acontece em **subagente**, nunca no contexto principal (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). E o CI é tratado **desde a 1ª passada**, não só no watch: uma PR sem threads abertas mas com CI vermelho ainda é acionável.
 
@@ -218,9 +218,11 @@ gh api graphql -f query='
           id
           isResolved
           isOutdated
+          resolvedBy { login }
           path
           line
-          comments(first: 1) {
+          comments(first: 100) {
+            pageInfo { hasNextPage endCursor }
             nodes { databaseId url author { login } createdAt body }
           }
         }
@@ -230,10 +232,33 @@ gh api graphql -f query='
 }'
 ```
 
-Particionar o resultado em dois conjuntos:
+Particionar o resultado em três conjuntos, comparando `login` sem diferenciar maiúsculas de
+minúsculas com `ME`:
 
 - **Threads abertas** (`isResolved == false`) — as que serão endereçadas neste run. Guardar: `id` (NODE id `PRRT_...`, usado para resolver), `path`, `line`, `isOutdated`, e do primeiro comentário `databaseId` (reply/react), `url` (permalink), `author.login`, `body`.
-- **Corpus de referência** (`isResolved == true`) — guardar `url`, `path:line`, `author.login` e um resumo do ponto + veredito (ler o body; se truncado, `gh api repos/$REPO_FULL/pulls/comments/<databaseId>`).
+- **Verificação pendente** (`isResolved == true` e `resolvedBy.login != ME`, incluindo resolver ausente/desconhecido) — tratar como trabalho deste run, não como resolvida só por estar fechada no GitHub. Guardar o `resolvedBy.login`, o primeiro comentário, toda a conversa disponível (`comments.nodes`) e `path:line`; se `pageInfo.hasNextPage` for `true`, paginar a conversa até obter o comentário mais recente antes do fan-out. Ler o body completo de qualquer comentário truncado pela REST. `resolvedBy` identifica quem fechou a thread, não prova que o finding foi corrigido.
+- **Corpus de referência** (`isResolved == true` e `resolvedBy.login == ME`) — guardar `url`, `path:line`, `author.login` e um resumo do ponto + veredito. Estas threads continuam servindo apenas ao cross-reference do passo 3a; não entram na fila de verificação.
+
+**Régua da verificação pendente:** a lente classifica cada comentário como (a) correção já presente e ainda válida, (b) finding que persiste ou regrediu, ou (c) sem finding, alegação que não procede ou que ficou obsoleta. No caso (a), manter a thread fechada e registrar a verificação; não reaplicar a correção. No caso (b), incluir o finding no plano normal de correção com evidência `arquivo:linha`. No caso (c), manter a thread fechada e registrar que não há finding ou por que a alegação não procede/não se aplica mais. Resolver por terceiro ou desconhecido nunca é evidência suficiente, por si só, de que o ponto foi conferido.
+
+**Threads abertas mantêm a semântica atual.** A autoria do resolver não muda seu tratamento: threads abertas seguem a partição e o fluxo existentes; a fila nova cobre apenas threads já resolvidas por outra conta ou sem resolver identificável.
+
+Para cada thread com `pageInfo.hasNextPage == true`, guardar o `endCursor` e consultar o node da própria thread com esse cursor:
+
+```graphql
+query($thread: ID!, $after: String) {
+  node(id: $thread) {
+    ... on PullRequestReviewThread {
+      comments(first: 100, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes { databaseId url author { login } createdAt body }
+      }
+    }
+  }
+}
+```
+
+Repetir com `after` igual ao `endCursor` retornado até `hasNextPage == false`, acumulando `nodes` por `databaseId`. Não classificar com base apenas no comentário inicial se há respostas que explicam a resolução.
 
 Ler o body completo de um comentário quando truncado:
 
@@ -259,7 +284,7 @@ Eles não têm reply nativo (responder = novo issue comment) nem resolução; re
 
 **Contagem reportada:** ao informar progresso (chat, board, retorno para um orquestrador), conte os dois universos e diga qual é qual, no formato `threads <res>/<tot> · issue comments <respondidos>/<acionáveis>`. Nunca reporte só o número de `reviewThreads` como se fosse o total de pendências da PR.
 
-**Pular threads triviais:** body só com aprovação (`LGTM`, `👍`, `:+1:`, `✅`) ou comentário do próprio autor sem réplica de terceiros.
+**Pular threads triviais abertas:** body só com aprovação (`LGTM`, `👍`, `:+1:`, `✅`) ou comentário do próprio autor sem réplica de terceiros. Não aplicar esse filtro a threads resolvidas por terceiros/unknown: todas entram na verificação, mesmo que sejam curtas ou pareçam aprovação; a lente pode registrar que não havia finding.
 
 **Coletar também o estado do CI** (sempre, mesmo sem threads):
 
@@ -269,8 +294,9 @@ gh pr checks $PR_NUMBER --repo $REPO_FULL   # ou --json name,state,bucket,link
 
 Classificar o agregado do CI pelo `bucket`, pela regra do passo 2 de "Um tick" (fonte única): qualquer `fail` ou `cancel` → **vermelho**; senão, qualquer `pending` → **rodando**; senão → **verde**.
 
-**Critério de término da 1ª passada (redefinido):** o run só encerra cedo (avisar no chat, não commitar) quando **não há thread acionável, não há issue comment acionável sem réplica, o CI não está vermelho** (verde ou ainda rodando) **E a PR integra com a base** (`mergeable == MERGEABLE`). Qualquer um dos três últimos torna a PR acionável mesmo sem thread nenhuma:
+**Critério de término da 1ª passada (redefinido):** o run só encerra cedo (avisar no chat, não commitar) quando **não há thread aberta acionável, não há verificação pendente de thread resolvida por terceiro/unknown, não há issue comment acionável sem réplica, o CI não está vermelho** (verde ou ainda rodando) **E a PR integra com a base** (`mergeable == MERGEABLE`). Estas condições mantêm a PR acionável mesmo sem thread aberta:
 
+- **Verificação pendente ou issue comment acionável** → seguir para a verificação do passo 3 e incluir os findings persistentes no plano normal.
 - **`mergeable == CONFLICTING`** → seguir para o **gate de integração** (passo 2b). É o caso que mais engana, porque a PR parece limpa: zero threads e CI verde.
 - **CI vermelho** → seguir para a **triagem de CI** (passo 2c).
 
@@ -278,7 +304,7 @@ Registrar no chat o motivo do prosseguimento (ex.: `sem threads abertas e CI ver
 
 ### 2a. Board no vault (nota viva)
 
-Havendo trabalho acionável (threads abertas, **PR conflitante com a base** ou CI vermelho), **crie o board deste iterate** antes de seguir para a verificação, e **anuncie o caminho no chat** (o board existe desde o começo, não só no fim; a partir daqui, cada passo relevante e cada tick do watch atualiza o board).
+Havendo trabalho acionável (threads abertas, **verificação pendente de thread resolvida por terceiro/unknown**, **PR conflitante com a base** ou CI vermelho), **crie o board deste iterate** antes de seguir para a verificação, e **anuncie o caminho no chat** (o board existe desde o começo, não só no fim; a partir daqui, cada passo relevante e cada tick do watch atualiza o board).
 
 **O formato é fonte única compartilhada:** siga `${FLUX_ROOT}/shared/board-template.md`, **perfil single-PR** (`type: flux-iterate` — canônico no schema do vault, painel com **1 linha** — a PR deste run). Todas as seções (Frontmatter → H1+TLDR → 🎯 Próximo Movimento → 📊 Painel → ⏰ Timeline Verbosa → 📅 Timeline de Eventos Relevantes → ✅ Ação/Continuidade), a legenda de ícones, a regra do painel e a disciplina de carimbo de data vivem lá.
 
@@ -288,6 +314,7 @@ Havendo trabalho acionável (threads abertas, **PR conflitante com a base** ou C
 - O board nasce **tanto no watch quanto no `--once`** (o delivery-flow chama o iterate com `--once`, e ainda assim precisa do board filho). Registrar o path no estado (passo do watch, campo `board`).
 - **Quem escreve depende do watch** (`${FLUX_ROOT}/shared/fanout-discipline.md`, seção do board-keeper): com o watch ligado, criar aqui o **board-keeper** (subagente nomeado, escritor único do board) e passar a mandar o delta de cada tick por `SendMessage` — assim o `CLAUDE.md` do vault e o template de board nunca entram no contexto principal, e a main nunca relê o board. Com `--once` (inclusive quando despachado por um delivery), **não criar keeper**: é uma escrita só, a main grava direto.
 - **Em `--dry`:** criar o board normalmente, mas sinalizar no TLDR que o run foi read-only.
+- Para cada thread resolvida por terceiro/unknown verificada, registrar na Timeline Verbosa o `resolvedBy`, o resultado (`correção presente e válida`, `finding persistente/regredido` ou `sem finding/alegação improcedente/obsoleta`), o SHA do head verificado e a evidência `arquivo:linha` quando houver. Indexar a verificação na Timeline de Eventos Relevantes como tipo `review`; não criar tabela paralela nem alterar a contagem real de threads do painel.
 
 ### 2b. Gate de integração com a base — PRIMEIRO gate (1ª passada E cada tick do watch)
 
@@ -373,11 +400,15 @@ Emitir os eventos de CI no board/Slack conforme o hook do watch (`ci-vermelho`, 
 O contexto principal já tem as threads (metadados baratos do passo 2); quem **abre o repo e lê o
 código** é subagente. Despachar, num único bloco de Task calls:
 
-- **Lente holística:** Task `subagent_type: <HOLISTIC>` com o lote INTEIRO de threads abertas +
-  diff + metadados, instruída a verificar cada alegação contra o código real e devolver, por
-  `databaseId`, `{veredito procede|improcedente, fundamento com arquivo:linha, correção proposta}`.
+- **Lente holística:** Task `subagent_type: <HOLISTIC>` com o lote INTEIRO de threads abertas,
+  verificações pendentes de threads resolvidas por terceiros/unknown + diff + metadados, instruída a
+  verificar cada alegação contra o código real. Para as abertas, devolver o formato atual por
+  `databaseId`: `{veredito procede|improcedente, fundamento com arquivo:linha, correção proposta}`.
+  Para cada thread resolvida por terceiro/unknown, devolver também `{estado: correcao_presente_valida|finding_persiste_ou_regrediu|sem_finding_ou_alegacao_improcedente_ou_obsoleta, fundamento com arquivo:linha|null, correcao_necessaria|null}`. `correcao_presente_valida` exige apontar a implementação atual que
+  corrige o finding; não basta a thread estar fechada ou o comentário dizer que foi corrigido.
 - **Lentes de specialist:** conforme o contrato de `${FLUX_ROOT}/shared/review-agents.md`
-  (descoberta via `SPECIALISTS_ROOT`, fan-out paralelo). Com `--solo`, pular.
+  (descoberta via `SPECIALISTS_ROOT`, fan-out paralelo), recebendo o mesmo lote e distinguindo threads
+  abertas de resolvidas por terceiros/unknown. Com `--solo`, pular.
 
 Fan-out **por lente, não por thread**: as threads de uma PR compartilham o mesmo diff, então N
 agentes lendo o mesmo repo para uma thread cada é desperdício. Uma lente processa o lote todo.
@@ -392,12 +423,23 @@ Critérios que valem para toda thread, dentro ou fora do subagente:
 - **Verificar a alegação contra o código/testes/docs reais.** Bots reviewers produzem falsos positivos com frequência (ex.: apontar perda de precisão num `bigint mode:'number'`, ou "mensagem some" num cenário que já tem teste). Leia o arquivo citado, os testes adjacentes e a doc do endpoint antes de concluir. Reviewers humanos erram menos, mas o mesmo rigor se aplica.
 - **Enriquecimento via specialists (por default, salvo `--solo`):** seguir o contrato de `${FLUX_ROOT}/shared/review-agents.md`. Descobrir specialists via `SPECIALISTS_ROOT`, rodá-los em paralelo via Task tool (passo 2 do contrato), e reconciliar as evidências ao verificar cada alegação. Se um specialist cobrir o mesmo ponto da thread (mesmo arquivo/linha/tema), usar os findings como evidência adicional a favor ou contra. Citar a fonte no fundamento: `(corroborado por route-auditor)` ou `(refutado por repository-layer-auditor)`. Fallback gracioso quando não houver specialists: seguir só com `<HOLISTIC>`.
 - Com `--solo`: pular os specialists e verificar usando só `<HOLISTIC>`.
-- Classificar: **procede** (aplicar correção) ou **improcedente/marginal** (recusar com fundamento).
+- Para threads abertas, classificar como hoje: **procede** (aplicar correção) ou
+  **improcedente/marginal** (recusar com fundamento).
+- Para as já resolvidas por terceiros/unknown, reconciliar os três estados descritos no passo 2:
+  correção presente e ainda válida; finding persistente/regredido; ou alegação improcedente/obsoleta.
+  Se a correção já está presente, não gerar tarefa de executor nem reaplicá-la. Finding persistente
+  ou regredido entra no mesmo plano e executor das threads abertas, com `arquivo:linha` atual.
+  Se não houver finding, ou a alegação for improcedente/obsoleta, registrar a conclusão sem criar
+  correção nem interação desnecessária.
 - Sempre **citar `arquivo:linha`** na justificativa.
 
 #### 3a. Cross-reference com threads já tratadas (camada de decisão)
 
-Antes de redigir a réplica, comparar o ponto de cada thread aberta contra (a) o corpus de threads resolvidas do passo 2 e (b) as threads já processadas mais cedo NESTE run. Classificar a sobreposição:
+Antes de redigir a réplica, comparar o ponto de cada thread aberta ou verificação pendente contra
+(a) o corpus de threads resolvidas pelo próprio `ME` no passo 2 e (b) as threads já processadas mais
+cedo NESTE run. Uma thread resolvida por terceiro/unknown só passa a compor o corpus de referência
+depois de verificada; sua resolução externa, sozinha, não decide nem duplica findings. Classificar a
+sobreposição:
 
 - **`none`** — ponto novo. Seguir normal.
 - **`duplicate`** — mesmo ponto já tratado e decidido numa thread irmã, sem nada de novo. Aplica a MESMA decisão. A réplica DEVE citar e **linkar** a thread irmã (markdown `[link](url)`) e dizer explicitamente que é o mesmo ponto já endereçado. Não reabrir a análise nem reaplicar correção que já foi feita.
@@ -413,7 +455,13 @@ Como linkar a irmã: usar o `url` (permalink do comentário) coletado no passo 2
 - 👎 (`content=-1`) quando improcedente, marginal, ou `duplicate` de algo já recusado.
 - Para `duplicate` de algo já **aceito e aplicado**: 👍 (o ponto é válido), com réplica curta apontando a irmã.
 
-Monte o **plano** (o "dry-run" da confirmação): por thread, registre `{databaseId, path:line, autor, veredito, sobreposição (none|duplicate|related-but-distinct + link da irmã), reação 👍/👎, rascunho da réplica}`, e ao final `{lista de arquivos alterados, resumo do diff, mensagem de commit proposta}`.
+Monte o **plano** (o "dry-run" da confirmação): por thread aberta ou resolvida por terceiro/unknown,
+registre `{thread_id, databaseId, estado no GitHub, resolvedBy, path:line, autor, veredito,
+sobreposição (none|duplicate|related-but-distinct + link da irmã), ação (corrigir|manter resolvida|
+registrar como improcedente/obsoleta), reação 👍/👎 quando houver interação, rascunho da réplica quando
+houver interação}`. Threads resolvidas cuja correção já está presente ou cuja alegação não procede/
+ficou obsoleta ficam fechadas, sem réplica ou reação desnecessária; a verificação fica registrada no
+board e no relatório. Ao final, liste `{arquivos alterados, resumo do diff, mensagem de commit proposta}`.
 
 ### 4. Aplicar as correções pertinentes · fase 2 — via subagente executor
 
@@ -435,8 +483,9 @@ Prompt do executor (auto-contido, ele não herda a conversa):
   operar exclusivamente lá dentro: nunca `git checkout` na árvore principal, nunca criar outra
   worktree. Passar o path pronto, e não a instrução de resolvê-lo, evita que dois despachos do mesmo
   run cheguem a caminhos diferentes.
-- A lista de correções decididas no passo 3, uma por thread que **procede**, com `arquivo:linha` e
-  o que mudar. Threads que NÃO procedem não geram mudança de código — só réplica + reação no passo 7.
+- A lista de correções decididas no passo 3, uma por finding que **procede**, com `arquivo:linha` e
+  o que mudar. Inclua findings persistentes/regredidos de threads já resolvidas por terceiros/unknown.
+  Não reaplique correção já presente e válida. Threads que NÃO procedem não geram mudança de código.
 - **A regra de comentários, verbatim** (`${FLUX_ROOT}/shared/code-comment-discipline.md`, seção "Como
   propagar aos subagentes"). Ela **precisa ir no prompt**: o executor não herda a conversa nem os
   `CLAUDE.md` da sessão, e este elo é o mais propenso ao defeito, porque o contexto que chega até ele é
@@ -482,12 +531,12 @@ Integração roda em Docker. Se o daemon estiver down (`docker info` falha), **n
 
 ### 6. Confirmação interativa (pular se `--auto`, exceto em PR de terceiro sem escrita concedida)
 
-Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + mensagem de commit), e abra um GATE (`${FLUX_ROOT}/shared/hitl.md`) (single-select). **As opções dependem de `IS_OWN_PR`:**
+Mostre no chat o plano resumido (vereditos + ações de threads abertas e resolvidas por terceiros/unknown + reações + arquivos alterados + mensagem de commit), e abra um GATE (`${FLUX_ROOT}/shared/hitl.md`) (single-select) quando o plano tiver interação no GitHub, commit/push ou outra escrita. Itens resolvidos cuja correção já está presente, ou cuja alegação não procede/ficou obsoleta, não geram escrita e não entram na contagem de respostas; se forem o único trabalho, registre a verificação no board e no relatório sem abrir um gate vazio. **As opções dependem de `IS_OWN_PR`:**
 
 **`IS_OWN_PR == true`** (comportamento atual, sem mudança):
 
 - **Header:** `Atualizar PR?`
-- **Question:** `Apliquei as correções e preparei as respostas das {N} threads da PR #{number}. O que fazer agora?`
+- **Question:** `Apliquei as correções e preparei as respostas dos {N} itens acionáveis da PR #{number}. O que fazer agora?`
 - **Options (nesta ordem):**
   1. `Postar tudo e atualizar a PR (Recomendado)` — descrição: `Posta as réplicas + reações 👍/👎, resolve as threads, e então commita + pusha as correções.`
   2. `Postar respostas e resolver, sem push` — descrição: `Interage no GitHub (réplicas, reações, resolve threads) mas deixa o commit/push pra você revisar o diff antes.`
@@ -501,7 +550,7 @@ Mostre no chat o plano resumido (vereditos + reações + arquivos alterados + me
 default**. Ele se comporta como se só a opção de interação existisse:
 
 - **Header:** `Atualizar PR de terceiro?`
-- **Question:** `Apliquei as correções e preparei as respostas das {N} threads da PR #{number}, que não é sua. O que fazer agora?`
+- **Question:** `Apliquei as correções e preparei as respostas dos {N} itens acionáveis da PR #{number}, que não é sua. O que fazer agora?`
 - **Options (nesta ordem):**
   1. `Postar respostas e resolver, sem push (Recomendado)` — descrição: `Interage no GitHub (réplicas, reações, resolve threads). Nenhum commit, nenhum push — PR de terceiro não escreve por default.`
   2. `Pedir permissão pra escrever nela agora` — descrição: `Abre uma confirmação textual explícita antes de liberar commit/push nesta PR de terceiro (RN-02/RN-03). Ver "Pedido explícito de escrita".`
@@ -541,9 +590,11 @@ A confirmação textual é o único caminho.
 
 ### 7. Postar réplicas + reações + resolver (opções 1 e 2) · fase 3
 
-Para cada thread endereçada, na ordem: **reply → reação → resolve**.
+Para cada thread que o plano marcou para interação, na ordem: **reabrir se necessário → reply → reação → resolve**. Threads resolvidas por terceiros/unknown que foram verificadas como corretas ou obsoletas não são reabertas nem recebem resposta/reação: permanecem fechadas, com a verificação registrada.
 
 ```bash
+gh api graphql -f query='mutation($id:ID!){ unresolveReviewThread(input:{threadId:$id}){ thread { isResolved } } }' -f id="<PRRT_...>"
+
 # Réplica (review comment line-anchored):
 gh api repos/$REPO_FULL/pulls/$PR_NUMBER/comments/<databaseId>/replies -f body='...'
 
@@ -552,6 +603,7 @@ gh api repos/$REPO_FULL/pulls/comments/<databaseId>/reactions -f content='+1'   
 
 # Resolver a thread (usa o NODE id PRRT_..., NÃO o databaseId):
 gh api graphql -f query='mutation($id:ID!){ resolveReviewThread(input:{threadId:$id}){ thread { isResolved } } }' -f id="<PRRT_...>"
+
 ```
 
 **GOTCHA zsh:** variáveis não sofrem word-splitting. Ao iterar IDs, processe **um por vez** (loop com a lista literal ou linha a linha) — nunca passe a string inteira de IDs de uma vez para a mutation, senão o GraphQL recebe os IDs concatenados e dá `NOT_FOUND`.
@@ -738,7 +790,7 @@ não existe, guardrails). Este passo não redefine nada disso: só diz **quando*
 
 ### 9. Resposta no chat
 
-Tabela curta: por thread `{path:line | veredito | sobreposição | 👍/👎}`, depois `{commit hash, range de push}`.
+Tabela curta: por thread aberta ou finding persistente de thread reaberta `{path:line | veredito | sobreposição | 👍/👎}`, depois `{commit hash, range de push}`. Acrescentar um resumo das threads fechadas por terceiros/unknown verificadas, com `resolvedBy`, resultado, `headSha` conferido e evidência `arquivo:linha` quando houver; confirmar que as verificadas como corrigidas continuam fechadas e não receberam correção duplicada.
 
 **Dizer onde ficou a worktree e em que estado ela está** (path, e quantos envs foram provisionados do cofre, ou por que não foram). É a informação que o usuário precisa para abrir a branch e olhar o resultado com os próprios olhos, e omiti-la obriga a perguntar. Quando o cofre não tinha entrada para o repo, ou o manifesto não declara `env_vault`, dizer isso explicitamente em vez de deixar a worktree parecer pronta para subir. Sinalize threads humanas deixadas abertas (`needs-discussion`) e quais foram marcadas como `duplicate`/`related-but-distinct` (com link da irmã). Não repita os bodies completos das réplicas.
 
@@ -768,19 +820,19 @@ O GitHub renderiza markdown nas réplicas. NÃO postar identificadores e código
 
 ## Modo `--dry` (rascunho read-only)
 
-Quando `--dry` estiver presente, o comando opera em modo **estritamente read-only**: coleta e analisa as threads, mas **não aplica**, **não posta**, **não resolve**, **não commita**, **não pusha** e **não edita título nem descrição** da PR.
+Quando `--dry` estiver presente, o comando opera em modo **estritamente read-only**: coleta e verifica as threads, mas **não aplica**, **não posta**, **não reabre**, **não resolve**, **não commita**, **não pusha** e **não edita título nem descrição** da PR.
 
 ### Fluxo em `--dry`
 
 1. Executar os passos 0-context, 1 (resolver target), 2 (coletar metadados + threads), e 2a (criar board com nota `[dry-run]` no TLDR).
 2. Coletar o diff completo da PR: `gh pr diff $PR_NUMBER --repo $REPO_FULL`.
-3. **Pular threads triviais** (regra do passo 2): body só com aprovação (`LGTM`, `👍`, `:+1:`, `✅`) ou comentário do próprio autor sem réplica de terceiros.
-4. Delegar ao `<ANSWERER>` via Task tool (subagent_type: `<ANSWERER>`), passando:
-   - Lista de threads abertas não-triviais (path:line, body, autor, `diff_hunk` quando disponível, cadeia de réplicas existentes)
+3. **Pular apenas threads abertas triviais** conforme o passo 2. A regra de comentário do próprio autor sem réplica de terceiros continua valendo para threads abertas; toda thread já resolvida por terceiro/unknown entra na verificação pelo `resolvedBy`, sem filtro por tamanho ou conteúdo, mesmo que o primeiro comentário tenha sido escrito pelo autor da PR.
+4. Verificar threads abertas e resolvidas por terceiros/unknown pelo fan-out do passo 3, honrando `--solo`. Depois, delegar ao `<ANSWERER>` via Task tool (subagent_type: `<ANSWERER>`) para redigir apenas as réplicas necessárias, passando:
+   - Lista de threads abertas não-triviais e de verificações pendentes de threads resolvidas por terceiros/unknown (path:line, body, autor, `resolvedBy`, estado no GitHub, `diff_hunk` quando disponível, cadeia de réplicas existentes, e veredito reconciliado do passo 3)
    - Diff completo da PR
    - Metadados (repo, número da PR, branches, autor)
    - Caminho do checkout local quando disponível
-   - Instrução: produzir rascunhos classificados em `accepts-suggestion / defends-decision / needs-discussion / needs-code-change` + os comandos `gh api` prontos para cada thread.
+   - Instrução: produzir rascunhos classificados em `accepts-suggestion / defends-decision / needs-discussion / needs-code-change` + os comandos `gh api` prontos para cada thread que exige interação. Para resolvidas cuja correção está presente e válida ou cuja alegação é improcedente/obsoleta, não redigir réplica nem comando; a thread fica fechada e o resultado da verificação é registrado no artefato.
    - Se `ANSWERER` não estiver definido no perfil (genérico): usar `<HOLISTIC>` com instrução explícita de rascunhar réplicas seguindo o mesmo formato.
 5. Computar o **path do arquivo de saída**:
    - Com `VAULT_ROOT`: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-{repo-slug}-PR{n}-v{N}-answers.md` — nota nova nasce no inbox, como todas as outras.
@@ -791,7 +843,8 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
    ```
    Rascunhos salvos em {caminho-completo}.
 
-   {N} threads: {X} accepts-suggestion, {Y} defends-decision, {Z} needs-discussion, {W} needs-code-change.
+   {N} threads abertas: {X} accepts-suggestion, {Y} defends-decision, {Z} needs-discussion, {W} needs-code-change.
+   {R} threads resolvidas por terceiros/unknown verificadas: {A} correção presente e válida, {B} finding persistente/regredido, {C} sem finding/alegação improcedente/obsoleta.
    ```
    Acrescentar o **estado de integração com a base** (`mergeable`), porque em `--dry` ele é reportado como qualquer outro diagnóstico. PR `CONFLICTING` significa que os rascunhos são aplicáveis, mas a PR precisa do gate do passo 2b num run que escreva.
 
@@ -863,6 +916,7 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
   "solo": false,
   "noRebase": false,
   "resolvedThreadIds": ["PRRT_..."],
+  "verifiedResolvedThreads": [{"threadId":"PRRT_...","headSha":"abc123","resolvedBy":"reviewer","lastCommentId":123456789}],
   "discussionThreadIds": [],
   "answeredCommentIds": [123456789],
   "lastHeadSha": "abc123",
@@ -888,7 +942,9 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
 
 Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido. `resolvedThreadIds` = toda thread que este elo **já processou**, resolvida ou não: é a lista que o gate usa para decidir se uma thread aberta é novidade, então uma thread respondida e deixada aberta de propósito (`needs-discussion`) entra aqui também, senão o gate a devolve como `nova-rodada` a cada relançamento. `discussionThreadIds` = o subconjunto dessas que ficou **aberto de propósito**; o gate não lê este campo, ele serve ao tick (passo 3 de "Um tick") e ao relatório final. `lastCiConclusion` grava um de três literais, `success`, `failure` ou `pending` (ou `null` quando a PR não tem checks): são as strings que o gate compara, e qualquer outra grafia faz o `ci-vermelho` se repetir. `watchWake` = o valor resolvido em "`WATCH_WAKE`"; só muda no meio do run **para** `agendado`, nunca de volta. `answeredCommentIds` = todo issue comment de terceiro que este elo **já classificou**, respondido ou não: é a lista que o gate usa para decidir se um comentário é novidade, então o comentário ignorável (bot de CI, sincronização de ticket) entra aqui também, senão o gate o devolve como `nova-rodada` a cada relançamento; o nome do campo é o que o gate lê e não muda. `startedAt` e `lastTickAt` são gravados **em UTC com `Z`**, no formato exato de `date -u +%Y-%m-%dT%H:%M:%SZ`: o gate lê `startedAt` para o limite de ~6h e só entende esse formato; com offset local (`-03:00`) ou sem `Z` ele descarta o valor em silêncio e passa a contar o limite do primeiro poll dele. `gatePid`, `gateSignalExits`, `gateLastPollAtSeen` e `lastGateEvent` são a memória do loop do gate entre turnos (quem é o gate desta sessão, quantas vezes ele caiu por sinal sem progredir, qual foi a última saída acionável); o uso de cada um está em "O loop de watch", e o gate não lê nenhum deles. `quietTicks` só é contado aqui no fallback agendado: com o gate, a contagem é dele, no arquivo irmão `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
 
-Na 1ª passada, gravar o estado inicial (round 1, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, `answeredCommentIds` = os issue comments de terceiros que a 1ª passada classificou, respondidos e ignoráveis, SHA pós-push, `lastCiConclusion` = o CI coletado no passo 2, nos literais do passo 2 de "Um tick", `conflictAttemptedAtBaseSha` = o `baseRefOid` se o passo 2b terminou em modo degradado, senão `null`, `startedAt` = agora, no formato UTC acima, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente `isResolved == true` de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), o `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles (os ignoráveis voltam à lista no primeiro tick, que os reclassifica), e o `board` a partir do naming determinístico do passo 2a.
+`verifiedResolvedThreads` guarda um snapshot por thread resolvida por terceiro/unknown já verificada: `threadId`, `headSha`, `resolvedBy` e `lastCommentId` (ID REST do comentário mais recente). O watch só reabre a verificação quando a thread ainda está resolvida por terceiro/unknown e algum desses valores muda, inclusive quando o `headRefOid` muda; assim não trata uma thread fechada como aberta nem repete a mesma análise em ticks quietos. Registrar o snapshot só depois da classificação. Se o estado sumir, reconstruir esta lista vazia e reverificar; nunca inferir que a thread foi verificada por estar fechada.
+
+Na 1ª passada, gravar o estado inicial (round 1, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, `verifiedResolvedThreads` = snapshot (`threadId`, `headSha`, `resolvedBy`, `lastCommentId`) de cada thread resolvida por terceiro/unknown que foi verificada, `answeredCommentIds` = os issue comments de terceiros que a 1ª passada classificou, respondidos e ignoráveis, SHA pós-push, `lastCiConclusion` = o CI coletado no passo 2, nos literais do passo 2 de "Um tick", `conflictAttemptedAtBaseSha` = o `baseRefOid` se o passo 2b terminou em modo degradado, senão `null`, `startedAt` = agora, no formato UTC acima, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente resolvidas de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), `verifiedResolvedThreads` como lista vazia para revalidar resolvidas por terceiros/unknown, `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles (os ignoráveis voltam à lista no primeiro tick, que os reclassifica), e o `board` a partir do naming determinístico do passo 2a.
 
 **Atualizar o board a cada tick:** tick é turno deste elo. Com o gate, só existe tick quando ele sai (o poll ocioso acontece fora da LLM e não toca o board); no fallback agendado, a cada wake. Todo tick rola o carimbo de data do board (frontmatter `updated:`, TLDR, título do painel) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline de Eventos Relevantes + parágrafo na Timeline Verbosa. Tick quiet só rola a data.
 
@@ -1054,14 +1110,15 @@ Um tick roda quando o gate sai com evento acionável ou, no fallback agendado, a
    - senão, qualquer `pending` → CI rodando, ainda não decidiu (`pending`).
    - senão (todos `pass` ou `skipping`) → **verde** (`success`).
    - nenhum check reportado → **sem checks** (`null`): para assentar vale como verde, e nunca é vermelho.
-3. **Threads novas.** Rode o GraphQL `reviewThreads` do passo 2. Compute o delta: threads `isResolved == false` cujo `id` (PRRT) **não** está em `resolvedThreadIds` do estado, e que não sejam triviais (mesma regra de "pular triviais"). Esse delta é a **nova rodada**.
+3. **Threads novas.** Rode o GraphQL `reviewThreads` do passo 2, incluindo `resolvedBy` e o ID do último comentário (`comments(last: 1)`). Compute dois deltas sem misturar as semânticas: (a) threads abertas `isResolved == false` cujo `id` (PRRT) **não** está em `resolvedThreadIds`, com a regra atual de trivialidade; (b) threads resolvidas `isResolved == true`, com `resolvedBy.login != ME` ou ausente, cujo snapshot `{threadId, headSha, resolvedBy, lastCommentId}` difere de `verifiedResolvedThreads`. Se o delta (b) trouxer `isResolved == false`, a thread foi reaberta depois de uma verificação anterior: emitir essa mudança como item do delta (b), mas tratá-la como **thread aberta normal**, não como finding resolvido. Toda thread resolvida por terceiro/unknown entra, sem filtro de trivialidade ou de autor da PR. Threads resolvidas por `ME` continuam fora dos dois deltas e são apenas referência. Qualquer delta não vazio é uma **nova rodada**.
+   - **Reaberta externamente:** antes de montar o lote, remover o snapshot anterior e o ID das listas de já processadas; unir esse item às threads abertas por `threadId` e deduplicar caso também apareça em `delta.threads`. Seguir uma vez o fluxo normal de thread aberta. Ao persistir o tick, gravar seu estado final em `resolvedThreadIds`/`discussionThreadIds` conforme o resultado atual; não manter snapshot em `verifiedResolvedThreads` enquanto estiver aberta. Uma resolução posterior por terceiro volta a gerar snapshot pendente.
    - **Threads em `discussionThreadIds`** ficam fora do delta por construção (estão em `resolvedThreadIds`). Reconsultar o último comentário de cada uma (`comments(last: 1) { nodes { author { login } } }`): se o autor não é a conta do `gh`, alguém respondeu depois da sua réplica; tirar o id das duas listas e tratar a thread como delta. O gate não acorda por réplica numa thread dessas (ele compara ids, não conta comentários): ela é vista no próximo tick que acontecer por outro motivo ou, não havendo outro, na conferência do código 11 (ramo `saida` de "O loop de watch"), e segue listada no relatório final.
 3b. **Issue comments novos.** Rode TAMBÉM `gh api repos/$REPO_FULL/issues/$PR_NUMBER/comments` (o `reviewThreads` não os retorna — ver passo 2). Compute o delta: comentários de terceiros com `id` **não** presente em `answeredCommentIds` do estado, aplicando a mesma partição acionável/ignorável do passo 2. Um issue comment acionável novo **conta como nova rodada**, exatamente como uma thread nova. Ao fim do tick, `answeredCommentIds` recebe o `id` de **todo** comentário do delta que o tick classificou: o acionável ao ser respondido, o ignorável ao ser classificado como tal, sem réplica. O gate acorda por qualquer comentário de terceiro cujo `id` não esteja nessa lista (ele só filtra autoria e o trivial); ignorável que fica de fora reacorda a sessão a cada poll, o tick não tem o que fazer, e o disjuntor derruba o watch para `agendado`.
 
 #### Decisão do tick (em ordem de prioridade)
 
 - **PR conflitante (`mergeable == CONFLICTING`) → tem precedência sobre tudo.** Aplicar o **gate de integração do passo 2b** (fonte única) antes de qualquer outra coisa deste tick, pelo mesmo motivo da 1ª passada: correção empilhada em base que não funde piora o conflito, e o CI do tick é inconfiável. Se a base andou desde a última tentativa (`conflictAttemptedAtBaseSha != baseRefOid` do passo 1), é tentativa nova; se é o mesmo SHA de base, **não retentar**. Resolvido → evento `conflito-resolvido`, atualizar `lastHeadSha` e `lastMergeable`, e seguir o tick normalmente. Não resolvido → evento `conflito-bloqueado`, **modo degradado**: fechar a conversa das threads do delta (responder/reagir/resolver) sem aplicar, commitar ou pushar, e não contar quiet tick. **Gravar `conflictAttemptedAtBaseSha = baseRefOid` em toda queda para o degradado**, com ou sem tentativa de resolução (conflito semântico, PR de terceiro, `--no-rebase`, tentativa que falhou): o campo diz ao gate que este SHA de base já foi avaliado. Sem ele, o gate reemite `conflito-novo` a cada relançamento e nunca chega ao código 12.
-- **Nova rodada de threads (delta não vazio)** → executar o fluxo normal (passos 3 a 8a, incluindo a reconciliação da descrição) **só sobre as threads do delta**, com `--auto`. Ao terminar: `round += 1`, adicionar a `resolvedThreadIds` os PRRT de **todas** as threads do delta que o tick processou (as resolvidas e as respondidas e deixadas abertas de propósito, estas também em `discussionThreadIds`), atualizar `lastHeadSha`, zerar `quietTicks`. Emitir evento Slack `nova-rodada-fechada` (ver "Hook Slack").
+- **Nova rodada de threads (qualquer delta não vazio)** → executar os passos 3 a 8a em `--auto` **apenas sobre os deltas**: abertas seguem exatamente o fluxo atual; resolvidas por terceiros/unknown passam pela classificação do passo 2 e só findings persistentes/regredidos entram no plano normal de correção. Correção já presente não é reaplicada; se confirmada válida ou improcedente/obsoleta, manter a thread fechada e registrar a verificação. Ao terminar: `round += 1`; adicionar a `resolvedThreadIds` todas as threads do delta processadas (as abertas deixadas por `needs-discussion` também entram em `discussionThreadIds`); adicionar a `verifiedResolvedThreads` os snapshots das threads resolvidas por terceiros/unknown que foram classificadas; atualizar `lastHeadSha`, zerar `quietTicks`. Emitir evento Slack `nova-rodada-fechada` (ver "Hook Slack").
 - **CI vermelho** (e sem delta de threads) → aplicar a **triagem de CI do passo 2c** (fonte única): coletar o porquê via log, identificar se é gate de qualidade externo e, nesse caso, consultar a API conforme `${FLUX_ROOT}/shared/quality-gate-api.md` antes de classificar; se a causa for atribuível ao próprio push e dentro do escopo, tentar **uma** correção na worktree da PR + quality gate + commit/push na mesma branch (evento `ci-corrigido-tentativa`); senão, não mexer no código, registrar e reportar (evento `ci-vermelho` com link do log e, para gate externo, com `metricKey`/`actualValue`/`errorThreshold` da API). No máximo **uma** tentativa de auto-fix por SHA — nunca em loop.
 - **CI verde ou sem checks + sem delta de threads + PR integrando** → antes de contar quiet tick, checar **drift de título e descrição**: se `bodySyncedAtSha != lastHeadSha` ou `titleSyncedAtSha != lastHeadSha`, rodar o passo 8a sobre o SHA corrente (uma passada, com os três guardrails). É o que o evento `drift` do gate pede. **Ao fim do 8a, gravar `bodySyncedAtSha` e `titleSyncedAtSha` com o SHA corrente mesmo quando nada foi editado**: os campos registram "verificado neste SHA", não "editado neste SHA", e sem a gravação o gate reemite `drift` a cada relançamento e a PR nunca assenta. Depois, `quietTicks += 1` (só no fallback agendado; com o gate, o quiet tick é contado por ele). Emitir `ci-verde` apenas na **transição** (quando `lastCiConclusion != success`).
 - **CI pending + sem delta** → não fazer nada além de aguardar (não conta como quiet tick).

@@ -43,6 +43,7 @@ ME=""
 LLM="{}"
 DELTA_THREADS="[]"
 DELTA_COMMENTS="[]"
+DELTA_RESOLVED_THREADS="[]"
 
 log() {
     printf 'iterate-watch-gate: %s %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2
@@ -256,12 +257,13 @@ emit() {
         --arg mergeable "$MERGEABLE" \
         --argjson threads "$DELTA_THREADS" \
         --argjson comments "$DELTA_COMMENTS" \
+        --argjson resolvedThreads "$DELTA_RESOLVED_THREADS" \
         --arg detail "$detail" \
         '{ts: $ts, event: $event, pr: $pr,
           sha: (if $sha == "" then null else $sha end),
           ci: (if $ci == "" then null else $ci end),
           mergeable: (if $mergeable == "" then null else $mergeable end),
-          delta: {threads: $threads, comments: $comments},
+          delta: {threads: $threads, comments: $comments, resolvedThreads: $resolvedThreads},
           detail: $detail}'
 }
 
@@ -328,9 +330,13 @@ query($owner: String!, $name: String!, $pr: Int!) {
           id
           isResolved
           isOutdated
+          resolvedBy { login }
           comments(first: 1) {
             totalCount
             nodes { databaseId author { login } body }
+          }
+          lastComment: comments(last: 1) {
+            nodes { databaseId }
           }
         }
       }
@@ -368,6 +374,34 @@ comment_delta() {
           | .id ]' <<< "$1"
 }
 
+resolved_thread_delta() {
+    jq -c \
+        --argjson verified "$(jq -c '.verifiedResolvedThreads // []' <<< "$LLM")" \
+        --arg head "$SHA" \
+        --arg me "$ME" \
+        '
+        [ .data.repository.pullRequest.reviewThreads.nodes[]? as $thread
+          | ($thread.resolvedBy.login // "") as $resolver
+          | ($verified | map(select(.threadId == $thread.id)) | first // null) as $previous
+          | select(
+              ($thread.isResolved == true
+                and ($resolver | ascii_downcase) != ($me | ascii_downcase))
+              or ($thread.isResolved == false and $previous != null)
+            )
+          | ($thread.lastComment.nodes[0].databaseId
+              // $thread.comments.nodes[0].databaseId // null) as $lastCommentId
+          | select(
+              $thread.isResolved == false
+              or $previous == null
+              or $previous.headSha != $head
+              or ($previous.resolvedBy // "") != $resolver
+              or $previous.lastCommentId != $lastCommentId
+            )
+          | {threadId: $thread.id, isResolved: $thread.isResolved, headSha: $head,
+             resolvedBy: $resolver, lastCommentId: $lastCommentId}
+        ]' <<< "$1"
+}
+
 poll_once() {
     local view checks threads comments owner name
     local round no_rebase last_ci last_head attempted body_sync title_sync started_epoch
@@ -383,6 +417,7 @@ poll_once() {
     CI=""
     DELTA_THREADS="[]"
     DELTA_COMMENTS="[]"
+    DELTA_RESOLVED_THREADS="[]"
 
     case "$VIEW_STATE" in
         MERGED)
@@ -437,6 +472,7 @@ poll_once() {
 
     DELTA_THREADS=$(thread_delta "$threads")
     DELTA_COMMENTS=$(comment_delta "$comments")
+    DELTA_RESOLVED_THREADS=$(resolved_thread_delta "$threads")
 
     if [ "$MERGEABLE" = CONFLICTING ] && [ "$no_rebase" != true ] && [ "$attempted" != "$BASE_SHA" ]; then
         save_gate_state 0 "" "$first_seen"
@@ -444,12 +480,12 @@ poll_once() {
         exit "$EX_ACTION"
     fi
 
-    if [ "$DELTA_THREADS" != "[]" ] || [ "$DELTA_COMMENTS" != "[]" ]; then
+    if [ "$DELTA_THREADS" != "[]" ] || [ "$DELTA_COMMENTS" != "[]" ] || [ "$DELTA_RESOLVED_THREADS" != "[]" ]; then
         save_gate_state 0 "" "$first_seen"
         if [ "$MERGEABLE" = CONFLICTING ]; then
-            emit nova-rodada "delta de threads ou issue comments com conflito em modo degradado"
+            emit nova-rodada "delta de threads, verificacoes de threads resolvidas ou issue comments com conflito em modo degradado"
         else
-            emit nova-rodada "delta de threads ou issue comments"
+            emit nova-rodada "delta de threads, verificacoes de threads resolvidas ou issue comments"
         fi
         exit "$EX_ACTION"
     fi

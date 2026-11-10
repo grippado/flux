@@ -166,8 +166,18 @@ fx_threads() {
 }
 
 thread() {
+    local resolver="${6:-me}" last_id="${7:-1}"
     jq -cn --arg id "$1" --argjson r "$2" --arg a "$3" --arg b "$4" --argjson t "$5" \
-        '{id: $id, isResolved: $r, isOutdated: false, comments: {totalCount: $t, nodes: [{databaseId: 1, author: {login: $a}, body: $b}]}}'
+        --arg resolver "$resolver" --argjson last_id "$last_id" \
+        '{id: $id, isResolved: $r, isOutdated: false,
+          resolvedBy: (if $r and $resolver != "" then {login: $resolver} else null end),
+          comments: {totalCount: $t, nodes: [{databaseId: 1, author: {login: $a}, body: $b}]},
+          lastComment: {nodes: [{databaseId: $last_id}]}}'
+}
+
+verified_thread() {
+    jq -cn --arg id "$1" --arg head "$2" --arg resolver "$3" --argjson last_id "$4" \
+        '{threadId: $id, headSha: $head, resolvedBy: $resolver, lastCommentId: $last_id}'
 }
 
 comment() {
@@ -179,7 +189,7 @@ mkstate() {
     jq -n --arg now "$(NOW_ISO)" \
         '{pr: 7, repo: "o/r", round: 1, lastHeadSha: "aaa", lastCiConclusion: "success", lastMergeable: "MERGEABLE",
           conflictAttemptedAtBaseSha: null, noRebase: false, bodySyncedAtSha: null, titleSyncedAtSha: null,
-          quietTicks: 0, startedAt: $now, resolvedThreadIds: [], answeredCommentIds: []} | '"$1" > "$STATE"
+          quietTicks: 0, startedAt: $now, resolvedThreadIds: [], verifiedResolvedThreads: [], answeredCommentIds: []} | '"$1" > "$STATE"
 }
 
 red_idle_state() {
@@ -262,6 +272,56 @@ mkstate '.resolvedThreadIds = ["PRRT_done"]'
 fx_threads "[$(thread PRRT_done false reviewer 'x' 1), $(thread PRRT_res true reviewer 'x' 1), $(thread PRRT_lgtm false reviewer 'LGTM' 1), $(thread PRRT_thumb false reviewer '👍' 1), $(thread PRRT_own false author 'nota minha' 1), $(thread PRRT_me false me 'nota minha' 1)]"
 once
 t_case "threads resolvidas, triviais e próprias não acordam" 0 -
+
+echo "== threads resolvidas verificadas"
+
+new_case
+snapshot="$(verified_thread PRRT_res aaa reviewer 42)"
+mkstate ".verifiedResolvedThreads = [$snapshot]"
+t_eq "snapshot resolvido threadId fica persistido" "PRRT_res" "$(jq -r '.verifiedResolvedThreads[0].threadId' "$STATE")"
+fx_threads "[$(thread PRRT_res true reviewer 'corrigido' 1 reviewer 42)]"
+once
+t_case "snapshot resolvido estável não abre rodada" 0 -
+
+new_case
+snapshot="$(verified_thread PRRT_res aaa reviewer 42)"
+mkstate ".verifiedResolvedThreads = [$snapshot]"
+fx_view OPEN MERGEABLE ccc bbb
+fx_threads "[$(thread PRRT_res true reviewer 'corrigido' 1 reviewer 42)]"
+once
+t_case "snapshot resolvido com HEAD novo abre rodada" 0 nova-rodada
+t_eq "snapshot com HEAD novo: thread" '["PRRT_res"]' "$(jq -c '[.delta.resolvedThreads[].threadId]' "$OUT")"
+
+new_case
+snapshot="$(verified_thread PRRT_res aaa reviewer 42)"
+mkstate ".verifiedResolvedThreads = [$snapshot]"
+fx_threads "[$(thread PRRT_res true reviewer 'corrigido' 1 reviewer 43)]"
+once
+t_case "snapshot resolvido com último comentário novo abre rodada" 0 nova-rodada
+t_eq "snapshot com último comentário novo: thread" '["PRRT_res"]' "$(jq -c '[.delta.resolvedThreads[].threadId]' "$OUT")"
+
+new_case
+snapshot="$(verified_thread PRRT_res aaa reviewer 42)"
+mkstate ".verifiedResolvedThreads = [$snapshot]"
+fx_threads "[$(thread PRRT_res true reviewer2 'corrigido' 1 reviewer2 42)]"
+once
+t_case "snapshot resolvido com resolver novo abre rodada" 0 nova-rodada
+t_eq "snapshot com resolver novo: thread" '["PRRT_res"]' "$(jq -c '[.delta.resolvedThreads[].threadId]' "$OUT")"
+
+new_case
+snapshot="$(verified_thread PRRT_res aaa reviewer 42)"
+mkstate ".resolvedThreadIds = [\"PRRT_res\"] | .verifiedResolvedThreads = [$snapshot]"
+fx_threads "[$(thread PRRT_res false reviewer 'precisa revisar' 1)]"
+once
+t_case "reabertura externa é delta de thread resolvida" 0 nova-rodada
+t_eq "reabertura externa: delta identifica thread" '["PRRT_res"]' "$(jq -c '[.delta.resolvedThreads[].threadId]' "$OUT")"
+t_eq "reabertura externa: estado atual é aberto" "false" "$(jq -r '.delta.resolvedThreads[0].isResolved' "$OUT")"
+
+mkstate '.resolvedThreadIds = [] | .verifiedResolvedThreads = []'
+once
+t_case "reabertura normalizada volta ao delta de thread aberta" 0 nova-rodada
+t_eq "reabertura normalizada: delta aberto" '["PRRT_res"]' "$(jq -c '.delta.threads' "$OUT")"
+t_eq "reabertura normalizada: sem delta resolvido" '[]' "$(jq -c '.delta.resolvedThreads' "$OUT")"
 
 new_case
 fx_threads "[$(thread PRRT_own2 false author 'minha, com réplica' 3)]"
