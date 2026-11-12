@@ -481,7 +481,7 @@ Path completo: `<VAULT_ROOT>/0-inbox/{filename}`
 
 Montar o artefato seguindo o **perfil PR** de `${FLUX_ROOT}/shared/review-artifact-template.md`
 — fonte única do formato (frontmatter, linha de metadados, e as seções 🎯 Veredito & prioridades →
-📊 Painel de findings → 🔁 Threads reverificadas (quando houver `REOPEN_CANDIDATES`) → 🔎 Findings →
+📊 Painel de findings → 🚦 Gates (quando houver gate) → 🔁 Threads reverificadas (quando houver `REOPEN_CANDIDATES`) → 🔎 Findings →
 📎 Escopo → ✅ Ação → 🔗 Cobertura), com a **disciplina de links**, as **regras de escrita** e a
 **regra de ouro do painel**. Tradução de STATUS e cálculo de `size_*` também vivem lá.
 
@@ -497,6 +497,8 @@ STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificaç�
   **permalink no `HEAD_SHA`** — nada de citação nua.
 - `## 📊 Painel de findings` é a **única** tabela de findings; preencher a contagem por badge (`counts`)
   e a legenda colorida.
+- Quando a rodada abrir gate, preencher `## 🚦 Gates` com a `GateSpec` validada antes de perguntar e
+  atualizar a mesma entrada após a escolha. Sem escolha, preservar `pendente` e não registrar ação.
 - `## 🎯 Veredito & prioridades` no topo, com cada prioridade linkando pro `#fN` e pro código.
 - Frontmatter enriquecido: `pr_url`, `ticket_url`, `head_sha`, `counts` e `status` (vocabulário novo).
   `reverified_threads` entra só quando o Passo 4b rodou (com o tamanho de `REOPEN_CANDIDATES`);
@@ -539,6 +541,31 @@ as opções de aplicar, commitar e pushar exigem PR própria. Persistir a spec a
 escolha, ação e resultado depois, conforme o contrato compartilhado. Se o snapshot faltar ou entrar
 em conflito, parar com as opções seguras de esclarecer ou não agir.
 
+#### GateSpec do Step 8
+
+O `id` deste gate é `review-post-action`. O snapshot é `{me, pr_author, pr_assignees,
+is_own_pr, is_assigned_pr, status, actionable_findings, reopen_candidates}`, com a origem de cada
+fato preservada. O renderer recebe somente as opções elegíveis desta tabela, na ordem indicada:
+
+| id | label | effect | preconditions |
+|---|---|---|---|
+| `apply-commits` | Aplicar correções em commits semânticos | aplica correções e commita localmente, sem push | `is_own_pr`, há finding acionável |
+| `apply-and-push` | Aplicar e dar push | aplica correções, verifica e publica na branch da PR | `is_own_pr`, há finding acionável |
+| `post-inline` | Postar comentários inline | publica o subset escolhido como review `COMMENT`, sem aprovar | há comentário acionável |
+| `post-and-approve` | Postar e aprovar | publica prioridades e praise, confere o HEAD e aprova em chamada separada | `!is_own_pr`, `status` permite aprovação |
+| `post-priorities-praise` | Prioridades + praise | publica prioridades e praise como `COMMENT`, sem aprovar | há comentário acionável |
+| `post-priorities` | Só prioridades | publica só prioridades como `COMMENT`, sem aprovar | há comentário acionável |
+| `post-all` | Tudo | publica todos os comentários permitidos como `COMMENT`, sem aprovar | há comentário acionável |
+| `answer-reverified-threads` | Responder threads reverificadas | responde, reage e resolve somente threads que procedem | `reopen_candidates` não vazio |
+| `do-nothing` | Não fazer nada | encerra sem alterar working tree ou GitHub | sempre |
+| `do-not-post` | Não postar | encerra sem publicar no GitHub | sempre |
+
+`apply-commits`, `post-and-approve`, `post-priorities-praise` e `post-priorities` são recomendadas
+somente no ramo em que ocupam a primeira posição elegível; a recomendação nunca é inferida pelo
+renderer. O segundo gate, quando há threads reverificadas, usa `id: review-reverified-threads` e
+as opções `answer-reverified-threads` e `keep-reverified-threads`, ambas com os efeitos já descritos
+no Step 8b-bis.
+
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 
 Postar comentário pra si mesmo não agrega; o valor é aplicar a correção. Antes de perguntar, se a PR ainda não tiver o usuário como assignee, atribuir:
@@ -547,7 +574,8 @@ Postar comentário pra si mesmo não agrega; o valor é aplicar a correção. An
 gh pr edit $PR_NUMBER --repo $REPO_FULL --add-assignee "$ME"
 ```
 
-Perguntar:
+Renderizar a `GateSpec` com as opções `apply-commits`, `apply-and-push`, `post-inline` e
+`do-nothing`:
 
 - **Header:** `Ação na PR?`
 - **Question:** `A PR #{number} é sua. O que fazer com as recomendações do review?`
@@ -561,7 +589,7 @@ Se escolher 1 ou 2 → ir para **8c**. Se escolher 3 → usar a postagem de **8b
 
 #### 8b. PR de terceiros (`IS_OWN_PR == false`) — publicar inline
 
-Abrir o GATE (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
+Renderizar a `GateSpec` (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
 
 - **Header:** `Postar na PR?`
 - **Question:** `Quer postar algum subset dos comentários direto na PR #{number}?`
