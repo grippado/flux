@@ -15,6 +15,58 @@ Um **GATE** é um ponto de parada obrigatório onde o elo apresenta opções e *
 positiva do usuário**. Não é uma pergunta retórica nem um aviso: se o usuário não escolheu, nada
 acontece.
 
+## Especificação canônica, estado e rastro
+
+Todo gate nasce de uma única `GateSpec`, montada pelo elo antes de qualquer chamada ao harness. A
+especificação é o contrato entre quem conhece o estado do trabalho e quem só o apresenta: Claude,
+Codex e o fallback numerado **renderizam a mesma spec**, nunca remontam um menu abreviado próprio.
+
+```text
+GateSpec {
+  id: identificador estável do gate
+  question: pergunta literal
+  state: [{ fato, valor, origem }]
+  options: [{ id, label, description, effect, preconditions, recommended, harmless }]
+}
+```
+
+- `id` e cada `options[].id` são estáveis dentro do verbo. O rótulo é texto de interface, não a
+  identidade usada para registrar ou retomar a decisão.
+- `description` explica o efeito completo, inclusive o que a opção não faz. `effect` descreve a
+  ação autorizada em termos verificáveis, e `preconditions` nomeia os fatos que precisam ser
+  verdadeiros para a opção ser elegível.
+- A primeira opção elegível recomendada tem `recommended: true` e recebe `(Recomendado)` no rótulo.
+  A última é sempre a saída inócua, com `harmless: true` e sem ação externa.
+- `state` é um snapshot de fatos com sua origem, não uma conclusão do modelo. Exemplo para PR:
+  identidade autenticada de `gh api user`, autor e assignees de `gh pr view`, veredito do artefato
+  e presença de comentários acionáveis ou threads reverificadas.
+
+### Validar antes de renderizar
+
+1. Coletar o snapshot uma vez, da fonte de verdade disponível, e guardar origem por fato.
+2. Avaliar as pré-condições de cada opção contra esse snapshot. Só opções elegíveis entram no menu.
+3. Conferir que `description` representa `effect`. Se a validação revelar fato ausente, conflitante
+   ou descrição incompatível, não renderizar ação externa: abrir apenas uma spec segura para
+   esclarecer o estado ou encerrar sem agir.
+4. Só depois dessa validação o elo escolhe o renderer. O renderer não pode acrescentar, remover,
+   reordenar, resumir ou inferir opções. Uma opção automática da interface do Codex não pertence à
+   `GateSpec` e não entra no rastro do Flux.
+
+### Registrar antes e depois
+
+Antes de perguntar, atualizar o artefato ou board do elo com a `GateSpec` completa: snapshot,
+pergunta, opções efetivamente apresentadas (IDs, rótulos, descrições, efeitos e pré-condições) e
+estado `pendente`. Depois da resposta explícita, registrar o ID e rótulo escolhidos, a ação que a
+opção autorizou, seu resultado e o estado final (`concluído`, `bloqueado` ou `pendente`). Sem
+resposta, o gate continua `pendente`; não há ação concluída para registrar.
+
+O perfil que já tenha Timeline registra dois eventos: a apresentação é `pendência` e a escolha é
+`decisão`. O detalhe completo fica no artefato ou board, não no resumo do chat. Onde não houver
+artefato persistido, o elo imprime o mesmo bloco no chat e declara a perda de persistência no banner.
+
+Esta seção é o contrato de todos os gates da família. Cada verbo declara somente os fatos e efeitos
+do seu domínio; não copia regras de renderer, recomendação, saída segura ou persistência.
+
 ### Ações que exigem GATE, sempre
 
 | ação | onde aparece |
@@ -48,7 +100,8 @@ com gate, sem precisar emendar esta tabela.
 
 ## Como perguntar
 
-**Mecanismo preferido:** uma pergunta estruturada single-select, com uma única question por GATE,
+**Mecanismo preferido:** renderizar uma `GateSpec` validada como pergunta estruturada single-select,
+com uma única question por GATE,
 quando o round-trip estiver comprovado na sessão atual: a pergunta e as opções chegam à pessoa e a
 escolha dela retorna ao mesmo contexto principal. A mera disponibilidade de uma ferramenta, a
 aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse round-trip.
@@ -63,10 +116,10 @@ aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse 
   disponível ou tenha aceitado a solicitação.
 
 - A opção **recomendada é a primeira**, e leva `(Recomendado)` no label.
-- Toda opção tem descrição dizendo **o que vai acontecer**, incluindo o que ela **não** faz
-  ("não posta nada", "sem push automático"). O usuário decide pelo efeito, não pelo nome.
-- A última opção é sempre a saída inócua (`Não fazer nada`, `Não postar`). Um gate sem porta de saída
-  não é um gate, é um pedágio.
+- O renderer usa integralmente `question`, `label` e `description` da spec. O usuário decide pelo
+  efeito, não pelo nome.
+- A última opção é a saída inócua da spec (`Não fazer nada`, `Não postar`). Um gate sem porta de
+  saída não é um gate, é um pedágio.
 - Multi-select só quando as escolhas forem de fato independentes. Na dúvida, single-select.
 
 ## Fallback quando o round-trip não está comprovado

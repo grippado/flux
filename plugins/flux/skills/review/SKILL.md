@@ -244,16 +244,20 @@ gh api users/{login} --jq .name
 # se vier null/vazio, usa só o login
 ```
 
-Detectar se a PR é **do próprio usuário** (decide o menu do Step 8). Buscar também o assignee:
+Detectar se a PR é **do próprio usuário** (decide o menu do Step 8). Autoria e atribuição são fatos
+distintos: buscar ambos, mas nunca usar assignee para inferir autoria.
 
 ```bash
 ME=$(gh api user -q .login)
 gh pr view $PR_NUMBER --repo $REPO_FULL --json author,assignees \
   -q '{author: .author.login, assignees: [.assignees[].login]}'
-# IS_OWN_PR = true se ME == author.login OU ME estiver em assignees
+# IS_OWN_PR = true somente se ME == author.login
+# IS_ASSIGNED_PR = true se ME estiver em assignees
 ```
 
-Guardar `IS_OWN_PR` (bool) e `ME`. Para branch local sem PR aberta, tratar como própria (`IS_OWN_PR = true`).
+Guardar `ME`, `PR_AUTHOR`, `PR_ASSIGNEES`, `IS_OWN_PR` e `IS_ASSIGNED_PR` como snapshot, com a
+origem `gh api user` ou `gh pr view` de cada fato. Para branch local sem PR aberta, tratar como
+própria (`IS_OWN_PR = true`) e registrar que não há autoria remota a comparar.
 
 Para branch local (sem PR):
 
@@ -525,6 +529,15 @@ Em seguida, vá direto para o Step 8 e apresente o GATE no mesmo encerramento do
 ### 8. Oferecer ação pós-review (aplicar ou publicar)
 
 Se há PR aberta e comentários acionáveis no review (ou a exceção do Step 7 para veredito aprovar em PR de terceiros), apresentar imediatamente o **GATE** definido em `${FLUX_ROOT}/shared/hitl.md`, junto do encerramento do review. **O conjunto de opções depende de `IS_OWN_PR`** (Step 3): em PR própria, o padrão é aplicar as correções; em PR de terceiros, o padrão é postar inline. Se `REOPEN_CANDIDATES` não estiver vazio no ramo de aprovação, apresentar também a pergunta sobre threads no mesmo encerramento, como GATE separado. Para o protocolo de apresentação, coleta da escolha e fallback do Codex, seguir `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`. Com `run_id:` na invocação, registrar cada decisão assim que o usuário escolher (item 2 de "Registro do run").
+
+Antes de apresentar, montar e validar a `GateSpec` de `${FLUX_ROOT}/shared/hitl.md` com o snapshot
+do Step 3 e os fatos desta rodada: `STATUS`, comentários acionáveis e `REOPEN_CANDIDATES`. A
+propriedade vem **somente** de `ME == PR_AUTHOR`; `IS_ASSIGNED_PR` pode orientar a atribuição da PR,
+mas não altera o ramo do menu. Toda opção declara suas pré-condições e só entra se elas forem
+verdadeiras. Em especial, `Postar e aprovar` exige PR de terceiro e status que permite aprovação;
+as opções de aplicar, commitar e pushar exigem PR própria. Persistir a spec antes da pergunta e a
+escolha, ação e resultado depois, conforme o contrato compartilhado. Se o snapshot faltar ou entrar
+em conflito, parar com as opções seguras de esclarecer ou não agir.
 
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 

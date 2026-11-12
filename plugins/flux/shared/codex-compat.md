@@ -44,11 +44,16 @@ No Codex, a pergunta estruturada é a ferramenta nativa `request_user_input`. El
 feature `default_mode_request_user_input` está ligada (`under development` e desligada por padrão no
 Codex; ligar é configuração da máquina, não do flux).
 
-Quando `request_user_input` estiver disponível na sessão, a main a usa para todo GATE, com uma
-question single-select por gate, e espera a escolha retornar à mesma sessão antes de agir. O gate
+Quando `request_user_input` estiver disponível na sessão, a main renderiza a `GateSpec` validada de
+`hitl.md` para todo GATE, com uma question single-select por gate, e espera a escolha retornar à
+mesma sessão antes de agir. O gate
 continua na main: não delegar a um subagente. O round-trip está comprovado para o Codex 0.161.0 ou
 superior com a feature ligada; uma resposta com escolha na própria sessão é a confirmação de que ele
 funciona ali, e não se exige prova adicional antes da primeira chamada.
+
+Rótulos, descrições, ordem, recomendação e saída inócua vêm literalmente da spec. O Codex pode
+acrescentar uma opção automática de campo livre, mas ela não é opção do Flux e não é registrada como
+tal no artefato ou board.
 
 Round-trip comprovado em 2026-10-08, no Codex 0.161.0 com
 `-c features.default_mode_request_user_input=true`: a ferramenta desenhou o menu com seta e descrição
