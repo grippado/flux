@@ -147,6 +147,25 @@ linkam pro finding `#fN` e pro código.)
 | [[#f1 · footer só publicado\|f1]] | [![question]({img})]({link}) | [`RecordEdit/index.tsx:74`]({permalink}) | footer só publicado | trava até responder |
 | [[#f2 · fidelidade do mock\|f2]] | [![suggestion]({img})]({link}) | [`...test.tsx:96`]({permalink}) | mock perde fidelidade | não |
 
+## 🚦 Gates
+
+> Só entra quando a rodada apresenta um gate. Este é o rastro auditável da `GateSpec`, não uma
+> segunda tabela de findings.
+
+### {gate-id}
+
+- **Estado:** `{pendente | concluído | bloqueado}`
+- **Snapshot:** `{fato=valor (origem)}`
+- **Pergunta:** {question literal}
+- **Opções apresentadas:** `{id}` · {rótulo} — {descrição}; {repetir em lista para cada opção}
+- **Escolha:** `{id}` · {rótulo}, ou `nenhuma` quando pendente
+- **Efeito autorizado:** {effect da opção escolhida, ou `nenhum` quando pendente}
+- **Resultado:** {resultado verificável, ou `pendente` quando não houve escolha}
+
+Antes de perguntar, o artefato recebe o snapshot, pergunta e opções com estado `pendente`. Depois
+da resposta explícita, atualizar somente escolha, efeito, resultado e estado. A ausência de resposta
+nunca vira ação concluída.
+
 ## 🔁 Threads reverificadas
 
 > Só entra quando o `flux:review` reverificou threads próprias (rodada anterior) com réplica pendente

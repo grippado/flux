@@ -612,6 +612,13 @@ cronológicas e nenhuma delas de status.
 7. **✅ Ação / Continuidade (HITL)** — checklist `- [ ]` de itens acionáveis para o usuário continuar a
    parte humana (pedir review, criar flag, rodar QA). Marcar `- [x]` quando resolvido, não apagar a linha.
 
+   Quando o elo abrir um gate, acrescentar abaixo do checklist o bloco `### Gates`, em prosa ou lista
+   (nunca outra tabela de status), conforme `${FLUX_ROOT}/shared/hitl.md`: para cada gate, registrar
+   o snapshot de fatos e origens, pergunta, opções realmente apresentadas com IDs/rótulos/descrições,
+   estado `pendente` ou a escolha, a ação autorizada e seu resultado. A apresentação gera evento
+   `pendência` na Timeline; a resposta explícita gera `decisão`. Sem resposta, manter `pendente` e
+   não registrar resultado de ação.
+
 7-bis. **🔗 Boards de iterate por PR** *(só no perfil multi-PR / delivery-flow)* — lista em prosa (não
    tabela), um item por PR, linkando o board de iterate filho que aquela PR gerou:
 

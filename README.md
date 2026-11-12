@@ -542,6 +542,11 @@ O fluxo completo:
 
 1. Na PR, bumpe a versão nos cinco manifests (`.claude-plugin/marketplace.json`,
    `.cursor-plugin/marketplace.json` e os três de `plugins/flux/`) e rode `scripts/check-manifests.sh`.
+   **Um bump por PR.** Defina a versão uma vez, ao abrir a PR, e mantenha-a enquanto ela estiver
+   aberta ou draft. Correções pedidas em review, commits adicionais, rebases e novos checks pertencem
+   à mesma entrega e **não** geram bump empilhado. Só uma nova PR, criada sobre uma base que já contém
+   a release anterior, pode avançar novamente a versão. Se a PR ainda não foi mergeada, corrigir um
+   bump acidental de volta para a versão proposta é obrigatório.
    Se quiser um resumo próprio na landing, ponha no corpo da PR as linhas `Summary-en:` e `Summary-pt:`,
    cada uma no começo da linha e fora de bloco de código, em até 180 caracteres e sem travessão. O
    limite e o travessão são convenção: o workflow copia a linha como está, sem validar nem cortar.
