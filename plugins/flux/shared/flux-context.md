@@ -159,6 +159,7 @@ com o reviewer de outro time sem que nada acuse o problema.
     "docs": "mcp__claude_ai_Google_Drive",
     "slack": "mcp__plugin_slack_slack"
   },
+  "publish": { "channel": "auto", "alias": "acme", "redact": { "Acme Pay": "o app de pagamentos" } },
   "no_emdash": true,
   "env_vault": {
     "root": "~/.envault",
@@ -293,6 +294,11 @@ com o reviewer de outro time sem que nada acuse o problema.
   slug. **Sem o campo a fonte simplesmente não existe**: adivinhar repo a partir de nome de time é
   como o elo acaba rodando no contexto errado com aparência de acerto.
 - `repos` — repos conhecidos do contexto (usado por `flux:land` pra resolver targets cross-repo).
+- `publish` — bloco opcional lido pelo `flux:tell`: `channel` (`auto` ou `local`), `alias` (substituto da
+  org nas páginas públicas, default `acme`), `redact` (termos extras e seus substitutos) e `lang`. Os
+  demais campos deste manifesto também alimentam a lista de neutralização do `tell`, só como termos a
+  esconder, nunca como conteúdo. Contrato em `${FLUX_ROOT}/skills/tell/SKILL.md`, "Manifesto", e
+  `${FLUX_ROOT}/shared/publish-channel.md`.
 - `exec_command` — nome do comando **nativo de execução** dos repos deste contexto, usado pelo `flux:build`
   pra descobrir o motor (`<repo>/.claude/commands/<exec_command>.md`). Default: `workflow`.
 - `exec_fallback` — comando de implementação usado pelo `flux:build` quando o repo não tem motor

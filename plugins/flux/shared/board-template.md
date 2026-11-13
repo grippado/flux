@@ -226,7 +226,7 @@ provenance:                           # contrato e checklist antes de gravar: se
 
 Esta seção é o **contrato único** do bloco `provenance`. Vale para todo artefato que a família grava
 com esse bloco, seja board ou não: os boards dos cinco perfis, o artefato de review
-(`review-artifact-template.md`), o parecer do `flux:peek --save` e os rascunhos do `flux:iterate --dry`.
+(`review-artifact-template.md`), o parecer do `flux:peek --save`, os rascunhos do `flux:iterate --dry` e a nota companheira do `flux:tell`.
 Um verbo que grava o bloco **aponta para esta seção** e declara só o valor de `generator` e de
 `<verbo>` que lhe cabe; nunca redescreve chave, formato ou vocabulário. Redescrever é como o `peek`
 passou a gravar `captured_at` em ISO e o `iterate` passou a gravar o bloco pela metade.
@@ -256,7 +256,7 @@ Chave ausente é defeito do gravador, não ausência de dado. Dado indisponível
 ### Enum de `generator`
 
 `flux-build` · `flux-iterate` · `flux-land` · `flux-issue` · `flux-reply` · `flux-probe` ·
-`flux-refine` · `flux-review` · `flux-peek`
+`flux-refine` · `flux-review` · `flux-peek` · `flux-tell`
 
 `generator` registra **o verbo que efetivamente abriu o artefato**, não o `type` canônico. No perfil
 exploração o `type` é sempre `flux-issue`, mesmo quando quem abriu foi o `flux:probe` ou o

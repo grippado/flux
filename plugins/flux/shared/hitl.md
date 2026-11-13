@@ -76,6 +76,7 @@ do seu domínio; não copia regras de renderer, recomendação, saída segura ou
 | salvar rascunho ou reagir no Slack | `flux:reply` |
 | commitar, pushar ou alterar o working tree | `flux:review` (8c), `flux:iterate` |
 | abrir PR (mesmo draft) | `flux:build`, `flux:equip` (PR da suite) |
+| publicar página hospedada (Artifact, Sites ou outro canal) | `flux:tell`, via `${FLUX_ROOT}/shared/publish-channel.md` |
 | escrever artefato gerado fora do repo alvo e fora do vault | `flux:equip`, via `${FLUX_ROOT}/shared/write-destination.md` |
 | **escrever no manifesto de contexto** (`flux-context.json`) | `flux:equip`: a aprovação de destino (passo 9 do `write-destination.md`) e o `exec_fallback` do repo (Step 6) |
 | escolher entre alvos ambíguos quando errar custa caro | `flux:issue` (qual board retomar), `flux-context.md` (qual perfil reivindica o slug) |
