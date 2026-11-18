@@ -135,14 +135,14 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
 As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebase` (alias `--skip-conflict-gate`) e `--parent-board <path>` podem aparecer em qualquer posição dos argumentos e combinadas entre si. As **rodadas subsequentes do watch rodam em `--auto`** (aplicam + postam + resolvem + commitam + pusham sozinhas). `--once` desliga o watch. `--solo` pula os specialists em todas as rodadas. `--no-rebase` persiste em todas as rodadas.
 
-> **Resolver conflito já vem autorizado.** Invocar o iterate sem `--no-rebase` é pedir a resolução do conflito com a base, e esse pedido autoriza o `git push --force-with-lease` da resolução mecânica a qualquer momento: na 1ª passada, com `--auto` e em todo tick do watch, sem gate humano (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5). O `--auto` continua dispensando só a confirmação do plano de threads (passo 6).
+> **Resolver conflito já vem autorizado.** Invocar o iterate sem `--no-rebase` autoriza o push da resolução mecânica nas condições de `${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5. O `--auto` continua dispensando só a confirmação do plano de threads (passo 6).
 
 ## Out of scope (NUNCA faça)
 
 - Não aprovar nem mergear (`gh pr review --approve`, `gh pr merge`).
 - Não usar `event: APPROVE` / `REQUEST_CHANGES` em nada.
 - Não pushar para `main`. Não fazer `git checkout`/`git switch` de branch na árvore principal do repo: para entrar na branch da PR, resolver/criar a **worktree** dela (ver disciplina de worktree), nunca sequestrar o working tree principal do usuário.
-- **Não `git push --force` sem lease, nunca.** Force-push só com `--force-with-lease`, só na branch da PR, e só para publicar a resolução de conflito do passo 2b (autorizada pelo próprio pedido, sem gate). Não force-pushar branch de terceiro nem branch coautorada.
+- **Não `git push --force` sem lease, nunca.** Force-push só para publicar a resolução de conflito do passo 2b, nas condições de `${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5. Não force-pushar branch de terceiro nem branch coautorada.
 - **Não resolver conflito semântico sozinho.** Conflito sobre a mesma lógica (mesma função, mesma condição, mesmo teste, migração, contrato) exige aval humano mesmo em `--auto` e mesmo no watch: registrar bloqueio e cair no modo degradado. Na dúvida entre mecânico e semântico, é semântico.
 - **Não declarar CI confiável, nem "assentou", em PR `CONFLICTING`.** Nem tratar `mergeable: UNKNOWN` como se fosse `MERGEABLE`.
 - Não resolver thread humana que esteja em `needs-discussion` (ver guardrail no passo 7).
@@ -337,17 +337,17 @@ Com `mergeable` / `mergeStateStatus` coletados no passo 2:
      e `merge-tree --write-tree --name-only` (arquivos em conflito).
   2. **Classificar** mecânico vs semântico pela régua do shared. `--no-rebase`, PR de terceiro
      (`author.login != ` conta autenticada) ou classificação semântica ⇒ **não resolver**: ir ao modo
-     degradado (abaixo).
+     degradado (abaixo). As demais causas de degradado (rebase abortado, gate vermelho, lease
+     recusado) estão na seção 6 do shared.
   3. **Resolver via subagente executor** (o mesmo do passo 4, mesma disciplina de worktree e de
      fan-out), que aplica a estratégia, roda o quality gate do repo e **para sem pushar**.
-  4. **Publicar com `--force-with-lease`, sem gate humano**, inclusive com `--auto` e no watch: o
-     pedido de resolver é a autorização (shared, seção 5). Lease recusado: refetch, reavaliar,
-     reportar, não insistir. Merge da base não precisa de force. Depois do push, registrar no board a
-     estratégia, a decisão por arquivo, o resultado dos gates e o antes/depois do `rev-list`.
+  4. **Publicar conforme a seção 5 do shared**, só se nenhum gate do item 3 voltou vermelho (`n/a`
+     não segura). Gate vermelho ⇒ não pushar: é bloqueio e o elo vai ao modo degradado. Depois do
+     push, registrar o relato conforme a seção 5.
 - **`BEHIND`** (sem conflito) → só atualizar se a proteção da base exigir branch atualizada. Não é
   conflito e não justifica force-push.
 
-**Modo degradado (o gate não resolveu):** não abortar o comando. Suspender o que depende de base
+**Modo degradado (o gate não resolveu; causas na seção 6 do shared, inclusive gate vermelho):** não abortar o comando. Suspender o que depende de base
 integrada (aplicar correção, commitar, pushar, triar/corrigir CI, reconciliar título e descrição) e
 seguir com o que não depende (verificar alegações, responder, reagir, resolver threads). Reportar sem
 eufemismo o que ficou de pé. Tabela completa na seção 6 do shared.
@@ -586,7 +586,7 @@ Nunca inferir o pedido de contexto (ex.: o usuário mencionar "pode commitar" nu
 A confirmação textual é o único caminho.
 
 **Interação com o gate do passo 2b:**
-- Se o gate **resolveu** um conflito neste run, o `--force-with-lease` já saiu no passo 2b, autorizado pelo pedido de resolver (shared, seção 5). Esta pergunta não o reabre nem o embute na opção 1: ela mostra o que foi publicado (estratégia, decisão por arquivo, gates) como contexto e trata só das threads.
+- Se o gate **resolveu** um conflito neste run, o push já aconteceu no passo 2b quando os gates passaram (`--force-with-lease` no rebase, push normal no merge da base); com gate vermelho não houve push. Esta pergunta não o reabre nem o embute na opção 1: mostra como contexto o relato da seção 5 do shared e trata só das threads.
 - Se o gate ficou em **modo degradado**, o plano mostrado aqui não tem "arquivos alterados" nem mensagem de commit (o passo 4 foi pulado). Ajustar a pergunta para o que resta: postar as réplicas + reações e resolver as threads. Em `IS_OWN_PR == true`, a opção 1 vira equivalente à 2, dito na descrição junto do motivo (`PR conflitante com a base, correções suspensas`). Em `IS_OWN_PR == false`, o modo degradado é compatível com o `no-push` já default: nada muda na pergunta.
 
 ### 7. Postar réplicas + reações + resolver (opções 1 e 2) · fase 3
@@ -795,7 +795,7 @@ Tabela curta: por thread aberta ou finding persistente de thread reaberta `{path
 
 **Dizer onde ficou a worktree e em que estado ela está** (path, e quantos envs foram provisionados do cofre, ou por que não foram). É a informação que o usuário precisa para abrir a branch e olhar o resultado com os próprios olhos, e omiti-la obriga a perguntar. Quando o cofre não tinha entrada para o repo, ou o manifesto não declara `env_vault`, dizer isso explicitamente em vez de deixar a worktree parecer pronta para subir. Sinalize threads humanas deixadas abertas (`needs-discussion`) e quais foram marcadas como `duplicate`/`related-but-distinct` (com link da irmã). Não repita os bodies completos das réplicas.
 
-**Sempre reportar o estado de integração com a base**, mesmo quando ele estava limpo (é a informação que decide se a PR pode mergear). Quando este run foi despachado por um orquestrador (`--parent-board` presente, ou seja, rodando dentro do subagente de um `/flux:land`), o retorno inclui os campos estruturados `mergeable` e `conflito` do contrato da fase 4 do land, e não só a prosa: quem consome é máquina, e inferir conflito de texto livre é frágil no dado que decide o go/no-go. Se o gate do passo 2b agiu, dizer a estratégia (`rebase` ou `merge`), os arquivos resolvidos com a decisão de cada um, e o resultado dos gates. Se o gate ficou em **modo degradado**, dizer explicitamente o que **não** foi feito: `conflito semântico em <arquivos> — respondi as threads, não apliquei correção nem pushei`. Nunca fechar o relatório dando a PR por pronta quando ela segue conflitante.
+**Sempre reportar o estado de integração com a base**, mesmo quando ele estava limpo (é a informação que decide se a PR pode mergear). Quando este run foi despachado por um orquestrador (`--parent-board` presente, ou seja, rodando dentro do subagente de um `/flux:land`), o retorno inclui os campos estruturados `mergeable` e `conflito` do contrato da fase 4 do land, e não só a prosa: quem consome é máquina, e inferir conflito de texto livre é frágil no dado que decide o go/no-go. Se o gate do passo 2b agiu, dizer os itens do relato da seção 5 do shared. Se o gate ficou em **modo degradado**, dizer explicitamente o que **não** foi feito: `conflito semântico em <arquivos> — respondi as threads, não apliquei correção nem pushei`. Nunca fechar o relatório dando a PR por pronta quando ela segue conflitante.
 
 Quando o passo 8a mexeu em título ou descrição, dizer em uma linha **o que foi corrigido e por quê** (e, no caso do título, mostrar o antes/depois) (ex.: `descrição: a seção "A proposta" ainda anunciava o verbo-fachada, refutado na thread X`). Quando a PR é de terceiro e a reconciliação virou sugestão em comentário, sinalizar isso explicitamente.
 
@@ -1117,7 +1117,7 @@ Um tick roda quando o gate sai com evento acionável ou, no fallback agendado, a
 
 #### Decisão do tick (em ordem de prioridade)
 
-- **PR conflitante (`mergeable == CONFLICTING`) → tem precedência sobre tudo.** Aplicar o **gate de integração do passo 2b** (fonte única) antes de qualquer outra coisa deste tick, pelo mesmo motivo da 1ª passada: correção empilhada em base que não funde piora o conflito, e o CI do tick é inconfiável. Se a base andou desde a última tentativa (`conflictAttemptedAtBaseSha != baseRefOid` do passo 1), é tentativa nova; se é o mesmo SHA de base, **não retentar**. Resolvido → evento `conflito-resolvido`, atualizar `lastHeadSha` e `lastMergeable`, e seguir o tick normalmente. Não resolvido → evento `conflito-bloqueado`, **modo degradado**: fechar a conversa das threads do delta (responder/reagir/resolver) sem aplicar, commitar ou pushar, e não contar quiet tick. **Gravar `conflictAttemptedAtBaseSha = baseRefOid` em toda queda para o degradado**, com ou sem tentativa de resolução (conflito semântico, PR de terceiro, `--no-rebase`, tentativa que falhou): o campo diz ao gate que este SHA de base já foi avaliado. Sem ele, o gate reemite `conflito-novo` a cada relançamento e nunca chega ao código 12.
+- **PR conflitante (`mergeable == CONFLICTING`) → tem precedência sobre tudo.** Aplicar o **gate de integração do passo 2b** (fonte única) antes de qualquer outra coisa deste tick, pelo mesmo motivo da 1ª passada: correção empilhada em base que não funde piora o conflito, e o CI do tick é inconfiável. Se a base andou desde a última tentativa (`conflictAttemptedAtBaseSha != baseRefOid` do passo 1), é tentativa nova; se é o mesmo SHA de base, **não retentar**. Resolvido → evento `conflito-resolvido`, atualizar `lastHeadSha` e `lastMergeable`, e seguir o tick normalmente. Não resolvido → evento `conflito-bloqueado`, **modo degradado**: fechar a conversa das threads do delta (responder/reagir/resolver) sem aplicar, commitar ou pushar, e não contar quiet tick. **Gravar `conflictAttemptedAtBaseSha = baseRefOid` em toda queda para o degradado**, com ou sem tentativa de resolução (qualquer causa da seção 6 do shared, inclusive gate vermelho): o campo diz ao gate que este SHA de base já foi avaliado. Sem ele, o gate reemite `conflito-novo` a cada relançamento e nunca chega ao código 12.
 - **Nova rodada de threads (qualquer delta não vazio)** → executar os passos 3 a 8a em `--auto` **apenas sobre os deltas**: abertas seguem exatamente o fluxo atual; resolvidas por terceiros/unknown passam pela classificação do passo 2 e só findings persistentes/regredidos entram no plano normal de correção. Correção já presente não é reaplicada; se confirmada válida ou improcedente/obsoleta, manter a thread fechada e registrar a verificação. Ao terminar: `round += 1`; adicionar a `resolvedThreadIds` todas as threads do delta processadas (as abertas deixadas por `needs-discussion` também entram em `discussionThreadIds`); adicionar a `verifiedResolvedThreads` os snapshots das threads resolvidas por terceiros/unknown que foram classificadas; atualizar `lastHeadSha`, zerar `quietTicks`. Emitir evento Slack `nova-rodada-fechada` (ver "Hook Slack").
 - **CI vermelho** (e sem delta de threads) → aplicar a **triagem de CI do passo 2c** (fonte única): coletar o porquê via log, identificar se é gate de qualidade externo e, nesse caso, consultar a API conforme `${FLUX_ROOT}/shared/quality-gate-api.md` antes de classificar; se a causa for atribuível ao próprio push e dentro do escopo, tentar **uma** correção na worktree da PR + quality gate + commit/push na mesma branch (evento `ci-corrigido-tentativa`); senão, não mexer no código, registrar e reportar (evento `ci-vermelho` com link do log e, para gate externo, com `metricKey`/`actualValue`/`errorThreshold` da API). No máximo **uma** tentativa de auto-fix por SHA — nunca em loop.
 - **CI verde ou sem checks + sem delta de threads + PR integrando** → antes de contar quiet tick, checar **drift de título e descrição**: se `bodySyncedAtSha != lastHeadSha` ou `titleSyncedAtSha != lastHeadSha`, rodar o passo 8a sobre o SHA corrente (uma passada, com os três guardrails). É o que o evento `drift` do gate pede. **Ao fim do 8a, gravar `bodySyncedAtSha` e `titleSyncedAtSha` com o SHA corrente mesmo quando nada foi editado**: os campos registram "verificado neste SHA", não "editado neste SHA", e sem a gravação o gate reemite `drift` a cada relançamento e a PR nunca assenta. Depois, `quietTicks += 1` (só no fallback agendado; com o gate, o quiet tick é contado por ele). Emitir `ci-verde` apenas na **transição** (quando `lastCiConclusion != success`).
@@ -1131,7 +1131,7 @@ As condições são as mesmas nos dois modos. Com o gate, quem as detecta é o s
 
 - PR mergeada ou fechada.
 - **Assentou**: CI verde **ou PR sem checks** (repo sem CI assenta; CI rodando ou vermelho, não), zero threads no delta (as de `discussionThreadIds` sem réplica nova não contam: esperam o revisor e vão listadas no relatório final; com réplica nova voltam ao delta), **`mergeable == MERGEABLE`** e **título/descrição reconciliados** (`bodySyncedAtSha` e `titleSyncedAtSha` == `lastHeadSha`) por **2 ticks consecutivos** (`quietTicks >= 2`). A PR está pronta para review humano/merge; o watch cumpriu o papel. **Nunca declarar "assentou" com a PR `CONFLICTING`** (nem com `UNKNOWN` sem reconsultar): PR conflitante e quieta é PR travada, não PR pronta, exatamente como título ou descrição afirmando algo que a PR já refutou.
-- **Conflito bloqueado sem saída**: `mergeable == CONFLICTING` com o gate em modo degradado (semântico, `--no-rebase` ou PR de terceiro) e **nada mais a fazer** (zero threads no delta, CI não acionável) → encerrar avisando que a PR precisa de resolução humana do conflito. Ficar vivo não muda o bloqueio, e o watch não deve consumir wakes esperando por decisão que é do usuário.
+- **Conflito bloqueado sem saída**: `mergeable == CONFLICTING` com o gate em modo degradado (qualquer causa da seção 6 do shared, inclusive gate vermelho) e **nada mais a fazer** (zero threads no delta, CI não acionável) → encerrar avisando que a PR precisa de resolução humana do conflito. Ficar vivo não muda o bloqueio, e o watch não deve consumir wakes esperando por decisão que é do usuário.
 - Limite de segurança: `round > 8` ou watch ativo há mais de ~6h sem assentar → encerrar avisando que passou do esperado (provável discussão humana travada, CI cronicamente vermelho ou conflito recorrente com uma base muito movimentada) e pedir olhada manual.
 - Usuário interrompe a sessão.
 
@@ -1143,7 +1143,7 @@ silenciosamente — não há arquivo de estado para marcar. Se o comando falhar 
 no PATH, ignorar o erro e seguir para o relatório final normalmente — é best-effort, nunca
 bloqueante.
 
-Em qualquer saída, **relatório final** no chat: rodadas fechadas, estado final do CI (com link se vermelho), **estado final de integração com a base** (e, se houve resolução de conflito, a estratégia usada e os arquivos resolvidos), threads humanas deixadas em `needs-discussion`, e o range de commits pushados durante o watch.
+Em qualquer saída, **relatório final** no chat: rodadas fechadas, estado final do CI (com link se vermelho), **estado final de integração com a base** (e, se houve resolução de conflito, os itens do relato da seção 5 do shared), threads humanas deixadas em `needs-discussion`, e o range de commits pushados durante o watch.
 
 ### Fallback agendado (`watchWake: agendado`)
 
@@ -1179,7 +1179,7 @@ já entraram na verificação por descoberta, e o `equip` não os toca.
 
 ## Notas finais
 
-- **Integração com a base é o primeiro gate** (passo 2b, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`): PR que não funde com a base é PR sobre a qual não se escreve, e o CI verde dela é sinal falso. Conflito conta como trabalho acionável por si só, então uma PR com zero threads e CI verde **não** encerra a passada se estiver `CONFLICTING` (foi exatamente assim que a `arco-ai-plugins#252` passou batida). Resolução mecânica o flow faz; semântica é do usuário; force-push só com `--force-with-lease`, autorizado pelo próprio pedido de resolver, sem gate, e relatado depois no board.
+- **Integração com a base é o primeiro gate** (passo 2b, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`): PR que não funde com a base é PR sobre a qual não se escreve, e o CI verde dela é sinal falso. Conflito conta como trabalho acionável por si só, então uma PR com zero threads e CI verde **não** encerra a passada se estiver `CONFLICTING` (foi exatamente assim que a `arco-ai-plugins#252` passou batida). Resolução mecânica o flow faz; semântica é do usuário; o push da resolução segue a seção 5 do shared.
 - Verificação vem antes de tudo: nunca aceitar um comentário sem confirmar a alegação no código real. Vale igual dentro do modo WATCH e no `--dry`.
 - **Specialists por default**: a verificação enriquece com os specialists do repo seguindo `${FLUX_ROOT}/shared/review-agents.md`. Use `--solo` para pular e rodar só com `<HOLISTIC>`. Fallback gracioso quando não houver specialists no repo.
 - **Watch é o default**: após a 1ª passada e o push, fica vivo monitorando CI + novas rodadas do bot até a PR assentar/mergear (ver "Modo WATCH"). Quem espera é o gate mecânico, fora da LLM; onde ele não puder ser usado, o watch cai no agendado, com aviso. Use **`--once`** (alias `--no-watch`) para o comportamento de uma passada só.

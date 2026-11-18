@@ -276,7 +276,10 @@ literalmente este retorno, e nada além dele:
 - issueComments: <respondidos>/<acionáveis>   # top-level, não vêm no reviewThreads
 - ci: <passing | failing | pending | n/d>
 - mergeable: <MERGEABLE | CONFLICTING | UNKNOWN>
-- conflito: <n/a | resolvido:<rebase|merge> | bloqueado:<semantico|terceiro|no-rebase|abortado>>
+- conflito: <n/a | resolvido:<rebase|merge> | bloqueado:<semantico|terceiro|no-rebase|abortado|gate-vermelho|lease-recusado>>
+- headShaAntes / headShaDepois: <sha antes / depois do push da resolução>   # só com conflito: resolvido:*
+- revListAntes / revListDepois: <atrás>/<à frente> antes / depois             # só com conflito: resolvido:*
+- arquivosResolvidos: <uma linha por arquivo: path, decisão em poucas palavras>  # só com conflito: resolvido:*
 - isDraft: <true|false>
 - pushed: <true|false>
 - bloqueios: <lista curta, ou nenhum>
@@ -405,7 +408,7 @@ Cada **tick**:
 - Todas as PRs `MERGED`/`CLOSED`.
 - **Assentou**: todas merge-ready (CI verde + zero threads + **`mergeable == MERGEABLE`** + veredito `safe`/`needs-order` resolvido) por **2 ticks** (`quietTicks >= 2`) → emitir **go/no-go final** com a ordem e encerrar.
 
-> **Conflito com a base é `no-go` por PR, não detalhe de merge.** O `mergeable` já vem na descoberta (fase 1); uma PR `CONFLICTING` **não** é merge-ready, e o gate quem aplica é o `/flux:iterate` da fase 4 dentro do subagente daquela PR (passo 2b dele, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`). O land não resolve conflito por conta própria. O iterate despachado aqui roda sem `--no-rebase`, então a resolução mecânica sai publicada com `--force-with-lease` sem gate humano (shared, seção 5), e o retorno dele traz o que foi publicado; o land lê esse retorno, marca a PR como `hold` no painel quando o gate ficou em modo degradado, e nunca emite `go` para PR conflitante. Numa entrega, isso é ainda mais crítico que numa PR só: a ordem de merge existe justamente porque mergear a #A muda a base da #B, então uma #B já conflitante tende a piorar a cada merge do lote.
+> **Conflito com a base é `no-go` por PR, não detalhe de merge.** O `mergeable` já vem na descoberta (fase 1); uma PR `CONFLICTING` **não** é merge-ready, e o gate quem aplica é o `${FLUX_CMD}iterate` da fase 4 dentro do subagente daquela PR (passo 2b dele, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`). O land não resolve conflito por conta própria. O `${FLUX_CMD}iterate` despachado aqui roda sem `--no-rebase`, então a resolução mecânica sai publicada nas condições da seção 5 do shared, sem gate humano; o relato chega pelos campos `headShaAntes`/`headShaDepois`, `revListAntes`/`revListDepois` e `arquivosResolvidos` do contrato da fase 4 e é gravado no board do land (sem board, por falta de `VAULT_ROOT`, o land declara em `degradacoes:` a perda do rastro do force-push). O land lê esse retorno, marca a PR como `hold` no painel quando o gate ficou em modo degradado, e nunca emite `go` para PR conflitante. Numa entrega, isso é ainda mais crítico que numa PR só: a ordem de merge existe justamente porque mergear a #A muda a base da #B, então uma #B já conflitante tende a piorar a cada merge do lote.
 - Limite de segurança: `>~6h` sem assentar → encerrar avisando (provável discussão humana/CI cronicamente vermelho).
 - Usuário interrompe.
 
