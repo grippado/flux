@@ -276,7 +276,7 @@ literalmente este retorno, e nada além dele:
 - issueComments: <respondidos>/<acionáveis>   # top-level, não vêm no reviewThreads
 - ci: <passing | failing | pending | n/d>
 - mergeable: <MERGEABLE | CONFLICTING | UNKNOWN>
-- conflito: <n/a | resolvido:<rebase|merge> | bloqueado:<semantico|terceiro|no-rebase|abortado|gate-vermelho|lease-recusado>>
+- conflito: <n/a | resolvido:<rebase|merge> | bloqueado:<semantico|terceiro|no-rebase|abortado|gate-vermelho|lease-recusado|worktree-retida>>
 - headShaAntes / headShaDepois: <sha antes / depois do push da resolução>   # só com conflito: resolvido:*
 - revListAntes / revListDepois: <atrás>/<à frente> de git rev-list --left-right --count "origin/$BASE...origin/$BRANCH", antes / depois   # só com conflito: resolvido:*
 - arquivosResolvidos: <uma linha por arquivo: path, decisão em poucas palavras>  # com conflito: resolvido:* ou bloqueado:gate-vermelho|lease-recusado

@@ -338,9 +338,11 @@ Com `mergeable` / `mergeStateStatus` coletados no passo 2:
   2. **Classificar** mecânico vs semântico pela régua do shared. `--no-rebase`, PR de terceiro
      (`author.login != ` conta autenticada) ou classificação semântica ⇒ **não resolver**: ir ao modo
      degradado (abaixo). As demais causas de degradado (rebase abortado, gate vermelho, lease
-     recusado) estão na seção 6 do shared.
+     recusado, worktree retida) estão na seção 6 do shared.
   3. **Resolver via subagente executor** (o mesmo do passo 4, mesma disciplina de worktree e de
-     fan-out), que aplica a estratégia, roda o quality gate do repo e **para sem pushar**.
+     fan-out), que aplica a estratégia, roda o quality gate do repo e **para sem pushar**. O prompt
+     leva o `retainedResolutionSha` do estado, para a conferência do descarte condicionado (seção 4,
+     item 2, e seção 5 do shared).
   4. **Publicar conforme a seção 5 do shared**, só se nenhum gate do item 3 voltou vermelho (`n/a`
      não segura). Gate vermelho ⇒ não pushar: é bloqueio e o elo vai ao modo degradado. Depois do
      push, registrar o relato conforme a seção 5.

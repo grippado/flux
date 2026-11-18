@@ -133,7 +133,9 @@ código e edita arquivo (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). O exec
    repetido commit após commit): **`git rebase --abort` / `git merge --abort`** e devolver como
    bloqueio. Abortar é resultado legítimo, não falha do executor.
 4. Roda o quality gate real do repo depois de resolver, e reporta o resultado de cada gate como ele
-   veio. Gate não executável localmente é `n/a` com o motivo, nunca "verde".
+   veio. Gate não executável localmente é `n/a` com o motivo, nunca "verde". Devolve a worktree
+   limpa (`status --porcelain` vazio): o que um gate escrever em arquivo (lint com `--fix`, por
+   exemplo) entra no commit da resolução ou é descartado, e vai no relato de qualquer forma.
 5. **Para sem pushar.** O push é do elo, nas condições da seção 5.
 
 Contrato de retorno enxuto (< 40 linhas, sem diff colado): worktree, estratégia, ok/abortado, commits
@@ -145,7 +147,9 @@ Rebase reescreve histórico publicado, e é a operação mais destrutiva de todo
 
 - **Sempre `git push --force-with-lease origin "$BRANCH"`.** Nunca `--force` puro: sem o lease, um
   push concorrente (o bot reviewer, o próprio usuário de outra máquina) é apagado sem aviso. Se o
-  lease falhar, **não insistir**: refetch, reavaliar, e reportar. Lease recusado **não consome** a
+  lease falhar, **não insistir**: refetch, reavaliar, e reportar. Lease recusado é só a rejeição do
+  push por lease (`stale info`); qualquer outra rejeição (branch protegida, hook do servidor,
+  permissão) consome a tentativa e é bloqueio `abortado`. Lease recusado **não consome** a
   tentativa daquele SHA de base (quem andou foi a branch, não a base): a próxima passada ou tick pode
   tentar de novo depois do refetch, respeitando o descarte condicionado abaixo.
 - **Merge da base não precisa de force.** Push normal.
@@ -164,14 +168,17 @@ Rebase reescreve histórico publicado, e é a operação mais destrutiva de todo
 - **Resolução retida e descarte condicionado.** Resolução retida é a resolução local que não foi
   publicada porque o quality gate ficou vermelho ou porque o lease foi recusado; a causa não muda o
   tratamento. Ao reter, o elo registra o SHA local da resolução (o que o executor devolve no contrato
-  da seção 4) como `retainedResolutionSha`. Antes da próxima tentativa, o descarte só acontece com as
+  da seção 4) como `retainedResolutionSha`, e o passa no prompt do executor da próxima tentativa,
+  que é quem faz a conferência abaixo (seção 4, item 2). Antes da próxima tentativa, o descarte só acontece com as
   duas condições juntas: `HEAD` da worktree igual a `retainedResolutionSha` **e**
   `git -C <worktree> status --porcelain` vazio. Aí, e só aí,
   `git -C <worktree> reset --hard "origin/$BRANCH"`, na worktree dedicada, nunca na árvore principal,
   e `retainedResolutionSha` volta a `null`. Qualquer outra situação (`HEAD` diferente, worktree suja,
-  `retainedResolutionSha` desconhecido, por exemplo numa sessão nova sem estado) **não reseta**: parar
-  e reportar como bloqueio, porque a worktree pode ter commit de correção não publicado ou mudança do
-  usuário. O relato do bloqueio já registrou o que foi tentado.
+  `retainedResolutionSha` desconhecido, por exemplo numa sessão nova sem estado) **não reseta**, porque
+  a worktree pode ter commit de correção não publicado ou mudança do usuário: é bloqueio
+  `worktree-retida` e o elo cai no modo degradado (seção 6). O relato traz
+  `git -C <worktree> log --oneline "origin/$BRANCH..HEAD"` e `git -C <worktree> status --porcelain`,
+  e as duas saídas para o humano destravar: publicar à mão o que está na worktree, ou descartar à mão.
 - **O relato substitui a pergunta.** Depois do push, registrar no board e no resumo da rodada:
   estratégia, arquivos resolvidos com a decisão de cada um, resultado dos gates, SHA antes/depois e o
   `<atrás>/<à frente>` de `git rev-list --left-right --count "origin/$BASE...origin/$BRANCH"` (o
@@ -191,7 +198,7 @@ Rebase reescreve histórico publicado, e é a operação mais destrutiva de todo
 ## 6. Quando o gate não consegue resolver: modo degradado, não paralisia
 
 Conflito semântico, `--no-rebase`, PR de terceiro, rebase abortado, quality gate vermelho após
-resolver ou lease recusado **não abortam o comando**. Eles
+resolver, lease recusado ou worktree retida sem descarte seguro (seção 5) **não abortam o comando**. Eles
 particionam o que ainda é seguro fazer:
 
 | ação | depende de base integrada? |
