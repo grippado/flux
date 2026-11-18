@@ -88,6 +88,10 @@ com gate, sem precisar emendar esta tabela.
 > os demais elos, num arquivo que costuma ser versionado nos dotfiles de alguém, é ação com
 > gate, nunca consequência de ter equipado um repo.
 
+**Exceção declarada:** o `git push --force-with-lease` que publica uma resolução mecânica de conflito
+com a base, nas condições da seção 5, não abre GATE `commit-push`. O pedido de resolver é a
+autorização, e o rastro vai para o board depois (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5).
+
 ### O que NÃO precisa de gate
 
 - Ler qualquer coisa (repo, PR, doc, thread).
