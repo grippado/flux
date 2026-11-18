@@ -111,7 +111,7 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 | `--from-kit <ref>` | Em vez de autorar do zero, instala a partir de um kit já pronto. Ver "Kits", abaixo. |
 | `--from-map` | **Uso interno: despachado pelo `${FLUX_CMD}map`**, sob as três garantias da Forma 2 do `${FLUX_ROOT}/shared/fanout-discipline.md`: escopo e destino já consentidos no gate da main dele (nenhum gate abre aqui, porque não sobrou gate); índice carimbado pelo chamador; e **arquivo existente e manifesto não são deste processo** — encontrados, o verbo para, não escreve, e devolve no retorno. Ver "Step 4c" e "Step 6". |
 | `--slack-directory` | **Modo próprio, sem `<repo>`:** cria o esqueleto do diretório de alias de pessoas e canais do Slack, ao lado do manifesto, e oferece registrá-lo em `slack_directory`. Ignora todas as outras flags de camada e não toca em motor nem em suite. Ver "Step 4d". Ignorado sob `--from-map`. |
-| `--dry` | Faz o diagnóstico completo, imprime o plano de equipagem e **para**. Nada é escrito, nenhum gate abre. |
+| `--dry` | Faz o diagnóstico completo, imprime o plano de equipagem e **para**. Nada é escrito, nenhum gate abre. Com `--slack-directory`, mostra só o caminho resolvido e o esqueleto. |
 
 Sem `--engine-only` nem `--agents-only`, o verbo cuida das duas camadas — mas **só do que falta**.
 Uma camada que já existe não é reescrita nem "atualizada" por iniciativa própria: o diagnóstico
@@ -443,7 +443,8 @@ Step 2. O artefato é de **contexto**, não de repo, e é consumido pelo `flux:r
 
 **Banner e `--dry`.** O output abre com o banner do elo, **sem** `lentes:` e **sem** `motor:`: não houve
 inventário, e campo que o elo não resolveu não entra (mesma regra do `holistico:` no `reply`). `destino:`
-entra com o diretório do arquivo resolvido, ou `nao resolvido`. Com `--dry`: imprimir o banner, o caminho
+segue a regra do banner do verbo: `nao resolvido` até o gate de criação ser respondido (sempre sob
+`--dry`), e o diretório do arquivo depois da aprovação. Com `--dry`: imprimir o banner, o caminho
 resolvido e o esqueleto, e **parar**; nenhum gate abre e nada é escrito.
 
 1. **Exige manifesto.** O caminho do diretório é relativo ao manifesto, então sem `flux-context.json`

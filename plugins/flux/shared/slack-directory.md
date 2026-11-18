@@ -194,9 +194,11 @@ técnica pede resposta embasada. Duas coisas do diretório servem a isso:
 
 Placeholder que não pôde ser preenchido nunca sai literal no rascunho: perguntar ao usuário
 (`AskUserQuestion`, campo livre aceito) ou, sem resposta, abandonar o atalho e seguir o caminho normal.
-O texto preenchido passa pelas mesmas regras de escrita do reply (convenção de citações, verificação 8a,
-Slack-safe, `NO_EMDASH`) antes do gate de salvar, descrito no passo 9 do `flux:reply`. Mais de um intent casando no mesmo pedido abre gate.
-Texto externo respeita `NO_EMDASH` do manifesto, inclusive o `template`.
+`{pr_title}` e `{repo}` são dados externos e entram com `&`, `<` e `>` escapados. A varredura do reply
+(escape, convenção de citações, verificação 8a, Slack-safe e `NO_EMDASH`) vale sobre o texto **final**,
+já preenchido, antes do gate de salvar descrito no passo 9 do `flux:reply`. Mais de um intent casando
+no mesmo pedido abre gate. O caminho rápido nunca roda em watch: por alias ou por permalink, ele força
+`WATCH=false`.
 
 **Uma PR por pedido.** Intent com `max_prs: 1` e pedido que cita mais de uma PR: um rascunho por PR, em
 sequência. O Slack aceita um rascunho anexado por canal (`attached_draft_exists`), então salvar o
@@ -217,9 +219,11 @@ ticket já postado. Intent sem esse campo não muda o comportamento de quem pass
 **Status por reação.** Com `status_reactions` no canal e o intent resolvido sobre uma PR, oferecer em
 **GATE** (`${FLUX_ROOT}/shared/hitl.md`, `AskUserQuestion` no Claude Code) **depois** de o rascunho estar
 salvo: adicionar a reação do status (`approved`, `commented`, `merged`, `reviewing`) na mensagem do
-pedido, conferindo antes com `slack_get_reactions` para não duplicar. É escolha explícita do usuário,
-nunca automática, e sem veredito conhecido não há opção recomendada. A ferramenta só **adiciona**: a reação de status anterior fica, e retirá-la é do
-usuário, o que deve ser dito na oferta.
+pedido, conferindo antes com `slack_get_reactions` para não duplicar (reação já presente: não
+adicionar e dizer ao usuário). É escolha explícita do usuário, nunca automática, e sem veredito
+conhecido não há opção recomendada. A mensagem do pedido é achada pela mesma busca de
+`in_thread_of_pr_post`, mesmo quando o intent não é de réplica em thread. A ferramenta só **adiciona**:
+a reação de status anterior fica, e retirá-la é do usuário, o que deve ser dito na oferta.
 
 Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_CANAL` como contexto.
 

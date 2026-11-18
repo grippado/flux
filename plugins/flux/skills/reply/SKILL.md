@@ -127,13 +127,15 @@ Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver
 - Ambiguidade, dois canais e termo sem acerto seguem os gates do contrato.
 - `PURPOSE_CANAL` e `rules` do canal, quando houver, vão ao answerer.
 - Pedido que casa um `intent` do canal: **caminho rápido do contrato** (`${FLUX_ROOT}/shared/slack-directory.md`,
-  "Direção do canal e intents rápidos"), com `ONCE=true` e o menu "Caminho rápido" do passo 9.
+  "Direção do canal e intents rápidos"). Ele **força `WATCH=false`** (`ONCE=true`) depois do parse acima,
+  mesmo que o watch tenha ficado ligado por default, e usa o menu "Caminho rápido" do passo 9.
 - Ao procurar board existente por superfície, tentar também o `dm_channel_id` da entrada.
 - Fora o caminho rápido, nada muda no resto do pipeline, e o rascunho continua só salvo como rascunho.
 
 Permalink de mensagem cujo `channel_id` consta no diretório, com pedido que casa um intent do canal
 marcado `in_thread_of_target`: caminho rápido com `THREAD_TS` do permalink, e o rascunho sai como
-réplica nessa thread (contrato em `${FLUX_ROOT}/shared/slack-directory.md`).
+réplica nessa thread (contrato em `${FLUX_ROOT}/shared/slack-directory.md`). Também **força
+`WATCH=false`**: o default de watch ligado não vale no caminho rápido, por alias ou por permalink.
 
 Quando o usuário passa um permalink de pessoa ou canal que o diretório não tem, oferecer a linha pronta
 para ele colar. Nunca gravar no diretório.
@@ -351,19 +353,24 @@ Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nun
 5. `Não fazer nada`.
 
 **Caminho rápido (intent do diretório)** — não há `JULGAMENTO` nem board, mas valem **as mesmas regras de
-escrita e o mesmo gate** do caminho normal. Nada é salvo nem reagido sem escolha positiva do usuário.
+escrita e o mesmo gate** do caminho normal. Este caminho, por alias ou por permalink, roda com
+`WATCH=false`: a exceção do watch em background (auto-save sem menu) **não** vale aqui. Nada é salvo nem
+reagido sem escolha positiva do usuário.
 
-*Antes do menu*, a main varre o texto do `template` já preenchido, e esta varredura é dela, não de subagente:
-1. **Convenção de citações (3a) e verificação (8a):** `{pr_title_link}` e `{pr_link}` já saem como
-   hyperlink; qualquer outra citação de PR, issue ou código que o texto fixo traga passa pela 8a (nenhuma
-   forma nua fora de link).
-2. **Regra Slack-safe:** só `*bold*`, `_italic_`, bullets, `>`, `<@ID>`, `<!subteam^ID>` e `<url|texto>`; nada de
-   headers nem tabelas.
-3. **`NO_EMDASH`:** travessão no texto vira vírgula ou dois-pontos.
-4. **Sem lacuna:** placeholder sem valor, PR não resolvida ou `status` indeterminado viram **pergunta ao
+*Antes do menu*, a main varre o texto **final**, com todos os placeholders já preenchidos, e esta varredura é
+dela, não de subagente:
+1. **Dados externos escapados:** `{pr_title}` e `{repo}` vêm do GitHub; `&`, `<` e `>` viram `&amp;`, `&lt;` e
+   `&gt;` antes de entrar no texto.
+2. **Convenção de citações (3a) e verificação (8a)** sobre o texto final: `{pr_title_link}` e `{pr_link}` já
+   saem como hyperlink; qualquer outra citação de PR, issue ou código, inclusive a que vier dentro de um
+   `{pr_title}` solto (título como "ENG-4308: ..." ou "fix #123"), passa pela 8a e não pode ficar nua
+   fora de link.
+3. **Regra Slack-safe** (seção "Regra Slack-safe" abaixo, a mesma do caminho normal, com `<!subteam^ID>` além do `<@ID>`).
+4. **`NO_EMDASH`:** travessão no texto vira vírgula ou dois-pontos.
+5. **Sem lacuna:** placeholder sem valor, PR não resolvida ou status indeterminado viram **pergunta ao
    usuário** (`AskUserQuestion`, com o campo livre "Other" aceitando o valor), nunca texto literal nem
-   chute. Mensagem do pedido não achada (`in_thread_of_pr_post`) também: opções `Rascunhar mensagem nova
-   no canal`, `Informar o link da mensagem` e `Não fazer nada`.
+   chute; sem resposta, abandonar o atalho e seguir o caminho normal (contrato do diretório). Mensagem
+   do pedido não achada (`in_thread_of_pr_post`) segue o GATE do contrato, sem repetir as opções aqui.
 
 *O menu é um GATE* (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado
 no fallback), single-select, recomendada na posição 1, saída inócua por último. "Rascunho do intent `{slug}`
@@ -372,16 +379,28 @@ pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
 2. `Salvar rascunho assinado` — igual à 1, com a assinatura da `## Assinatura do rascunho` no fim.
 3. `Não fazer nada` — nada é escrito: sem board para atualizar.
 
-Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva** (`ONCE=true`, sem watch).
+Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva**.
 
-*Segundo GATE, depois de salvar*, só quando o canal tem `status_reactions` e o intent é sobre uma PR:
-"Atualizar o status da PR na mensagem do pedido?":
-1. `Adicionar :{emoji}: ({status sugerido}) (Recomendado)` — o status sugerido vem do veredito da review quando
-   a sessão o tem (`approved` para aprovar, `commented` para comentários); sem veredito, **não há
-   recomendada** e a pergunta lista os quatro status. `slack_get_reactions` antes, para não duplicar, e
-   `slack_add_reaction` só na escolha.
-2. `Escolher outro status` — lista `merged`, `reviewing`, `approved`, `commented` com o emoji de cada.
+**Rastro sem board.** O `hitl.md` pede registrar a `GateSpec` antes e o resultado depois. Aqui não há board
+nem Timeline: o elo imprime no chat o bloco da `GateSpec` (snapshot, pergunta, opções) antes de perguntar e,
+depois da resposta, o ID e rótulo escolhidos, a ação autorizada, o resultado e o estado final, e declara
+no banner o token `rastro de gate so no chat`.
+
+*Segundo GATE, depois de salvar*, só quando o canal tem `status_reactions` e o intent é sobre uma PR. O
+`state` da `GateSpec` traz: veredito (`approved`, `commented` ou `desconhecido`, com origem: review da
+sessão ou ausente) e a mensagem do pedido (`ts`, com origem: busca no canal pela URL da PR, a mesma do
+`in_thread_of_pr_post`, quando o intent não é de réplica em thread). Mensagem do pedido não achada: o
+mesmo GATE do contrato. "Atualizar o status da PR na mensagem do pedido?":
+
+*Com veredito conhecido* (o status vem da review da sessão: `approved` para aprovar, `commented` para comentários):
+1. `Adicionar :{emoji}: ({status}) (Recomendado)` — `slack_get_reactions` antes; se a reação já está lá, não adiciona e diz isso; senão `slack_add_reaction`.
+2. `Escolher outro status` — lista os três status restantes com o emoji de cada.
 3. `Não reagir`.
+
+*Sem veredito:* **não há opção recomendada.** Duas perguntas em sequência, para respeitar o limite de
+4 opções do `AskUserQuestion`: primeiro `Escolher o status` e `Não reagir` (saída inócua por último);
+escolhido `Escolher o status`, uma segunda pergunta lista `merged`, `reviewing`, `approved` e `commented`
+com o emoji de cada.
 
 A ferramenta só adiciona: a reação de status anterior fica, e dizer isso na pergunta.
 
