@@ -80,12 +80,12 @@ do seu domínio; não copia regras de renderer, recomendação, saída segura ou
 | **escrever no manifesto de contexto** (`flux-context.json`) | `flux:equip`: a aprovação de destino (passo 9 do `write-destination.md`) e o `exec_fallback` do repo (Step 6) |
 | escolher entre alvos ambíguos quando errar custa caro | `flux:issue` (qual board retomar), `flux-context.md` (qual perfil reivindica o slug) |
 
-**Exceção declarada:** o `git push --force-with-lease` que publica uma resolução mecânica de conflito
-com a base não abre GATE `commit-push`. O pedido de resolver é a autorização, e o rastro vai para o
-board depois (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5).
-
 A lista é de **categorias**, não de call sites: uma ação nova que se encaixe numa dessas linhas nasce
 com gate, sem precisar emendar esta tabela.
+
+**Exceção declarada:** o `git push --force-with-lease` que publica uma resolução mecânica de conflito
+com a base, nas condições da seção 5, não abre GATE `commit-push`. O pedido de resolver é a
+autorização, e o rastro vai para o board depois (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5).
 
 > **A linha do manifesto é a mais recente, e a única que altera a configuração da família.** Até o
 > `flux:equip`, nenhum elo escrevia o `flux-context.json` — todos liam. Alterar o arquivo que governa

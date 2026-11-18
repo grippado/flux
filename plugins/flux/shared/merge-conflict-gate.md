@@ -125,13 +125,15 @@ código e edita arquivo (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). O exec
 1. Resolve a worktree da `BRANCH` por `${FLUX_ROOT}/shared/worktree-discipline.md`. **Nunca**
    `git checkout` na árvore principal, e nunca rebase na árvore principal do usuário.
 2. Sincroniza com o remote da branch (`git pull --ff-only`) para não resolver em cima de estado velho.
+   Havendo resolução retida de tentativa anterior (seção 5, gate vermelho), antes do pull faz
+   `git -C <worktree> reset --hard "origin/$BRANCH"`, sempre na worktree dedicada.
 3. Executa a estratégia escolhida. **Se o processo se mostrar maior que o previsto** (conflito em
    arquivo que o `merge-tree` não previu, conflito semântico que a classificação não pegou, conflito
    repetido commit após commit): **`git rebase --abort` / `git merge --abort`** e devolver como
    bloqueio. Abortar é resultado legítimo, não falha do executor.
 4. Roda o quality gate real do repo depois de resolver, e reporta o resultado de cada gate como ele
    veio. Gate não executável localmente é `n/a` com o motivo, nunca "verde".
-5. **Para sem pushar.** O push é decisão de fora (seção 5).
+5. **Para sem pushar.** O push é do elo, nas condições da seção 5.
 
 Contrato de retorno enxuto (< 40 linhas, sem diff colado): worktree, estratégia, ok/abortado, commits
 reaplicados, **por arquivo o que foi decidido e por quê**, resultado dos gates, SHA local, bloqueios.
@@ -144,7 +146,8 @@ Rebase reescreve histórico publicado, e é a operação mais destrutiva de todo
   push concorrente (o bot reviewer, o próprio usuário de outra máquina) é apagado sem aviso. Se o
   lease falhar, **não insistir**: refetch, reavaliar, e reportar.
 - **Merge da base não precisa de force.** Push normal.
-- **O pedido de resolver conflito autoriza o `--force-with-lease`, a qualquer momento do run.**
+- **O pedido de resolver conflito autoriza o `--force-with-lease`, a qualquer momento do run**
+  (fora de fluxo read-only, como `--dry`, que só reporta).
   Invocar o elo sem `--no-rebase` (a resolução é o default) ou pedir explicitamente que ele resolva
   o conflito **é** a autorização: o push com lease da resolução mecânica sai sem gate humano, na 1ª
   passada, com `--auto` e em todo tick do watch, inclusive quando o elo roda despachado por outro
@@ -154,7 +157,9 @@ Rebase reescreve histórico publicado, e é a operação mais destrutiva de todo
 - **Quality gate vermelho segura o push.** A autorização cobre publicar uma resolução que passou nos
   gates do repo (seção 4, item 4), não uma que os quebrou: gate vermelho depois de resolver é
   bloqueio, a resolução fica na worktree sem push e o elo cai no modo degradado (seção 6). Gate `n/a`
-  não segura, vai relatado como `n/a`.
+  não segura, vai relatado como `n/a`. A resolução retida é descartada antes da próxima tentativa
+  (`git -C <worktree> reset --hard "origin/$BRANCH"`, na worktree dedicada, nunca na árvore principal),
+  e o relato do bloqueio já registrou o que foi tentado.
 - **O relato substitui a pergunta.** Depois do push, registrar no board e no resumo da rodada:
   estratégia, arquivos resolvidos com a decisão de cada um, resultado dos gates, SHA antes/depois e o
   `rev-list --count` antes/depois. Force-push sem esse rastro é o que torna a autorização perigosa.
@@ -169,7 +174,8 @@ Rebase reescreve histórico publicado, e é a operação mais destrutiva de todo
 
 ## 6. Quando o gate não consegue resolver: modo degradado, não paralisia
 
-Conflito semântico, `--no-rebase`, PR de terceiro ou rebase abortado **não abortam o comando**. Eles
+Conflito semântico, `--no-rebase`, PR de terceiro, rebase abortado, quality gate vermelho após
+resolver ou lease recusado **não abortam o comando**. Eles
 particionam o que ainda é seguro fazer:
 
 | ação | depende de base integrada? |
