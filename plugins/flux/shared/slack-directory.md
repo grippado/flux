@@ -33,6 +33,13 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
       "aliases": ["maria souza", "msouza"]
     }
   },
+  "usergroups": {
+    "time-plataforma": {
+      "usergroup_id": "S0EEEEEEE",
+      "name": "@time-plataforma",
+      "aliases": ["time de plataforma", "o time"]
+    }
+  },
   "channels": {
     "plataforma": {
       "channel_id": "C0BBBBBBB",
@@ -46,14 +53,25 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
       "name": "#pull-requests",
       "aliases": ["prs", "canal de pr"],
       "purpose": "Só pedido de review e aviso de review feita. Uma linha, com o link da PR.",
+      "rules": ["Uma PR por pedido de review.", "Manter o status da PR atualizado pela legenda de reações."],
+      "default_mentions": ["time-plataforma"],
+      "status_reactions": {
+        "merged": "merged",
+        "reviewing": "eyes",
+        "approved": "white_check_mark",
+        "commented": "speech_balloon"
+      },
       "intents": {
         "pedir-review": {
           "match": ["pedir review", "review pra", "olhar a pr"],
-          "template": "{mentions} review na {pr_link}, por favor?"
+          "max_prs": 1,
+          "template": "{pr_title_link} {mentions}"
         },
         "review-feita": {
           "match": ["review feita", "terminei a review", "avisar review"],
-          "template": "{mentions} terminei a review da {pr_link}."
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "Terminei a review por aqui."
         }
       }
     }
@@ -81,7 +99,19 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
   serve e que tipo de mensagem cabe ali. É contexto de redação, não regra de roteamento.
 - `intents` (canal e grupo, opcional) são os **pedidos rápidos** daquele canal. Cada chave é o slug do
   intent; `match` lista as frases que o usuário usa para pedi-lo; `template` é o texto do rascunho,
-  com os placeholders da tabela em "Intents rápidos".
+  com os placeholders da tabela em "Intents rápidos". Campos opcionais do intent: `max_prs` (inteiro,
+  quantas PRs cabem num pedido), `in_thread_of_pr_post` (o rascunho é réplica na mensagem do canal que
+  contém a PR, ver abaixo) e `use_default_mentions` (padrão `true`; `false` não adiciona as menções
+  padrão do canal).
+- `rules` (canal e grupo, opcional) é uma lista de regras do canal em texto. Vão ao answerer junto do
+  `PURPOSE_CANAL` e valem também no caminho normal. Regra que o flux sabe aplicar mecanicamente tem
+  campo próprio (`max_prs`); o resto é contexto de redação.
+- `default_mentions` (canal e grupo, opcional) é a lista de slugs (de `people` ou `usergroups`)
+  mencionados por padrão nos intents do canal, quando o pedido não cita ninguém.
+- `status_reactions` (canal e grupo, opcional) mapeia o status de uma PR (`merged`, `reviewing`,
+  `approved`, `commented`) ao **nome** da reação, sem os dois-pontos. É a legenda do canal.
+- `usergroups.<slug>.usergroup_id` (`S…`) é um grupo de usuários do Slack (`@time`). A menção é
+  `<!subteam^ID>`. Grupo de usuários não tem DM.
 - Chave que o flux não conhece é preservada e ignorada. Chave que começa com `_` é comentário.
 - **Nenhum conteúdo de mensagem, transcrição ou dado de DM entra aqui.** O arquivo guarda quem e onde,
   não o que foi dito.
@@ -91,16 +121,17 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
 Entrada: o pedido do usuário em linguagem natural ("falar com o maria no plataforma") ou tokens soltos.
 
 1. **Normalizar** o texto do pedido e cada chave e alias: minúsculas, sem acento, espaços colapsados.
-2. **Casar** cada candidato a entidade contra os slugs e aliases, nas três tabelas. Casamento é por
+2. **Casar** cada candidato a entidade contra os slugs e aliases, nas quatro tabelas. Casamento é por
    igualdade do termo inteiro ou por termo contido numa palavra-limite; **nunca por prefixo parcial**
    ("mat" não casa "matta").
-3. **Classificar cada acerto** como pessoa, canal ou grupo.
+3. **Classificar cada acerto** como pessoa, grupo de usuários, canal ou grupo (`groups`).
 4. **Compor o alvo**, e é aqui que a regra vive:
 
 | pedido contém | superfície | menção |
 |---|---|---|
 | pessoa **e** canal ou grupo ("com X em Y") | o canal ou grupo (`kind: channel`) | `<@user_id>` da pessoa |
 | só pessoa ("com X") | DM, `channel_id = user_id` (`kind: dm`) | nenhuma |
+| só grupo de usuários | **gate**: grupo não tem DM, perguntar em que canal | |
 | só canal ou grupo ("em Y") | o canal ou grupo | nenhuma |
 | mais de uma pessoa e um canal | o canal | uma menção por pessoa, na ordem dita |
 | mais de um canal | **gate**, nunca escolher | |
@@ -136,7 +167,8 @@ técnica pede resposta embasada. Duas coisas do diretório servem a isso:
 
 | placeholder | de onde vem |
 |---|---|
-| `{mentions}` | `<@user_id>` de cada pessoa citada no pedido, na ordem dita; vazio se ninguém foi citado |
+| `{mentions}` | menção de cada pessoa (`<@user_id>`) ou grupo de usuários (`<!subteam^ID>`) citado no pedido, na ordem dita; sem ninguém citado, as `default_mentions` do canal (salvo `use_default_mentions: false`); senão vazio |
+| `{pr_title_link}` | `<url|título>` mrkdwn: o título da PR como link direto para o GitHub |
 | `{pr_link}` | `<url|#N>` mrkdwn da PR citada no pedido (URL ou `#N` com repo resolvível) ou da PR da branch atual; sem PR resolvida, **perguntar** |
 | `{pr_title}` | título da PR resolvida |
 | `{repo}` | repo da PR resolvida |
@@ -144,6 +176,22 @@ técnica pede resposta embasada. Duas coisas do diretório servem a isso:
 Placeholder que não pôde ser preenchido nunca sai literal no rascunho: perguntar ou, sem resposta,
 abandonar o atalho e seguir o caminho normal. Mais de um intent casando no mesmo pedido abre gate.
 Texto externo respeita `NO_EMDASH` do manifesto, inclusive o `template`.
+
+**Uma PR por pedido.** Intent com `max_prs: 1` e pedido que cita mais de uma PR: um rascunho por PR, em
+sequência. O Slack aceita um rascunho anexado por canal (`attached_draft_exists`), então salvar o
+primeiro, dizer que o próximo espera o usuário enviar ou apagar o anterior, e **não** juntar as PRs
+numa mensagem.
+
+**Réplica na mensagem da PR (`in_thread_of_pr_post`).** O rascunho vira réplica na thread da mensagem
+do canal que contém a PR: buscar no canal pela URL da PR (`slack_search_public_and_private` com
+`in:<canal>`), pegar o `ts` da mensagem do pedido e usar como `thread_ts`. Não achou: perguntar, com a
+opção de rascunhar mensagem nova no canal.
+
+**Status por reação.** Com `status_reactions` no canal e o intent resolvido sobre uma PR, oferecer em
+gate **depois** de o rascunho estar salvo: adicionar a reação do status (`approved`, `commented`,
+`merged`, `reviewing`) na mensagem do pedido (`slack_add_reaction`). É escolha explícita do usuário,
+nunca automática. A ferramenta só **adiciona**: a reação de status anterior fica, e retirá-la é do
+usuário, o que deve ser dito na oferta.
 
 Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_CANAL` como contexto.
 

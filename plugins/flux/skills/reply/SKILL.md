@@ -129,7 +129,9 @@ Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver
   um `intent` do canal (`${FLUX_ROOT}/shared/slack-directory.md`, "Direção do canal e intents
   rápidos"), seguir o **caminho rápido**: montar o rascunho do `template`, **sem prospecção, sem board
   e sem watch** (`ONCE=true`), e ir direto ao menu de ação do passo de rascunho. Placeholder sem valor
-  vira pergunta, nunca texto literal no rascunho.
+  vira pergunta, nunca texto literal no rascunho. As regras de `max_prs`, de `in_thread_of_pr_post` e a
+  oferta de reação de status (`status_reactions`) estão no contrato do diretório e valem aqui.
+- `rules` do canal, quando houver, vão ao answerer junto do `PURPOSE_CANAL`.
 - Fora o caminho rápido, nada muda no resto do pipeline, e o rascunho continua só salvo como rascunho.
 
 Quando o usuário passa um permalink de pessoa ou canal que o diretório não tem, oferecer a linha pronta
