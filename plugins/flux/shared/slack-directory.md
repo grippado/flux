@@ -120,10 +120,13 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
 
 Entrada: o pedido do usuário em linguagem natural ("falar com o maria no plataforma") ou tokens soltos.
 
-1. **Normalizar** o texto do pedido e cada chave e alias: minúsculas, sem acento, espaços colapsados.
+1. **Normalizar** o texto do pedido e cada chave e alias: minúsculas, sem acento, hífen e sublinhado contam como espaço, espaços colapsados.
 2. **Casar** cada candidato a entidade contra os slugs e aliases, nas quatro tabelas. Casamento é por
    igualdade do termo inteiro ou por termo contido numa palavra-limite; **nunca por prefixo parcial**
    ("mat" não casa "matta").
+   **O casamento mais longo vence:** alias que está contido, no mesmo trecho do pedido, num alias maior
+   que também casou é descartado ("ai productivity" não disputa com "ai productivity interno"). Só
+   empate real, dois acertos distintos no mesmo trecho, vira gate.
 3. **Classificar cada acerto** como pessoa, grupo de usuários, canal ou grupo (`groups`).
 4. **Compor o alvo**, e é aqui que a regra vive:
 
