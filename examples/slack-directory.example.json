@@ -1,0 +1,100 @@
+{
+  "version": 1,
+  "workspace": "acme",
+  "_doc": "Exemplo sanitizado. Ids e nomes são fictícios. Formato: plugins/flux/shared/slack-directory.md.",
+  "people": {
+    "maria": {
+      "user_id": "U0AAAAAAA",
+      "name": "Maria Souza",
+      "aliases": [
+        "maria souza",
+        "msouza"
+      ]
+    }
+  },
+  "usergroups": {
+    "time-plataforma": {
+      "usergroup_id": "S0EEEEEEE",
+      "name": "@time-plataforma",
+      "aliases": [
+        "time de plataforma",
+        "o time"
+      ]
+    }
+  },
+  "channels": {
+    "plataforma": {
+      "channel_id": "C0BBBBBBB",
+      "name": "#plataforma",
+      "aliases": [
+        "plataforma",
+        "canal de plataforma"
+      ],
+      "purpose": "Dúvidas e avisos do time de plataforma. Mensagem curta, direta.",
+      "intents": {
+        "triagem-recebida": {
+          "match": [
+            "triagem",
+            "recebi o ticket"
+          ],
+          "in_thread_of_target": true,
+          "use_default_mentions": false,
+          "template": "Recebi, obrigado! Vamos analisar e aviso por aqui."
+        }
+      }
+    },
+    "pull-requests": {
+      "channel_id": "C0DDDDDDD",
+      "name": "#pull-requests",
+      "aliases": [
+        "prs",
+        "canal de pr"
+      ],
+      "purpose": "Só pedido de review e aviso de review feita. Uma linha, com o link da PR.",
+      "rules": [
+        "Uma PR por pedido de review.",
+        "Manter o status da PR atualizado pela legenda de reações."
+      ],
+      "default_mentions": [
+        "time-plataforma"
+      ],
+      "status_reactions": {
+        "merged": "merged",
+        "reviewing": "eyes",
+        "approved": "white_check_mark",
+        "commented": "speech_balloon"
+      },
+      "intents": {
+        "pedir-review": {
+          "match": [
+            "pedir review",
+            "review pra",
+            "olhar a pr"
+          ],
+          "max_prs": 1,
+          "template": "{pr_title_link} {mentions}"
+        },
+        "review-feita": {
+          "match": [
+            "review feita",
+            "terminei a review",
+            "avisar review"
+          ],
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "Terminei a review por aqui."
+        }
+      }
+    }
+  },
+  "groups": {
+    "sre": {
+      "channel_id": "G0CCCCCCC",
+      "name": "grupo-sre",
+      "aliases": [
+        "sre",
+        "plantão"
+      ]
+    }
+  }
+}

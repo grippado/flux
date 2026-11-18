@@ -32,6 +32,17 @@ Repare também que ali o `exec_fallback` é um **mapa**, não um texto: `default
 inteiro e `payments` sobrescreve para aquele repo. A forma de texto continua válida e equivale a um
 mapa só com `default` — quem já tem um manifesto antigo não precisa mudar nada.
 
+## `slack_directory`: alias de pessoas e canais do Slack
+
+Campo opcional que aponta para um JSON, relativo ao manifesto. Com ele, o `flux:reply` entende
+"falar com a Maria no plataforma" sem você colar permalink, e usa a direção de cada canal (`purpose`)
+e os pedidos rápidos (`intents`, como pedir review ou avisar review feita) para rascunhar curto onde o
+canal pede. Veja [`slack-directory.example.json`](slack-directory.example.json) e o contrato em
+[`shared/slack-directory.md`](../plugins/flux/shared/slack-directory.md).
+
+Quem preenche é você. O `flux:equip --slack-directory` só cria o esqueleto vazio, sob gate, e grava o
+campo no manifesto se você deixar. Ids reais ficam no seu repositório de configuração, nunca no flux.
+
 ## `scope_escalation`, e por que ele é texto livre
 
 Quando o [gate de escopo](../plugins/flux/shared/scope-gate.md) classifica um pedido como grande

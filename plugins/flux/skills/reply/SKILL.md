@@ -1,6 +1,6 @@
 ---
 name: reply
-description: "Orquestrador `flux:reply` — acompanha um CASO de trabalho no Slack embasado no codebase; prospecção em paralelo por repo, rascunho no Slack + board vivo no vault; segue o caso quando ele muda de canal; nunca posta sozinho. Global, resolve contexto leve via flux-context.json (VAULT_ROOT, VAULT_CTX, NO_EMDASH). Prospector e answerer vêm do manifesto; sem eles, cai em general-purpose."
+description: "Orquestrador `flux:reply` — acompanha um CASO de trabalho no Slack embasado no codebase; prospecção em paralelo por repo, rascunho no Slack + board vivo no vault; segue o caso quando ele muda de canal; nunca posta sozinho. Global, resolve contexto leve via flux-context.json (VAULT_ROOT, VAULT_CTX, NO_EMDASH). Prospector e answerer vêm do manifesto; sem eles, cai em general-purpose. Com `slack_directory` no manifesto, resolve \"falar com fulano no canal X\" por alias, sem permalink."
 user-invocable: true
 ---
 
@@ -55,11 +55,16 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md` — procurar `flux-c
 - `PROSPECTOR` = `slack_prospector` do manifesto; sem o campo: `general-purpose`
 - `ANSWERER` = `slack_answerer` do manifesto; sem o campo: `general-purpose`
 - `MCP_SLACK` = `mcp.slack` do manifesto; sem o campo: descobrir a capacidade na sessão (ver "Validar ambiente")
+- `SLACK_DIR` = `slack_directory` do manifesto, resolvido relativo ao diretório do manifesto (ou `~/`); sem o campo, arquivo ausente ou JSON inválido: sem diretório. Formato e regra em `${FLUX_ROOT}/shared/slack-directory.md`
 
 > **Nota:** `slack_prospector` e `slack_answerer` são campos **opcionais** do manifesto. Declará-los é
 > o que troca o `general-purpose` genérico por agentes que conhecem os repos e o tom do time, e é a
 > diferença entre uma réplica correta e uma réplica boa. Sem eles o comando roda, com prospecção mais
 > rasa: declarar a perda no banner de perfil.
+>
+> `slack_directory` também é **opcional**. Sem ele o alvo continua exigindo permalink; quando o pedido
+> trazia alias, declarar o token `alias sem diretorio` em `degradacoes:` (tabela do preflight), em vez
+> de tentar achar `user_id` ou `channel_id` por busca de nome.
 
 Sem manifesto: `VAULT_ROOT` = não persiste por default (só imprime o board no chat); `VAULT_CTX` = `generic`; `NO_EMDASH` = `false`; `PROSPECTOR`/`ANSWERER` = `general-purpose`.
 
@@ -101,11 +106,39 @@ done
 TARGET="${TARGETS[-1]}"                      # a superfície ATUAL é sempre a última informada
 ```
 
-- Se não há permalink Slack válido em `TARGETS`, **abortar** com mensagem pedindo o link (`${FLUX_CMD}reply responder <permalink>`).
+- Se não há permalink Slack válido em `TARGETS`, tentar **alvo por alias** (próxima subseção) quando há `SLACK_DIR` e o pedido cita pessoa ou canal. Só se isso também não resolver, **abortar** com mensagem pedindo o link (`${FLUX_CMD}reply responder <permalink>`).
 - **A superfície atual é a ÚLTIMA da lista.** Quando o usuário passa dois links ("era nessa thread, agora o papo tá aqui"), o primeiro é histórico e o último é onde a conversa está viva agora.
 - `--board <path>` assume um board existente em vez de procurar/criar. Atalho para quando o usuário já sabe qual é.
 - **Watch é DEFAULT-ON**: depois da 1ª passada, o comando fica vigiando o caso até assentar. `--once` (alias `--no-watch`) faz uma passada só.
 - **Linguagem natural conta como sinal de migração.** Se o pedido do usuário descreve movimento ("moveram pra cá", "o papo continuou em", "mandei por DM e ele respondeu em", "agora tá no canal X"), tratar como `mudou` mesmo sem o verbo literal. Ele não vai lembrar de digitar o verbo; o comando é que tem que reconhecer a situação.
+
+### Alvo por alias (sem permalink)
+
+Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver pelo contrato de
+`${FLUX_ROOT}/shared/slack-directory.md` e **pular** o parse de permalink abaixo:
+
+- `CHANNEL_ID` = `channel_id` do canal ou grupo, ou o `user_id` da pessoa quando o pedido é só "com
+  fulano" (DM). `KIND` vem da **entrada resolvida** (`channel` ou `dm`), não do prefixo do id.
+- `THREAD_TS` = vazio e `MSG_TS` = vazio: não há mensagem de origem, a leitura é `slack_read_channel`.
+- `MENTIONS` = o `{mentions}` do contrato do diretório (pessoas e grupos de usuários citados, ou as
+  `default_mentions` do canal). O answerer as recebe e as renderiza.
+- O pedido do usuário é a **intenção** do rascunho. Passá-la ao prospector e ao answerer como
+  `INTENT`: aqui o rascunho abre uma mensagem nova, não responde a uma.
+- Ambiguidade, dois canais e termo sem acerto seguem os gates do contrato.
+- `PURPOSE_CANAL` e `rules` do canal, quando houver, vão ao answerer.
+- Pedido que casa um `intent` do canal: **caminho rápido do contrato** (`${FLUX_ROOT}/shared/slack-directory.md`,
+  "Direção do canal e intents rápidos"). Ele **força `WATCH=false`** (`ONCE=true`) depois do parse acima,
+  mesmo que o watch tenha ficado ligado por default, e usa o menu "Caminho rápido" do passo 9.
+- Ao procurar board existente por superfície, tentar também o `dm_channel_id` da entrada.
+- Fora o caminho rápido, nada muda no resto do pipeline, e o rascunho continua só salvo como rascunho.
+
+Permalink de mensagem cujo `channel_id` consta no diretório, com pedido que casa um intent do canal
+marcado `in_thread_of_target`: caminho rápido com `THREAD_TS` do permalink, e o rascunho sai como
+réplica nessa thread (contrato em `${FLUX_ROOT}/shared/slack-directory.md`). Também **força
+`WATCH=false`**: o default de watch ligado não vale no caminho rápido, por alias ou por permalink.
+
+Quando o usuário passa um permalink de pessoa ou canal que o diretório não tem, oferecer a linha pronta
+para ele colar. Nunca gravar no diretório.
 
 ### Resolver o permalink → `channel_id` + `thread_ts`
 
@@ -138,7 +171,7 @@ Sem canal de Slack nenhum, **abortar** sem gravar nada, dizendo qual prefixo foi
 ## Out of scope (NUNCA faça sem escolha explícita)
 
 - **Nunca** `slack_send_message` (enviar de fato na thread). A ação de enviar é sempre do usuário, no Slack, revisando o rascunho.
-- **Nunca** `slack_add_reaction` fora da opção escolhida no menu final (passo 8). Reagir é efeito externo visível.
+- **Nunca** `slack_add_reaction` fora da opção escolhida no menu final (passo 9) ou, no caminho rápido, no gate de status que vem depois do rascunho. Reagir é efeito externo visível.
 - Salvar rascunho (`slack_send_message_draft`) é a **única** ação com efeito no Slack que pode ser automática — e só no modo watch em background (é privado, reversível, não notifica ninguém). Na passada interativa, mesmo o rascunho passa pelo menu.
 - Não escrever em lugar nenhum exceto: o board no vault (`<VAULT_ROOT>/0-inbox/`), o sidecar de estado do watch (`<VAULT_ROOT>/.slack-watch/`), e o rascunho no Slack quando autorizado.
 - Falha graciosa: se um subagent retornar erro/output malformado, **abortar e não gravar board parcial**.
@@ -252,6 +285,7 @@ Delegar ao `<ANSWERER>` (um só) via Task tool, passando:
 - A thread na íntegra (mensagens + autores + ts).
 - Os `ACHADOS` de todos os investigadores.
 - Os perfis dos interlocutores (nomes + `user_id`).
+- Quando o alvo veio de alias: `INTENT`, `MENTIONS` e `PURPOSE_CANAL` (Step 1, "Alvo por alias").
 - As reações existentes na mensagem-alvo.
 - Contexto: canal, se a raiz é do próprio usuário, e qual mensagem motivou esta rodada.
 - `PERGUNTAS_ABERTAS` (passo 3), com a regra de formato inteira, que é a única definição dela neste elo: cada pergunta sai como `> pergunta`, verbatim (pergunta de várias linhas leva `>` em cada linha), seguida da resposta, que **começa respondendo** e fica em 1 a 3 frases, com o embasamento e o contexto depois. Sem inventário de achados que ninguém pediu. Com `PERGUNTAS_ABERTAS` não vazia, o `JULGAMENTO` esperado é `responder`. Sem pergunta aberta, o rascunho segue o formato normal.
@@ -317,6 +351,58 @@ Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nun
 3. `Só documentar (não rascunhar agora)` — o board já está atualizado, encerra.
 4. `Reagir com emoji em vez de responder` — mostra emoji sugerido, confirma, `slack_add_reaction`.
 5. `Não fazer nada`.
+
+**Caminho rápido (intent do diretório)** — não há `JULGAMENTO` nem board, mas valem **as mesmas regras de
+escrita e o mesmo gate** do caminho normal. Este caminho, por alias ou por permalink, roda com
+`WATCH=false`: a exceção do watch em background (auto-save sem menu) **não** vale aqui. Nada é salvo nem
+reagido sem escolha positiva do usuário.
+
+*Antes do menu*, a main varre o texto **final**, com todos os placeholders já preenchidos, e esta varredura é
+dela, não de subagente:
+1. **Dados externos escapados:** `{pr_title}` e `{repo}` vêm do GitHub; `&`, `<` e `>` viram `&amp;`, `&lt;` e
+   `&gt;` antes de entrar no texto.
+2. **Convenção de citações (3a) e verificação (8a)** sobre o texto final: `{pr_title_link}` e `{pr_link}` já
+   saem como hyperlink; qualquer outra citação de PR, issue ou código, inclusive a que vier dentro de um
+   `{pr_title}` solto (título como "ENG-4308: ..." ou "fix #123"), passa pela 8a e não pode ficar nua
+   fora de link.
+3. **Regra Slack-safe** (seção "Regra Slack-safe" abaixo, a mesma do caminho normal, com `<!subteam^ID>` além do `<@ID>`).
+4. **`NO_EMDASH`:** travessão no texto vira vírgula ou dois-pontos.
+5. **Sem lacuna:** placeholder sem valor, PR não resolvida ou status indeterminado viram **pergunta ao
+   usuário** (`AskUserQuestion`, com o campo livre "Other" aceitando o valor), nunca texto literal nem
+   chute; sem resposta, abandonar o atalho e seguir o caminho normal (contrato do diretório). Mensagem
+   do pedido não achada (`in_thread_of_pr_post`) segue o GATE do contrato, sem repetir as opções aqui.
+
+*O menu é um GATE* (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado
+no fallback), single-select, recomendada na posição 1, saída inócua por último. "Rascunho do intent `{slug}`
+pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
+1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`, com `THREAD_TS` vazio quando não há réplica. **Nunca** `slack_send_message`: "postar" aqui é salvar o rascunho no canal, e enviar é do usuário no Slack.
+2. `Salvar rascunho assinado` — igual à 1, com a assinatura da `## Assinatura do rascunho` no fim.
+3. `Não fazer nada` — nada é escrito: sem board para atualizar.
+
+Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva**.
+
+**Rastro sem board.** O `hitl.md` pede registrar a `GateSpec` antes e o resultado depois. Aqui não há board
+nem Timeline: o elo imprime no chat o bloco da `GateSpec` (snapshot, pergunta, opções) antes de perguntar e,
+depois da resposta, o ID e rótulo escolhidos, a ação autorizada, o resultado e o estado final, e declara
+no banner o token `rastro de gate so no chat`.
+
+*Segundo GATE, depois de salvar*, só quando o canal tem `status_reactions` e o intent é sobre uma PR. O
+`state` da `GateSpec` traz: veredito (`approved`, `commented` ou `desconhecido`, com origem: review da
+sessão ou ausente) e a mensagem do pedido (`ts`, com origem: busca no canal pela URL da PR, a mesma do
+`in_thread_of_pr_post`, quando o intent não é de réplica em thread). Mensagem do pedido não achada: o
+mesmo GATE do contrato. "Atualizar o status da PR na mensagem do pedido?":
+
+*Com veredito conhecido* (o status vem da review da sessão: `approved` para aprovar, `commented` para comentários):
+1. `Adicionar :{emoji}: ({status}) (Recomendado)` — `slack_get_reactions` antes; se a reação já está lá, não adiciona e diz isso; senão `slack_add_reaction`.
+2. `Escolher outro status` — lista os três status restantes com o emoji de cada.
+3. `Não reagir`.
+
+*Sem veredito:* **não há opção recomendada.** Duas perguntas em sequência, para respeitar o limite de
+4 opções do `AskUserQuestion`: primeiro `Escolher o status` e `Não reagir` (saída inócua por último);
+escolhido `Escolher o status`, uma segunda pergunta lista `merged`, `reviewing`, `approved` e `commented`
+com o emoji de cada.
+
+A ferramenta só adiciona: a reação de status anterior fica, e dizer isso na pergunta.
 
 **`JULGAMENTO = reagir`** — "A thread não pede resposta nova, só um aceno. Reagir?":
 1. `👍 Reagir com {emoji sugerido} (Recomendado)` — `slack_get_reactions` (evita duplicar) → `slack_add_reaction`.

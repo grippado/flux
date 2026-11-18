@@ -139,6 +139,7 @@ com o reviewer de outro time sem que nada acuse o problema.
   "answerer": "acme-pr-answerer",
   "slack_prospector": "acme-slack-prospector",
   "slack_answerer": "acme-slack-answerer",
+  "slack_directory": "slack-directory.json",
   "specialists_root": "~/agents/acme/{repo}/repo-owner.md",
   "specialists_spec": "~/agents/acme/AGENT_SPEC.md",
   "specialists_repo": "acme/agent-suites",
@@ -196,6 +197,11 @@ com o reviewer de outro time sem que nada acuse o problema.
 - `slack_prospector` / `slack_answerer` — agentes que o `flux:reply` usa (colher contexto do codebase,
   redigir a réplica). Opcionais; sem eles, o `flux:reply` cai em `general-purpose` e declara a perda
   no banner de perfil.
+- `slack_directory` — caminho do arquivo de alias de pessoas e canais do Slack, relativo ao diretório do
+  manifesto (ou `~/`). O `flux:reply` o usa para resolver "falar com o fulano no canal X" sem o usuário
+  colar permalink. Formato e regra de resolução em `${FLUX_ROOT}/shared/slack-directory.md`. Opcional:
+  sem ele, o `flux:reply` segue exigindo o permalink e declara a perda no banner. O `flux:equip
+  --slack-directory` cria o esqueleto.
 - `specialists_root` — template de path (com `{repo}`) para achar o orquestrador de specialists.
   Ver `${FLUX_ROOT}/shared/review-agents.md` passo 1. É também o **degrau 2** da cascata de destino de
   escrita (`${FLUX_ROOT}/shared/write-destination.md`) — e lá, como o destino de escrita é sempre um
