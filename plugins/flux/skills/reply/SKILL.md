@@ -134,6 +134,10 @@ Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver
 - `rules` do canal, quando houver, vão ao answerer junto do `PURPOSE_CANAL`.
 - Fora o caminho rápido, nada muda no resto do pipeline, e o rascunho continua só salvo como rascunho.
 
+Permalink de mensagem cujo `channel_id` consta no diretório, com pedido que casa um intent do canal
+marcado `in_thread_of_target`: caminho rápido com `THREAD_TS` do permalink, e o rascunho sai como
+réplica nessa thread (contrato em `${FLUX_ROOT}/shared/slack-directory.md`).
+
 Quando o usuário passa um permalink de pessoa ou canal que o diretório não tem, oferecer a linha pronta
 para ele colar. Nunca gravar no diretório.
 

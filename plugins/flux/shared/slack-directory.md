@@ -101,7 +101,8 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
   intent; `match` lista as frases que o usuário usa para pedi-lo; `template` é o texto do rascunho,
   com os placeholders da tabela em "Intents rápidos". Campos opcionais do intent: `max_prs` (inteiro,
   quantas PRs cabem num pedido), `in_thread_of_pr_post` (o rascunho é réplica na mensagem do canal que
-  contém a PR, ver abaixo) e `use_default_mentions` (padrão `true`; `false` não adiciona as menções
+  contém a PR, ver abaixo), `in_thread_of_target` (o rascunho é réplica na thread do permalink que o
+  usuário passou, ver abaixo) e `use_default_mentions` (padrão `true`; `false` não adiciona as menções
   padrão do canal).
 - `rules` (canal e grupo, opcional) é uma lista de regras do canal em texto. Vão ao answerer junto do
   `PURPOSE_CANAL` e valem também no caminho normal. Regra que o flux sabe aplicar mecanicamente tem
@@ -189,6 +190,12 @@ numa mensagem.
 do canal que contém a PR: buscar no canal pela URL da PR (`slack_search_public_and_private` com
 `in:<canal>`), pegar o `ts` da mensagem do pedido e usar como `thread_ts`. Não achou: perguntar, com a
 opção de rascunhar mensagem nova no canal.
+
+**Réplica na thread do permalink (`in_thread_of_target`).** Vale quando o usuário passa o permalink de
+uma mensagem **e** o `channel_id` dele consta no diretório: o canal é resolvido pelo id, o pedido é
+casado com os intents desse canal, e o rascunho do `template` sai como réplica na thread do
+permalink (`thread_ts` do alvo). É o caminho do aviso de triagem ("recebi, vou analisar") sobre um
+ticket já postado. Intent sem esse campo não muda o comportamento de quem passou permalink.
 
 **Status por reação.** Com `status_reactions` no canal e o intent resolvido sobre uma PR, oferecer em
 gate **depois** de o rascunho estar salvo: adicionar a reação do status (`approved`, `commented`,
