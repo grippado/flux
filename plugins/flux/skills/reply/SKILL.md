@@ -1,6 +1,6 @@
 ---
 name: reply
-description: "Orquestrador `flux:reply` — acompanha um CASO de trabalho no Slack embasado no codebase; prospecção em paralelo por repo, rascunho no Slack + board vivo no vault; segue o caso quando ele muda de canal; nunca posta sozinho. Global, resolve contexto leve via flux-context.json (VAULT_ROOT, VAULT_CTX, NO_EMDASH). Prospector e answerer vêm do manifesto; sem eles, cai em general-purpose."
+description: "Orquestrador `flux:reply` — acompanha um CASO de trabalho no Slack embasado no codebase; prospecção em paralelo por repo, rascunho no Slack + board vivo no vault; segue o caso quando ele muda de canal; nunca posta sozinho. Global, resolve contexto leve via flux-context.json (VAULT_ROOT, VAULT_CTX, NO_EMDASH). Prospector e answerer vêm do manifesto; sem eles, cai em general-purpose. Com `slack_directory` no manifesto, resolve \"falar com fulano no canal X\" por alias, sem permalink."
 user-invocable: true
 ---
 
@@ -55,11 +55,16 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md` — procurar `flux-c
 - `PROSPECTOR` = `slack_prospector` do manifesto; sem o campo: `general-purpose`
 - `ANSWERER` = `slack_answerer` do manifesto; sem o campo: `general-purpose`
 - `MCP_SLACK` = `mcp.slack` do manifesto; sem o campo: descobrir a capacidade na sessão (ver "Validar ambiente")
+- `SLACK_DIR` = `slack_directory` do manifesto, resolvido relativo ao diretório do manifesto (ou `~/`); sem o campo, arquivo ausente ou JSON inválido: sem diretório. Formato e regra em `${FLUX_ROOT}/shared/slack-directory.md`
 
 > **Nota:** `slack_prospector` e `slack_answerer` são campos **opcionais** do manifesto. Declará-los é
 > o que troca o `general-purpose` genérico por agentes que conhecem os repos e o tom do time, e é a
 > diferença entre uma réplica correta e uma réplica boa. Sem eles o comando roda, com prospecção mais
 > rasa: declarar a perda no banner de perfil.
+>
+> `slack_directory` também é **opcional**. Sem ele o alvo continua exigindo permalink; declarar em
+> `degradacoes:` que o alias não pôde ser resolvido, em vez de tentar achar `user_id` ou
+> `channel_id` por busca de nome.
 
 Sem manifesto: `VAULT_ROOT` = não persiste por default (só imprime o board no chat); `VAULT_CTX` = `generic`; `NO_EMDASH` = `false`; `PROSPECTOR`/`ANSWERER` = `general-purpose`.
 
@@ -101,11 +106,34 @@ done
 TARGET="${TARGETS[-1]}"                      # a superfície ATUAL é sempre a última informada
 ```
 
-- Se não há permalink Slack válido em `TARGETS`, **abortar** com mensagem pedindo o link (`${FLUX_CMD}reply responder <permalink>`).
+- Se não há permalink Slack válido em `TARGETS`, tentar **alvo por alias** (próxima subseção) quando há `SLACK_DIR` e o pedido cita pessoa ou canal. Só se isso também não resolver, **abortar** com mensagem pedindo o link (`${FLUX_CMD}reply responder <permalink>`).
 - **A superfície atual é a ÚLTIMA da lista.** Quando o usuário passa dois links ("era nessa thread, agora o papo tá aqui"), o primeiro é histórico e o último é onde a conversa está viva agora.
 - `--board <path>` assume um board existente em vez de procurar/criar. Atalho para quando o usuário já sabe qual é.
 - **Watch é DEFAULT-ON**: depois da 1ª passada, o comando fica vigiando o caso até assentar. `--once` (alias `--no-watch`) faz uma passada só.
 - **Linguagem natural conta como sinal de migração.** Se o pedido do usuário descreve movimento ("moveram pra cá", "o papo continuou em", "mandei por DM e ele respondeu em", "agora tá no canal X"), tratar como `mudou` mesmo sem o verbo literal. Ele não vai lembrar de digitar o verbo; o comando é que tem que reconhecer a situação.
+
+### Alvo por alias (sem permalink)
+
+Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver pelo contrato de
+`${FLUX_ROOT}/shared/slack-directory.md` e **pular** o parse de permalink abaixo:
+
+- `CHANNEL_ID` = `channel_id` do canal ou grupo, ou o `user_id` da pessoa quando o pedido é só "com
+  fulano" (DM). `KIND` vem da **entrada resolvida** (`channel` ou `dm`), não do prefixo do id.
+- `THREAD_TS` = vazio e `MSG_TS` = vazio: não há mensagem de origem, a leitura é `slack_read_channel`.
+- `MENTIONS` = `user_id` de cada pessoa citada junto de um canal. O answerer as recebe e as renderiza
+  como `<@ID>` no rascunho.
+- O pedido do usuário é a **intenção** do rascunho. Passá-la ao prospector e ao answerer como
+  `INTENT`: aqui o rascunho abre uma mensagem nova, não responde a uma.
+- Ambiguidade ou dois canais no pedido abrem gate; termo sem acerto não é adivinhado, pede o link.
+- Se o canal resolvido tem `purpose`, passá-lo ao answerer como `PURPOSE_CANAL`. Se o pedido casa com
+  um `intent` do canal (`${FLUX_ROOT}/shared/slack-directory.md`, "Direção do canal e intents
+  rápidos"), seguir o **caminho rápido**: montar o rascunho do `template`, **sem prospecção, sem board
+  e sem watch** (`ONCE=true`), e ir direto ao menu de ação do passo de rascunho. Placeholder sem valor
+  vira pergunta, nunca texto literal no rascunho.
+- Fora o caminho rápido, nada muda no resto do pipeline, e o rascunho continua só salvo como rascunho.
+
+Quando o usuário passa um permalink de pessoa ou canal que o diretório não tem, oferecer a linha pronta
+para ele colar. Nunca gravar no diretório.
 
 ### Resolver o permalink → `channel_id` + `thread_ts`
 
@@ -252,6 +280,7 @@ Delegar ao `<ANSWERER>` (um só) via Task tool, passando:
 - A thread na íntegra (mensagens + autores + ts).
 - Os `ACHADOS` de todos os investigadores.
 - Os perfis dos interlocutores (nomes + `user_id`).
+- Quando o alvo veio de alias: `INTENT`, `MENTIONS` e `PURPOSE_CANAL` (Step 1, "Alvo por alias").
 - As reações existentes na mensagem-alvo.
 - Contexto: canal, se a raiz é do próprio usuário, e qual mensagem motivou esta rodada.
 - `PERGUNTAS_ABERTAS` (passo 3), com a regra de formato inteira, que é a única definição dela neste elo: cada pergunta sai como `> pergunta`, verbatim (pergunta de várias linhas leva `>` em cada linha), seguida da resposta, que **começa respondendo** e fica em 1 a 3 frases, com o embasamento e o contexto depois. Sem inventário de achados que ninguém pediu. Com `PERGUNTAS_ABERTAS` não vazia, o `JULGAMENTO` esperado é `responder`. Sem pergunta aberta, o rascunho segue o formato normal.

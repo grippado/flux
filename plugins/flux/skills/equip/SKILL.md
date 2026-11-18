@@ -9,6 +9,7 @@ requires:
     - file: shared/agents-index.md
     - file: shared/flux-context.md
     - file: shared/kit-format.md
+    - file: shared/slack-directory.md
     - bin: git
   soft:
     - bin: gh
@@ -94,6 +95,7 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 
 ```
 /flux:equip <repo> [--engine-only] [--agents-only] [--expose-l3] [--from-kit <ref>] [--dry]
+/flux:equip --slack-directory [--dry]          # sem repo: cria o diretório de alias do Slack
 /flux:equip                                   # repo mode: infere o repo do cwd
 ```
 
@@ -108,6 +110,7 @@ Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, v
 | `--expose-l3` | Torna a **L3 do repo alcançável** de qualquer sessão, pelo degrau 1 da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis): espelho namespaceado, `name:` prefixado com o slug do repo. Ver "Step 4b". |
 | `--from-kit <ref>` | Em vez de autorar do zero, instala a partir de um kit já pronto. Ver "Kits", abaixo. |
 | `--from-map` | **Uso interno: despachado pelo `${FLUX_CMD}map`**, sob as três garantias da Forma 2 do `${FLUX_ROOT}/shared/fanout-discipline.md`: escopo e destino já consentidos no gate da main dele (nenhum gate abre aqui, porque não sobrou gate); índice carimbado pelo chamador; e **arquivo existente e manifesto não são deste processo** — encontrados, o verbo para, não escreve, e devolve no retorno. Ver "Step 4c" e "Step 6". |
+| `--slack-directory` | **Modo próprio, sem `<repo>`:** cria o esqueleto do diretório de alias de pessoas e canais do Slack, ao lado do manifesto, e oferece registrá-lo em `slack_directory`. Ignora todas as outras flags de camada e não toca em motor nem em suite. Ver "Step 4d". Ignorado sob `--from-map`. |
 | `--dry` | Faz o diagnóstico completo, imprime o plano de equipagem e **para**. Nada é escrito, nenhum gate abre. |
 
 Sem `--engine-only` nem `--agents-only`, o verbo cuida das duas camadas — mas **só do que falta**.
@@ -127,6 +130,7 @@ diga isso ao usuário em uma linha, porque quem escreveu os dois provavelmente e
 /flux:equip notifications --from-kit ~/agents/acme/kits/node-service
 /flux:equip payments --expose-l3              # L3 do repo alcançável fora dele
 /flux:equip                                   # dentro de <WORKSPACE_ROOT>/api-gateway
+/flux:equip --slack-directory                 # diretório de alias do Slack, sem repo
 ```
 
 ## Out of scope (NUNCA faça)
@@ -431,6 +435,47 @@ o verbo de sanidade da família. Esta é a divisão inteira entre os dois — o 
 
 ---
 
+## Step 4d — Criar o diretório do Slack (`--slack-directory`)
+
+Modo próprio: roda **no lugar** dos Steps 1 a 5, sem repo, sem inventário e sem gate de escopo do
+Step 2. O artefato é de **contexto**, não de repo, e é consumido pelo `flux:reply`
+(`${FLUX_ROOT}/shared/slack-directory.md`, que é a fonte do formato).
+
+1. **Exige manifesto.** O caminho do diretório é relativo ao manifesto, então sem `flux-context.json`
+   resolvido no Step 0 não há onde ancorá-lo: dizer isso em uma linha, entregar o esqueleto no chat
+   para colar e parar. Nenhum gate abre.
+2. **Já existe?** Manifesto com `slack_directory` apontando para arquivo existente: reportar o caminho
+   e a contagem de pessoas, canais e grupos, e **parar**. Arquivo existente nunca é reescrito por este
+   verbo; evoluir o conteúdo é do usuário. Campo declarado e arquivo ausente: criar o arquivo no caminho
+   declarado.
+3. **Destino.** O diretório do manifesto, por definição: o arquivo tem de ficar ao lado dele para o
+   caminho relativo valer entre máquinas. Não há cascata. As guardas de
+   `${FLUX_ROOT}/shared/write-destination.md` valem para esse diretório (symlink, repositório que não
+   é o alvo, diretório gerenciado por dotfiles), e o contrato de arquivo existente também.
+4. **Esqueleto**, com `workspace` igual ao `name` do manifesto e as três tabelas vazias:
+
+```json
+{
+  "version": 1,
+  "workspace": "<name do manifesto>",
+  "_doc": "Alias de pessoas e canais do Slack. Formato: shared/slack-directory.md do flux.",
+  "people": {},
+  "channels": {},
+  "groups": {}
+}
+```
+
+5. **Gate único** (`${FLUX_ROOT}/shared/hitl.md`), depois de mostrar o caminho e o conteúdo:
+   `Criar o diretório do Slack?`, com `Criar (Recomendado)`, `Só mostrar o esqueleto` e `Não criar`.
+6. Escrito o arquivo, seguir ao **Step 6** com o campo `slack_directory` (caminho relativo ao
+   manifesto) como único candidato à persistência, se o manifesto ainda não o declara.
+7. **Handoff:** dizer como preencher uma entrada (o `user_id` de pessoa e o `channel_id` de canal vêm do
+   perfil ou do permalink no Slack) e que `purpose` e `intents` do canal é o que permite ao
+   `flux:reply` responder curto onde o canal pede. O verbo **não preenche entradas** por conta própria:
+   nome e id de gente real são do usuário.
+
+---
+
 ## Step 5 — Equipar L0 (o motor de execução)
 
 Roda quando o escopo aprovado inclui motor e o inventário disse `motor ausente`.
@@ -492,16 +537,18 @@ carrega entre máquinas e, com frequência, um arquivo versionado num repositór
 Reescrevê-lo em silêncio suja um `git status` que o usuário vai atribuir a outra coisa — e desta vez
 o arquivo sujo é justamente o que governa todos os outros elos.
 
-Duas coisas podem ser persistidas, e **cada uma é uma escolha separada**:
+Até três coisas podem ser persistidas, e **cada uma é uma escolha separada**:
 
 | campo | o que grava | por que persistir |
 |---|---|---|
 | `exec_fallback.<slug>` | o nome do motor autorado no Step 5 **ou o sugerido pelo `manifest_fragment` do kit instalado**, sempre **sob a chave deste repo** | sem ele, o `flux:build` não acha o motor e continua caindo no modo autônomo — o motor existe e não é usado |
 | `write_destinations` | o destino canônico aprovado + o estado das guardas | sem ele, o gate de destino volta a cada execução, e o `review-agents.md` perde o degrau que encontra a suite fora do manifesto |
+| `slack_directory` | o caminho do diretório criado no Step 4d, relativo ao manifesto | sem ele, o `flux:reply` não resolve alias de pessoa e canal e volta a pedir permalink. **Só o Step 4d grava esta chave; nunca via `manifest_fragment`** |
 
 **A tabela é fechada, e é ela a allowlist do `manifest_fragment`.** O `${FLUX_ROOT}/shared/kit-format.md`
 delega a este verbo a validação das chaves da fatia, porque **quem aplica é quem valida**; a lista é
-esta, e hoje ela tem **um** item alcançável pelo fragmento: `exec_fallback`. Chave fora da tabela é
+esta, e hoje ela tem **um** item alcançável pelo fragmento: `exec_fallback`. `slack_directory` está na tabela, mas é
+gravada só pelo Step 4d, que é a ação direta do usuário; um fragmento de kit que a sugira é ignorado e declarado. Chave fora da tabela é
 **ignorada e declarada** — nunca oferecida no gate, nunca gravada, nem com aprovação, porque o gate
 pergunta se pode escrever e não se aquela chave era legítima.
 
