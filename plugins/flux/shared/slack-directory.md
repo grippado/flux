@@ -187,14 +187,14 @@ técnica pede resposta embasada. Duas coisas do diretório servem a isso:
 | placeholder | de onde vem |
 |---|---|
 | `{mentions}` | menção de cada pessoa (`<@user_id>`) ou grupo de usuários (`<!subteam^ID>`) citado no pedido, na ordem dita; sem ninguém citado, as `default_mentions` do canal (salvo `use_default_mentions: false`); senão vazio |
-| `{pr_title_link}` | `<url|título>` mrkdwn: o título da PR como link direto para o GitHub |
+| `{pr_title_link}` | `<url|título>` mrkdwn: o título da PR como link direto para o GitHub, com o título escapado e `|` trocado por `¦` no rótulo |
 | `{pr_link}` | `<url|#N>` mrkdwn da PR citada no pedido (URL ou `#N` com repo resolvível) ou da PR da branch atual; sem PR resolvida, **perguntar** |
 | `{pr_title}` | título da PR resolvida |
 | `{repo}` | repo da PR resolvida |
 
 Placeholder que não pôde ser preenchido nunca sai literal no rascunho: perguntar ao usuário
 (`AskUserQuestion`, campo livre aceito) ou, sem resposta, abandonar o atalho e seguir o caminho normal.
-`{pr_title}` e `{repo}` são dados externos e entram com `&`, `<` e `>` escapados. A varredura do reply
+`{pr_title}`, `{repo}` e o rótulo de `{pr_title_link}` são dados externos e entram com `&`, `<` e `>` escapados, o que neutraliza menção em massa (`<!channel>`, `<!here>`) num título. A varredura do reply
 (escape, convenção de citações, verificação 8a, Slack-safe e `NO_EMDASH`) vale sobre o texto **final**,
 já preenchido, antes do gate de salvar descrito no passo 9 do `flux:reply`. Mais de um intent casando
 no mesmo pedido abre gate. O caminho rápido nunca roda em watch: por alias ou por permalink, ele força
@@ -231,6 +231,9 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
 
 - O alvo resolvido entra no pipeline como se fosse permalink de canal ou DM **sem `/p<ts>`**: sem
   `thread_ts`, leitura por `slack_read_channel`. O pipeline não ganha um caminho novo.
+- Alvo por alias começa com o watch **desligado**, no caminho rápido ou fora dele, salvo o verbo
+  `acompanhar` explícito: sem thread nem mensagem de origem, o watch cobriria o canal ou a DM inteira e
+  auto-salvaria rascunho para qualquer mensagem nova de terceiros.
 - Falar com alguém por iniciativa própria não tem mensagem de origem. O pedido do usuário é a
   intenção, e o rascunho é uma mensagem nova, não uma réplica.
 - Menção `<@user_id>` entra no rascunho como as demais menções do Slack (mrkdwn, ver o answerer).
