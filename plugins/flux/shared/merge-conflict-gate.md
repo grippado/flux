@@ -136,7 +136,7 @@ código e edita arquivo (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). O exec
 Contrato de retorno enxuto (< 40 linhas, sem diff colado): worktree, estratégia, ok/abortado, commits
 reaplicados, **por arquivo o que foi decidido e por quê**, resultado dos gates, SHA local, bloqueios.
 
-## 5. Push: `--force-with-lease` e o gate humano
+## 5. Push: `--force-with-lease`, autorizado pelo pedido
 
 Rebase reescreve histórico publicado, e é a operação mais destrutiva de todo o fluxo flux. Portanto:
 
@@ -144,11 +144,23 @@ Rebase reescreve histórico publicado, e é a operação mais destrutiva de todo
   push concorrente (o bot reviewer, o próprio usuário de outra máquina) é apagado sem aviso. Se o
   lease falhar, **não insistir**: refetch, reavaliar, e reportar.
 - **Merge da base não precisa de force.** Push normal.
-- **HITL obrigatório antes do primeiro force-push de um run**, inclusive com `--auto` e inclusive no
-  watch. `--auto` autoriza o flow a *trabalhar* sozinho, não a *reescrever histórico* sozinho. Mostrar:
-  estratégia, arquivos resolvidos com a decisão de cada um, resultado dos gates, e o
-  `rev-list --count` antes/depois. Aprovado uma vez para aquele run, ticks seguintes do watch podem
-  reaplicar a **mesma** estratégia mecânica sem reperguntar, desde que a classificação siga mecânica.
+- **O pedido de resolver conflito autoriza o `--force-with-lease`, a qualquer momento do run.**
+  Invocar o elo sem `--no-rebase` (a resolução é o default) ou pedir explicitamente que ele resolva
+  o conflito **é** a autorização: o push com lease da resolução mecânica sai sem gate humano, na 1ª
+  passada, com `--auto` e em todo tick do watch, inclusive quando o elo roda despachado por outro
+  (o `flux:land`, por exemplo). Não existe aprovação por run a guardar nem a reperguntar. O lease
+  protege contra push concorrente (recusa se o remote andou desde a última leitura); a resolução em
+  si deixa de ser vista antes de publicada, e por isso o relato abaixo é obrigatório.
+- **Quality gate vermelho segura o push.** A autorização cobre publicar uma resolução que passou nos
+  gates do repo (seção 4, item 4), não uma que os quebrou: gate vermelho depois de resolver é
+  bloqueio, a resolução fica na worktree sem push e o elo cai no modo degradado (seção 6). Gate `n/a`
+  não segura, vai relatado como `n/a`.
+- **O relato substitui a pergunta.** Depois do push, registrar no board e no resumo da rodada:
+  estratégia, arquivos resolvidos com a decisão de cada um, resultado dos gates, SHA antes/depois e o
+  `rev-list --count` antes/depois. Force-push sem esse rastro é o que torna a autorização perigosa.
+- **A autorização não se estende ao que segue proibido.** Conflito semântico continua sem resolução
+  automática (seção 2); `--no-rebase` desliga a resolução e, com ela, o push; PR de terceiro e branch
+  coautorada continuam fora (abaixo e seção 3). `--force` puro nunca.
 - **Uma tentativa de resolução por SHA da base.** Se resolveu e a base andou de novo, isso é um SHA
   novo e uma tentativa nova; se a *mesma* resolução falhou, não retentar em loop.
 - **Nunca resolver conflito de PR de terceiro.** Force-push em branch alheia está fora de escopo,
@@ -188,6 +200,8 @@ correção nem pushei`. O usuário precisa saber que a PR saiu da rodada ainda t
 
 - Nunca resolver conflito na árvore principal do usuário.
 - Nunca `git push --force` sem lease. Nunca push em `main`, nem na branch base.
+- Nunca abrir gate humano para o `--force-with-lease` de uma resolução mecânica pedida: o pedido é a
+  autorização (seção 5).
 - Nunca force-push em branch de terceiro ou coautorada.
 - Nunca resolver conflito semântico sem aval humano, mesmo em `--auto`.
 - Nunca resolver lockfile marcador a marcador: regenerar.

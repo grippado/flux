@@ -135,14 +135,14 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
 As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebase` (alias `--skip-conflict-gate`) e `--parent-board <path>` podem aparecer em qualquer posição dos argumentos e combinadas entre si. As **rodadas subsequentes do watch rodam em `--auto`** (aplicam + postam + resolvem + commitam + pusham sozinhas). `--once` desliga o watch. `--solo` pula os specialists em todas as rodadas. `--no-rebase` persiste em todas as rodadas.
 
-> **`--auto` nunca autoriza reescrever histórico.** Ele dispensa a confirmação do plano de threads (passo 6), não o gate humano do force-push (passo 2b). Isso vale igual no watch.
+> **Resolver conflito já vem autorizado.** Invocar o iterate sem `--no-rebase` é pedir a resolução do conflito com a base, e esse pedido autoriza o `git push --force-with-lease` da resolução mecânica a qualquer momento: na 1ª passada, com `--auto` e em todo tick do watch, sem gate humano (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5). O `--auto` continua dispensando só a confirmação do plano de threads (passo 6).
 
 ## Out of scope (NUNCA faça)
 
 - Não aprovar nem mergear (`gh pr review --approve`, `gh pr merge`).
 - Não usar `event: APPROVE` / `REQUEST_CHANGES` em nada.
 - Não pushar para `main`. Não fazer `git checkout`/`git switch` de branch na árvore principal do repo: para entrar na branch da PR, resolver/criar a **worktree** dela (ver disciplina de worktree), nunca sequestrar o working tree principal do usuário.
-- **Não `git push --force` sem lease, nunca.** Force-push só com `--force-with-lease`, só na branch da PR, e só depois do gate humano do passo 2b. Não force-pushar branch de terceiro nem branch coautorada.
+- **Não `git push --force` sem lease, nunca.** Force-push só com `--force-with-lease`, só na branch da PR, e só para publicar a resolução de conflito do passo 2b (autorizada pelo próprio pedido, sem gate). Não force-pushar branch de terceiro nem branch coautorada.
 - **Não resolver conflito semântico sozinho.** Conflito sobre a mesma lógica (mesma função, mesma condição, mesmo teste, migração, contrato) exige aval humano mesmo em `--auto` e mesmo no watch: registrar bloqueio e cair no modo degradado. Na dúvida entre mecânico e semântico, é semântico.
 - **Não declarar CI confiável, nem "assentou", em PR `CONFLICTING`.** Nem tratar `mergeable: UNKNOWN` como se fosse `MERGEABLE`.
 - Não resolver thread humana que esteja em `needs-discussion` (ver guardrail no passo 7).
@@ -320,7 +320,7 @@ Havendo trabalho acionável (threads abertas, **verificação pendente de thread
 
 > **Protocolo canônico:** `${FLUX_ROOT}/shared/merge-conflict-gate.md`. Não duplicar a lógica aqui: o
 > shared define detecção, classificação mecânico/semântico, escolha entre rebase e merge da base,
-> resolução em subagente, `--force-with-lease` e o gate humano. Este passo declara só o encaixe no
+> resolução em subagente e o `--force-with-lease` autorizado pelo pedido. Este passo declara só o encaixe no
 > iterate.
 
 **Por que vem antes da triagem de CI:** numa PR `DIRTY` o GitHub não computa o merge commit, então o
@@ -340,9 +340,10 @@ Com `mergeable` / `mergeStateStatus` coletados no passo 2:
      degradado (abaixo).
   3. **Resolver via subagente executor** (o mesmo do passo 4, mesma disciplina de worktree e de
      fan-out), que aplica a estratégia, roda o quality gate do repo e **para sem pushar**.
-  4. **Gate humano antes do force-push**, inclusive com `--auto` e no watch, com a estratégia, a decisão
-     por arquivo, o resultado dos gates e o antes/depois do `rev-list`. Push sempre com
-     `--force-with-lease`; merge da base não precisa de force.
+  4. **Publicar com `--force-with-lease`, sem gate humano**, inclusive com `--auto` e no watch: o
+     pedido de resolver é a autorização (shared, seção 5). Lease recusado: refetch, reavaliar,
+     reportar, não insistir. Merge da base não precisa de force. Depois do push, registrar no board a
+     estratégia, a decisão por arquivo, o resultado dos gates e o antes/depois do `rev-list`.
 - **`BEHIND`** (sem conflito) → só atualizar se a proteção da base exigir branch atualizada. Não é
   conflito e não justifica force-push.
 
@@ -585,7 +586,7 @@ Nunca inferir o pedido de contexto (ex.: o usuário mencionar "pode commitar" nu
 A confirmação textual é o único caminho.
 
 **Interação com o gate do passo 2b:**
-- Se o gate **resolveu** um conflito neste run e o force-push ainda não foi aprovado, a aprovação do force-push é **pergunta própria e anterior** a esta (feita no passo 2b, com estratégia + decisão por arquivo + gates), nunca embutida na opção 1. Reescrever histórico e postar réplicas são decisões de risco diferente, e juntá-las esconde a mais grave atrás da mais trivial. `--auto` dispensa **esta** confirmação, não aquela.
+- Se o gate **resolveu** um conflito neste run, o `--force-with-lease` já saiu no passo 2b, autorizado pelo pedido de resolver (shared, seção 5). Esta pergunta não o reabre nem o embute na opção 1: ela mostra o que foi publicado (estratégia, decisão por arquivo, gates) como contexto e trata só das threads.
 - Se o gate ficou em **modo degradado**, o plano mostrado aqui não tem "arquivos alterados" nem mensagem de commit (o passo 4 foi pulado). Ajustar a pergunta para o que resta: postar as réplicas + reações e resolver as threads. Em `IS_OWN_PR == true`, a opção 1 vira equivalente à 2, dito na descrição junto do motivo (`PR conflitante com a base, correções suspensas`). Em `IS_OWN_PR == false`, o modo degradado é compatível com o `no-push` já default: nada muda na pergunta.
 
 ### 7. Postar réplicas + reações + resolver (opções 1 e 2) · fase 3
@@ -923,7 +924,6 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
   "lastCiConclusion": "success|failure|pending|null",
   "lastMergeable": "MERGEABLE|CONFLICTING|UNKNOWN|null",
   "conflictAttemptedAtBaseSha": null,
-  "forcePushApproved": false,
   "writeGrantedForThirdParty": false,
   "bodySyncedAtSha": "abc123",
   "titleSyncedAtSha": "abc123",
@@ -940,7 +940,7 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
 }
 ```
 
-Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `forcePushApproved` = o usuário já aprovou force-push neste run, o que dispensa reperguntar em ticks seguintes **enquanto a classificação seguir mecânica** (conflito semântico repergunta sempre). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido. `resolvedThreadIds` = toda thread que este elo **já processou**, resolvida ou não: é a lista que o gate usa para decidir se uma thread aberta é novidade, então uma thread respondida e deixada aberta de propósito (`needs-discussion`) entra aqui também, senão o gate a devolve como `nova-rodada` a cada relançamento. `discussionThreadIds` = o subconjunto dessas que ficou **aberto de propósito**; o gate não lê este campo, ele serve ao tick (passo 3 de "Um tick") e ao relatório final. `lastCiConclusion` grava um de três literais, `success`, `failure` ou `pending` (ou `null` quando a PR não tem checks): são as strings que o gate compara, e qualquer outra grafia faz o `ci-vermelho` se repetir. `watchWake` = o valor resolvido em "`WATCH_WAKE`"; só muda no meio do run **para** `agendado`, nunca de volta. `answeredCommentIds` = todo issue comment de terceiro que este elo **já classificou**, respondido ou não: é a lista que o gate usa para decidir se um comentário é novidade, então o comentário ignorável (bot de CI, sincronização de ticket) entra aqui também, senão o gate o devolve como `nova-rodada` a cada relançamento; o nome do campo é o que o gate lê e não muda. `startedAt` e `lastTickAt` são gravados **em UTC com `Z`**, no formato exato de `date -u +%Y-%m-%dT%H:%M:%SZ`: o gate lê `startedAt` para o limite de ~6h e só entende esse formato; com offset local (`-03:00`) ou sem `Z` ele descarta o valor em silêncio e passa a contar o limite do primeiro poll dele. `gatePid`, `gateSignalExits`, `gateLastPollAtSeen` e `lastGateEvent` são a memória do loop do gate entre turnos (quem é o gate desta sessão, quantas vezes ele caiu por sinal sem progredir, qual foi a última saída acionável); o uso de cada um está em "O loop de watch", e o gate não lê nenhum deles. `quietTicks` só é contado aqui no fallback agendado: com o gate, a contagem é dele, no arquivo irmão `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
+Os dois campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); o push da resolução não tem campo de aprovação: o pedido de resolver o autoriza em todo tick (shared, seção 5). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido. `resolvedThreadIds` = toda thread que este elo **já processou**, resolvida ou não: é a lista que o gate usa para decidir se uma thread aberta é novidade, então uma thread respondida e deixada aberta de propósito (`needs-discussion`) entra aqui também, senão o gate a devolve como `nova-rodada` a cada relançamento. `discussionThreadIds` = o subconjunto dessas que ficou **aberto de propósito**; o gate não lê este campo, ele serve ao tick (passo 3 de "Um tick") e ao relatório final. `lastCiConclusion` grava um de três literais, `success`, `failure` ou `pending` (ou `null` quando a PR não tem checks): são as strings que o gate compara, e qualquer outra grafia faz o `ci-vermelho` se repetir. `watchWake` = o valor resolvido em "`WATCH_WAKE`"; só muda no meio do run **para** `agendado`, nunca de volta. `answeredCommentIds` = todo issue comment de terceiro que este elo **já classificou**, respondido ou não: é a lista que o gate usa para decidir se um comentário é novidade, então o comentário ignorável (bot de CI, sincronização de ticket) entra aqui também, senão o gate o devolve como `nova-rodada` a cada relançamento; o nome do campo é o que o gate lê e não muda. `startedAt` e `lastTickAt` são gravados **em UTC com `Z`**, no formato exato de `date -u +%Y-%m-%dT%H:%M:%SZ`: o gate lê `startedAt` para o limite de ~6h e só entende esse formato; com offset local (`-03:00`) ou sem `Z` ele descarta o valor em silêncio e passa a contar o limite do primeiro poll dele. `gatePid`, `gateSignalExits`, `gateLastPollAtSeen` e `lastGateEvent` são a memória do loop do gate entre turnos (quem é o gate desta sessão, quantas vezes ele caiu por sinal sem progredir, qual foi a última saída acionável); o uso de cada um está em "O loop de watch", e o gate não lê nenhum deles. `quietTicks` só é contado aqui no fallback agendado: com o gate, a contagem é dele, no arquivo irmão `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
 
 `verifiedResolvedThreads` guarda um snapshot por thread resolvida por terceiro/unknown já verificada: `threadId`, `headSha`, `resolvedBy` e `lastCommentId` (ID REST do comentário mais recente). O watch só reabre a verificação quando a thread ainda está resolvida por terceiro/unknown e algum desses valores muda, inclusive quando o `headRefOid` muda; assim não trata uma thread fechada como aberta nem repete a mesma análise em ticks quietos. Registrar o snapshot só depois da classificação. Se o estado sumir, reconstruir esta lista vazia e reverificar; nunca inferir que a thread foi verificada por estar fechada.
 
@@ -1179,7 +1179,7 @@ já entraram na verificação por descoberta, e o `equip` não os toca.
 
 ## Notas finais
 
-- **Integração com a base é o primeiro gate** (passo 2b, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`): PR que não funde com a base é PR sobre a qual não se escreve, e o CI verde dela é sinal falso. Conflito conta como trabalho acionável por si só, então uma PR com zero threads e CI verde **não** encerra a passada se estiver `CONFLICTING` (foi exatamente assim que a `arco-ai-plugins#252` passou batida). Resolução mecânica o flow faz; semântica é do usuário; force-push só com `--force-with-lease` e aval humano, que `--auto` não substitui.
+- **Integração com a base é o primeiro gate** (passo 2b, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`): PR que não funde com a base é PR sobre a qual não se escreve, e o CI verde dela é sinal falso. Conflito conta como trabalho acionável por si só, então uma PR com zero threads e CI verde **não** encerra a passada se estiver `CONFLICTING` (foi exatamente assim que a `arco-ai-plugins#252` passou batida). Resolução mecânica o flow faz; semântica é do usuário; force-push só com `--force-with-lease`, autorizado pelo próprio pedido de resolver, sem gate, e relatado depois no board.
 - Verificação vem antes de tudo: nunca aceitar um comentário sem confirmar a alegação no código real. Vale igual dentro do modo WATCH e no `--dry`.
 - **Specialists por default**: a verificação enriquece com os specialists do repo seguindo `${FLUX_ROOT}/shared/review-agents.md`. Use `--solo` para pular e rodar só com `<HOLISTIC>`. Fallback gracioso quando não houver specialists no repo.
 - **Watch é o default**: após a 1ª passada e o push, fica vivo monitorando CI + novas rodadas do bot até a PR assentar/mergear (ver "Modo WATCH"). Quem espera é o gate mecânico, fora da LLM; onde ele não puder ser usado, o watch cai no agendado, com aviso. Use **`--once`** (alias `--no-watch`) para o comportamento de uma passada só.
