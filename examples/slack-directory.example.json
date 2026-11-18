@@ -28,10 +28,20 @@
       "name": "#plataforma",
       "aliases": [
         "plataforma",
-        "time de plataforma"
+        "canal de plataforma"
       ],
       "purpose": "Dúvidas e avisos do time de plataforma. Mensagem curta, direta.",
-      "intents": {}
+      "intents": {
+        "triagem-recebida": {
+          "match": [
+            "triagem",
+            "recebi o ticket"
+          ],
+          "in_thread_of_target": true,
+          "use_default_mentions": false,
+          "template": "Recebi, obrigado! Vamos analisar e aviso por aqui."
+        }
+      }
     },
     "pull-requests": {
       "channel_id": "C0DDDDDDD",

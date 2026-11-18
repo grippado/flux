@@ -62,9 +62,9 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md` — procurar `flux-c
 > diferença entre uma réplica correta e uma réplica boa. Sem eles o comando roda, com prospecção mais
 > rasa: declarar a perda no banner de perfil.
 >
-> `slack_directory` também é **opcional**. Sem ele o alvo continua exigindo permalink; declarar em
-> `degradacoes:` que o alias não pôde ser resolvido, em vez de tentar achar `user_id` ou
-> `channel_id` por busca de nome.
+> `slack_directory` também é **opcional**. Sem ele o alvo continua exigindo permalink; quando o pedido
+> trazia alias, declarar o token `alias sem diretorio` em `degradacoes:` (tabela do preflight), em vez
+> de tentar achar `user_id` ou `channel_id` por busca de nome.
 
 Sem manifesto: `VAULT_ROOT` = não persiste por default (só imprime o board no chat); `VAULT_CTX` = `generic`; `NO_EMDASH` = `false`; `PROSPECTOR`/`ANSWERER` = `general-purpose`.
 
@@ -120,18 +120,15 @@ Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver
 - `CHANNEL_ID` = `channel_id` do canal ou grupo, ou o `user_id` da pessoa quando o pedido é só "com
   fulano" (DM). `KIND` vem da **entrada resolvida** (`channel` ou `dm`), não do prefixo do id.
 - `THREAD_TS` = vazio e `MSG_TS` = vazio: não há mensagem de origem, a leitura é `slack_read_channel`.
-- `MENTIONS` = `user_id` de cada pessoa citada junto de um canal. O answerer as recebe e as renderiza
-  como `<@ID>` no rascunho.
+- `MENTIONS` = o `{mentions}` do contrato do diretório (pessoas e grupos de usuários citados, ou as
+  `default_mentions` do canal). O answerer as recebe e as renderiza.
 - O pedido do usuário é a **intenção** do rascunho. Passá-la ao prospector e ao answerer como
   `INTENT`: aqui o rascunho abre uma mensagem nova, não responde a uma.
-- Ambiguidade ou dois canais no pedido abrem gate; termo sem acerto não é adivinhado, pede o link.
-- Se o canal resolvido tem `purpose`, passá-lo ao answerer como `PURPOSE_CANAL`. Se o pedido casa com
-  um `intent` do canal (`${FLUX_ROOT}/shared/slack-directory.md`, "Direção do canal e intents
-  rápidos"), seguir o **caminho rápido**: montar o rascunho do `template`, **sem prospecção, sem board
-  e sem watch** (`ONCE=true`), e ir direto ao menu de ação do passo de rascunho. Placeholder sem valor
-  vira pergunta, nunca texto literal no rascunho. As regras de `max_prs`, de `in_thread_of_pr_post` e a
-  oferta de reação de status (`status_reactions`) estão no contrato do diretório e valem aqui.
-- `rules` do canal, quando houver, vão ao answerer junto do `PURPOSE_CANAL`.
+- Ambiguidade, dois canais e termo sem acerto seguem os gates do contrato.
+- `PURPOSE_CANAL` e `rules` do canal, quando houver, vão ao answerer.
+- Pedido que casa um `intent` do canal: **caminho rápido do contrato** (`${FLUX_ROOT}/shared/slack-directory.md`,
+  "Direção do canal e intents rápidos"), com `ONCE=true` e o menu "Caminho rápido" do passo 9.
+- Ao procurar board existente por superfície, tentar também o `dm_channel_id` da entrada.
 - Fora o caminho rápido, nada muda no resto do pipeline, e o rascunho continua só salvo como rascunho.
 
 Permalink de mensagem cujo `channel_id` consta no diretório, com pedido que casa um intent do canal
@@ -352,6 +349,16 @@ Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nun
 3. `Só documentar (não rascunhar agora)` — o board já está atualizado, encerra.
 4. `Reagir com emoji em vez de responder` — mostra emoji sugerido, confirma, `slack_add_reaction`.
 5. `Não fazer nada`.
+
+**Caminho rápido (intent do diretório)** — não há `JULGAMENTO` nem board. Antes do menu, a main confere o
+texto do `template` já preenchido: `NO_EMDASH` (troca travessão por vírgula ou dois-pontos) e nenhum
+placeholder literal. "Rascunho do intent `{slug}` pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
+1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`, com `THREAD_TS` vazio quando não há réplica. **Nunca** `slack_send_message`.
+2. `Salvar rascunho assinado` — igual à 1, com a assinatura da `## Assinatura do rascunho` no fim.
+3. `Não fazer nada` — nada é escrito: sem board para atualizar.
+
+Salvo o rascunho, vale a oferta de reação de status do contrato, se o canal tem `status_reactions`. Não há
+opção de reagir no lugar de responder: sem `JULGAMENTO`, o aceno não é uma conclusão deste caminho.
 
 **`JULGAMENTO = reagir`** — "A thread não pede resposta nova, só um aceno. Reagir?":
 1. `👍 Reagir com {emoji sugerido} (Recomendado)` — `slack_get_reactions` (evita duplicar) → `slack_add_reaction`.

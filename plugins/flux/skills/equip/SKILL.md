@@ -441,18 +441,25 @@ Modo próprio: roda **no lugar** dos Steps 1 a 5, sem repo, sem inventário e se
 Step 2. O artefato é de **contexto**, não de repo, e é consumido pelo `flux:reply`
 (`${FLUX_ROOT}/shared/slack-directory.md`, que é a fonte do formato).
 
+**Banner e `--dry`.** O output abre com o banner do elo, **sem** `lentes:` e **sem** `motor:`: não houve
+inventário, e campo que o elo não resolveu não entra (mesma regra do `holistico:` no `reply`). `destino:`
+entra com o diretório do arquivo resolvido, ou `nao resolvido`. Com `--dry`: imprimir o banner, o caminho
+resolvido e o esqueleto, e **parar**; nenhum gate abre e nada é escrito.
+
 1. **Exige manifesto.** O caminho do diretório é relativo ao manifesto, então sem `flux-context.json`
    resolvido no Step 0 não há onde ancorá-lo: dizer isso em uma linha, entregar o esqueleto no chat
    para colar e parar. Nenhum gate abre.
 2. **Já existe?** Manifesto com `slack_directory` apontando para arquivo existente: reportar o caminho
    e a contagem de pessoas, canais e grupos, e **parar**. Arquivo existente nunca é reescrito por este
    verbo; evoluir o conteúdo é do usuário. Campo declarado e arquivo ausente: criar o arquivo no caminho
-   declarado.
-3. **Destino.** O diretório do manifesto, por definição: o arquivo tem de ficar ao lado dele para o
-   caminho relativo valer entre máquinas. Não há cascata. As guardas de
-   `${FLUX_ROOT}/shared/write-destination.md` valem para esse diretório (symlink, repositório que não
-   é o alvo, diretório gerenciado por dotfiles), e o contrato de arquivo existente também.
-4. **Esqueleto**, com `workspace` igual ao `name` do manifesto e as três tabelas vazias:
+   declarado (vale o item 3).
+3. **Destino.** O caminho declarado em `slack_directory` vence (relativo ao manifesto, ou `~/`). Sem o
+   campo, o default é `slack-directory.json` no diretório do manifesto, ao lado dele, para o caminho
+   relativo valer entre máquinas. Não há cascata. As guardas de
+   `${FLUX_ROOT}/shared/write-destination.md` valem para o **diretório do arquivo resolvido** (symlink,
+   repositório que não é o alvo, diretório gerenciado por dotfiles), e o contrato de arquivo existente
+   também.
+4. **Esqueleto**, com `workspace` igual ao `name` do manifesto e as quatro tabelas vazias:
 
 ```json
 {
@@ -460,12 +467,13 @@ Step 2. O artefato é de **contexto**, não de repo, e é consumido pelo `flux:r
   "workspace": "<name do manifesto>",
   "_doc": "Alias de pessoas e canais do Slack. Formato: shared/slack-directory.md do flux.",
   "people": {},
+  "usergroups": {},
   "channels": {},
   "groups": {}
 }
 ```
 
-5. **Gate único** (`${FLUX_ROOT}/shared/hitl.md`), depois de mostrar o caminho e o conteúdo:
+5. **Gate de criação** (`${FLUX_ROOT}/shared/hitl.md`), depois de mostrar o caminho e o conteúdo:
    `Criar o diretório do Slack?`, com `Criar (Recomendado)`, `Só mostrar o esqueleto` e `Não criar`.
 6. Escrito o arquivo, seguir ao **Step 6** com o campo `slack_directory` (caminho relativo ao
    manifesto) como único candidato à persistência, se o manifesto ainda não o declara.
@@ -545,7 +553,7 @@ Até três coisas podem ser persistidas, e **cada uma é uma escolha separada**:
 | `write_destinations` | o destino canônico aprovado + o estado das guardas | sem ele, o gate de destino volta a cada execução, e o `review-agents.md` perde o degrau que encontra a suite fora do manifesto |
 | `slack_directory` | o caminho do diretório criado no Step 4d, relativo ao manifesto | sem ele, o `flux:reply` não resolve alias de pessoa e canal e volta a pedir permalink. **Só o Step 4d grava esta chave; nunca via `manifest_fragment`** |
 
-**A tabela é fechada, e é ela a allowlist do `manifest_fragment`.** O `${FLUX_ROOT}/shared/kit-format.md`
+**A tabela é fechada: é tudo que este verbo persiste. A allowlist do `manifest_fragment` é o subconjunto dela alcançável por kit.** O `${FLUX_ROOT}/shared/kit-format.md`
 delega a este verbo a validação das chaves da fatia, porque **quem aplica é quem valida**; a lista é
 esta, e hoje ela tem **um** item alcançável pelo fragmento: `exec_fallback`. `slack_directory` está na tabela, mas é
 gravada só pelo Step 4d, que é a ação direta do usuário; um fragmento de kit que a sugira é ignorado e declarado. Chave fora da tabela é

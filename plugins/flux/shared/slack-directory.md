@@ -44,9 +44,16 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
     "plataforma": {
       "channel_id": "C0BBBBBBB",
       "name": "#plataforma",
-      "aliases": ["plataforma", "time de plataforma"],
+      "aliases": ["plataforma", "canal de plataforma"],
       "purpose": "Dúvidas e avisos do time de plataforma. Mensagem curta, direta.",
-      "intents": {}
+      "intents": {
+        "triagem-recebida": {
+          "match": ["triagem", "recebi o ticket"],
+          "in_thread_of_target": true,
+          "use_default_mentions": false,
+          "template": "Recebi, obrigado! Vamos analisar e aviso por aqui."
+        }
+      }
     },
     "pull-requests": {
       "channel_id": "C0DDDDDDD",
@@ -86,7 +93,7 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
 }
 ```
 
-- `version` é `1`. Número maior que o conhecido: tratar como sem diretório e declarar.
+- `version` é `1`. Ausente, menor ou maior que o conhecido: tratar como sem diretório e declarar.
 - Chaves de `people`, `channels` e `groups` são o **slug** da entrada: minúsculas, sem acento, sem
   espaço. É o que aparece nos gates de ambiguidade.
 - `people.<slug>.user_id` é obrigatório (`U…` ou `W…`). `dm_channel_id` (`D…`) é opcional, e só vale
@@ -122,9 +129,10 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
 Entrada: o pedido do usuário em linguagem natural ("falar com o maria no plataforma") ou tokens soltos.
 
 1. **Normalizar** o texto do pedido e cada chave e alias: minúsculas, sem acento, hífen e sublinhado contam como espaço, espaços colapsados.
-2. **Casar** cada candidato a entidade contra os slugs e aliases, nas quatro tabelas. Casamento é por
-   igualdade do termo inteiro ou por termo contido numa palavra-limite; **nunca por prefixo parcial**
-   ("mat" não casa "matta").
+2. **Casar** cada candidato a entidade contra os slugs e aliases, nas quatro tabelas. Casamento é o alias
+   normalizado aparecer no pedido normalizado delimitado por início, fim ou espaço; **nunca por prefixo
+   parcial** ("mat" não casa "matta"). Só slugs e aliases casam: o `name` (com `#` ou `@`) é rótulo e
+   não participa.
    **O casamento mais longo vence:** alias que está contido, no mesmo trecho do pedido, num alias maior
    que também casou é descartado ("ai productivity" não disputa com "ai productivity interno"). Só
    empate real, dois acertos distintos no mesmo trecho, vira gate.
@@ -136,6 +144,9 @@ Entrada: o pedido do usuário em linguagem natural ("falar com o maria no plataf
 | pessoa **e** canal ou grupo ("com X em Y") | o canal ou grupo (`kind: channel`) | `<@user_id>` da pessoa |
 | só pessoa ("com X") | DM, `channel_id = user_id` (`kind: dm`) | nenhuma |
 | só grupo de usuários | **gate**: grupo não tem DM, perguntar em que canal | |
+| grupo de usuários **e** canal ou grupo | o canal ou grupo | `<!subteam^ID>` do grupo de usuários |
+| pessoa **e** grupo de usuários, sem canal | **gate**: perguntar em que canal | |
+| duas ou mais pessoas, sem canal | **gate**: uma DM por rascunho ou outro canal | |
 | só canal ou grupo ("em Y") | o canal ou grupo | nenhuma |
 | mais de uma pessoa e um canal | o canal | uma menção por pessoa, na ordem dita |
 | mais de um canal | **gate**, nunca escolher | |
@@ -155,6 +166,10 @@ DM. A entrada de pessoa precisa só do `user_id`, e o usuário não precisa cola
 
 O prefixo `U`/`W` não é `D`, então **o `kind` vem da entrada resolvida**, não do prefixo do id (o
 Step 1 do `flux:reply` deriva `kind` do prefixo só quando o alvo veio de permalink).
+
+`dm_channel_id`, quando a entrada o traz, é o que o `flux:reply` usa para reencontrar um board
+existente por superfície: o board de uma DM aberta por permalink guarda o `D…`, e o de uma DM aberta
+por alias guarda o `user_id`. A busca tenta os dois.
 
 ## Direção do canal e intents rápidos
 
@@ -217,7 +232,10 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
 ## Degradação
 
 Sem diretório, o `flux:reply` segue pedindo o permalink como sempre e **declara no banner**, no campo
-`degradacoes:`, que o alias não foi resolvido por falta do `slack_directory`. Nunca tenta adivinhar
+`degradacoes:`, com o token canônico `alias sem diretorio` (tabela do `${FLUX_ROOT}/shared/preflight.md`,
+Passo 5). O token sai só quando o pedido trazia alias (sem permalink, citando pessoa ou canal por
+nome); quem passou permalink não gera token. `in_thread_of_pr_post` e `status_reactions` herdam a
+dependência do MCP do Slack, que o `flux:reply` já exige. Nunca tenta adivinhar
 `user_id` ou `channel_id` por busca quando o pedido era um alias: busca por nome devolve homônimo, e
 o diretório existe justamente para não depender disso.
 

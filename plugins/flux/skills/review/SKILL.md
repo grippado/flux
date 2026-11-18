@@ -693,7 +693,8 @@ Se o usuário escolher "Não postar" ou cancelar a question, apenas terminar (se
 **Aviso no canal de PR (só sugestão, nunca ação).** Depois de uma postagem que deu certo, se o manifesto
 declara `slack_directory` (`${FLUX_ROOT}/shared/slack-directory.md`) e algum canal dele tem o intent
 `review-feita`, acrescentar à resposta no chat **uma linha**: `Para avisar no canal: ${FLUX_CMD}reply
-avisar review feita na PR #{number} em <alias do canal>`. Não abrir gate, não ler o Slack e não postar
+avisar review feita na PR #{number} em <alias do canal>`. Com mais de um canal com o intent, listar o
+alias de cada um; com `FLUX_CMD` indisponível, omitir a linha. Não abrir gate, não ler o Slack e não postar
 nada: quem avisa é o `flux:reply`, pelo caminho rápido, e só rascunha. Sem diretório ou sem o intent,
 nenhuma linha extra.
 
