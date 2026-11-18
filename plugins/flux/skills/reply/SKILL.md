@@ -109,7 +109,7 @@ TARGET="${TARGETS[-1]}"                      # a superfície ATUAL é sempre a �
 - Se não há permalink Slack válido em `TARGETS`, tentar **alvo por alias** (próxima subseção) quando há `SLACK_DIR` e o pedido cita pessoa ou canal. Só se isso também não resolver, **abortar** com mensagem pedindo o link (`${FLUX_CMD}reply responder <permalink>`).
 - **A superfície atual é a ÚLTIMA da lista.** Quando o usuário passa dois links ("era nessa thread, agora o papo tá aqui"), o primeiro é histórico e o último é onde a conversa está viva agora.
 - `--board <path>` assume um board existente em vez de procurar/criar. Atalho para quando o usuário já sabe qual é.
-- **Watch é DEFAULT-ON**: depois da 1ª passada, o comando fica vigiando o caso até assentar. `--once` (alias `--no-watch`) faz uma passada só.
+- **Watch é DEFAULT-ON**: depois da 1ª passada, o comando fica vigiando o caso até assentar. `--once` (alias `--no-watch`) faz uma passada só. **Exceção:** alvo por alias (próxima subseção) começa com o watch desligado.
 - **Linguagem natural conta como sinal de migração.** Se o pedido do usuário descreve movimento ("moveram pra cá", "o papo continuou em", "mandei por DM e ele respondeu em", "agora tá no canal X"), tratar como `mudou` mesmo sem o verbo literal. Ele não vai lembrar de digitar o verbo; o comando é que tem que reconhecer a situação.
 
 ### Alvo por alias (sem permalink)
@@ -130,6 +130,7 @@ Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver
   "Direção do canal e intents rápidos"). Ele **força `WATCH=false`** (`ONCE=true`) depois do parse acima,
   mesmo que o watch tenha ficado ligado por default, e usa o menu "Caminho rápido" do passo 9.
 - Ao procurar board existente por superfície, tentar também o `dm_channel_id` da entrada.
+- **Watch desligado por default em alvo por alias** (`WATCH=false`, `ONCE=true`), no caminho rápido ou fora dele, salvo o verbo `acompanhar` explícito. Sem thread nem mensagem de origem, a superfície do watch seria o canal ou a DM inteira, e o auto-save de rascunho valeria para qualquer mensagem nova de terceiros ali.
 - Fora o caminho rápido, nada muda no resto do pipeline, e o rascunho continua só salvo como rascunho.
 
 Permalink de mensagem cujo `channel_id` consta no diretório, com pedido que casa um intent do canal
@@ -359,8 +360,9 @@ reagido sem escolha positiva do usuário.
 
 *Antes do menu*, a main varre o texto **final**, com todos os placeholders já preenchidos, e esta varredura é
 dela, não de subagente:
-1. **Dados externos escapados:** `{pr_title}` e `{repo}` vêm do GitHub; `&`, `<` e `>` viram `&amp;`, `&lt;` e
-   `&gt;` antes de entrar no texto.
+1. **Dados externos escapados:** `{pr_title}`, `{repo}` e o rótulo de `{pr_title_link}` vêm do GitHub; `&`, `<` e
+   `>` viram `&amp;`, `&lt;` e `&gt;` antes de entrar no texto, o que também neutraliza `<!channel>`, `<!here>`
+   e `<!everyone>` num título. No rótulo do link, `|` vira `¦`, para não quebrar `<url|rótulo>`.
 2. **Convenção de citações (3a) e verificação (8a)** sobre o texto final: `{pr_title_link}` e `{pr_link}` já
    saem como hyperlink; qualquer outra citação de PR, issue ou código, inclusive a que vier dentro de um
    `{pr_title}` solto (título como "ENG-4308: ..." ou "fix #123"), passa pela 8a e não pode ficar nua
