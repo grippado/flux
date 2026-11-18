@@ -83,14 +83,14 @@ do seu domínio; não copia regras de renderer, recomendação, saída segura ou
 A lista é de **categorias**, não de call sites: uma ação nova que se encaixe numa dessas linhas nasce
 com gate, sem precisar emendar esta tabela.
 
-**Exceção declarada:** o `git push --force-with-lease` que publica uma resolução mecânica de conflito
-com a base, nas condições da seção 5, não abre GATE `commit-push`. O pedido de resolver é a
-autorização, e o rastro vai para o board depois (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5).
-
 > **A linha do manifesto é a mais recente, e a única que altera a configuração da família.** Até o
 > `flux:equip`, nenhum elo escrevia o `flux-context.json` — todos liam. Alterar o arquivo que governa
 > os demais elos, num arquivo que costuma ser versionado nos dotfiles de alguém, é ação com
 > gate, nunca consequência de ter equipado um repo.
+
+**Exceção declarada:** o `git push --force-with-lease` que publica uma resolução mecânica de conflito
+com a base, nas condições da seção 5, não abre GATE `commit-push`. O pedido de resolver é a
+autorização, e o rastro vai para o board depois (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5).
 
 ### O que NÃO precisa de gate
 
