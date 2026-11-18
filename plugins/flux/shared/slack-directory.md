@@ -192,8 +192,10 @@ técnica pede resposta embasada. Duas coisas do diretório servem a isso:
 | `{pr_title}` | título da PR resolvida |
 | `{repo}` | repo da PR resolvida |
 
-Placeholder que não pôde ser preenchido nunca sai literal no rascunho: perguntar ou, sem resposta,
-abandonar o atalho e seguir o caminho normal. Mais de um intent casando no mesmo pedido abre gate.
+Placeholder que não pôde ser preenchido nunca sai literal no rascunho: perguntar ao usuário
+(`AskUserQuestion`, campo livre aceito) ou, sem resposta, abandonar o atalho e seguir o caminho normal.
+O texto preenchido passa pelas mesmas regras de escrita do reply (convenção de citações, verificação 8a,
+Slack-safe, `NO_EMDASH`) antes do gate de salvar, descrito no passo 9 do `flux:reply`. Mais de um intent casando no mesmo pedido abre gate.
 Texto externo respeita `NO_EMDASH` do manifesto, inclusive o `template`.
 
 **Uma PR por pedido.** Intent com `max_prs: 1` e pedido que cita mais de uma PR: um rascunho por PR, em
@@ -203,8 +205,8 @@ numa mensagem.
 
 **Réplica na mensagem da PR (`in_thread_of_pr_post`).** O rascunho vira réplica na thread da mensagem
 do canal que contém a PR: buscar no canal pela URL da PR (`slack_search_public_and_private` com
-`in:<canal>`), pegar o `ts` da mensagem do pedido e usar como `thread_ts`. Não achou: perguntar, com a
-opção de rascunhar mensagem nova no canal.
+`in:<canal>`), pegar o `ts` da mensagem do pedido e usar como `thread_ts`. Não achou: GATE com `Rascunhar mensagem nova no
+canal`, `Informar o link da mensagem` e `Não fazer nada`.
 
 **Réplica na thread do permalink (`in_thread_of_target`).** Vale quando o usuário passa o permalink de
 uma mensagem **e** o `channel_id` dele consta no diretório: o canal é resolvido pelo id, o pedido é
@@ -213,9 +215,10 @@ permalink (`thread_ts` do alvo). É o caminho do aviso de triagem ("recebi, vou 
 ticket já postado. Intent sem esse campo não muda o comportamento de quem passou permalink.
 
 **Status por reação.** Com `status_reactions` no canal e o intent resolvido sobre uma PR, oferecer em
-gate **depois** de o rascunho estar salvo: adicionar a reação do status (`approved`, `commented`,
-`merged`, `reviewing`) na mensagem do pedido (`slack_add_reaction`). É escolha explícita do usuário,
-nunca automática. A ferramenta só **adiciona**: a reação de status anterior fica, e retirá-la é do
+**GATE** (`${FLUX_ROOT}/shared/hitl.md`, `AskUserQuestion` no Claude Code) **depois** de o rascunho estar
+salvo: adicionar a reação do status (`approved`, `commented`, `merged`, `reviewing`) na mensagem do
+pedido, conferindo antes com `slack_get_reactions` para não duplicar. É escolha explícita do usuário,
+nunca automática, e sem veredito conhecido não há opção recomendada. A ferramenta só **adiciona**: a reação de status anterior fica, e retirá-la é do
 usuário, o que deve ser dito na oferta.
 
 Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_CANAL` como contexto.

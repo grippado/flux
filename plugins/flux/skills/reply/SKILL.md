@@ -169,7 +169,7 @@ Sem canal de Slack nenhum, **abortar** sem gravar nada, dizendo qual prefixo foi
 ## Out of scope (NUNCA faça sem escolha explícita)
 
 - **Nunca** `slack_send_message` (enviar de fato na thread). A ação de enviar é sempre do usuário, no Slack, revisando o rascunho.
-- **Nunca** `slack_add_reaction` fora da opção escolhida no menu final (passo 8). Reagir é efeito externo visível.
+- **Nunca** `slack_add_reaction` fora da opção escolhida no menu final (passo 9) ou, no caminho rápido, no gate de status que vem depois do rascunho. Reagir é efeito externo visível.
 - Salvar rascunho (`slack_send_message_draft`) é a **única** ação com efeito no Slack que pode ser automática — e só no modo watch em background (é privado, reversível, não notifica ninguém). Na passada interativa, mesmo o rascunho passa pelo menu.
 - Não escrever em lugar nenhum exceto: o board no vault (`<VAULT_ROOT>/0-inbox/`), o sidecar de estado do watch (`<VAULT_ROOT>/.slack-watch/`), e o rascunho no Slack quando autorizado.
 - Falha graciosa: se um subagent retornar erro/output malformado, **abortar e não gravar board parcial**.
@@ -350,15 +350,40 @@ Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nun
 4. `Reagir com emoji em vez de responder` — mostra emoji sugerido, confirma, `slack_add_reaction`.
 5. `Não fazer nada`.
 
-**Caminho rápido (intent do diretório)** — não há `JULGAMENTO` nem board. Antes do menu, a main confere o
-texto do `template` já preenchido: `NO_EMDASH` (troca travessão por vírgula ou dois-pontos) e nenhum
-placeholder literal. "Rascunho do intent `{slug}` pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
-1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`, com `THREAD_TS` vazio quando não há réplica. **Nunca** `slack_send_message`.
+**Caminho rápido (intent do diretório)** — não há `JULGAMENTO` nem board, mas valem **as mesmas regras de
+escrita e o mesmo gate** do caminho normal. Nada é salvo nem reagido sem escolha positiva do usuário.
+
+*Antes do menu*, a main varre o texto do `template` já preenchido, e esta varredura é dela, não de subagente:
+1. **Convenção de citações (3a) e verificação (8a):** `{pr_title_link}` e `{pr_link}` já saem como
+   hyperlink; qualquer outra citação de PR, issue ou código que o texto fixo traga passa pela 8a (nenhuma
+   forma nua fora de link).
+2. **Regra Slack-safe:** só `*bold*`, `_italic_`, bullets, `>`, `<@ID>`, `<!subteam^ID>` e `<url|texto>`; nada de
+   headers nem tabelas.
+3. **`NO_EMDASH`:** travessão no texto vira vírgula ou dois-pontos.
+4. **Sem lacuna:** placeholder sem valor, PR não resolvida ou `status` indeterminado viram **pergunta ao
+   usuário** (`AskUserQuestion`, com o campo livre "Other" aceitando o valor), nunca texto literal nem
+   chute. Mensagem do pedido não achada (`in_thread_of_pr_post`) também: opções `Rascunhar mensagem nova
+   no canal`, `Informar o link da mensagem` e `Não fazer nada`.
+
+*O menu é um GATE* (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado
+no fallback), single-select, recomendada na posição 1, saída inócua por último. "Rascunho do intent `{slug}`
+pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
+1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`, com `THREAD_TS` vazio quando não há réplica. **Nunca** `slack_send_message`: "postar" aqui é salvar o rascunho no canal, e enviar é do usuário no Slack.
 2. `Salvar rascunho assinado` — igual à 1, com a assinatura da `## Assinatura do rascunho` no fim.
 3. `Não fazer nada` — nada é escrito: sem board para atualizar.
 
-Salvo o rascunho, vale a oferta de reação de status do contrato, se o canal tem `status_reactions`. Não há
-opção de reagir no lugar de responder: sem `JULGAMENTO`, o aceno não é uma conclusão deste caminho.
+Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva** (`ONCE=true`, sem watch).
+
+*Segundo GATE, depois de salvar*, só quando o canal tem `status_reactions` e o intent é sobre uma PR:
+"Atualizar o status da PR na mensagem do pedido?":
+1. `Adicionar :{emoji}: ({status sugerido}) (Recomendado)` — o status sugerido vem do veredito da review quando
+   a sessão o tem (`approved` para aprovar, `commented` para comentários); sem veredito, **não há
+   recomendada** e a pergunta lista os quatro status. `slack_get_reactions` antes, para não duplicar, e
+   `slack_add_reaction` só na escolha.
+2. `Escolher outro status` — lista `merged`, `reviewing`, `approved`, `commented` com o emoji de cada.
+3. `Não reagir`.
+
+A ferramenta só adiciona: a reação de status anterior fica, e dizer isso na pergunta.
 
 **`JULGAMENTO = reagir`** — "A thread não pede resposta nova, só um aceno. Reagir?":
 1. `👍 Reagir com {emoji sugerido} (Recomendado)` — `slack_get_reactions` (evita duplicar) → `slack_add_reaction`.
