@@ -705,7 +705,8 @@ desfecho escolhe o intent do canal:
 | postagem sem aprovar na 1ª rodada, ou rodada 2+ sem comentário além de `praise` (inclui aprovação que falhou ou com head divergente) | `review-comentada` |
 
 Rodada 2 em diante = há rodada anterior desta PR no vault (Passo 3b) **ou** review anterior da própria conta
-(`ME`) na PR. Os dois sinais só contam rodadas, nunca mudam o conteúdo do review.
+(`ME`) na PR, ambos lidos **antes** desta postagem (Step 3 e 3b), nunca depois: a review recém-postada não conta.
+Os dois sinais só contam rodadas, nunca mudam o conteúdo do review.
 
 Algum canal do diretório com o intent do desfecho: abrir **um GATE** (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`;
 `AskUserQuestion` no Claude Code, menu numerado no fallback de `${FLUX_ROOT}/shared/codex-compat.md`),

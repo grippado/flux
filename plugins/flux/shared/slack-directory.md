@@ -30,6 +30,7 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
     "maria": {
       "user_id": "U0AAAAAAA",
       "name": "Maria Souza",
+      "github": "msouza",
       "aliases": ["maria souza", "msouza"]
     }
   },
@@ -290,7 +291,7 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
   Aceitar delega ao caminho rápido do `flux:reply`, que só rascunha; o build não posta nem salva
   rascunho.
 - O `flux:review` oferece, num GATE depois de postar (Step 8b), o intent do desfecho: `review-aprovada`,
-  `review-aprovada-com-comentarios`, `review-comentada` ou, da rodada 2 em diante com comentários novos sem aprovar, `review-novos-pontos`. O `flux:iterate` oferece (passo 9a), em PR do
+  `review-aprovada-com-comentarios`, `review-comentada` ou, da rodada 2 em diante com comentário inline (além de `praise`) sem aprovar, `review-novos-pontos`. O `flux:iterate` oferece (passo 9a), em PR do
   próprio usuário, `iterate-enderecado` e `iterate-aguardando`. Em ambos, a condição é diretório declarado,
   algum canal com o intent e capacidade de Slack na sessão. Aceitar delega ao caminho rápido do
   `flux:reply`, que acha o pedido, mostra o preview e só rascunha (no `--auto` e nos ticks do watch do iterate, a variante
