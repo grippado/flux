@@ -165,6 +165,11 @@ diferença é o que importa aqui:
   nomeando `FLUX_CMD`, como o `land`. Nunca executa o pipeline de um elo inline. No Codex o único
   chain executável da v1, `review>iterate`, portanto não roda: o usuário invoca os verbos à mão.
 
+**`flux:build`, `flux:review` e `flux:iterate`** também despacham o `reply`, mas só como oferta de aviso no
+canal de PR (pedir review, avisar o desfecho, avisar revisores). Sem `FLUX_CMD`, a oferta some em silêncio e o
+verbo roda inteiro: perda parcial, sem token de degradação por design, e a ausência vale também para as
+lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`), que saem só no relatório do tick.
+
 Os demais funcionam normalmente. **Exceção parcial: o `flux:refine`.** Sem `FLUX_CMD`, o verbo inteiro
 continua funcionando (T0/T1, PRD, TRD, plano, Caminho grill); só o encadeamento fatia-por-fatia do
 Caminho vermelho degrada, porque ele também se reinvoca a si mesmo — sem verificar, cai no fechamento

@@ -255,7 +255,9 @@ modo automático.
 
 Num tick de watch (background), não há usuário assistindo. Vale a regra do subagente: o tick não abre
 gate. Ele acumula o que precisa de decisão e apresenta no próximo ponto interativo, ou registra no
-board como pendência explícita.
+board como pendência explícita. Única exceção: o aviso no canal de PR do `flux:iterate` (passo 9a) salva um
+rascunho do Slack sem gate, pela variante `--auto` do `flux:reply`, porque o rascunho é privado, reversível e
+não notifica ninguém; ele nunca posta nem reage.
 
 **O wake não é aprovação de gate.** O que reabre a sessão de um watch (o fim de um processo em
 background, um wake agendado, uma mensagem enfileirada pelo invólucro de um adaptador) é sinal de que

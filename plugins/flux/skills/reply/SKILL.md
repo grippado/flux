@@ -83,7 +83,7 @@ Sem manifesto: `VAULT_ROOT` = não persiste por default (só imprime o board no 
 Parse de `"$@"` num loop bash:
 
 ```bash
-VERB=""; WATCH=true; ONCE=false; BOARD=""
+VERB=""; WATCH=true; ONCE=false; AUTO=false; BOARD=""
 TARGETS=()                                   # pode haver MAIS DE UM permalink (ver Casos multi-superfície)
 expect_board=false
 for arg in "$@"; do
@@ -93,6 +93,7 @@ for arg in "$@"; do
     acompanhar|watch)               VERB="acompanhar" ;;
     mudou|migrou|move)              VERB="mudou" ;;
     --once|--no-watch)              ONCE=true ;;
+    --auto)                         AUTO=true ;;
     --board)                        expect_board=true ;;
     https://*.slack.com/archives/*) TARGETS+=("$arg") ;;
   esac
@@ -122,6 +123,19 @@ Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver
 - `THREAD_TS` = vazio e `MSG_TS` = vazio: não há mensagem de origem, a leitura é `slack_read_channel`.
 - `MENTIONS` = o `{mentions}` do contrato do diretório (pessoas e grupos de usuários citados, ou as
   `default_mentions` do canal). O answerer as recebe e as renderiza.
+- `{requester}` (só em intent com `in_thread_of_pr_post`) = o `{requester}` do contrato do diretório
+  (`${FLUX_ROOT}/shared/slack-directory.md`): `<@user_id>` do autor da mensagem do pedido. Autor sem `user_id`
+  (bot ou app) ou que o MCP identifica como o próprio usuário: `AskUserQuestion`, campo livre aceito. Passa
+  pela varredura Slack-safe como qualquer menção. O veredito `approved` vem da review da mesma sessão; fora
+  dela, o gate de status segue sem opção recomendada.
+- `{pr_author}` (só em intent que o usa) = o do contrato do diretório: `<@user_id>` da entrada de `people` cujo
+  `github` é o `author.login` da PR resolvida; sem entrada, `AskUserQuestion`, campo livre aceito.
+- `{open_comments}` (só em intent que o usa) = o do contrato do diretório, lido do token `abertos=<N>` do pedido;
+  sem o token, ou com `0`, `AskUserQuestion`. Esse token não é nome de pessoa nem alias: sai do texto antes da
+  resolução de alias e de menção.
+- `own_post_only`: achada a mensagem do pedido, se o autor dela não é o próprio usuário (o id que o MCP de Slack
+  informa como o usuário autenticado), o atalho termina **sem rascunho e sem GATE de mensagem nova**, dizendo que
+  o pedido de review da PR foi postado por outra pessoa. Id do usuário indisponível: `AskUserQuestion`.
 - O pedido do usuário é a **intenção** do rascunho. Passá-la ao prospector e ao answerer como
   `INTENT`: aqui o rascunho abre uma mensagem nova, não responde a uma.
 - Ambiguidade, dois canais e termo sem acerto seguem os gates do contrato.
@@ -173,7 +187,7 @@ Sem canal de Slack nenhum, **abortar** sem gravar nada, dizendo qual prefixo foi
 
 - **Nunca** `slack_send_message` (enviar de fato na thread). A ação de enviar é sempre do usuário, no Slack, revisando o rascunho.
 - **Nunca** `slack_add_reaction` fora da opção escolhida no menu final (passo 9) ou, no caminho rápido, no gate de status que vem depois do rascunho. Reagir é efeito externo visível.
-- Salvar rascunho (`slack_send_message_draft`) é a **única** ação com efeito no Slack que pode ser automática — e só no modo watch em background (é privado, reversível, não notifica ninguém). Na passada interativa, mesmo o rascunho passa pelo menu.
+- Salvar rascunho (`slack_send_message_draft`) é a **única** ação com efeito no Slack que pode ser automática — e só no modo watch em background (é privado, reversível, não notifica ninguém). Na passada interativa, mesmo o rascunho passa pelo menu. Única outra exceção: a variante `--auto` do caminho rápido (passo 9a do `flux:iterate`), que salva só como rascunho, sem gate.
 - Não escrever em lugar nenhum exceto: o board no vault (`<VAULT_ROOT>/0-inbox/`), o sidecar de estado do watch (`<VAULT_ROOT>/.slack-watch/`), e o rascunho no Slack quando autorizado.
 - Falha graciosa: se um subagent retornar erro/output malformado, **abortar e não gravar board parcial**.
 
@@ -344,7 +358,17 @@ citação estava tentando provar.
 
 ### 9. Menu de ação (GATE — `${FLUX_ROOT}/shared/hitl.md` —, só na passada interativa)
 
-Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva.
+Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva (a variante `--auto` do caminho rápido é a única exceção).
+
+**Preview antes de gravar (vale para as opções 1 e 2, nos dois caminhos, e para as que herdam o fluxo de responder, como `Rascunhar resposta mesmo assim` e `Forçar rascunho de resposta`).** Antes de abrir o GATE, imprimir no
+chat o que será gravado, num bloco: o destino (`#canal` ou DM com a pessoa, e `réplica na thread de <autor>,
+<data e hora>` quando houver `THREAD_TS`) e o **texto exato**, depois de todas as varreduras. É o próprio
+argumento de `slack_send_message_draft`: o que o usuário lê é o que vai para o draft. Abaixo do texto, a linha
+da assinatura que a opção 2 acrescenta (`## Assinatura do rascunho`), para que a revisão cubra as duas
+opções. No Claude Code, preencher também o campo `preview` das opções 1 e 2 do `AskUserQuestion` (a 2 com a
+assinatura). Nada é salvo antes da escolha. Pedido de ajuste ao ver o preview volta à redação e mostra um novo
+preview, em vez de salvar. Se algo mudar depois de aprovado (`THREAD_TS`, menção), mostrar de novo antes de
+gravar. Vale só para a passada interativa: o auto-save do watch em background continua indo para o board.
 
 **`JULGAMENTO = responder`** — "Rascunho pronto para a thread em `#{canal}`. O que fazer?":
 1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`. Fica nos drafts do usuário para revisar e enviar. **Nunca** `slack_send_message`.
@@ -355,7 +379,7 @@ Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nun
 
 **Caminho rápido (intent do diretório)** — não há `JULGAMENTO` nem board, mas valem **as mesmas regras de
 escrita e o mesmo gate** do caminho normal. Este caminho, por alias ou por permalink, roda com
-`WATCH=false`: a exceção do watch em background (auto-save sem menu) **não** vale aqui. Nada é salvo nem
+`WATCH=false`: a exceção do watch em background (auto-save sem menu) **não** vale aqui, salvo a variante `--auto` abaixo. Nada é salvo nem
 reagido sem escolha positiva do usuário.
 
 *Antes do menu*, a main varre o texto **final**, com todos os placeholders já preenchidos, e esta varredura é
@@ -374,6 +398,9 @@ dela, não de subagente:
    chute; sem resposta, abandonar o atalho e seguir o caminho normal (contrato do diretório). Mensagem
    do pedido não achada (`in_thread_of_pr_post`) segue o GATE do contrato, sem repetir as opções aqui.
 
+*Antes do menu*, imprimir o **preview** definido no passo 9 (destino, réplica na thread quando houver, texto
+final e a assinatura da opção 2); ele é o snapshot da `GateSpec`, sem repetir o texto.
+
 *O menu é um GATE* (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado
 no fallback), single-select, recomendada na posição 1, saída inócua por último. "Rascunho do intent `{slug}`
 pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
@@ -381,7 +408,15 @@ pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
 2. `Salvar rascunho assinado` — igual à 1, com a assinatura da `## Assinatura do rascunho` no fim.
 3. `Não fazer nada` — nada é escrito: sem board para atualizar.
 
-Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva**.
+Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva**, com uma única exceção, a variante `--auto`.
+
+**Variante `--auto` (só despachada pelo passo 9a do `flux:iterate` em `--auto` e nos ticks do watch).** Sem usuário
+para responder: não há GATE de salvar nem de status. Imprime o preview no chat (o relatório do tick) e salva o
+rascunho como a opção 1 (sem assinatura), com as mesmas varreduras. Nunca posta e nunca reage. Lacuna que pediria
+pergunta (placeholder sem valor, pessoa não resolvida, mensagem do pedido não achada, id do usuário
+indisponível, `own_post_only` não satisfeito) **não grava**: devolve `sem-rascunho: <motivo>`. Rascunho já existente
+no canal (`attached_draft_exists`): não sobrescreve nem apaga, devolve `draft-pendente`. `AUTO` só vale quando o pedido é de intent do diretório e vem do passo 9a do iterate (os intents `iterate-*`); em qualquer outro pedido, `--auto` é
+ignorado e o gate de sempre vale.
 
 **Rastro sem board.** O `hitl.md` pede registrar a `GateSpec` antes e o resultado depois. Aqui não há board
 nem Timeline: o elo imprime no chat o bloco da `GateSpec` (snapshot, pergunta, opções) antes de perguntar e,

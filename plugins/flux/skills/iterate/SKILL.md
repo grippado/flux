@@ -107,6 +107,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `KITS_ROOT` = `kits_root` (template de path com `{repo}`; degrau 3 da cascata de destino, opcional)
    - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `ANSWERER` = `answerer` (agente para rascunhar réplicas em `--dry`; se ausente, usar `<HOLISTIC>` com instrução de rascunhar)
+   - `SLACK_DIR` = `slack_directory` (diretório de alias do Slack, `${FLUX_ROOT}/shared/slack-directory.md`; só para o aviso no canal do passo 9a, opcional)
 
 3. Se não encontrar (perfil genérico):
    - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3), nunca um nome fixo
@@ -116,6 +117,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `NO_EMDASH` = `false`
    - `SPECIALISTS_ROOT` = `<repo-checkout>/.claude/agents/reviewer.md` ou `<repo-checkout>/.claude/agents/review/*.md`
    - `ANSWERER` = o próprio `<HOLISTIC>` com instrução de rascunhar réplicas (sem agente dedicado)
+   - `SLACK_DIR` = nenhum (sem diretório, nenhum aviso no canal)
 
 ## Inputs aceitos
 
@@ -152,6 +154,7 @@ As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebas
 - **Não mexer no prefixo de ticket do título** (`[ENG-1234]`, `[PROD-000]`). É chave de rastreabilidade para Linear e CI; trocar ou remover quebra automação em silêncio.
 - **Não renomear título que só ficou genérico.** Renomeia-se apenas título que nomeia desenho refutado. A barra do título é mais alta que a da descrição, porque ele vira mensagem de squash commit e circula em notificação.
 - **Não regerar a descrição da PR do zero.** Editar sempre sobre o body atual, cirurgicamente. Body regenerado apaga contexto humano (links de PRs irmãs, checklist marcada pelo revisor) de forma silenciosa e irreversível pela UI.
+- **Não postar no Slack nem salvar rascunho aqui.** O aviso do passo 9a só delega ao `${FLUX_CMD}reply`: na passada interativa, depois de um GATE aceito; em `--auto` e nos ticks do watch, direto, pela variante `--auto`. O `reply` só rascunha, nunca posta.
 - Em modo `--dry`: **nunca** escrever no GitHub (sem reply, sem reação, sem resolve, sem commit, sem push).
 - **Não entrar num segundo repo.** O iterate fecha o loop de UMA PR, logo toca UM repo. Se a correção parecer exigir mexer noutro repo, isso é escopo de `/flux:land` (que despacha um subagente por PR): registre como bloqueio e reporte, não abra o segundo checkout aqui. Ver `${FLUX_ROOT}/shared/context-budget.md` (Regra 1: cada root de repo custa 10-20k tokens permanentes).
 - **Não despejar saída crua no contexto**: `gh run view`, `type-check`, `test` e afins sempre filtrados na origem (`| tail -N`, `| grep -E 'error|fail'`). Regra 4 do orçamento de contexto.
@@ -801,6 +804,51 @@ Tabela curta: por thread aberta ou finding persistente de thread reaberta `{path
 
 Quando o passo 8a mexeu em título ou descrição, dizer em uma linha **o que foi corrigido e por quê** (e, no caso do título, mostrar o antes/depois) (ex.: `descrição: a seção "A proposta" ainda anunciava o verbo-fachada, refutado na thread X`). Quando a PR é de terceiro e a reconciliação virou sugestão em comentário, sinalizar isso explicitamente.
 
+### 9a. Aviso no canal de PR (GATE na passada interativa, automático em `--auto` e em todo tick do watch, nunca posta)
+
+Depois do passo 7 (e do 8, quando houve push), só quando **todas** valem: `IS_OWN_PR == true`; o run
+respondeu, reagiu ou resolveu thread de **pessoa** (bot e o próprio autor não contam) neste turno (tick de delta
+vazio não roda o 9a); fora de `--dry` e fora de run despachado por orquestrador (`--parent-board`, como o do
+`flux:land`, que roda em subagente e dispararia rascunhos em lote);
+`SLACK_DIR` declarado com algum canal que tenha o intent do grupo; `FLUX_CMD` utilizável; e
+capacidade de Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão). Sem qualquer uma,
+nenhuma pergunta e nenhuma linha extra, e a ausência é silenciosa por design (sem token de degradação, ver
+`${FLUX_ROOT}/shared/codex-compat.md`). As lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`) saem só no
+relatório do tick, também sem token. Não confundir com o Hook Slack, que é o feed de status.
+
+Agrupar por revisor (o `author.login` da thread tratada, pessoas apenas):
+- **`iterate-enderecado`**: revisores cujas threads tratadas neste run ficaram **todas** respondidas, reagidas
+  (👍 ou 👎) e resolvidas.
+- **`iterate-aguardando`**: revisores com **ao menos uma** thread deixada aberta com réplica, esperando a
+  resposta deles (`needs-discussion`, ou defesa mantida aberta). `abertos` é a contagem dessas threads
+  (a soma dos revisores do grupo), e o revisor com threads dos dois tipos entra só neste grupo.
+
+**Todo tick do watch roda este passo** (e o `--auto`), logo depois da rodada de threads do delta e do push, na
+mesma `--auto` em que as réplicas foram postadas. Sem usuário para responder, não há gate: o rascunho é a
+exceção que o watch já tem (privado, reversível, não notifica ninguém), e o aviso vai pelo `reply` na variante
+`--auto`, que imprime o preview no relatório do tick e salva o rascunho. Só se avisa revisor com thread tratada **neste turno**, e o
+campo `slackNotified` do estado do watch (`<login do revisor>` → `{grupo, abertos, round}`) impede avisar duas
+vezes o mesmo revisor no mesmo `round` (tick reexecutado, 1ª passada seguida de tick). Rascunho que o `reply` não pôde
+salvar (`draft-pendente`, porque já existe um rascunho anexado no canal, ou `sem-rascunho`) **não** grava
+`slackNotified`: o próximo tick tenta de novo, e o relatório do tick diz o motivo uma vez.
+
+Para cada grupo não vazio cujo intent exista num canal do diretório, na passada interativa, abrir **um GATE**
+(`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado no fallback de
+`${FLUX_ROOT}/shared/codex-compat.md`), single-select, "Avisar {revisores} no canal de PR?":
+- `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório (com um canal só, é a
+  primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada).
+- `Agora não`.
+
+Aceitar (ou, em `--auto` e nos ticks, direto, com `${FLUX_CMD}reply --auto`) roda `${FLUX_CMD}reply` com uma frase de `match` literal do intent, o nome do canal (primeiro alias; sem
+`aliases`, o slug), a URL completa da PR (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`), o nome de cada
+revisor do grupo (o `alias` da entrada de `people` cujo campo `github` é o login; sem entrada, o nome de
+exibição do GitHub, e o `reply` pergunta quando não resolver) e, no `iterate-aguardando`, `abertos=<N>`, tudo
+numa string entre aspas. O `reply` acha o **seu** pedido de review no canal (`own_post_only`: pedido postado por
+outra pessoa não vale, e o `reply` termina sem rascunho), rascunha a réplica na thread dele, mostra o preview e
+só então salva o rascunho (na variante `--auto`, sem esperar a escolha). Com os dois grupos não vazios, um gate e um
+rascunho por grupo, em sequência: o Slack aceita um rascunho anexado por canal, então o segundo espera o
+usuário enviar ou apagar o primeiro (no tick, fica sem gravar `slackNotified` e é tentado no tick seguinte).
+
 ## Convenções de texto (GitHub = publicação externa)
 
 - PT-BR com acentuação correta sempre.
@@ -921,6 +969,7 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
   "resolvedThreadIds": ["PRRT_..."],
   "verifiedResolvedThreads": [{"threadId":"PRRT_...","headSha":"abc123","resolvedBy":"reviewer","lastCommentId":123456789}],
   "discussionThreadIds": [],
+  "slackNotified": {},
   "answeredCommentIds": [123456789],
   "lastHeadSha": "abc123",
   "lastCiConclusion": "success|failure|pending|null",
@@ -947,7 +996,9 @@ Os três campos do gate de integração: `lastMergeable` = último `mergeable` l
 
 `verifiedResolvedThreads` guarda um snapshot por thread resolvida por terceiro/unknown já verificada: `threadId`, `headSha`, `resolvedBy` e `lastCommentId` (ID REST do comentário mais recente). O watch só reabre a verificação quando a thread ainda está resolvida por terceiro/unknown e algum desses valores muda, inclusive quando o `headRefOid` muda; assim não trata uma thread fechada como aberta nem repete a mesma análise em ticks quietos. Registrar o snapshot só depois da classificação. Se o estado sumir, reconstruir esta lista vazia e reverificar; nunca inferir que a thread foi verificada por estar fechada.
 
-Na 1ª passada, gravar o estado inicial (round 1, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, `verifiedResolvedThreads` = snapshot (`threadId`, `headSha`, `resolvedBy`, `lastCommentId`) de cada thread resolvida por terceiro/unknown que foi verificada, `answeredCommentIds` = os issue comments de terceiros que a 1ª passada classificou, respondidos e ignoráveis, SHA pós-push, `lastCiConclusion` = o CI coletado no passo 2, nos literais do passo 2 de "Um tick", `conflictAttemptedAtBaseSha` = o `baseRefOid` se o passo 2b terminou em modo degradado (exceto por lease recusado, seção 5 do shared), senão `null`, `retainedResolutionSha` = o SHA local da resolução retida pelo passo 2b, senão `null`, `startedAt` = agora, no formato UTC acima, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente resolvidas de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), `verifiedResolvedThreads` como lista vazia para revalidar resolvidas por terceiros/unknown, `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles (os ignoráveis voltam à lista no primeiro tick, que os reclassifica), e o `board` a partir do naming determinístico do passo 2a.
+`slackNotified` = o último aviso de canal por revisor (passo 9a), no formato `{"<login>": {"grupo": "enderecado|aguardando", "abertos": N, "round": N, "recusado": false}}`. O passo 9a o escreve nos três desfechos: rascunho salvo (interativo ou `--auto`), e `Agora não` no gate interativo (`recusado: true`, para o tick não reavisar no mesmo `round`). Falha em salvar não grava. O gate não o lê. Na 1ª passada ele nasce `{}` e é preenchido pelo 9a. Arquivo reconstruído: `{}`, e o primeiro tick pode avisar de novo, o que o `reply` já contém com o rascunho anexado existente.
+
+Na 1ª passada, gravar o estado inicial (round 1, `slackNotified` conforme o passo 9a, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, `verifiedResolvedThreads` = snapshot (`threadId`, `headSha`, `resolvedBy`, `lastCommentId`) de cada thread resolvida por terceiro/unknown que foi verificada, `answeredCommentIds` = os issue comments de terceiros que a 1ª passada classificou, respondidos e ignoráveis, SHA pós-push, `lastCiConclusion` = o CI coletado no passo 2, nos literais do passo 2 de "Um tick", `conflictAttemptedAtBaseSha` = o `baseRefOid` se o passo 2b terminou em modo degradado (exceto por lease recusado, seção 5 do shared), senão `null`, `retainedResolutionSha` = o SHA local da resolução retida pelo passo 2b, senão `null`, `startedAt` = agora, no formato UTC acima, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente resolvidas de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), `verifiedResolvedThreads` como lista vazia para revalidar resolvidas por terceiros/unknown, `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles (os ignoráveis voltam à lista no primeiro tick, que os reclassifica), e o `board` a partir do naming determinístico do passo 2a.
 
 **Atualizar o board a cada tick:** tick é turno deste elo. Com o gate, só existe tick quando ele sai (o poll ocioso acontece fora da LLM e não toca o board); no fallback agendado, a cada wake. Todo tick rola o carimbo de data do board (frontmatter `updated:`, TLDR, título do painel) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline de Eventos Relevantes + parágrafo na Timeline Verbosa. Tick quiet só rola a data.
 
@@ -1121,7 +1172,7 @@ Um tick roda quando o gate sai com evento acionável ou, no fallback agendado, a
 #### Decisão do tick (em ordem de prioridade)
 
 - **PR conflitante (`mergeable == CONFLICTING`) → tem precedência sobre tudo.** Aplicar o **gate de integração do passo 2b** (fonte única) antes de qualquer outra coisa deste tick, pelo mesmo motivo da 1ª passada: correção empilhada em base que não funde piora o conflito, e o CI do tick é inconfiável. Se a base andou desde a última tentativa (`conflictAttemptedAtBaseSha != baseRefOid` do passo 1), é tentativa nova; se é o mesmo SHA de base, **não retentar**. Resolvido → evento `conflito-resolvido`, atualizar `lastHeadSha` e `lastMergeable`, e seguir o tick normalmente. Não resolvido → evento `conflito-bloqueado`, **modo degradado**: fechar a conversa das threads do delta (responder/reagir/resolver) sem aplicar, commitar ou pushar, e não contar quiet tick. **Gravar `conflictAttemptedAtBaseSha = baseRefOid` em toda queda para o degradado**, com ou sem tentativa de resolução (qualquer causa da seção 6 do shared, inclusive gate vermelho), **exceto lease recusado**, que não grava porque não consome a tentativa daquele SHA de base (seção 5 do shared): o campo diz ao gate que este SHA de base já foi avaliado. Sem ele, o gate reemite `conflito-novo` a cada relançamento e nunca chega ao código 12.
-- **Nova rodada de threads (qualquer delta não vazio)** → executar os passos 3 a 8a em `--auto` **apenas sobre os deltas**: abertas seguem exatamente o fluxo atual; resolvidas por terceiros/unknown passam pela classificação do passo 2 e só findings persistentes/regredidos entram no plano normal de correção. Correção já presente não é reaplicada; se confirmada válida ou improcedente/obsoleta, manter a thread fechada e registrar a verificação. Ao terminar: `round += 1`; adicionar a `resolvedThreadIds` todas as threads do delta processadas (as abertas deixadas por `needs-discussion` também entram em `discussionThreadIds`); adicionar a `verifiedResolvedThreads` os snapshots das threads resolvidas por terceiros/unknown que foram classificadas; atualizar `lastHeadSha`, zerar `quietTicks`. Emitir evento Slack `nova-rodada-fechada` (ver "Hook Slack").
+- **Nova rodada de threads (qualquer delta não vazio)** → executar os passos 3 a 8a em `--auto` **apenas sobre os deltas**: abertas seguem exatamente o fluxo atual; resolvidas por terceiros/unknown passam pela classificação do passo 2 e só findings persistentes/regredidos entram no plano normal de correção. Correção já presente não é reaplicada; se confirmada válida ou improcedente/obsoleta, manter a thread fechada e registrar a verificação. Ao terminar: `round += 1`; adicionar a `resolvedThreadIds` todas as threads do delta processadas (as abertas deixadas por `needs-discussion` também entram em `discussionThreadIds`); adicionar a `verifiedResolvedThreads` os snapshots das threads resolvidas por terceiros/unknown que foram classificadas; atualizar `lastHeadSha`, zerar `quietTicks`. Rodar o passo 9a em modo automático sobre os revisores do delta (aviso no canal, só rascunho). Emitir evento Slack `nova-rodada-fechada` (ver "Hook Slack").
 - **CI vermelho** (e sem delta de threads) → aplicar a **triagem de CI do passo 2c** (fonte única): coletar o porquê via log, identificar se é gate de qualidade externo e, nesse caso, consultar a API conforme `${FLUX_ROOT}/shared/quality-gate-api.md` antes de classificar; se a causa for atribuível ao próprio push e dentro do escopo, tentar **uma** correção na worktree da PR + quality gate + commit/push na mesma branch (evento `ci-corrigido-tentativa`); senão, não mexer no código, registrar e reportar (evento `ci-vermelho` com link do log e, para gate externo, com `metricKey`/`actualValue`/`errorThreshold` da API). No máximo **uma** tentativa de auto-fix por SHA — nunca em loop.
 - **CI verde ou sem checks + sem delta de threads + PR integrando** → antes de contar quiet tick, checar **drift de título e descrição**: se `bodySyncedAtSha != lastHeadSha` ou `titleSyncedAtSha != lastHeadSha`, rodar o passo 8a sobre o SHA corrente (uma passada, com os três guardrails). É o que o evento `drift` do gate pede. **Ao fim do 8a, gravar `bodySyncedAtSha` e `titleSyncedAtSha` com o SHA corrente mesmo quando nada foi editado**: os campos registram "verificado neste SHA", não "editado neste SHA", e sem a gravação o gate reemite `drift` a cada relançamento e a PR nunca assenta. Depois, `quietTicks += 1` (só no fallback agendado; com o gate, o quiet tick é contado por ele). Emitir `ci-verde` apenas na **transição** (quando `lastCiConclusion != success`).
 - **CI pending + sem delta** → não fazer nada além de aguardar (não conta como quiet tick).
