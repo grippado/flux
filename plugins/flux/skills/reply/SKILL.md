@@ -376,7 +376,7 @@ gravar. Vale só para a passada interativa: o auto-save do watch em background c
 
 **Caminho rápido (intent do diretório)** — não há `JULGAMENTO` nem board, mas valem **as mesmas regras de
 escrita e o mesmo gate** do caminho normal. Este caminho, por alias ou por permalink, roda com
-`WATCH=false`: a exceção do watch em background (auto-save sem menu) **não** vale aqui. Nada é salvo nem
+`WATCH=false`: a exceção do watch em background (auto-save sem menu) **não** vale aqui, salvo a variante `--auto` abaixo. Nada é salvo nem
 reagido sem escolha positiva do usuário.
 
 *Antes do menu*, a main varre o texto **final**, com todos os placeholders já preenchidos, e esta varredura é
@@ -405,7 +405,15 @@ pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
 2. `Salvar rascunho assinado` — igual à 1, com a assinatura da `## Assinatura do rascunho` no fim.
 3. `Não fazer nada` — nada é escrito: sem board para atualizar.
 
-Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva**.
+Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva**, com uma única exceção, a variante `--auto`.
+
+**Variante `--auto` (só despachada pelo passo 9a do `flux:iterate` em `--auto` e nos ticks do watch).** Sem usuário
+para responder: não há GATE de salvar nem de status. Imprime o preview no chat (o relatório do tick) e salva o
+rascunho como a opção 1 (sem assinatura), com as mesmas varreduras. Nunca posta e nunca reage. Lacuna que pediria
+pergunta (placeholder sem valor, pessoa não resolvida, mensagem do pedido não achada, id do usuário
+indisponível, `own_post_only` não satisfeito) **não grava**: devolve `sem-rascunho: <motivo>`. Rascunho já existente
+no canal (`attached_draft_exists`): não sobrescreve nem apaga, devolve `draft-pendente`. Fora do iterate, `--auto`
+no `reply` não existe: pedido do usuário no chat segue o gate de sempre.
 
 **Rastro sem board.** O `hitl.md` pede registrar a `GateSpec` antes e o resultado depois. Aqui não há board
 nem Timeline: o elo imprime no chat o bloco da `GateSpec` (snapshot, pergunta, opções) antes de perguntar e,
