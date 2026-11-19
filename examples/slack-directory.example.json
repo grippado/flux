@@ -83,6 +83,16 @@
           "in_thread_of_pr_post": true,
           "use_default_mentions": false,
           "template": "Terminei a review por aqui."
+        },
+        "review-aprovada": {
+          "match": [
+            "review aprovada",
+            "avisar aprovação",
+            "aprovei a pr"
+          ],
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "{requester} :white_check_mark:"
         }
       }
     }

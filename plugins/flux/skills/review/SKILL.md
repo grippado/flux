@@ -697,7 +697,8 @@ Se o usuário escolher "Não postar" ou cancelar a question, apenas terminar (se
 
 - **Aprovação concluída** (`Postar e aprovar` com `PR #{number} aprovada.`), algum canal com o intent
   `review-aprovada` e capacidade de Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão):
-  abrir **um GATE** (`${FLUX_ROOT}/shared/hitl.md`, `AskUserQuestion` no Claude Code), single-select,
+  e `FLUX_CMD` utilizável, abrir **um GATE** (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no
+  Claude Code, menu numerado no fallback de `${FLUX_ROOT}/shared/codex-compat.md`), single-select,
   "Avisar a aprovação no canal de PR?":
   - `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório. Com um canal só, é a
     primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada.
@@ -705,7 +706,7 @@ Se o usuário escolher "Não postar" ou cancelar a question, apenas terminar (se
 
   Aceitar roda `${FLUX_CMD}reply` com uma frase de `match` literal do intent `review-aprovada` (a primeira da
   lista), o nome do canal (primeiro alias; sem `aliases`, o slug) e a URL completa da PR
-  (`https://github.com/{owner}/{repo}/pull/{number}`), tudo numa string entre aspas. O `reply` acha a
+  (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`), tudo numa string entre aspas. O `reply` acha a
   mensagem do pedido no canal, rascunha a réplica na thread dela marcando quem pediu, **mostra o preview**
   e só então salva o rascunho. O review não lê o Slack, não posta e não salva rascunho. O veredito
   `approved` é conhecido pela sessão e alimenta o gate de status do `reply`.

@@ -122,6 +122,11 @@ Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver
 - `THREAD_TS` = vazio e `MSG_TS` = vazio: não há mensagem de origem, a leitura é `slack_read_channel`.
 - `MENTIONS` = o `{mentions}` do contrato do diretório (pessoas e grupos de usuários citados, ou as
   `default_mentions` do canal). O answerer as recebe e as renderiza.
+- `{requester}` (só em intent com `in_thread_of_pr_post`) = o `{requester}` do contrato do diretório
+  (`${FLUX_ROOT}/shared/slack-directory.md`): `<@user_id>` do autor da mensagem do pedido. Autor sem `user_id`
+  (bot ou app) ou que o MCP identifica como o próprio usuário: `AskUserQuestion`, campo livre aceito. Passa
+  pela varredura Slack-safe como qualquer menção. O veredito `approved` vem da review da mesma sessão; fora
+  dela, o gate de status segue sem opção recomendada.
 - O pedido do usuário é a **intenção** do rascunho. Passá-la ao prospector e ao answerer como
   `INTENT`: aqui o rascunho abre uma mensagem nova, não responde a uma.
 - Ambiguidade, dois canais e termo sem acerto seguem os gates do contrato.
@@ -346,7 +351,7 @@ citação estava tentando provar.
 
 Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva.
 
-**Preview antes de gravar (vale para as opções 1 e 2, nos dois caminhos).** Antes de abrir o GATE, imprimir no
+**Preview antes de gravar (vale para as opções 1 e 2, nos dois caminhos, e para as que herdam o fluxo de responder, como `Rascunhar resposta mesmo assim` e `Forçar rascunho de resposta`).** Antes de abrir o GATE, imprimir no
 chat o que será gravado, num bloco: o destino (`#canal` ou DM com a pessoa, e `réplica na thread de <autor>,
 <data e hora>` quando houver `THREAD_TS`) e o **texto exato**, depois de todas as varreduras. É o próprio
 argumento de `slack_send_message_draft`: o que o usuário lê é o que vai para o draft. Abaixo do texto, a linha
@@ -385,7 +390,7 @@ dela, não de subagente:
    do pedido não achada (`in_thread_of_pr_post`) segue o GATE do contrato, sem repetir as opções aqui.
 
 *Antes do menu*, imprimir o **preview** definido no passo 9 (destino, réplica na thread quando houver, texto
-final e a assinatura da opção 2); ele faz parte do snapshot da `GateSpec`.
+final e a assinatura da opção 2); ele é o snapshot da `GateSpec`, sem repetir o texto.
 
 *O menu é um GATE* (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado
 no fallback), single-select, recomendada na posição 1, saída inócua por último. "Rascunho do intent `{slug}`
