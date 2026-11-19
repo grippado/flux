@@ -115,6 +115,8 @@ Flags próprias do `flux:build` (consumidas aqui, **não** repassadas):
 - **Não acione CI nem cloud.** Este comando é local: nunca chame `/workflow-cloud`, nunca dispare workflow do GitHub Actions.
 - **Forja fica de fora.** Qualquer `/forja:*` é opt-in e explícito do usuário; nunca o invoque a partir daqui.
 - **Não mergeie nada.** Merge é decisão do `/flux:land` + humano.
+- **Não poste no Slack nem salve rascunho aqui.** A oferta de pedir review no canal (Step 4, item 7) só
+  abre um gate e delega ao `flux:reply`, que rascunha.
 - Um repo por invocação. Para várias frentes, várias invocações (ou `/convocar` para mutirão).
 - **Não acione specialists.** Nem como briefing antes de implementar, nem como gate sobre o diff
   antes da PR. O motivo está no Step 2-ter: o embasamento que eles produziriam já existe, escrito na
@@ -142,6 +144,7 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `SECRETS_FILE` = `secrets_file` (default `~/.secrets`)
    - `VAULT_ROOT` = `vault_root` / `VAULT_CTX` = `vault_context` (onde o board de execução é gravado)
    - `NO_EMDASH` = `no_emdash`
+   - `SLACK_DIR` = `slack_directory` (diretório de alias do Slack, `${FLUX_ROOT}/shared/slack-directory.md`; só para a oferta de pedir review no Step 4, opcional)
    - `SPECIALISTS_ROOT` = `specialists_root` (template de path com `{repo}`; degrau 1 da descoberta de
      L2 e degrau 2 da cascata de destino, opcional)
    - `KITS_ROOT` = `kits_root` (template de path com `{repo}`; degrau 3 da cascata de destino, opcional)
@@ -597,6 +600,38 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    assume dali. Gravar `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
 6. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
    válido e é o que torna a falha investigável depois. Não apagar o board.
+7. **Oferecer o pedido de review no canal de PR.** Só quando o motor abriu PR, a auditoria do item 2
+   passou sem bloqueio, o `SLACK_DIR` está declarado com algum canal que tenha o intent `pedir-review`
+   (`${FLUX_ROOT}/shared/slack-directory.md`, seção "Direção do canal e intents rápidos") **e** há
+   capacidade de Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão, como o
+   "Validar ambiente" do `${FLUX_CMD}reply`). Sem qualquer uma dessas condições, nenhuma pergunta e
+   nenhuma linha extra. A ausência é silenciosa por design: a oferta é oportunista, o build não a
+   prometeu, e por isso não gera token em `degradacoes:` (o `alias sem diretorio` é do reply e só vale
+   quando o pedido trazia alias). Atendidas as condições, abrir **um GATE**
+   (`${FLUX_ROOT}/shared/hitl.md`, `AskUserQuestion` no Claude Code), single-select, depois dos itens 3 a 6
+   e antes do handoff:
+
+   - `Pedir review em <nome do canal>`, uma opção por canal na ordem do diretório. Com um canal só, a
+     opção é a primeira e leva `(Recomendado)` no rótulo; com mais de um, nenhuma opção é recomendada,
+     porque o build não sabe qual canal o usuário quer.
+   - `Agora não`.
+
+   Aceitar roda o `${FLUX_CMD}reply` com **uma frase de `match` literal** do intent `pedir-review` do
+   canal escolhido (a primeira da lista, tirada do próprio diretório), o **nome do canal** (o primeiro alias; sem `aliases`, o slug) e a **URL
+   completa** da PR (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`, já parseada no item 3), por
+   exemplo `${FLUX_CMD}reply "<match> <nome do canal> <url>"`, sempre entre aspas, para um verbo
+   do reply dentro do `match` não ser lido como verbo do comando. O reply só casa intent por frase de `match` e só
+   resolve o canal por alias ou permalink, então o pedido leva os dois (a URL da PR não participa do casamento, regra do passo 1 de
+   "Resolução" no diretório); a frase vem do diretório, o que
+   garante o casamento, e a URL dispensa checkout e repo resolvível. Se mesmo assim o reply não casar o
+   intent e seguir o pipeline normal, o build avisa o usuário disso em vez de
+   afirmar que só rascunha. No caminho rápido o reply monta o rascunho do `template` com a PR
+   resolvida, passa pela varredura de escrita e pelo gate de salvar do próprio reply, e **só
+   rascunha**. Este elo não lê o Slack, não posta e não salva rascunho por conta própria, e recusar
+   não registra nada. A PR nasce como draft: o usuário decide salvar ou não o rascunho no gate do
+   reply. Sem round-trip estruturado comprovado, o gate segue o fallback numerado do `hitl.md`.
+   **Aqui e não antes**: quem pediu um build quer a PR primeiro, e uma pergunta sobre canal antes dela
+   existir não tem o que citar.
 
 Ao final, o resultado é o do motor (tipicamente PR draft + CI monitorado). Feche apontando o próximo elo, escolhendo **um**:
 
@@ -613,7 +648,8 @@ existe para evitar.
 Montar com o `FLUX_CMD` resolvido no preflight, **nunca** com `/flux:` literal — o usuário vai digitar
 o que estiver escrito aqui.
 
-Não rode o próximo elo automaticamente: informe e devolva o volante ao usuário.
+Não rode o próximo elo automaticamente: informe e devolva o volante ao usuário. A única exceção é o
+`${FLUX_CMD}reply` que o usuário aceitou no gate do item 7.
 
 ---
 

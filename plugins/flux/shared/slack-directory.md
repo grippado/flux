@@ -129,6 +129,9 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
 Entrada: o pedido do usuário em linguagem natural ("falar com o maria no plataforma") ou tokens soltos.
 
 1. **Normalizar** o texto do pedido e cada chave e alias: minúsculas, sem acento, hífen e sublinhado contam como espaço, espaços colapsados.
+   Antes disso, **URL de PR no pedido sai do texto**: ela só alimenta `{pr_link}` e não participa do
+   casamento de alias, de intent nem de menção (o nome do repo na URL viraria palavras soltas que podem
+   coincidir com um alias).
 2. **Casar** cada candidato a entidade contra os slugs e aliases, nas quatro tabelas. Casamento é o alias
    normalizado aparecer no pedido normalizado delimitado por início, fim ou espaço; **nunca por prefixo
    parcial** ("mat" não casa "matta"). Só slugs e aliases casam: o `name` (com `#` ou `@`) é rótulo e
@@ -238,6 +241,10 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
   intenção, e o rascunho é uma mensagem nova, não uma réplica.
 - Menção `<@user_id>` entra no rascunho como as demais menções do Slack (mrkdwn, ver o answerer).
 - O rascunho continua só salvo como rascunho. **Resolver o alvo não autoriza enviar.**
+- O `flux:build` oferece o intent `pedir-review` num GATE depois que a PR nasce (Step 4, item 7),
+  quando o diretório está declarado, algum canal tem o intent e há capacidade de Slack na sessão.
+  Aceitar delega ao caminho rápido do `flux:reply`, que só rascunha; o build não posta nem salva
+  rascunho.
 
 ## Degradação
 
