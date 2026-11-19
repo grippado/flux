@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.53.0",
+    "tag": "v1.53.0",
+    "published_at": "2026-11-19T03:18:21Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.53.0",
+    "summary": {
+      "en": "flux:build now offers to request review in the team PR channel once the PR exists, via the flux:reply quick path (draft only).",
+      "pt": "o flux:build agora oferece pedir review no canal de PRs do time depois que a PR nasce, pelo caminho rápido do flux:reply (só rascunha)."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.52.1",
     "tag": "v1.52.1",
     "published_at": "2026-11-19T02:49:26Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "Escape PR titles in the Slack directory link label and turn the reply watch off by default for alias targets.",
       "pt": "Escapa o título da PR no rótulo do link do diretório do Slack e desliga o watch do reply por padrão em alvo por alias."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.52.0",
-    "tag": "v1.52.0",
-    "published_at": "2026-11-18T22:58:54Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.52.0",
-    "summary": {
-      "en": "Slack alias directory for flux:reply: talk to people and channels by name, with per-channel purpose, quick intents and PR status reactions.",
-      "pt": "Diretório de alias do Slack para o flux:reply: fale com pessoas e canais pelo nome, com direção por canal, intents rápidos e reações de status de PR."
     },
     "changelog_source": "tag_message"
   },
