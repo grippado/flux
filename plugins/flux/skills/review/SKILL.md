@@ -99,6 +99,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `SPECIALISTS_REPO` = `specialists_repo` (repo onde a suite versionada vive, para PR; opcional)
    - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o pai do `.claude/` achado)
    - `LINEAR_ORG` = `linear_org` (org do Linear, para montar URLs de ticket; opcional)
+   - `SLACK_DIR` = `slack_directory` (diretório de alias do Slack, `${FLUX_ROOT}/shared/slack-directory.md`; só para o aviso no canal depois do Step 8b, opcional)
 
 3. Se não encontrar (perfil genérico):
    - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3): `flux:pr-reviewer` →
@@ -120,6 +121,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `SPECIALISTS_REPO` = nenhum (a suite é escrita no próprio checkout, sem PR)
    - `WORKSPACE_ROOT` = `cwd`
    - `LINEAR_ORG` = nenhum (sem `LINEAR_ORG`, `TICKET_URL` fica `null`)
+   - `SLACK_DIR` = nenhum (sem diretório, nenhum aviso no canal)
 
 Após resolver o perfil, seguir para a resolução de verbo abaixo.
 
@@ -148,6 +150,7 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 - Não rodar `pnpm test` / `pnpm typecheck` / `pnpm lint` / qualquer suite de testes — EXCETO no modo "aplicar correções" do Step 8 (PR própria), onde rodar a verificação dos arquivos tocados é obrigatório
 - Não fazer commit, push, nem modificar arquivos do repo sob review — EXCETO no modo "aplicar correções" do Step 8 (PR própria), e mesmo aí só após o usuário escolher essa opção
 - Não mergear (`gh pr merge`). Aprovar a PR só acontece pela opção explícita `Postar e aprovar` do Step 8b (PR de terceiros, veredito aprovar), escolhida pelo usuário no gate; em nenhum outro caminho
+- Não postar no Slack nem salvar rascunho aqui. O aviso de aprovação no canal (Step 8b) é um GATE que só delega ao `${FLUX_CMD}reply` quando o usuário aceita, e o `reply` só rascunha.
 - Não escrever em lugar nenhum exceto: o arquivo final no vault; e (opcionalmente) a review da PR via `gh api` no Step 8; e, no modo "aplicar correções", os arquivos de código + commit na branch da PR própria.
 
 **Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via GATE (`${FLUX_ROOT}/shared/hitl.md`), a ação pós-review. Quando o Step 8 se aplica, apresente a pergunta e o menu completo no mesmo encerramento do review, sem esperar que a pessoa peça as opções. No Codex, siga o fallback numerado de `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`; mantenha o gate no contexto principal e aguarde uma escolha explícita. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Em PR de terceiros, quando o Passo 4b encontrou threads próprias reverificadas, o menu do Step 8b ganha uma opção extra (8b-bis) para responder + reagir + resolver essas threads. A opção `Postar e aprovar` do Step 8b é o único caminho que aprova a PR, só aparece em PR de terceiros com veredito aprovar, e só roda quando o usuário a escolhe. Nunca agir sem o usuário escolher uma opção positiva.
@@ -690,13 +693,28 @@ Resposta no chat de `Postar e aprovar`, em vez da acima: a mesma, acrescida de `
 
 Se o usuário escolher "Não postar" ou cancelar a question, apenas terminar (sem mensagem extra).
 
-**Aviso no canal de PR (só sugestão, nunca ação).** Depois de uma postagem que deu certo, se o manifesto
-declara `slack_directory` (`${FLUX_ROOT}/shared/slack-directory.md`) e algum canal dele tem o intent
-`review-feita`, acrescentar à resposta no chat **uma linha**: `Para avisar no canal: ${FLUX_CMD}reply
-avisar review feita na PR #{number} em <alias do canal>`. Com mais de um canal com o intent, listar o
-alias de cada um; com `FLUX_CMD` indisponível, omitir a linha. Não abrir gate, não ler o Slack e não postar
-nada: quem avisa é o `flux:reply`, pelo caminho rápido, e só rascunha. Sem diretório ou sem o intent,
-nenhuma linha extra.
+**Aviso no canal de PR (nunca posta).** Depois de uma postagem que deu certo, com `SLACK_DIR` declarado:
+
+- **Aprovação concluída** (`Postar e aprovar` com `PR #{number} aprovada.`), algum canal com o intent
+  `review-aprovada` e capacidade de Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão):
+  abrir **um GATE** (`${FLUX_ROOT}/shared/hitl.md`, `AskUserQuestion` no Claude Code), single-select,
+  "Avisar a aprovação no canal de PR?":
+  - `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório. Com um canal só, é a
+    primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada.
+  - `Agora não`.
+
+  Aceitar roda `${FLUX_CMD}reply` com uma frase de `match` literal do intent `review-aprovada` (a primeira da
+  lista), o nome do canal (primeiro alias; sem `aliases`, o slug) e a URL completa da PR
+  (`https://github.com/{owner}/{repo}/pull/{number}`), tudo numa string entre aspas. O `reply` acha a
+  mensagem do pedido no canal, rascunha a réplica na thread dela marcando quem pediu, **mostra o preview**
+  e só então salva o rascunho. O review não lê o Slack, não posta e não salva rascunho. O veredito
+  `approved` é conhecido pela sessão e alimenta o gate de status do `reply`.
+- **Qualquer outro caso** (postagem sem aprovar, aprovação que falhou ou com head divergente, canal sem o
+  intent `review-aprovada`): sem gate. Com algum canal com o intent `review-feita`, acrescentar à resposta
+  no chat **uma linha**: `Para avisar no canal: ${FLUX_CMD}reply avisar review feita na PR #{number} em <alias do canal>`
+  (com mais de um canal, listar o alias de cada um; com `FLUX_CMD` indisponível, omitir a linha).
+- Sem diretório, ou sem nenhum dos dois intents, nenhuma pergunta e nenhuma linha extra. A ausência é
+  silenciosa por design e não gera token de degradação.
 
 Se o usuário escolher `Responder threads reverificadas` (ou responder `Sim` à segunda pergunta), seguir para **8b-bis** abaixo —
 nada impede escolher isso numa rodada seguinte depois de já ter postado com `Postar e aprovar`, `Prioridades + praise`, `Só prioridades` ou `Tudo` noutra, já que são

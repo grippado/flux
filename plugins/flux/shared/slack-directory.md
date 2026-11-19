@@ -79,6 +79,12 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
           "in_thread_of_pr_post": true,
           "use_default_mentions": false,
           "template": "Terminei a review por aqui."
+        },
+        "review-aprovada": {
+          "match": ["review aprovada", "avisar aprovação", "aprovei a pr"],
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "{requester} :che:"
         }
       }
     }
@@ -194,6 +200,7 @@ técnica pede resposta embasada. Duas coisas do diretório servem a isso:
 | `{pr_link}` | `<url|#N>` mrkdwn da PR citada no pedido (URL ou `#N` com repo resolvível) ou da PR da branch atual; sem PR resolvida, **perguntar** |
 | `{pr_title}` | título da PR resolvida |
 | `{repo}` | repo da PR resolvida |
+| `{requester}` | menção `<@user_id>` do autor da mensagem do pedido de review, achada pela busca de `in_thread_of_pr_post`; só existe em intent com esse campo. Autor sem `user_id` (bot ou app), autor que é o próprio usuário ou mensagem não achada: **perguntar**, nunca chutar |
 
 Placeholder que não pôde ser preenchido nunca sai literal no rascunho: perguntar ao usuário
 (`AskUserQuestion`, campo livre aceito) ou, sem resposta, abandonar o atalho e seguir o caminho normal.
@@ -210,7 +217,7 @@ numa mensagem.
 
 **Réplica na mensagem da PR (`in_thread_of_pr_post`).** O rascunho vira réplica na thread da mensagem
 do canal que contém a PR: buscar no canal pela URL da PR (`slack_search_public_and_private` com
-`in:<canal>`), pegar o `ts` da mensagem do pedido e usar como `thread_ts`. Não achou: GATE com `Rascunhar mensagem nova no
+`in:<canal>`), pegar o `ts` e o autor da mensagem do pedido e usar o `ts` como `thread_ts` (o autor alimenta `{requester}`). Não achou: GATE com `Rascunhar mensagem nova no
 canal`, `Informar o link da mensagem` e `Não fazer nada`.
 
 **Réplica na thread do permalink (`in_thread_of_target`).** Vale quando o usuário passa o permalink de
@@ -245,6 +252,12 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
   quando o diretório está declarado, algum canal tem o intent e há capacidade de Slack na sessão.
   Aceitar delega ao caminho rápido do `flux:reply`, que só rascunha; o build não posta nem salva
   rascunho.
+- O `flux:review` oferece o intent `review-aprovada` num GATE depois de `Postar e aprovar` dar certo
+  (Step 8b), quando o diretório está declarado, algum canal tem o intent e há capacidade de Slack na sessão.
+  Aceitar delega ao caminho rápido do `flux:reply`, que acha o pedido, mostra o preview e só rascunha; o
+  review não lê o Slack, não posta e não salva rascunho. Em qualquer outro desfecho o review só sugere o
+  `review-feita` numa linha.
+- Todo salvamento de rascunho do `flux:reply` passa por um preview do texto exato antes do gate.
 
 ## Degradação
 

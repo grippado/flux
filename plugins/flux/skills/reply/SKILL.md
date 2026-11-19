@@ -346,6 +346,16 @@ citação estava tentando provar.
 
 Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva.
 
+**Preview antes de gravar (vale para as opções 1 e 2, nos dois caminhos).** Antes de abrir o GATE, imprimir no
+chat o que será gravado, num bloco: o destino (`#canal` ou DM com a pessoa, e `réplica na thread de <autor>,
+<data e hora>` quando houver `THREAD_TS`) e o **texto exato**, depois de todas as varreduras. É o próprio
+argumento de `slack_send_message_draft`: o que o usuário lê é o que vai para o draft. Abaixo do texto, a linha
+da assinatura que a opção 2 acrescenta (`## Assinatura do rascunho`), para que a revisão cubra as duas
+opções. No Claude Code, preencher também o campo `preview` das opções 1 e 2 do `AskUserQuestion` (a 2 com a
+assinatura). Nada é salvo antes da escolha. Pedido de ajuste ao ver o preview volta à redação e mostra um novo
+preview, em vez de salvar. Se algo mudar depois de aprovado (`THREAD_TS`, menção), mostrar de novo antes de
+gravar. Vale só para a passada interativa: o auto-save do watch em background continua indo para o board.
+
 **`JULGAMENTO = responder`** — "Rascunho pronto para a thread em `#{canal}`. O que fazer?":
 1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`. Fica nos drafts do usuário para revisar e enviar. **Nunca** `slack_send_message`.
 2. `Salvar rascunho assinado` — igual à 1, com a assinatura da `## Assinatura do rascunho` no fim, para divulgação da família.
@@ -373,6 +383,9 @@ dela, não de subagente:
    usuário** (`AskUserQuestion`, com o campo livre "Other" aceitando o valor), nunca texto literal nem
    chute; sem resposta, abandonar o atalho e seguir o caminho normal (contrato do diretório). Mensagem
    do pedido não achada (`in_thread_of_pr_post`) segue o GATE do contrato, sem repetir as opções aqui.
+
+*Antes do menu*, imprimir o **preview** definido no passo 9 (destino, réplica na thread quando houver, texto
+final e a assinatura da opção 2); ele faz parte do snapshot da `GateSpec`.
 
 *O menu é um GATE* (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado
 no fallback), single-select, recomendada na posição 1, saída inócua por último. "Rascunho do intent `{slug}`
