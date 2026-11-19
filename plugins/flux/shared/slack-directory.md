@@ -98,6 +98,12 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
           "use_default_mentions": false,
           "template": "{requester} :speech_balloon:"
         },
+        "review-novos-pontos": {
+          "match": ["adicionei mais pontos", "novos pontos na pr"],
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "{pr_author} adicionei mais alguns pontos :speech_balloon:"
+        },
         "iterate-enderecado": {
           "match": ["comentários endereçados", "pedir novo check"],
           "in_thread_of_pr_post": true,
@@ -229,6 +235,7 @@ técnica pede resposta embasada. Duas coisas do diretório servem a isso:
 | `{pr_link}` | `<url|#N>` mrkdwn da PR citada no pedido (URL ou `#N` com repo resolvível) ou da PR da branch atual; sem PR resolvida, **perguntar** |
 | `{pr_title}` | título da PR resolvida |
 | `{repo}` | repo da PR resolvida |
+| `{pr_author}` | menção `<@user_id>` do autor da PR: a entrada de `people` cujo `github` é o `author.login` da PR resolvida. Sem entrada: **perguntar**, nunca chutar |
 | `{open_comments}` | `um comentário` quando o pedido traz `abertos=1`, `N comentários` com `abertos=N`. Sem `abertos`, ou com `0`: **perguntar** |
 | `{requester}` | menção `<@user_id>` do autor da mensagem do pedido de review, achada pela busca de `in_thread_of_pr_post`; só existe em intent com esse campo. Autor sem `user_id` (bot ou app) ou que é o próprio usuário: **perguntar**, nunca chutar. Mensagem do pedido não achada é o GATE de `in_thread_of_pr_post` (abaixo), não uma pergunta solta |
 
@@ -283,7 +290,7 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
   Aceitar delega ao caminho rápido do `flux:reply`, que só rascunha; o build não posta nem salva
   rascunho.
 - O `flux:review` oferece, num GATE depois de postar (Step 8b), o intent do desfecho: `review-aprovada`,
-  `review-aprovada-com-comentarios` ou `review-comentada`. O `flux:iterate` oferece (passo 9a), em PR do
+  `review-aprovada-com-comentarios`, `review-comentada` ou, da rodada 2 em diante com comentários novos sem aprovar, `review-novos-pontos`. O `flux:iterate` oferece (passo 9a), em PR do
   próprio usuário, `iterate-enderecado` e `iterate-aguardando`. Em ambos, a condição é diretório declarado,
   algum canal com o intent e capacidade de Slack na sessão. Aceitar delega ao caminho rápido do
   `flux:reply`, que acha o pedido, mostra o preview e só rascunha (no `--auto` e nos ticks do watch do iterate, a variante

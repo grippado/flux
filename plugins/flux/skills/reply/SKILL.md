@@ -127,6 +127,8 @@ Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver
   (bot ou app) ou que o MCP identifica como o próprio usuário: `AskUserQuestion`, campo livre aceito. Passa
   pela varredura Slack-safe como qualquer menção. O veredito `approved` vem da review da mesma sessão; fora
   dela, o gate de status segue sem opção recomendada.
+- `{pr_author}` (só em intent que o usa) = o do contrato do diretório: `<@user_id>` da entrada de `people` cujo
+  `github` é o `author.login` da PR resolvida; sem entrada, `AskUserQuestion`, campo livre aceito.
 - `{open_comments}` (só em intent que o usa) = o do contrato do diretório, lido do token `abertos=<N>` do pedido;
   sem o token, ou com `0`, `AskUserQuestion`. Esse token não é nome de pessoa nem alias: sai do texto antes da
   resolução de alias e de menção.

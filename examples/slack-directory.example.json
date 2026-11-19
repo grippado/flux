@@ -111,6 +111,15 @@
           "use_default_mentions": false,
           "template": "{requester} :speech_balloon:"
         },
+        "review-novos-pontos": {
+          "match": [
+            "adicionei mais pontos",
+            "novos pontos na pr"
+          ],
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "{pr_author} adicionei mais alguns pontos :speech_balloon:"
+        },
         "iterate-enderecado": {
           "match": [
             "comentários endereçados",
