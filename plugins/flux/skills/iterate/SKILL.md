@@ -107,6 +107,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `KITS_ROOT` = `kits_root` (template de path com `{repo}`; degrau 3 da cascata de destino, opcional)
    - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `ANSWERER` = `answerer` (agente para rascunhar réplicas em `--dry`; se ausente, usar `<HOLISTIC>` com instrução de rascunhar)
+   - `SLACK_DIR` = `slack_directory` (diretório de alias do Slack, `${FLUX_ROOT}/shared/slack-directory.md`; só para o aviso no canal do passo 9a, opcional)
 
 3. Se não encontrar (perfil genérico):
    - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3), nunca um nome fixo
@@ -116,6 +117,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `NO_EMDASH` = `false`
    - `SPECIALISTS_ROOT` = `<repo-checkout>/.claude/agents/reviewer.md` ou `<repo-checkout>/.claude/agents/review/*.md`
    - `ANSWERER` = o próprio `<HOLISTIC>` com instrução de rascunhar réplicas (sem agente dedicado)
+   - `SLACK_DIR` = nenhum (sem diretório, nenhum aviso no canal)
 
 ## Inputs aceitos
 
@@ -152,6 +154,7 @@ As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebas
 - **Não mexer no prefixo de ticket do título** (`[ENG-1234]`, `[PROD-000]`). É chave de rastreabilidade para Linear e CI; trocar ou remover quebra automação em silêncio.
 - **Não renomear título que só ficou genérico.** Renomeia-se apenas título que nomeia desenho refutado. A barra do título é mais alta que a da descrição, porque ele vira mensagem de squash commit e circula em notificação.
 - **Não regerar a descrição da PR do zero.** Editar sempre sobre o body atual, cirurgicamente. Body regenerado apaga contexto humano (links de PRs irmãs, checklist marcada pelo revisor) de forma silenciosa e irreversível pela UI.
+- **Não postar no Slack nem salvar rascunho aqui.** O aviso do passo 9a é um GATE que só delega ao `${FLUX_CMD}reply` quando o usuário aceita, e o `reply` só rascunha.
 - Em modo `--dry`: **nunca** escrever no GitHub (sem reply, sem reação, sem resolve, sem commit, sem push).
 - **Não entrar num segundo repo.** O iterate fecha o loop de UMA PR, logo toca UM repo. Se a correção parecer exigir mexer noutro repo, isso é escopo de `/flux:land` (que despacha um subagente por PR): registre como bloqueio e reporte, não abra o segundo checkout aqui. Ver `${FLUX_ROOT}/shared/context-budget.md` (Regra 1: cada root de repo custa 10-20k tokens permanentes).
 - **Não despejar saída crua no contexto**: `gh run view`, `type-check`, `test` e afins sempre filtrados na origem (`| tail -N`, `| grep -E 'error|fail'`). Regra 4 do orçamento de contexto.
@@ -800,6 +803,39 @@ Tabela curta: por thread aberta ou finding persistente de thread reaberta `{path
 **Sempre reportar o estado de integração com a base**, mesmo quando ele estava limpo (é a informação que decide se a PR pode mergear). Quando este run foi despachado por um orquestrador (`--parent-board` presente, ou seja, rodando dentro do subagente de um `/flux:land`), o retorno inclui os campos estruturados `mergeable` e `conflito` do contrato da fase 4 do land, e não só a prosa: quem consome é máquina, e inferir conflito de texto livre é frágil no dado que decide o go/no-go. Inclui também os campos do relato definidos no contrato de retorno da fase 4 do `${FLUX_CMD}land`. Se o gate do passo 2b agiu, dizer os itens do relato da seção 5 do shared. Se o gate ficou em **modo degradado**, dizer explicitamente o que **não** foi feito: `conflito semântico em <arquivos> — respondi as threads, não apliquei correção nem pushei`. Nunca fechar o relatório dando a PR por pronta quando ela segue conflitante.
 
 Quando o passo 8a mexeu em título ou descrição, dizer em uma linha **o que foi corrigido e por quê** (e, no caso do título, mostrar o antes/depois) (ex.: `descrição: a seção "A proposta" ainda anunciava o verbo-fachada, refutado na thread X`). Quando a PR é de terceiro e a reconciliação virou sugestão em comentário, sinalizar isso explicitamente.
+
+### 9a. Aviso no canal de PR (GATE, só passada interativa, nunca posta)
+
+Depois do passo 7 (e do 8, quando houve push), só quando **todas** valem: `IS_OWN_PR == true`; o run
+respondeu, reagiu ou resolveu thread de **pessoa** (bot e o próprio autor não contam); fora de `--dry`, de
+`--auto` e dos ticks do watch (nesses, nenhuma pergunta: o relatório final ganha uma linha com o comando
+sugerido); `SLACK_DIR` declarado com algum canal que tenha o intent do grupo; `FLUX_CMD` utilizável; e
+capacidade de Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão). Sem qualquer uma,
+nenhuma pergunta e nenhuma linha extra, e a ausência é silenciosa por design (sem token de degradação). Não
+confundir com o Hook Slack, que é o feed de status.
+
+Agrupar por revisor (o `author.login` da thread tratada, pessoas apenas):
+- **`iterate-enderecado`**: revisores cujas threads tratadas neste run ficaram **todas** respondidas, reagidas
+  (👍 ou 👎) e resolvidas.
+- **`iterate-aguardando`**: revisores com **ao menos uma** thread deixada aberta com réplica, esperando a
+  resposta deles (`needs-discussion`, ou defesa mantida aberta). `abertos` é a contagem dessas threads
+  (a soma dos revisores do grupo), e o revisor com threads dos dois tipos entra só neste grupo.
+
+Para cada grupo não vazio cujo intent exista num canal do diretório, abrir **um GATE**
+(`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado no fallback de
+`${FLUX_ROOT}/shared/codex-compat.md`), single-select, "Avisar {revisores} no canal de PR?":
+- `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório (com um canal só, é a
+  primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada).
+- `Agora não`.
+
+Aceitar roda `${FLUX_CMD}reply` com uma frase de `match` literal do intent, o nome do canal (primeiro alias; sem
+`aliases`, o slug), a URL completa da PR (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`), o nome de cada
+revisor do grupo (o `alias` da entrada de `people` cujo campo `github` é o login; sem entrada, o nome de
+exibição do GitHub, e o `reply` pergunta quando não resolver) e, no `iterate-aguardando`, `abertos=<N>`, tudo
+numa string entre aspas. O `reply` acha o **seu** pedido de review no canal (`own_post_only`: pedido postado por
+outra pessoa não vale, e o `reply` termina sem rascunho), rascunha a réplica na thread dele, mostra o preview e
+só então salva o rascunho. Com os dois grupos não vazios, um gate e um rascunho por grupo, em sequência: o Slack
+aceita um rascunho anexado por canal, então o segundo espera o usuário enviar ou apagar o primeiro.
 
 ## Convenções de texto (GitHub = publicação externa)
 

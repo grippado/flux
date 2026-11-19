@@ -127,6 +127,12 @@ Pedido como "falar com o fulano no canal X", sem link. Com `SLACK_DIR`, resolver
   (bot ou app) ou que o MCP identifica como o próprio usuário: `AskUserQuestion`, campo livre aceito. Passa
   pela varredura Slack-safe como qualquer menção. O veredito `approved` vem da review da mesma sessão; fora
   dela, o gate de status segue sem opção recomendada.
+- `{open_comments}` (só em intent que o usa) = o do contrato do diretório, lido do token `abertos=<N>` do pedido;
+  sem o token, ou com `0`, `AskUserQuestion`. Esse token não é nome de pessoa nem alias: sai do texto antes da
+  resolução de alias e de menção.
+- `own_post_only`: achada a mensagem do pedido, se o autor dela não é o próprio usuário (o id que o MCP de Slack
+  informa como o usuário autenticado), o atalho termina **sem rascunho e sem GATE de mensagem nova**, dizendo que
+  o pedido de review da PR foi postado por outra pessoa. Id do usuário indisponível: `AskUserQuestion`.
 - O pedido do usuário é a **intenção** do rascunho. Passá-la ao prospector e ao answerer como
   `INTENT`: aqui o rascunho abre uma mensagem nova, não responde a uma.
 - Ambiguidade, dois canais e termo sem acerto seguem os gates do contrato.

@@ -81,10 +81,36 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
           "template": "Terminei a review por aqui."
         },
         "review-aprovada": {
-          "match": ["review aprovada", "avisar aprovação", "aprovei a pr"],
+          "match": ["avisar aprovação", "aprovei a pr"],
           "in_thread_of_pr_post": true,
           "use_default_mentions": false,
           "template": "{requester} :white_check_mark:"
+        },
+        "review-aprovada-com-comentarios": {
+          "match": ["aprovei com comentários", "aprovada com ressalvas"],
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "{requester} :speech_balloon: e :white_check_mark:"
+        },
+        "review-comentada": {
+          "match": ["comentei a pr", "avisar comentários"],
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "{requester} :speech_balloon:"
+        },
+        "iterate-enderecado": {
+          "match": ["comentários endereçados", "pedir novo check"],
+          "in_thread_of_pr_post": true,
+          "own_post_only": true,
+          "use_default_mentions": false,
+          "template": "{mentions} comentários endereçados, pode dar outro check? :pray:"
+        },
+        "iterate-aguardando": {
+          "match": ["aguardando réplica", "avisar threads abertas"],
+          "in_thread_of_pr_post": true,
+          "own_post_only": true,
+          "use_default_mentions": false,
+          "template": "{mentions} obrigado pelo review, deixei {open_comments} em aberto para uma réplica sua :pray:"
         }
       }
     }
@@ -102,6 +128,8 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
 - `version` é `1`. Ausente, menor ou maior que o conhecido: tratar como sem diretório e declarar.
 - Chaves de `people`, `channels` e `groups` são o **slug** da entrada: minúsculas, sem acento, sem
   espaço. É o que aparece nos gates de ambiguidade.
+- `people.<slug>.github` (opcional) é o login do GitHub da pessoa. O `flux:iterate` o usa para achar quem
+  mencionar no aviso aos revisores de uma PR.
 - `people.<slug>.user_id` é obrigatório (`U…` ou `W…`). `dm_channel_id` (`D…`) é opcional, e só vale
   guardar quando o usuário já colou um link de DM: serve para o board reencontrar a superfície pelo
   mesmo id que o permalink traria.
@@ -115,8 +143,9 @@ funciona em mais de uma máquina sem path hardcoded. Campo ausente, arquivo ause
   com os placeholders da tabela em "Intents rápidos". Campos opcionais do intent: `max_prs` (inteiro,
   quantas PRs cabem num pedido), `in_thread_of_pr_post` (o rascunho é réplica na mensagem do canal que
   contém a PR, ver abaixo), `in_thread_of_target` (o rascunho é réplica na thread do permalink que o
-  usuário passou, ver abaixo) e `use_default_mentions` (padrão `true`; `false` não adiciona as menções
-  padrão do canal).
+  usuário passou, ver abaixo), `own_post_only` (com `in_thread_of_pr_post`: só vale se a mensagem do pedido foi
+  postada pelo próprio usuário; de outra pessoa, o atalho termina sem rascunho e diz isso) e
+  `use_default_mentions` (padrão `true`; `false` não adiciona as menções padrão do canal).
 - `rules` (canal e grupo, opcional) é uma lista de regras do canal em texto. Vão ao answerer junto do
   `PURPOSE_CANAL` e valem também no caminho normal. Regra que o flux sabe aplicar mecanicamente tem
   campo próprio (`max_prs`); o resto é contexto de redação.
@@ -200,6 +229,7 @@ técnica pede resposta embasada. Duas coisas do diretório servem a isso:
 | `{pr_link}` | `<url|#N>` mrkdwn da PR citada no pedido (URL ou `#N` com repo resolvível) ou da PR da branch atual; sem PR resolvida, **perguntar** |
 | `{pr_title}` | título da PR resolvida |
 | `{repo}` | repo da PR resolvida |
+| `{open_comments}` | `um comentário` quando o pedido traz `abertos=1`, `N comentários` com `abertos=N`. Sem `abertos`, ou com `0`: **perguntar** |
 | `{requester}` | menção `<@user_id>` do autor da mensagem do pedido de review, achada pela busca de `in_thread_of_pr_post`; só existe em intent com esse campo. Autor sem `user_id` (bot ou app) ou que é o próprio usuário: **perguntar**, nunca chutar. Mensagem do pedido não achada é o GATE de `in_thread_of_pr_post` (abaixo), não uma pergunta solta |
 
 Placeholder que não pôde ser preenchido nunca sai literal no rascunho: perguntar ao usuário
@@ -252,11 +282,12 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
   quando o diretório está declarado, algum canal tem o intent e há capacidade de Slack na sessão.
   Aceitar delega ao caminho rápido do `flux:reply`, que só rascunha; o build não posta nem salva
   rascunho.
-- O `flux:review` oferece o intent `review-aprovada` num GATE depois de `Postar e aprovar` dar certo
-  (Step 8b), quando o diretório está declarado, algum canal tem o intent e há capacidade de Slack na sessão.
-  Aceitar delega ao caminho rápido do `flux:reply`, que acha o pedido, mostra o preview e só rascunha; o
-  review não lê o Slack, não posta e não salva rascunho. Em qualquer outro desfecho o review só sugere o
-  `review-feita` numa linha.
+- O `flux:review` oferece, num GATE depois de postar (Step 8b), o intent do desfecho: `review-aprovada`,
+  `review-aprovada-com-comentarios` ou `review-comentada`. O `flux:iterate` oferece (passo 9a), em PR do
+  próprio usuário, `iterate-enderecado` e `iterate-aguardando`. Em ambos, a condição é diretório declarado,
+  algum canal com o intent e capacidade de Slack na sessão. Aceitar delega ao caminho rápido do
+  `flux:reply`, que acha o pedido, mostra o preview e só rascunha; review e iterate não leem o Slack, não
+  postam e não salvam rascunho. Sem o intent do desfecho, o review só sugere o `review-feita` numa linha.
 
 ## Degradação
 

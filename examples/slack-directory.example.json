@@ -86,13 +86,50 @@
         },
         "review-aprovada": {
           "match": [
-            "review aprovada",
             "avisar aprovação",
             "aprovei a pr"
           ],
           "in_thread_of_pr_post": true,
           "use_default_mentions": false,
           "template": "{requester} :white_check_mark:"
+        },
+        "review-aprovada-com-comentarios": {
+          "match": [
+            "aprovei com comentários",
+            "aprovada com ressalvas"
+          ],
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "{requester} :speech_balloon: e :white_check_mark:"
+        },
+        "review-comentada": {
+          "match": [
+            "comentei a pr",
+            "avisar comentários"
+          ],
+          "in_thread_of_pr_post": true,
+          "use_default_mentions": false,
+          "template": "{requester} :speech_balloon:"
+        },
+        "iterate-enderecado": {
+          "match": [
+            "comentários endereçados",
+            "pedir novo check"
+          ],
+          "in_thread_of_pr_post": true,
+          "own_post_only": true,
+          "use_default_mentions": false,
+          "template": "{mentions} comentários endereçados, pode dar outro check? :pray:"
+        },
+        "iterate-aguardando": {
+          "match": [
+            "aguardando réplica",
+            "avisar threads abertas"
+          ],
+          "in_thread_of_pr_post": true,
+          "own_post_only": true,
+          "use_default_mentions": false,
+          "template": "{mentions} obrigado pelo review, deixei {open_comments} em aberto para uma réplica sua :pray:"
         }
       }
     }
