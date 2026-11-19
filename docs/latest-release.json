@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.54.0",
+    "tag": "v1.54.0",
+    "published_at": "2026-11-19T14:53:07Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.54.0",
+    "summary": {
+      "en": "flux:review drafts a PR-channel thread notice by review outcome (approved, approved with comments, commented), flux:iterate drafts a follow-up to reviewers on the user's own PRs, and flux:reply shows a preview of the exact draft before every save gate (draft only, never posts).",
+      "pt": "o flux:review rascunha na thread do pedido o aviso conforme o desfecho da review (aprovada, aprovada com comentários, comentada), o flux:iterate rascunha o retorno aos revisores nas PRs do próprio usuário, e o flux:reply mostra o preview do rascunho exato antes de todo gate de salvar (só rascunha, nunca posta)."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.53.0",
     "tag": "v1.53.0",
     "published_at": "2026-11-19T03:18:21Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "flux:build now offers to request review in the team PR channel once the PR exists, via the flux:reply quick path (draft only).",
       "pt": "o flux:build agora oferece pedir review no canal de PRs do time depois que a PR nasce, pelo caminho rápido do flux:reply (só rascunha)."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.52.1",
-    "tag": "v1.52.1",
-    "published_at": "2026-11-19T02:49:26Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.52.1",
-    "summary": {
-      "en": "Escape PR titles in the Slack directory link label and turn the reply watch off by default for alias targets.",
-      "pt": "Escapa o título da PR no rótulo do link do diretório do Slack e desliga o watch do reply por padrão em alvo por alias."
     },
     "changelog_source": "tag_message"
   },
