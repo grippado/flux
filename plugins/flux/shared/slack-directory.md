@@ -238,6 +238,9 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
   intenção, e o rascunho é uma mensagem nova, não uma réplica.
 - Menção `<@user_id>` entra no rascunho como as demais menções do Slack (mrkdwn, ver o answerer).
 - O rascunho continua só salvo como rascunho. **Resolver o alvo não autoriza enviar.**
+- O `flux:build` oferece o intent `pedir-review` num GATE depois que a PR nasce (Step 4, item 7), quando
+  o diretório está declarado e algum canal tem o intent. Aceitar delega ao caminho rápido do
+  `flux:reply`, que só rascunha; o build não posta nem salva rascunho.
 
 ## Degradação
 
