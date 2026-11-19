@@ -611,16 +611,18 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    (`${FLUX_ROOT}/shared/hitl.md`, `AskUserQuestion` no Claude Code), single-select, depois dos itens 3 a 6
    e antes do handoff:
 
-   - `Pedir review em <alias do canal>`, uma opção por canal na ordem do diretório. Com um canal só,
-     ele é o recomendado; com mais de um, nenhuma opção é recomendada, porque o build não sabe qual
-     canal o usuário quer.
+   - `Pedir review em <alias do canal>`, uma opção por canal na ordem do diretório. Com um canal só, a
+     opção é a primeira e leva `(Recomendado)` no rótulo; com mais de um, nenhuma opção é recomendada,
+     porque o build não sabe qual canal o usuário quer.
    - `Agora não`.
 
-   Aceitar roda o `${FLUX_CMD}reply` com o intent `pedir-review` do canal escolhido, citando a PR pela
-   **URL completa** (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`, já parseada no item 3), para
-   o reply não depender de checkout nem de repo resolvível. O build passa o intent pelo nome e não
-   pela frase: o `match` é lista livre do diretório, e o pedido tem de casar um deles; se o reply
-   não casar o intent, ele segue o pipeline normal e o build deve avisar o usuário disso em vez de
+   Aceitar roda o `${FLUX_CMD}reply` com **uma frase de `match` literal** do intent `pedir-review` do
+   canal escolhido (a primeira da lista, tirada do próprio diretório), o **alias do canal** e a **URL
+   completa** da PR (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`, já parseada no item 3), por
+   exemplo `${FLUX_CMD}reply "<match> <alias> <url>"`. O reply só casa intent por frase de `match` e só
+   resolve o canal por alias ou permalink, então o pedido leva os dois; a frase vem do diretório, o que
+   garante o casamento, e a URL dispensa checkout e repo resolvível. Se mesmo assim o reply não casar o
+   intent e seguir o pipeline normal, o build avisa o usuário disso em vez de
    afirmar que só rascunha. No caminho rápido o reply monta o rascunho do `template` com a PR
    resolvida, passa pela varredura de escrita e pelo gate de salvar do próprio reply, e **só
    rascunha**. Este elo não lê o Slack, não posta e não salva rascunho por conta própria, e recusar
