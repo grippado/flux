@@ -611,16 +611,18 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    (`${FLUX_ROOT}/shared/hitl.md`, `AskUserQuestion` no Claude Code), single-select, depois dos itens 3 a 6
    e antes do handoff:
 
-   - `Pedir review em <alias do canal>`, uma opção por canal na ordem do diretório. Com um canal só, a
+   - `Pedir review em <nome do canal>`, uma opção por canal na ordem do diretório. Com um canal só, a
      opção é a primeira e leva `(Recomendado)` no rótulo; com mais de um, nenhuma opção é recomendada,
      porque o build não sabe qual canal o usuário quer.
    - `Agora não`.
 
    Aceitar roda o `${FLUX_CMD}reply` com **uma frase de `match` literal** do intent `pedir-review` do
-   canal escolhido (a primeira da lista, tirada do próprio diretório), o **alias do canal** e a **URL
+   canal escolhido (a primeira da lista, tirada do próprio diretório), o **nome do canal** (o primeiro alias; sem `aliases`, o slug) e a **URL
    completa** da PR (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`, já parseada no item 3), por
-   exemplo `${FLUX_CMD}reply "<match> <alias> <url>"`. O reply só casa intent por frase de `match` e só
-   resolve o canal por alias ou permalink, então o pedido leva os dois; a frase vem do diretório, o que
+   exemplo `${FLUX_CMD}reply "<match> <nome do canal> <url>"`, sempre entre aspas, para um verbo
+   do reply dentro do `match` não ser lido como verbo do comando. O reply só casa intent por frase de `match` e só
+   resolve o canal por alias ou permalink, então o pedido leva os dois (a URL da PR não participa do casamento, regra do passo 1 de
+   "Resolução" no diretório); a frase vem do diretório, o que
    garante o casamento, e a URL dispensa checkout e repo resolvível. Se mesmo assim o reply não casar o
    intent e seguir o pipeline normal, o build avisa o usuário disso em vez de
    afirmar que só rascunha. No caminho rápido o reply monta o rascunho do `template` com a PR
