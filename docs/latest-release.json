@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.52.1",
+    "tag": "v1.52.1",
+    "published_at": "2026-11-19T02:49:26Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.52.1",
+    "summary": {
+      "en": "Escape PR titles in the Slack directory link label and turn the reply watch off by default for alias targets.",
+      "pt": "Escapa o título da PR no rótulo do link do diretório do Slack e desliga o watch do reply por padrão em alvo por alias."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.52.0",
     "tag": "v1.52.0",
     "published_at": "2026-11-18T22:58:54Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "Slack alias directory for flux:reply: talk to people and channels by name, with per-channel purpose, quick intents and PR status reactions.",
       "pt": "Diretório de alias do Slack para o flux:reply: fale com pessoas e canais pelo nome, com direção por canal, intents rápidos e reações de status de PR."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.51.0",
-    "tag": "v1.51.0",
-    "published_at": "2026-11-18T17:30:10Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.51.0",
-    "summary": {
-      "en": "flux:iterate now publishes mechanical conflict resolutions with --force-with-lease without a human gate, in --auto and watch; Flux 1.51.0.",
-      "pt": "O flux:iterate passa a publicar resoluções mecânicas de conflito com --force-with-lease sem gate humano, em --auto e no watch; Flux 1.51.0."
     },
     "changelog_source": "tag_message"
   },
