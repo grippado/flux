@@ -52,17 +52,21 @@ fonte barata é o índice, quando ele existe e está fresco (`${FLUX_ROOT}/share
 `manifests`); sem índice, a varredura:
 
 ```bash
-find -L "$HOME" -maxdepth 4 \
+find -L "$HOME" -maxdepth 6 \
   \( -name .git -o -name node_modules -o -name .cache -o -name .npm -o -name .yarn \
-     -o -name Library -o -name Applications -o -name Pictures -o -name Movies -o -name Music \
-     -o -name .Trash -o -name go -o -name .local \) -prune -o \
+     -o -path "$HOME/Library" -o -path "$HOME/Applications" -o -path "$HOME/Pictures" \
+     -o -path "$HOME/Movies" -o -path "$HOME/Music" -o -path "$HOME/.Trash" \
+     -o -path "$HOME/go" -o -path "$HOME/.local" \) -prune -o \
   -type f \( -path '*/.claude/flux-context.json' -o -path '*/.cursor/flux-context.json' \) -print 2>/dev/null |
-  while IFS= read -r m; do printf '%s\t%s\n' "$(readlink -f "$m")" "$m"; done |
+  while IFS= read -r m; do
+    r=$(readlink -f "$m" 2>/dev/null); [ -n "$r" ] || r=$m
+    printf '%s\t%s\n' "$r" "$m"
+  done |
   awk -F '\t' '!seen[$1]++ { print $2 }'
 ```
 
 Esta é a **varredura canônica de manifestos**: quem precisa descobrir manifestos na máquina (o
-`${FLUX_CMD}map`, o índice) aponta para ela, não a reescreve. Três propriedades não são opcionais:
+`${FLUX_CMD}map`, o índice) aponta para ela, não a reescreve. Quatro propriedades não são opcionais:
 
 - **Segue symlink (`-L`).** É comum o `.claude/` de um workspace, ou o próprio diretório do workspace,
   ser um symlink para dentro de um repositório de dotfiles. Sem `-L` o `find` não desce nele, o
@@ -72,9 +76,22 @@ Esta é a **varredura canônica de manifestos**: quem precisa descobrir manifest
 - **Dedup por caminho real.** O mesmo manifesto alcançado por dois caminhos é **um** candidato, não
   dois: a chave é o `readlink -f`, e o caminho emitido é o primeiro em que ele foi achado. Sem isso,
   um manifesto só reivindica o slug duas vezes e o passo abaixo pergunta ao usuário entre ele e ele
-  mesmo. É o mesmo critério da CLI (`scanForManifests`, em `cli/src/resolve.ts`).
-- **Poda dos diretórios pesados.** A lista do `-prune` é a mesma que a CLI pula. Seguir symlink sem
-  podar transforma a varredura numa descida por caches e bibliotecas do sistema.
+  mesmo. É o mesmo critério da CLI (`scanForManifests`, em `cli/src/resolve.ts`). **Sem
+  `readlink -f`** (sistema antigo, ou o comando falhou), a chave cai para o próprio caminho
+  percorrido: a varredura deixa de deduplicar e erra para o lado seguro, uma pergunta a mais ao
+  usuário, nunca a fusão de manifestos distintos numa chave vazia.
+- **Poda dos diretórios pesados, em dois grupos.** Os genéricos (`.git`, `node_modules`, `.cache`,
+  `.npm`, `.yarn`) são podados em qualquer nível, por `-name`. Os diretórios do sistema do usuário
+  (`Library`, `Applications`, `Pictures`, `Movies`, `Music`, `.Trash`, `go`, `.local`) são podados
+  **só no topo do `$HOME`**, por `-path "$HOME/<nome>"`: podá-los por nome em qualquer nível esconderia
+  um repositório legítimo chamado `go` (`~/www/go/.claude/`) ou um manifesto sob um `.local` aninhado
+  (`~/x/.local/y/.claude/`). Com `-L`, o `-path` casa o caminho percorrido, não o destino do symlink.
+  Os dois grupos são os mesmos que a CLI pula (o segundo só quando o diretório-pai é a raiz da
+  varredura), e `scripts/check-prune-parity.sh` falha o CI quando divergem. Seguir symlink sem podar
+  transforma a varredura numa descida por caches e bibliotecas do sistema.
+- **Profundidade igual à da CLI.** `-maxdepth 6` conta o próprio arquivo: o manifesto de um diretório
+  até quatro níveis abaixo do `$HOME` (`<dir>/.claude/flux-context.json`), que é exatamente o alcance
+  do `scanForManifests`.
 
 Um manifesto **reivindica** o slug quando ele aparece no campo `repos`, ou quando existe
 `<workspace_root>/<slug>/.git`. Então:
