@@ -42,8 +42,11 @@ jobs:
       - name: check-codex-agent-contract
         run: scripts/check-codex-agent-contract.sh
 
+      - name: check-prune-parity
+        run: scripts/check-prune-parity.sh
+
       - name: shellcheck
-        run: shellcheck plugins/flux/scripts/run.sh scripts/test-run.sh
+        run: shellcheck plugins/flux/scripts/run.sh scripts/test-run.sh scripts/check-prune-parity.sh
 
       - name: awk do runner
         run: (awk --version 2>/dev/null || awk -W version 2>&1) | head -1
