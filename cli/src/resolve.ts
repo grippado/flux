@@ -154,8 +154,8 @@ function findCodexPluginMarker(): string | null {
 function scanForManifests(searchRoots: string[]): ManifestRecord[] {
   const results: ManifestRecord[] = [];
   const seen = new Set<string>();
-  const SKIP = new Set([
-    ".git", "node_modules", ".cache", ".npm", ".yarn",
+  const SKIP_ANY_DEPTH = new Set([".git", "node_modules", ".cache", ".npm", ".yarn"]);
+  const SKIP_AT_ROOT = new Set([
     "Library", "Applications", "Pictures", "Movies", "Music", ".Trash", "go", ".local",
   ]);
 
@@ -191,7 +191,8 @@ function scanForManifests(searchRoots: string[]): ManifestRecord[] {
       }
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        if (SKIP.has(entry.name)) continue;
+        if (SKIP_ANY_DEPTH.has(entry.name)) continue;
+        if (depth === 0 && SKIP_AT_ROOT.has(entry.name)) continue;
         const child = join(dir, entry.name);
         if (entry.isDirectory()) {
           scan(child, depth + 1);
