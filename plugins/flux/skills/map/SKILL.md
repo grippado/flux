@@ -198,11 +198,12 @@ Sem manifesto nenhum: perfil genérico, e o levantamento cobre os repos detectad
    o que não acontece é a gravação, declarada em `destino: nao resolvido` e nas degradações. Nunca
    inventar path por analogia com outro harness.
 3. **Descobrir os manifestos de contexto** (`flux-context.json`), pela varredura canônica de
-   manifestos do `${FLUX_ROOT}/shared/flux-context.md` (passo 2), sem reescrevê-la aqui. Para cada um: `name`, `workspace_root`, `repos`.
+   manifestos do `${FLUX_ROOT}/shared/flux-context.md` (passo 2), sem reescrevê-la aqui. Para cada
+   um: `name`, `workspace_root`, `repos`.
 4. **Levantar os repos** — os declarados nos manifestos e os detectados sob cada `workspace_root`. Por
    repo, as três lentes: L1 (holístico resolvido), L2 (suite curada, pela cascata de
-   `specialists_root`), L3 (o diretório de agents do repo e o filtro de intenção de review, ambos definidos no 1b do
-   `${FLUX_ROOT}/shared/review-agents.md` — não reenunciar o path aqui).
+   `specialists_root`), L3 (o diretório de agents do repo e o filtro de intenção de review, ambos
+   definidos no 1b do `${FLUX_ROOT}/shared/review-agents.md` — não reenunciar o path aqui).
 5. **Computar colisões** de `name:` entre tudo que foi levantado, e o `sha256` de cada conjunto.
 6. **Relatar** (formato abaixo).
 7. **Gate de escrita** e, aceito, gravar o índice conforme o contrato de destino.

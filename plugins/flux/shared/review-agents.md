@@ -312,15 +312,18 @@ família lista em disco (o diretório de agents do repo, a raiz de agents do usu
 um espelho):
 
 ```bash
-find -L "<raiz>" -type f -name '*.md' 2>/dev/null
+find -L "<raiz>" -maxdepth 4 -type f -name '*.md' 2>/dev/null
 ```
 
-O `-L` não é opcional. Agents expostos por symlink são o arranjo recomendado na tabela de causas
-abaixo, e é comum a raiz inteira ser um symlink para um repositório de dotfiles; sem `-L` o `find`
-não desce em diretório symlinkado e um arquivo symlink não passa no `-type f`, então a varredura
-devolve zero agents de uma suite que o harness carrega normalmente. O `2>/dev/null` descarta o aviso
-de loop quando há ciclo de symlink. Quem precisa listar agents em disco aponta para este comando, não
-o reescreve.
+O `-L` não é opcional. Expor agents por symlink é uma das remediações da tabela de causas do 1a-bis,
+acima (com a ressalva de nome único e a exceção de kit), e é comum a raiz inteira ser um symlink para
+um repositório de dotfiles; sem `-L` o `find` não desce em diretório symlinkado e um arquivo symlink
+não passa no `-type f`, então a varredura devolve zero agents de uma suite que o harness carrega
+normalmente. O `2>/dev/null` descarta o aviso de loop quando há ciclo de symlink. O `-maxdepth 4`
+limita a descida que o `-L` abre: o arranjo mais fundo que a família produz é o espelho do degrau 1
+(`<raiz>/<ctx>/<slug>-l3/<agent>.md`, profundidade 3), e o nível a mais cobre uma subpasta de suite
+dentro dele; sem limite, um symlink para um diretório grande vira uma descida inteira por ele. Quem
+precisa listar agents em disco aponta para este comando, não o reescreve.
 
 Um agent entra em L3 quando satisfaz **qualquer** critério:
 
