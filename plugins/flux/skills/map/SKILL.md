@@ -197,8 +197,8 @@ Sem manifesto nenhum: perfil genérico, e o levantamento cobre os repos detectad
    o delta e o relatório de integridade não dependem de destino, então eles rodam e saem normalmente;
    o que não acontece é a gravação, declarada em `destino: nao resolvido` e nas degradações. Nunca
    inventar path por analogia com outro harness.
-3. **Descobrir os manifestos de contexto** (`flux-context.json`), pela varredura do
-   `${FLUX_ROOT}/shared/flux-context.md`. Para cada um: `name`, `workspace_root`, `repos`.
+3. **Descobrir os manifestos de contexto** (`flux-context.json`), pela varredura canônica de
+   manifestos do `${FLUX_ROOT}/shared/flux-context.md` (passo 2), sem reescrevê-la aqui. Para cada um: `name`, `workspace_root`, `repos`.
 4. **Levantar os repos** — os declarados nos manifestos e os detectados sob cada `workspace_root`. Por
    repo, as três lentes: L1 (holístico resolvido), L2 (suite curada, pela cascata de
    `specialists_root`), L3 (o diretório de agents do repo e o filtro de intenção de review, ambos definidos no 1b do

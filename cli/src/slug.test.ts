@@ -152,6 +152,56 @@ describe("resolucao por slug no resolveContext: manifesto alcancado por dois cam
   });
 });
 
+describe("resolucao por slug no resolveContext: diretorio intermediario symlink", () => {
+  it("acha manifesto alcancavel so por symlink de diretorio intermediario", async () => {
+    const realRoot = mkdtempSync(join(tmpdir(), "flux-real-"));
+    const searchRoot = mkdtempSync(join(tmpdir(), "flux-search-"));
+    try {
+      const workspace = join(realRoot, "workspace");
+      makeGitRepo(workspace, "rf-monorepo");
+      writeManifest(workspace, { name: "arco", repos: ["rf-monorepo"], workspace_root: workspace });
+      symlinkSync(realRoot, join(searchRoot, "link"));
+
+      const ctx = await resolveContext({
+        targetPath: "rf-monorepo",
+        cwd: tmpDir,
+        searchRoots: [searchRoot],
+      });
+
+      expect(ctx.profile).toBe("arco");
+      expect(ctx.anchor).toContain("rf-monorepo");
+    } finally {
+      rmSync(realRoot, { recursive: true, force: true });
+      rmSync(searchRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("termina em ciclo de symlink e devolve um candidato so", async () => {
+    const realRoot = mkdtempSync(join(tmpdir(), "flux-real-"));
+    const searchRoot = mkdtempSync(join(tmpdir(), "flux-search-"));
+    try {
+      const workspace = join(realRoot, "workspace");
+      makeGitRepo(workspace, "rf-monorepo");
+      writeManifest(workspace, { name: "arco", repos: ["rf-monorepo"], workspace_root: workspace });
+      symlinkSync(realRoot, join(searchRoot, "link"));
+      symlinkSync(searchRoot, join(realRoot, "volta"));
+      symlinkSync(workspace, join(workspace, "eu-mesmo"));
+
+      const ctx = await resolveContext({
+        targetPath: "rf-monorepo",
+        cwd: tmpDir,
+        searchRoots: [searchRoot],
+      });
+
+      expect(ctx.profile).toBe("arco");
+      expect(ctx.anchor).toContain("rf-monorepo");
+    } finally {
+      rmSync(realRoot, { recursive: true, force: true });
+      rmSync(searchRoot, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("resolucao por slug no resolveContext: 0 candidatos", () => {
   it("adiciona warning e ancora no cwd quando nenhum manifesto reivindica", async () => {
     const isolatedSearch = mkdtempSync(join(tmpdir(), "flux-empty-search-"));

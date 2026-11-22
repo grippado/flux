@@ -52,9 +52,29 @@ fonte barata é o índice, quando ele existe e está fresco (`${FLUX_ROOT}/share
 `manifests`); sem índice, a varredura:
 
 ```bash
-find "$HOME" -maxdepth 4 -type f \
-  \( -path '*/.claude/flux-context.json' -o -path '*/.cursor/flux-context.json' \) 2>/dev/null
+find -L "$HOME" -maxdepth 4 \
+  \( -name .git -o -name node_modules -o -name .cache -o -name .npm -o -name .yarn \
+     -o -name Library -o -name Applications -o -name Pictures -o -name Movies -o -name Music \
+     -o -name .Trash -o -name go -o -name .local \) -prune -o \
+  -type f \( -path '*/.claude/flux-context.json' -o -path '*/.cursor/flux-context.json' \) -print 2>/dev/null |
+  while IFS= read -r m; do printf '%s\t%s\n' "$(readlink -f "$m")" "$m"; done |
+  awk -F '\t' '!seen[$1]++ { print $2 }'
 ```
+
+Esta é a **varredura canônica de manifestos**: quem precisa descobrir manifestos na máquina (o
+`${FLUX_CMD}map`, o índice) aponta para ela, não a reescreve. Três propriedades não são opcionais:
+
+- **Segue symlink (`-L`).** É comum o `.claude/` de um workspace, ou o próprio diretório do workspace,
+  ser um symlink para dentro de um repositório de dotfiles. Sem `-L` o `find` não desce nele, o
+  manifesto não aparece, e o elo cai em perfil genérico com o manifesto certo a um symlink de
+  distância. Com `-L`, `-maxdepth` conta pelo caminho percorrido, não pelo destino, e um ciclo de
+  symlink só produz o aviso de loop do `find`, que o `2>/dev/null` descarta.
+- **Dedup por caminho real.** O mesmo manifesto alcançado por dois caminhos é **um** candidato, não
+  dois: a chave é o `readlink -f`, e o caminho emitido é o primeiro em que ele foi achado. Sem isso,
+  um manifesto só reivindica o slug duas vezes e o passo abaixo pergunta ao usuário entre ele e ele
+  mesmo. É o mesmo critério da CLI (`scanForManifests`, em `cli/src/resolve.ts`).
+- **Poda dos diretórios pesados.** A lista do `-prune` é a mesma que a CLI pula. Seguir symlink sem
+  podar transforma a varredura numa descida por caches e bibliotecas do sistema.
 
 Um manifesto **reivindica** o slug quando ele aparece no campo `repos`, ou quando existe
 `<workspace_root>/<slug>/.git`. Então:

@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, realpathSync } from "fs";
+import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "fs";
 import { join, dirname, basename, resolve as resolvePath } from "path";
 import { homedir } from "os";
 import * as readline from "readline";
@@ -159,8 +159,17 @@ function scanForManifests(searchRoots: string[]): ManifestRecord[] {
     "Library", "Applications", "Pictures", "Movies", "Music", ".Trash", "go", ".local",
   ]);
 
+  const visited = new Map<string, number>();
+
   function scan(dir: string, depth: number): void {
     if (depth > 4) return;
+    let realDir = dir;
+    try {
+      realDir = realpathSync(dir);
+    } catch {}
+    const previousDepth = visited.get(realDir);
+    if (previousDepth !== undefined && previousDepth <= depth) return;
+    visited.set(realDir, depth);
     try {
       for (const configDir of [".claude", ".cursor"]) {
         const manifestPath = join(dir, configDir, "flux-context.json");
@@ -182,9 +191,16 @@ function scanForManifests(searchRoots: string[]): ManifestRecord[] {
       }
       const entries = readdirSync(dir, { withFileTypes: true });
       for (const entry of entries) {
-        if (!entry.isDirectory()) continue;
         if (SKIP.has(entry.name)) continue;
-        scan(join(dir, entry.name), depth + 1);
+        const child = join(dir, entry.name);
+        if (entry.isDirectory()) {
+          scan(child, depth + 1);
+          continue;
+        }
+        if (!entry.isSymbolicLink()) continue;
+        try {
+          if (statSync(child).isDirectory()) scan(child, depth + 1);
+        } catch {}
       }
     } catch {}
   }
