@@ -40,7 +40,16 @@ ordem, parando no primeiro que existir:
    sobe para a raiz da instalação). Se o arquivo foi carregado por symlink, resolver o alvo real
    antes de subir (`readlink -f`) — é o caminho da instalação local do Cursor, que é um symlink
    para o checkout, e o do OpenCode ([`opencode-compat.md`](opencode-compat.md), "Recursos").
-6. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável.
+6. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável. Só conta
+   se o diretório tiver `shared/`; um `FLUX_HOME` sem ele é ignorado (a CLI avisa em `warnings[]`).
+7. **Só na CLI** (`flux preflight`), numa sessão OpenCode (`OPENCODE_SESSION_ID` presente e
+   `CODEX_THREAD_ID` ausente): o campo `source` do manifesto de instalação do OpenCode
+   (`${FLUX_OPENCODE_DIR:-~/.config/opencode}/.flux-install.json`), quando é caminho absoluto com
+   `shared/`. Sai com `flux_root_source: "opencode-install-manifest"`. Vem depois de `FLUX_HOME` e
+   antes da heurística da CLI (`heuristica-cli`), que escolhe o cache de plugin de maior versão da
+   máquina. Manifesto legível com `source` que não vale gera aviso em `warnings[]` com o remédio
+   (rodar `scripts/install-opencode.sh` de novo); o formato do manifesto está em
+   [`opencode-compat.md`](opencode-compat.md), "Manifesto de instalação".
 
 Se nenhum resolver, é `UNAVAILABLE`: abortar informando que a instalação da família não foi
 localizada.

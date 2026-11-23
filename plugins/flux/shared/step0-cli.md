@@ -16,10 +16,12 @@ sessão sabe onde está o arquivo do verbo (o `Base directory for this skill` do
 do `SKILL.md` lido), derivar a raiz pelo candidato 5 da cascata de `FLUX_ROOT` do
 `${FLUX_ROOT}/shared/preflight.md` (dois níveis acima do `SKILL.md`, com `readlink -f`) e chamar
 `FLUX_HOME=<raiz derivada> flux preflight <VERBO> [ALVO] --json`. Sem isso, a heurística da CLI
-(`flux_root_source: "heuristica-cli"`) escolhe a primeira instalação que encontrar na máquina, que
-pode ser outra cópia da família, de outra versão, e o elo roda contratos que não são os dele. Pelo
-mesmo motivo, um JSON com `flux_root_source: "heuristica-cli"` cujo `flux_root` difere da raiz
-derivada do verbo perde para a raiz do verbo.
+(`flux_root_source: "heuristica-cli"`) escolhe a instalação de maior versão que encontrar na
+máquina, que pode ser outra cópia da família, e o elo roda contratos que não são os dele. Pelo mesmo
+motivo, um JSON com `flux_root_source: "heuristica-cli"` cujo `flux_root` difere da raiz derivada
+do verbo não vale: rodar de novo com `FLUX_HOME=<raiz do verbo>`, em vez de trocar só o `flux_root`,
+porque `requirements`, `kit_roots` e `degradations` foram calculados contra a outra raiz. A CLI só
+aceita `FLUX_HOME` que tenha `shared/`.
 
 Três resultados possíveis, e só três:
 
@@ -39,6 +41,9 @@ mensagem já montada.
 - `degradations[]` → entram verbatim na linha `degradacoes:` do banner (Passo 5), somadas às
   degradações que só a sessão enxerga.
 - `capability_level_hint` → provisório; o nível definitivo sai da revalidação abaixo.
+- `warnings[]` → avisos da resolução (por exemplo, `FLUX_HOME` ignorado ou manifesto do OpenCode
+  apontando para um checkout que não existe mais). Não bloqueiam; mostrar cada um no chat, com o
+  remédio que ele traz, antes do banner.
 - `HARNESS` e `FLUX_VERSION` (campos do banner e do bloco `provenance`) **não chegam prontos no
   JSON** e são derivados localmente conforme o contrato normativo em
   `${FLUX_ROOT}/shared/preflight.md`, seção `1a-harness`. Obter `FLUX_VERSION` pela cascata de

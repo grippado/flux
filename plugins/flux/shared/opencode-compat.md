@@ -35,7 +35,10 @@ diretório de configuração do OpenCode.
 ([`codex-compat.md`](codex-compat.md), "Recursos").
 
 **Manifesto de instalação.** O instalador grava em `$DEST/.flux-install.json` a lista dos caminhos
-que gerou (`skills`, `commands`, `agents`, relativos ao destino). Numa rodada seguinte, ele só
+que gerou (`skills`, `commands`, `agents`, relativos ao destino) e `source`, o caminho absoluto de
+`plugins/flux` no checkout de origem. Os quatro campos são contrato: `source` é lido pela CLI como
+candidato 7 da cascata de `FLUX_ROOT` (Passo 1a do [`preflight.md`](preflight.md)), e mudar o nome
+ou o formato dele exige mudar a CLI junto. Numa rodada seguinte, ele só
 sobrescreve ou remove o que estiver listado ali, e por isso um verbo ou agent que saiu da família
 também sai do destino. O que existe nos mesmos lugares (`skills/flux-*`, `commands/flux/*.md`,
 `agents/flux-*.md`) e não está no manifesto fica, com aviso: um specialist L2 registrado como
