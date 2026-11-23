@@ -176,6 +176,23 @@ está indisponível: o verbo faz a passada inteira, declara a degradação e diz
 reinvoque para a próxima rodada. O caminho de ausência é do verbo, em "`WATCH_WAKE`" do `SKILL.md`
 do `iterate`.
 
+## Comprovações em sessão real
+
+**2026-11-23, OpenCode v2.3.2, `opencode run` headless, modelo `opencode-go/kimi-k3`, verbo
+`peek` sobre um working tree descartável.** Comprovado:
+
+- o command `/flux/peek` carrega a skill instalada e segue o corpo dela;
+- `FLUX_ROOT` resolve para o checkout do instalador quando o Step 0-cli passa a raiz do verbo à
+  CLI (`${FLUX_ROOT}/shared/step0-cli.md`); sem isso, a heurística da CLI escolheu outra
+  instalação da família na mesma máquina, de outra versão;
+- `HARNESS=opencode`, com o banner saindo `carimbo: opencode | flux:peek@<versão>`;
+- o despacho do holístico pela tool `subagent`, pelo nome `flux-pr-reviewer`, e o retorno do
+  parecer para a sessão principal;
+- o texto impresso para o usuário com a forma `/flux/<verbo>`.
+
+Não comprovado nesta sessão: o round-trip da tool `question` (headless não abre gate), o despacho
+de irmão por `/flux/<verbo>` de dentro de subagente e o comportamento interativo.
+
 ## Limites
 
 Worktrees, aprovação humana e verificação externa continuam obrigatórios. Suporte só ao OpenCode V2:

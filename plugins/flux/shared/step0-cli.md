@@ -11,6 +11,16 @@
 flux preflight <VERBO> [ALVO] --json 2>/dev/null
 ```
 
+**A raiz do verbo vai junto quando a sessão a conhece.** Se `FLUX_HOME` não está definido e a
+sessão sabe onde está o arquivo do verbo (o `Base directory for this skill` do OpenCode, ou o path
+do `SKILL.md` lido), derivar a raiz pelo candidato 5 da cascata de `FLUX_ROOT` do
+`${FLUX_ROOT}/shared/preflight.md` (dois níveis acima do `SKILL.md`, com `readlink -f`) e chamar
+`FLUX_HOME=<raiz derivada> flux preflight <VERBO> [ALVO] --json`. Sem isso, a heurística da CLI
+(`flux_root_source: "heuristica-cli"`) escolhe a primeira instalação que encontrar na máquina, que
+pode ser outra cópia da família, de outra versão, e o elo roda contratos que não são os dele. Pelo
+mesmo motivo, um JSON com `flux_root_source: "heuristica-cli"` cujo `flux_root` difere da raiz
+derivada do verbo perde para a raiz do verbo.
+
 Três resultados possíveis, e só três:
 
 **1. JSON com `status: "abort"`** — exibir `abort_message` no chat e encerrar sem efeito
