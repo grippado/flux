@@ -182,5 +182,8 @@ Worktrees, aprovação humana e verificação externa continuam obrigatórios. S
 o instalador recusa a 1.x. Mover o checkout quebra os symlinks em silêncio; reinstalar conserta. A
 detecção de `HARNESS` depende de variáveis que o OpenCode injeta na tool de shell
 (`OPENCODE_SESSION_ID`, `OPENCODE`, `AI_AGENT`), lidas no código e não documentadas como contrato:
-se mudarem, `HARNESS` cai para `unknown`, degradação honesta. Claude Code, Cursor e Codex continuam
+se mudarem, `HARNESS` cai para `unknown`, degradação honesta. Um Claude Code (ou `flux <verbo>`)
+disparado de dentro de uma sessão OpenCode herda `OPENCODE_SESSION_ID` pela tool de shell e sai
+carimbado `opencode`, inclusive no rótulo público de atribuição. É limitação conhecida, da mesma
+classe da regra do `CODEX_THREAD_ID` no Passo 1a do preflight, e não bug. Claude Code, Cursor e Codex continuam
 usando seus próprios adaptadores, com `${FLUX_ROOT}` e `${FLUX_CMD}` preservados.
