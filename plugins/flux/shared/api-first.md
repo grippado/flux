@@ -30,7 +30,8 @@ Para no primeiro "não". Cada degrau que falha tem um destino declarado.
    e, faltando lá, do `secrets_file` (default `~/.secrets`), lidos pela receita de "Ler o token"
    (abaixo). Regras de manuseio em `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do
    token". Ausente nos dois: **gate de
-   token ausente** (abaixo). **Nunca cai para MCP em silêncio.**
+   token ausente** (abaixo). `secrets_file` ilegível não é ausência: sai com `sem token` e a frase de
+   "Ler o token", sem setup guiado. **Nunca cai para MCP em silêncio.**
 2. **O token autentica?** Uma query barata de identidade (`{ viewer { id name } }` no Linear). Status diferente de `200` **ou payload com `errors`**: MCP, porque GraphQL costuma devolver falha de auth com `200`. Na leitura, este degrau e o seguinte se fundem na própria query de leitura, que prova as duas coisas em um request só.
 3. **O token enxerga o alvo?** Para leitura, a própria query de leitura é a sonda: alvo nulo ou erro de
    escopo cai para MCP. Para escrita, é a query que resolve os identificadores do destino.
@@ -124,13 +125,25 @@ escada: o gate externo (`${FLUX_ROOT}/shared/quality-gate-api.md`) e a observabi
 continua listando só quem aplica os degraus.
 
 Entradas: `TOKEN_VAR`, o **nome** da variável (campo `*_token_env` ou `token_env` do manifesto), e
-`SECRETS_FILE`. Saída: `TOKEN` com o valor cru. Ordem fixa: ambiente primeiro, `secrets_file` depois.
+`SECRETS_FILE` (default `~/.secrets`). Saída: `TOKEN` com o valor cru e `SECRETS_ILEGIVEL` (`1` quando
+o `secrets_file` existe e não pode ser lido). Ordem fixa: ambiente primeiro, `secrets_file` depois.
 
 ```bash
-TOKEN=$(printenv "$TOKEN_VAR")
+SECRETS_FILE="${SECRETS_FILE:-$HOME/.secrets}"
 case $SECRETS_FILE in \~/*) SECRETS_FILE="$HOME/${SECRETS_FILE#\~/}" ;; esac
-[ -z "$TOKEN" ] && TOKEN=$(sed -n "s/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}${TOKEN_VAR}=//p" "$SECRETS_FILE" 2>/dev/null | tail -n 1 | sed -e 's/[[:space:]]*$//' -e 's/^\(["'\'']\)\(.*\)\1$/\2/')
+TOKEN=
+if [ -n "${TOKEN_VAR:-}" ]; then
+  TOKEN=$(printenv "$TOKEN_VAR" || :)
+  [ -n "$TOKEN" ] || [ ! -r "$SECRETS_FILE" ] || TOKEN=$(sed -n "s/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}${TOKEN_VAR}=//p" "$SECRETS_FILE" | tail -n 1 | sed -e 's/[[:space:]]*$//' -e 's/^\(["'\'']\)\(.*\)\1$/\2/')
+fi
+if [ -e "$SECRETS_FILE" ] && [ ! -r "$SECRETS_FILE" ]; then SECRETS_ILEGIVEL=1; else SECRETS_ILEGIVEL=0; fi
 ```
+
+O bloco é autossuficiente e seguro com `set -e`. `TOKEN_VAR` vazio não tem default: cada canal declara
+o seu (`linear_token_env`, `token_env` do `quality_gate`, `token_env` do provider de telemetria), e cair
+no nome de outro canal mandaria a chave de um serviço para outro. Sem nome, `TOKEN` sai vazio e o elo
+segue o caminho de token ausente. Não rodar a receita com `set -x`: o trace imprime o valor; desligar
+antes com `{ set +x; } 2>/dev/null`.
 
 **Formato aceito no `secrets_file`**, uma chave por linha, linhas com `#` ignoradas:
 
@@ -141,9 +154,17 @@ case $SECRETS_FILE in \~/*) SECRETS_FILE="$HOME/${SECRETS_FILE#\~/}" ;; esac
 
 Fora do formato: escape dentro das aspas, comentário depois do valor e valor em mais de uma linha. A
 receita não expande `$` nem `~` no valor. Ela é POSIX (`sed` básico, sem `-E`, sem `grep -P`) e roda
-igual em BSD e GNU; `scripts/test-run.sh` executa este bloco contra os formatos acima.
+igual em BSD e GNU, em `sh`, `dash`, `bash` e `zsh`; `scripts/test-run.sh` executa este bloco e o da
+conferência abaixo contra os formatos acima.
 
 **Nunca imprimir o valor.** Para diagnosticar, só o comprimento (`${#TOKEN}`) ou um predicado.
+
+**`TOKEN` vazio** tem duas causas, e a mensagem diz qual. Com `SECRETS_ILEGIVEL=1`, a frase é
+`secrets_file ilegível: <caminho>`, e o conserto é a permissão do arquivo, não uma chave nova: o elo não
+abre o setup guiado para gravar num arquivo que não consegue ler. Com `SECRETS_ILEGIVEL=0`, a frase é
+`variável <TOKEN_VAR> ausente no ambiente e no secrets_file`. Num canal da escada, as duas saem com o
+motivo `sem token` (grafia em `${FLUX_ROOT}/shared/preflight.md`, Passo 5), com a frase na prosa do
+banner.
 
 **Autenticação recusada com token lido do arquivo** (401, ou `errors` de autenticação no GraphQL): antes de
 dizer que a chave é inválida, conferir, sem imprimir, se o valor ainda tem aspas ou espaço em volta:
@@ -152,16 +173,18 @@ dizer que a chave é inválida, conferir, sem imprimir, se o valor ainda tem asp
 case $TOKEN in \"*|*\"|\'*|*\'|[[:space:]]*|*[[:space:]]) TOKEN_SUSPEITO=1 ;; *) TOKEN_SUSPEITO=0 ;; esac
 ```
 
-Com `TOKEN_SUSPEITO=1`, o banner diz que o valor lido tem aspas ou espaço em volta e aponta a linha
-do `secrets_file` pelo nome da variável. Num canal da escada, o motivo é `token com aspas` em vez de
+Com `TOKEN_SUSPEITO=1`, a frase de diagnóstico é `valor de <TOKEN_VAR> em <caminho do secrets_file>
+tem aspas ou espaço em volta`: cita o caminho do `secrets_file` e o nome da variável, sem número de
+linha e sem conteúdo. Num canal da escada, o motivo é `token mal formatado` em vez de
 `token nao autentica` (grafia em `${FLUX_ROOT}/shared/preflight.md`, Passo 5). Fora da escada, a mesma
 frase vai na mensagem de degradação ou de aborto da fonte.
 
 **Token exposto durante a sessão** (o valor apareceu em saída de comando, log, board ou chat): avisar
-**uma vez**, recomendar a rotação da chave no serviço e seguir. A exposição não bloqueia o uso nem abre
-gate: o consentimento do usuário para seguir vale para o resto da execução, sem nova pergunta. A
-leitura continua na ordem normal (ambiente, depois arquivo), e a cópia do ambiente não é tratada como
-diferente da do arquivo: as duas são o mesmo segredo. Rotacionar é ação do usuário, nunca do elo.
+**uma vez**, recomendar a rotação da chave no serviço e seguir sem perguntar nada. Se o usuário já
+mandou seguir, isso vale para o resto da execução e não se pergunta de novo. A exposição não bloqueia o
+uso nem abre gate. A leitura continua na ordem normal (ambiente, depois arquivo), e a cópia do ambiente
+não é tratada como diferente da do arquivo: as duas são o mesmo segredo. Rotacionar é ação do usuário,
+nunca do elo.
 
 ## O canal Linear
 
