@@ -524,9 +524,16 @@ chega ao usuário com versão diferente conforme o harness. O `check-codex-agent
 mesmo pelo texto dos `shared/`: é um canário que falha se a descrição do adaptador Codex sumir de
 `codex-compat.md`, `preflight.md` ou `review-agents.md`. O `check-context-ascent.sh` é o canário da
 subida do manifesto: falha se um SKILL listar `.claude/flux-context.json` sem o `.cursor/`
-correspondente, descrever a subida só por `.claude/`, ancorar a raiz do workspace só no `.claude/` ou
-copiar o default de `SPECIALISTS_ROOT` sem o ramo `agents/review/*.md`, em vez de apontar para
-`shared/flux-context.md`. Esses scripts rodam em CI
+correspondente a até 3 linhas, se um parágrafo descrever a subida (`subindo`, `sobe`, `sobem`, `subir`)
+só por `.claude/`, ancorar a raiz do workspace só no `.claude/` ou copiar o default de
+`SPECIALISTS_ROOT` sem os ramos `agents/review/*.md` e `.cursor/agents/`, em vez de apontar para
+`shared/flux-context.md`; e falha se o próprio `shared/flux-context.md` perder as quatro linhas do
+bloco canônico da subida ou um dos ramos do default de `specialists_root`. É heurística textual, não
+prova: lê parágrafo por parágrafo (blocos separados por linha em branco) e reconhece palavras, então
+uma redação nova pode escapar dele e um texto legítimo pode acendê-lo. Para esse segundo caso, a linha
+que contiver `<!-- context-ascent: ignore -->` sai da avaliação das regras de lista e de parágrafo (o
+marcador some na renderização do Markdown; a vigia do `flux-context.md` não o aceita); use com parcimônia e prefira reescrever o texto. Esses scripts
+rodam em CI
 ([`checks.yml`](.github/workflows/checks.yml)) a cada PR, então esquecer de rodá-los aqui custa uma
 ida ao GitHub, não uma regressão publicada.
 
