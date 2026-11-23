@@ -395,7 +395,8 @@ Tipos de requisito:
 > agents que moram em `.claude/agents/`, `.cursor/agents/` e nas raízes do manifesto. O genérico da
 > família é registrado como `flux-pr-reviewer` e segue as regras de `subagent_type` abaixo; um
 > `holistic_reviewer` ou override cujo nome não esteja na lista de agents da sessão segue o
-> adaptador do Codex, com o subagente `general` no papel do subagente nativo
+> adaptador do Codex, com o subagente `general` no papel do subagente nativo. No último degrau de
+> L1, o genérico continua sendo o `flux-pr-reviewer` por nome, não o arquivo lido pelo `general`
 > ([`opencode-compat.md`](opencode-compat.md), "Adaptador de instruções de agente").
 
 Este passo existe porque a falha mais perigosa da família é resolver um nome de agente e invocá-lo

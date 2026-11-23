@@ -146,9 +146,10 @@ de forma:
    ausente, aceita sem escolha ou vazia nas três tentativas gera `pergunta estruturada ausente`; menu que não cabe
    na ferramenta e sessão headless seguem o fallback numerado sem esse token, pois esses casos são
    tratados como caminhos esperados pelo adaptador (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
-   No OpenCode, as condições do token, inclusive o caso do round-trip da tool `question` ainda não
-   comprovado, estão em `${FLUX_ROOT}/shared/opencode-compat.md`, "Perguntas ao usuário", com a
-   mesma semântica do Codex.
+   No OpenCode, as condições do token estão em `${FLUX_ROOT}/shared/opencode-compat.md`, "Perguntas
+   ao usuário". Enquanto o round-trip da tool `question` não estiver comprovado, todo gate de sessão
+   sem `gate_signal:` gera o token, inclusive menu que não caberia na tool e `opencode run`; depois
+   da comprovação, a semântica passa a ser a do Codex.
 
 > **A degradação é de forma, nunca de rigor.** Um gate que vira "escolhi a recomendada porque não
 > tinha como perguntar" é pior do que não ter gate nenhum: produz uma ação não autorizada com

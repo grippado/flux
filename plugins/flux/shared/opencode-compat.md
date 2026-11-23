@@ -5,8 +5,9 @@ skills, agents e templates continuam sendo uma única fonte; o harness só troca
 descobrir recursos, delegar trabalho e anunciar limitações. Onde o comportamento é o mesmo do
 Codex, este arquivo aponta para [`codex-compat.md`](codex-compat.md) em vez de repetir.
 
-Tudo o que está aqui foi lido no código do OpenCode V2, não exercitado numa sessão real. Cada
-afirmação que depende de execução está marcada como não apurada, com o caminho de degradação.
+Parte do que está aqui foi lida no código do OpenCode V2 e parte foi exercitada numa sessão real,
+registrada com data e versão em "Comprovações em sessão real". O que depende de execução e ainda não
+foi comprovado está marcado como não apurado, com o caminho de degradação.
 
 ## Recursos
 
@@ -94,17 +95,26 @@ volta como `answers` (uma lista de escolhas por pergunta) na mesma sessão. O Op
 sozinho um campo de resposta livre; ele não é opção do Flux e uma resposta livre não é escolha de
 opção: tratá-la como mensagem do usuário e reapresentar o gate, sem agir.
 
-**Estado: round-trip não comprovado.** O caminho acima foi lido no código do OpenCode, não
+**Estado atual: round-trip não comprovado.** O caminho acima foi lido no código do OpenCode, não
 exercitado numa sessão real, e [`hitl.md`](hitl.md) só admite a pergunta estruturada com round-trip
 comprovado. Até que a comprovação seja registrada nesta seção, com data, versão do OpenCode e o que
 se observou (como faz "Perguntas ao usuário" do [`codex-compat.md`](codex-compat.md)), o OpenCode
-**não usa a tool `question`**: todo GATE vai ao fallback numerado de [`hitl.md`](hitl.md), e o elo
-declara `pergunta estruturada ausente` em `degradacoes:` ([`preflight.md`](preflight.md), Passo 5),
-porque o mecanismo estruturado não está disponível como contrato. Registrada a comprovação, a tool
-passa a valer com o mapeamento acima e as condições abaixo.
+**não usa a tool `question`**, e o estado é este, para todo GATE:
 
-Com a comprovação registrada, cai no fallback numerado de [`hitl.md`](hitl.md), com as opções e
-descrições completas e espera de escolha explícita no chat, quando qualquer destas condições valer:
+- **Sessão sem `gate_signal:` no bloco de preflight** (o caso de toda sessão OpenCode hoje): fallback
+  numerado de [`hitl.md`](hitl.md), e o elo declara `pergunta estruturada ausente` em `degradacoes:`
+  ([`preflight.md`](preflight.md), Passo 5), porque o mecanismo estruturado não está disponível como
+  contrato. Vale também para um menu que não caberia na tool: ela nem é tentada, e o motivo do
+  numerado é a ausência, não o tamanho do menu. Vale ainda para `opencode run`: a CLI só entrega
+  `gate_signal:` quando ela mesma lança o harness, e ela não lança o OpenCode, então a sessão não
+  tem como se reconhecer headless e segue este caso.
+- **Sessão com `gate_signal:` no bloco de preflight** (headless reconhecido, hoje inalcançável no
+  OpenCode): vale o sinal `flux-gate/1` de [`hitl.md`](hitl.md), "Execução headless", sem o token,
+  como manda a linha de `pergunta estruturada ausente` no Passo 5 do [`preflight.md`](preflight.md).
+
+Registrada a comprovação, a tool passa a valer com o mapeamento acima e as condições abaixo, e cai no
+fallback numerado de [`hitl.md`](hitl.md), com as opções e descrições completas e espera de escolha
+explícita no chat, quando qualquer destas condições valer:
 
 - a tool `question` não está disponível para o agent da sessão;
 - a chamada é aceita e volta sem escolha nenhuma: isso não comprova round-trip;
@@ -114,8 +124,9 @@ descrições completas e espera de escolha explícita no chat, quando qualquer d
 - a sessão é headless (o bloco de preflight traz `gate_signal:`): vale o sinal `flux-gate/1` de
   [`hitl.md`](hitl.md), "Execução headless".
 
-A semântica do token é a do Codex: só os dois primeiros casos declaram `pergunta estruturada
-ausente`. Recusa, dispensa, menu que não cabe e sessão headless seguem o numerado sem o token.
+Depois da comprovação, e só então, a semântica do token passa a ser a do Codex: só os dois
+primeiros casos declaram `pergunta estruturada ausente`. Recusa, dispensa, menu que não cabe e sessão
+headless seguem o numerado sem o token. Antes dela vale o estado atual, acima, que o Codex não tem.
 
 ### Adaptador de instruções de agente
 
@@ -126,8 +137,11 @@ de L1 de override, L2 e L3 que moram nos diretórios do Claude e do Cursor (`.cl
 exceção do adaptador de instruções estendida ao OpenCode no Passo 3 do
 [`preflight.md`](preflight.md) e no [`review-agents.md`](review-agents.md): aplicar literalmente
 "Adaptador de instruções de agente" do [`codex-compat.md`](codex-compat.md), com o subagente
-`general` no papel do subagente nativo genérico. Não criar agents no diretório do OpenCode para
-simular registro.
+`general` no papel do subagente nativo genérico, e com uma diferença no último degrau de L1: o
+genérico da família está registrado como `flux-pr-reviewer`, então ele é invocado por esse nome, como
+diz o Passo 3 do [`preflight.md`](preflight.md), e não como `${FLUX_ROOT}/agents/pr-reviewer.md` lido
+pelo `general`. Um `holistic_reviewer` só de nome que a sessão não lista declara `fonte L1 por nome`
+e cai nesse `flux-pr-reviewer`. Não criar agents no diretório do OpenCode para simular registro.
 
 ## Capacidades ausentes
 
@@ -138,6 +152,12 @@ não tem `ScheduleWakeup` nem `SendMessage`. O que degrada, por verbo:
 - **`land`** e **`chain`**: abortam a fase de despacho porque `FLUX_CMD` fica `UNAVAILABLE` (abaixo),
   antes de chegar ao board-keeper por `SendMessage` ou à re-checagem agendada.
 - **`iterate`**: a passada roda inteira; o watch segue "Watch do iterate", abaixo.
+- **Board-keeper do `iterate` e do `reply`**: os dois criam o keeper quando o watch está ligado, e
+  o watch é o default, antes de o verbo concluir que não há watch aqui. Sem `SendMessage`, não há
+  como mandar o delta ao keeper: vale o "Fallback declarado" do board-keeper em
+  [`fanout-discipline.md`](fanout-discipline.md), "Guardrails". A main escreve o board direto e
+  avisa no chat que o keeper não está disponível. O Codex não tem token de `degradacoes:` para essa
+  perda, e este adaptador também não cria um: o aviso no chat é o registro.
 - **`reply`**: o modo watch reagenda o próximo tick por `ScheduleWakeup` reinvocando
   `${FLUX_CMD}reply`, e aqui não há nenhum dos dois. O verbo roda a passada, e a próxima é uma
   invocação manual. O [`codex-compat.md`](codex-compat.md) não dá a essa ausência um tratamento
@@ -209,6 +229,13 @@ detecção de `HARNESS` depende de variáveis que o OpenCode injeta na tool de s
 (`OPENCODE_SESSION_ID`, `OPENCODE`, `AI_AGENT`), lidas no código e não documentadas como contrato:
 se mudarem, `HARNESS` cai para `unknown`, degradação honesta. Um Claude Code (ou `flux <verbo>`)
 disparado de dentro de uma sessão OpenCode herda `OPENCODE_SESSION_ID` pela tool de shell e sai
-carimbado `opencode`, inclusive no rótulo público de atribuição. É limitação conhecida, da mesma
-classe da regra do `CODEX_THREAD_ID` no Passo 1a do preflight, e não bug. Claude Code, Cursor e Codex continuam
+carimbado `opencode`, inclusive no rótulo público de atribuição. Pelo mesmo motivo, quando a CLI
+desse processo não acha `CLAUDE_PLUGIN_ROOT` nem os candidatos anteriores, ela resolve `FLUX_ROOT`
+pelo manifesto do OpenCode e o elo roda os contratos do checkout que o OpenCode instalou, não os do
+plugin do Claude Code. A CLI não bloqueia essa leitura por `CLAUDECODE`, porque o Passo 1a-harness
+faz `OPENCODE_SESSION_ID` vencer esse marcador (ele pode ter sido herdado do terminal que abriu o
+OpenCode); ela só deixa de ler o manifesto com `CODEX_THREAD_ID` presente, o único conflito que o
+Passo 1a-harness trata como não verificável. O remédio, quando importa, é exportar `FLUX_HOME` para a
+raiz certa. É limitação conhecida, da mesma classe da regra do `CODEX_THREAD_ID` no Passo 1a do
+preflight, e não bug. Claude Code, Cursor e Codex continuam
 usando seus próprios adaptadores, com `${FLUX_ROOT}` e `${FLUX_CMD}` preservados.
