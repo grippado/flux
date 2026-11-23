@@ -113,7 +113,7 @@ nenhum e não entra na tabela.
 O candidato 4 da resolução de `FLUX_ROOT` (marcador `.codex-plugin/plugin.json`) sozinho não
 identifica o harness com confiança: toda instalação da família inclui os três manifests
 (`.claude-plugin/`, `.cursor-plugin/`, `.codex-plugin/`), portanto a presença do arquivo não confirma
-Codex. Os candidatos 4, 5 e 6 não identificam um harness; sem os marcadores acima, `HARNESS` é
+Codex. Os candidatos 4 a 7 não identificam um harness; sem os marcadores acima, `HARNESS` é
 `unknown`.
 
 **`HARNESS_LABEL`** — nome legível do harness para uso em texto público (corpo de PR, rodapé de
@@ -198,7 +198,9 @@ expõe**, nesta ordem, parando na primeira que existir:
 **Só conta como forma um command invocável que a sessão lista.** A forma existe quando a sessão
 lista um command com aquele nome, isto é, um nome que ela aceita digitado depois de `/`. Um ID de
 skill que só existe para ser carregado por tool nunca conta, mesmo quando tem o mesmo formato de uma
-das formas acima, e um nome que a sessão não lista não conta por dedução. A regra não depende de
+das formas acima, e um nome que a sessão não lista não conta por dedução. Uma skill que a sessão
+também aceita digitada como `/<nome>` é command para esta regra: é o caso das skills de plugin do
+Claude Code e do Cursor, e `/flux:` e `/flux-` continuam resolvendo ali como antes. A regra não depende de
 `HARNESS`: vale igual com `HARNESS = unknown`, com marcadores em conflito ou com variáveis que
 mudaram de nome.
 
@@ -512,7 +514,7 @@ que o banner precisa ser.
 | `kit ambiguo` | N kits, **já filtrados por `provides`** (a contagem é sempre depois do filtro), casaram com o mesmo repo, **e o degrau que ia escolher entre eles foi de fato alcançado** — ambiguidade só é acionável para quem ia escolher, e a cascata de L2 para no primeiro degrau que existir. Sai com a lista dos candidatos (`${FLUX_ROOT}/shared/kit-format.md`) | o elo que **consome** `KIT_ROOTS`: hoje, só o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), na leitura. **Na escrita: não implementado** (LAB-71) |
 | `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | o sub-passo **1a-kit** (`${FLUX_ROOT}/shared/review-agents.md`), que roda mesmo quando a cascata de L2 não chega ao degrau do kit. **Na escrita: não implementado** (LAB-71) |
 | `kit nao avaliado` | o casamento daquele kit **dependeria** de `files`/`any_of` — ele não declara `repos`, ou declara e não casou por ele — e não há checkout local para testar. Nunca "casa por arquivo": o que não pôde ser testado não passou nem falhou | idem |
-| `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4, 5 ou 6 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
+| `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4 a 7 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
 | `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) e no OpenCode quando o nome não está registrado na sessão (`${FLUX_ROOT}/shared/opencode-compat.md`) |
 | `harness nao verificavel` | `HARNESS = unknown`: nenhum marcador identifica um único harness depois da precedência (marcadores ausentes ou em conflito) — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
 | `transporte mcp` | um canal com dois caminhos (`${FLUX_ROOT}/shared/api-first.md`) foi servido pelo MCP em vez da API — sai com o canal e o motivo em grafia fixa: `transporte mcp (linear: sem token \| token nao autentica \| token mal formatado \| alvo nao enxergado \| canario falhou \| leitura falhou \| opt-out)`. `token mal formatado` substitui `token nao autentica` quando a conferência de "Ler o token" acusa aspas ou espaço em volta do valor. Caminho por API não gera token: é o default, e declarar o default é ruído | o elo que aplicou o contrato (`issue`, `build`, `land`) |
