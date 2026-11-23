@@ -612,6 +612,10 @@ mkdir -p "$HC"
 cp -RL "$HR/." "$HC/"
 t_eq "mesma árvore sob outro path absoluto dá o mesmo hash" "$H2" "$(agents_hash "$HC")"
 t_eq "receita roda igual em sh" "$H2" "$(agents_hash "$HR" sh)"
+HP="$(cd "$WORK" && CDPATH="$WORK" AGENTS_DIR=hash-raiz "$BASH_ABS" -c ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\"")"
+t_eq "CDPATH exportado com AGENTS_DIR relativo dá o mesmo hash" "$H2" "$HP"
+HT="$(HOME="$WORK" AGENTS_DIR=\~/hash-raiz "$BASH_ABS" -c ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\"")"
+t_eq "AGENTS_DIR com ~ é expandido e dá o mesmo hash" "$H2" "$HT"
 if command -v zsh > /dev/null 2>&1; then
     t_eq "receita roda igual em zsh" "$H2" "$(agents_hash "$HR" zsh)"
 fi
