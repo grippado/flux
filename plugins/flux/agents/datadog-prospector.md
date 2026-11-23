@@ -56,9 +56,11 @@ e às vezes o repo publica vários.
 
 ## Passo 2 — Autenticar pelo caminho que funciona
 
-Ler o token pela receita de `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token", com `TOKEN_VAR` =
-`<TOKEN_ENV>` e `SECRETS_FILE` = `<SECRETS_FILE>`: ambiente primeiro, arquivo depois, aspas tiradas,
-valor nunca impresso.
+Usar o `FLUX_ROOT` recebido no prompt (caminho absoluto) para abrir `${FLUX_ROOT}/shared/api-first.md`
+e ler o token pela receita da seção "Ler o token", com `TOKEN_VAR` = `<TOKEN_ENV>` e `SECRETS_FILE` =
+`<SECRETS_FILE>`, os dois também do prompt: ambiente primeiro, arquivo depois, aspas tiradas, valor
+nunca impresso. Prompt sem `FLUX_ROOT`: retornar `FALHOU: prompt sem FLUX_ROOT`, sem adivinhar o
+caminho.
 
 ```bash
 curl -s -H "Authorization: Bearer $TOKEN" "https://api.<SITE>/api/v2/current_user"
@@ -88,7 +90,7 @@ A pergunta mais valiosa quando o cliente relata falha: o request chegou? Agregue
 pelo endpoint suspeito na mesma janela do relato.
 
 ```bash
-curl -s -X POST -H "Authorization: Bearer $DD" -H "Content-Type: application/json" \
+curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d '{"filter":{"query":"service:<SVC> <FILTRO>","from":"<FROM>","to":"<TO>"},
        "compute":[{"aggregation":"count"}],
        "group_by":[{"facet":"<FACETA>","limit":20}]}' \
