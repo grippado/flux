@@ -454,7 +454,9 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
 - `doc_reviewer` = o mesmo genérico, em modo doc.
 - `answerer` = o próprio `flux:iterate --dry` sem agente dedicado.
 - `specialists_root` = override local do repo: `<repo-checkout>/.claude/agents/reviewer.md` ou
-  `<repo-checkout>/.claude/agents/review/*.md`. Sem isso → só holístico (fallback gracioso).
+  `<repo-checkout>/.claude/agents/review/*.md`, e depois `<repo-checkout>/.cursor/agents/reviewer.md`
+  ou `<repo-checkout>/.cursor/agents/review/*.md`, na mesma ordem `.claude/` antes de `.cursor/` do
+  override do preflight (Passo 3). Sem isso → só holístico (fallback gracioso).
 - `kits_root` = ausente; a cascata de destino cai no degrau que pergunta.
 - `kits` = ausente; a descoberta de kits sobra com os irmãos de `${FLUX_ROOT}` (Passo 1d do preflight),
   que é justamente o caminho de quem instalou um kit como plugin sem declarar manifesto nenhum. Não
