@@ -387,9 +387,10 @@ se um `subagent_type` está registrado**. Não existe `command -v` para agente. 
 de agentes que o harness injeta no contexto da sessão, o que faz desta verificação uma
 **introspecção**, não uma medição. Duas consequências, e todo o resto do contrato depende das duas.
 
-**Achar o arquivo responde outra pergunta.** Um `ls` em `.claude/agents/` diz que alguém escreveu um
-agente, não que este processo consegue invocá-lo. Quem confunde as duas produz a falha do `1a-bis`:
-lente listada no banner e nunca executada.
+**Achar o arquivo responde outra pergunta.** Listar `.claude/agents/` (pelo comando canônico de
+descoberta de agents, no 1b de `${FLUX_ROOT}/shared/review-agents.md`, que segue symlink) diz que
+alguém escreveu um agente, não que este processo consegue invocá-lo. Quem confunde as duas produz a
+falha do `1a-bis`: lente listada no banner e nunca executada.
 
 **A lista é da sessão, e a sessão do subagente não é a sua.** Um subagente pode receber um conjunto
 diferente de agentes registrados, então uma verificação feita lá dentro não é comparável com a feita

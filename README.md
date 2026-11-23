@@ -509,6 +509,7 @@ claude plugin validate .              # marketplace
 claude plugin validate ./plugins/flux # plugin + frontmatter de cada skill
 scripts/check-manifests.sh            # version e name iguais nos cinco manifests
 scripts/check-codex-agent-contract.sh # o adaptador Codex continua descrito nos shared/
+scripts/check-prune-parity.sh         # poda da varredura de manifestos igual no flux-context.md e na CLI; roda em CI
 shellcheck plugins/flux/scripts/*.sh  # recomendado ao tocar em scripts (ver "Scripts auxiliares")
 scripts/test-iterate-watch-gate.sh    # ao tocar em iterate-watch-gate.sh: gh e sleep falsos, sem rede e sem espera
 scripts/test-run.sh                   # writer do run (run.sh): schema, permissões, recusa de path absoluto; roda em CI

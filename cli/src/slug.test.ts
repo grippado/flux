@@ -152,6 +152,148 @@ describe("resolucao por slug no resolveContext: manifesto alcancado por dois cam
   });
 });
 
+describe("resolucao por slug no resolveContext: diretorio intermediario symlink", () => {
+  it("acha manifesto alcancavel so por symlink de diretorio intermediario", async () => {
+    const realRoot = mkdtempSync(join(tmpdir(), "flux-real-"));
+    const searchRoot = mkdtempSync(join(tmpdir(), "flux-search-"));
+    try {
+      const workspace = join(realRoot, "workspace");
+      makeGitRepo(workspace, "rf-monorepo");
+      writeManifest(workspace, { name: "arco", repos: ["rf-monorepo"], workspace_root: workspace });
+      symlinkSync(realRoot, join(searchRoot, "link"));
+
+      const ctx = await resolveContext({
+        targetPath: "rf-monorepo",
+        cwd: tmpDir,
+        searchRoots: [searchRoot],
+      });
+
+      expect(ctx.profile).toBe("arco");
+      expect(ctx.anchor).toContain("rf-monorepo");
+    } finally {
+      rmSync(realRoot, { recursive: true, force: true });
+      rmSync(searchRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("termina em ciclo de symlink e devolve um candidato so", async () => {
+    const realRoot = mkdtempSync(join(tmpdir(), "flux-real-"));
+    const searchRoot = mkdtempSync(join(tmpdir(), "flux-search-"));
+    try {
+      const workspace = join(realRoot, "workspace");
+      makeGitRepo(workspace, "rf-monorepo");
+      writeManifest(workspace, { name: "arco", repos: ["rf-monorepo"], workspace_root: workspace });
+      symlinkSync(realRoot, join(searchRoot, "link"));
+      symlinkSync(searchRoot, join(realRoot, "volta"));
+      symlinkSync(workspace, join(workspace, "eu-mesmo"));
+
+      const ctx = await resolveContext({
+        targetPath: "rf-monorepo",
+        cwd: tmpDir,
+        searchRoots: [searchRoot],
+      });
+
+      expect(ctx.profile).toBe("arco");
+      expect(ctx.anchor).toContain("rf-monorepo");
+    } finally {
+      rmSync(realRoot, { recursive: true, force: true });
+      rmSync(searchRoot, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("resolucao por slug no resolveContext: diretorio visto primeiro fundo, depois raso", () => {
+  for (const [deep, shallow] of [["a", "z"], ["zz", "aa"]] as const) {
+    it(`acha o manifesto em ${shallow}/w quando ${deep}/b/c/link aponta para ${shallow}`, async () => {
+      const searchRoot = mkdtempSync(join(tmpdir(), "flux-search-"));
+      try {
+        const target = join(searchRoot, shallow);
+        const workspace = join(target, "w");
+        makeGitRepo(workspace, "rf-monorepo");
+        writeManifest(workspace, { name: "arco", repos: ["rf-monorepo"], workspace_root: workspace });
+        const linkParent = join(searchRoot, deep, "b", "c");
+        mkdirSync(linkParent, { recursive: true });
+        symlinkSync(target, join(linkParent, "link"));
+
+        const ctx = await resolveContext({
+          targetPath: "rf-monorepo",
+          cwd: tmpDir,
+          searchRoots: [searchRoot],
+        });
+
+        expect(ctx.profile).toBe("arco");
+        expect(ctx.anchor).toContain("rf-monorepo");
+      } finally {
+        rmSync(searchRoot, { recursive: true, force: true });
+      }
+    });
+  }
+});
+
+describe("resolucao por slug no resolveContext: poda de diretorios do sistema so na raiz", () => {
+  it("acha manifesto sob go e .local aninhados", async () => {
+    for (const nested of [["www", "go"], ["x", ".local", "y"]]) {
+      const searchRoot = mkdtempSync(join(tmpdir(), "flux-search-"));
+      try {
+        const workspace = join(searchRoot, ...nested);
+        makeGitRepo(workspace, "rf-monorepo");
+        writeManifest(workspace, { name: "arco", repos: ["rf-monorepo"], workspace_root: workspace });
+
+        const ctx = await resolveContext({
+          targetPath: "rf-monorepo",
+          cwd: tmpDir,
+          searchRoots: [searchRoot],
+        });
+
+        expect(ctx.profile).toBe("arco");
+        expect(ctx.anchor).toContain("rf-monorepo");
+      } finally {
+        rmSync(searchRoot, { recursive: true, force: true });
+      }
+    }
+  });
+
+  it("nao acha manifesto sob Library na raiz da varredura", async () => {
+    const searchRoot = mkdtempSync(join(tmpdir(), "flux-search-"));
+    try {
+      const workspace = join(searchRoot, "Library", "ws");
+      makeGitRepo(workspace, "rf-monorepo");
+      writeManifest(workspace, { name: "arco", repos: ["rf-monorepo"], workspace_root: workspace });
+
+      const ctx = await resolveContext({
+        targetPath: "rf-monorepo",
+        cwd: tmpDir,
+        searchRoots: [searchRoot],
+      });
+
+      expect(ctx.profile).not.toBe("arco");
+      expect(ctx.anchor).toBe(tmpDir);
+    } finally {
+      rmSync(searchRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("nao acha manifesto sob node_modules aninhado", async () => {
+    const searchRoot = mkdtempSync(join(tmpdir(), "flux-search-"));
+    try {
+      const workspace = join(searchRoot, "www", "node_modules", "ws");
+      makeGitRepo(workspace, "rf-monorepo");
+      writeManifest(workspace, { name: "arco", repos: ["rf-monorepo"], workspace_root: workspace });
+
+      const ctx = await resolveContext({
+        targetPath: "rf-monorepo",
+        cwd: tmpDir,
+        searchRoots: [searchRoot],
+      });
+
+      expect(ctx.profile).not.toBe("arco");
+      expect(ctx.anchor).toBe(tmpDir);
+    } finally {
+      rmSync(searchRoot, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("resolucao por slug no resolveContext: 0 candidatos", () => {
   it("adiciona warning e ancora no cwd quando nenhum manifesto reivindica", async () => {
     const isolatedSearch = mkdtempSync(join(tmpdir(), "flux-empty-search-"));

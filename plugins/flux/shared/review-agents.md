@@ -240,7 +240,7 @@ da **causa**, e são três, com remediações que não se substituem:
 
 | causa | como se reconhece | o que oferecer |
 |---|---|---|
-| **fora de diretório varrido** | o arquivo não está sob `~/.claude/agents/` (subdiretórios incluídos) nem sob `<repo>/.claude/agents/` — vive num repositório de dotfiles, por exemplo | expor, tipicamente por symlink, com **nome único entre todas as suites**. **Exceção: suite vinda de kit** — ali a remediação é instalar o kit como plugin, nunca symlinkar, pelo motivo do 1a-bis (os nomes de um kit são genéricos por vocação) |
+| **fora de diretório varrido** | o arquivo não está sob `~/.claude/agents/` (subdiretórios incluídos) nem sob `<repo>/.claude/agents/` — vive num repositório de dotfiles, por exemplo. "Estar sob" é julgado seguindo symlink, pelo comando canônico do 1b: um symlink dentro de `~/.claude/agents/` apontando para o arquivo conta como estar lá | expor, tipicamente por symlink, com **nome único entre todas as suites**. **Exceção: suite vinda de kit** — ali a remediação é instalar o kit como plugin, nunca symlinkar, pelo motivo do 1a-bis (os nomes de um kit são genéricos por vocação) |
 | **âncora fora do repo** | o arquivo está no lugar canônico `<repo>/.claude/agents/`, e a sessão subiu **fora dele** — num diretório acima (repo aninhado) ou numa árvore paralela (árvore irmã); os dois arranjos estão no 1b-bis, e o harness não varre nenhum dos dois | a **escada de alcance** (1b-bis). Nunca degradar direto |
 | **colisão de `name:`** | o nome está registrado, e o que ele descreve é outro escopo (bloco anterior) | renomear com prefixo do repo, **do lado da suite que você cura** |
 
@@ -306,8 +306,26 @@ do usuário, e passa pelo gate de destino (`${FLUX_ROOT}/shared/write-destinatio
 
 ### 1b — L3, specialists do repo
 
-Varrer `<repo-checkout>/.claude/agents/**.md` e **filtrar por intenção de review**. Um agent entra em
-L3 quando satisfaz **qualquer** critério:
+Varrer `<repo-checkout>/.claude/agents/**.md` e **filtrar por intenção de review**. A varredura é
+feita com o **comando canônico de descoberta de agents**, que vale para toda raiz de agents que a
+família lista em disco (o diretório de agents do repo, a raiz de agents do usuário, uma suite curada,
+um espelho):
+
+```bash
+find -L "<raiz>" -maxdepth 4 -type f -name '*.md' 2>/dev/null
+```
+
+O `-L` não é opcional. Expor agents por symlink é uma das remediações da tabela de causas do 1a-bis,
+acima (com a ressalva de nome único e a exceção de kit), e é comum a raiz inteira ser um symlink para
+um repositório de dotfiles; sem `-L` o `find` não desce em diretório symlinkado e um arquivo symlink
+não passa no `-type f`, então a varredura devolve zero agents de uma suite que o harness carrega
+normalmente. O `2>/dev/null` descarta o aviso de loop quando há ciclo de symlink. O `-maxdepth 4`
+limita a descida que o `-L` abre: o arranjo mais fundo que a família produz é o espelho do degrau 1
+(`<raiz>/<ctx>/<slug>-l3/<agent>.md`, profundidade 3), e o nível a mais cobre uma subpasta de suite
+dentro dele; sem limite, um symlink para um diretório grande vira uma descida inteira por ele. Quem
+precisa listar agents em disco aponta para este comando, não o reescreve.
+
+Um agent entra em L3 quando satisfaz **qualquer** critério:
 
 - está em `<repo-checkout>/.claude/agents/review/`;
 - o nome do arquivo casa `reviewer`, `review`, `audit`, `auditor`, `scout`, `scouter`, `critic`,
@@ -337,7 +355,7 @@ comum é `repo-owner.md` e `reviewer.md` coexistindo na raiz de `agents/` —, d
 **Registrar os excluídos.** Guardar a lista dos agents que existiam e não passaram no filtro, para o
 banner. O usuário precisa poder discordar do filtro sem ter que ler o diretório na mão.
 
-**O que não é agent não entra na lista de excluídos.** A varredura é `**.md`, então ela pega também
+**O que não é agent não entra na lista de excluídos.** A varredura canônica pega todo `.md`, então ela pega também
 os arquivos que o diretório usa para outra coisa — `AGENT.md`, `README.md`, `CLAUDE.md`, um índice da
 suite. Eles não têm `name:` porque não pretendem ser invocáveis, e listá-los como "excluídos" enche o
 banner de ruído justamente onde ele precisa ser lido de relance. Excluído é agent candidato que ficou
