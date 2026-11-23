@@ -72,16 +72,9 @@ perda no banner de perfil, que abre todo output.
 Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
 1. Resolver a **âncora** (alvo primeiro, `cwd` depois — ver `${FLUX_ROOT}/shared/flux-context.md`,
-   seção "Qual é a âncora") e procurar `flux-context.json` em `.claude/` ou `.cursor/` subindo a
-   árvore a partir dela (em cada nível `.claude/` é consultado antes de `.cursor/`, e o nível mais
-   fundo vence, como em `${FLUX_ROOT}/shared/flux-context.md`):
-   ```
-   <âncora>/.claude/flux-context.json
-   <âncora>/.cursor/flux-context.json
-   <parent>/.claude/flux-context.json
-   <parent>/.cursor/flux-context.json
-   ...
-   ```
+   seção "Qual é a âncora") e procurar `flux-context.json` subindo a árvore a partir dela, na ordem
+   da seção "O manifesto" de `${FLUX_ROOT}/shared/flux-context.md` (em cada nível, `.claude/` antes de
+   `.cursor/`; o nível mais fundo vence, qualquer que seja o diretório que o abriga).
 
 2. Se encontrar (perfil declarado), extrair as variáveis de sessão:
    - `HOLISTIC` = `holistic_reviewer` (campo ausente → cascata genérica do preflight, Passo 3)
