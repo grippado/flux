@@ -536,8 +536,10 @@ que contiver `<!-- context-ascent: ignore -->` sai da avaliação das regras de 
 marcador some na renderização do Markdown; a vigia do `flux-context.md` não o aceita); use com parcimônia e prefira reescrever o texto. O `check-agents-hash.sh` é o canário do hash do
 conjunto de agents: falha se o 1b do `review-agents.md` perder a receita, se o `find` dela divergir do
 comando canônico de descoberta, se `agents-index.md`, `preflight.md` (token `L3 stale`), `map` ou `equip` deixarem de apontar para ela, ou
-se algum outro arquivo do plugin parafrasear a descoberta (`**.md`) ou improvisar um `sha256sum`/`shasum`;
-o `test-run.sh` executa a receita contra symlink de arquivo e de diretório. Esses scripts
+se algum outro arquivo do plugin parafrasear a descoberta (`**.md`) ou improvisar um `sha256sum`/`shasum`.
+Um uso legítimo de `sha256sum`/`shasum` sem relação com o hash de agents se resolve reescrevendo o
+trecho ou restringindo a regra no próprio script, sem marcador de ignore.
+O `test-run.sh` executa a receita contra symlink de arquivo e de diretório. Esses scripts
 rodam em CI
 ([`checks.yml`](.github/workflows/checks.yml)) a cada PR, então esquecer de rodá-los aqui custa uma
 ida ao GitHub, não uma regressão publicada.

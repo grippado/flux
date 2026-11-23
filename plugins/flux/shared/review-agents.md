@@ -362,7 +362,10 @@ trata aquela entrada do índice como stale, segue a varredura direta e declara `
 causa, o mesmo caminho do "Divergiu" da seção Frescor do `${FLUX_ROOT}/shared/agents-index.md`. A
 receita não reclassifica lente: raiz inexistente continua `ausente` pelo passo 1a, e arquivo ilegível
 continua `inalcancavel` pelo 1a-bis. Na hora de gravar, receita vazia significa não gravar o campo
-(`dir_sha256` ou `synced_from_sha256`) e declarar isso no relatório; nunca gravar `""`. A receita é POSIX e
+(`dir_sha256` ou `synced_from_sha256`) e declarar isso no relatório; nunca gravar `""`. O `synced_from_sha256` usa
+o conjunto cru de propósito, embora o espelho copie só os agents filtrados: mudar um arquivo não-agent
+da origem (um README, um `AGENT.md`) acende `L3 stale` num espelho que não mudou, e o erro fica do lado
+seguro. A receita é POSIX e
 roda igual em `sh`, `bash` e `zsh`, com `sha256sum` (GNU) ou `shasum -a 256` (macOS); o
 `scripts/test-run.sh` executa este bloco contra uma fixture com symlink de arquivo e de diretório.
 

@@ -582,8 +582,11 @@ t_true "receita do hash extraída de review-agents.md" '[ -s "$HASH_RECIPE" ]'
 agents_hash() {
     AGENTS_DIR="$1" "${2:-$BASH_ABS}" -c ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\""
 }
+HASH_SEM_L="$WORK/agents-hash-sem-l.sh"
+sed 's/find -L \./find ./' "$HASH_RECIPE" > "$HASH_SEM_L"
+t_true "controle sem -L derivado da própria receita" '! grep -q "find -L" "$HASH_SEM_L" && grep -q "find \. -maxdepth 4" "$HASH_SEM_L"'
 no_l_hash() {
-    (cd "$1" && find . -maxdepth 4 -type f -name '*.md' 2>/dev/null | LC_ALL=C sort | while IFS= read -r f; do printf '%s %s\n' "$(cksum < "$f")" "$f"; done) | cksum
+    AGENTS_DIR="$1" "$BASH_ABS" -c ". \"$HASH_SEM_L\"; printf '%s' \"\$AGENTS_SHA256\""
 }
 HX="$WORK/hash-fora"
 HR="$WORK/hash-raiz"
@@ -604,7 +607,7 @@ t_true "agent exposto por symlink de arquivo muda o hash" '[ "$H1" != "$H0" ] &&
 printf '%s\n' 'v2' >> "$HX/suite/auditor.md"
 H2="$(agents_hash "$HR")"
 t_true "agent sob diretório symlinkado muda o hash" '[ "$H2" != "$H1" ] && [ ${#H2} -eq 64 ]'
-t_eq "controle: sem -L a mesma mudança passa por fresca" "$N0" "$(no_l_hash "$HR")"
+t_true "controle: sem -L a mesma mudança passa por fresca" '[ ${#N0} -eq 64 ] && [ "$(no_l_hash "$HR")" = "$N0" ]'
 printf '%s\n' '{"x":1}' > "$HR/agents-index.json"
 t_eq "arquivo fora do conjunto (.json) não muda o hash" "$H2" "$(agents_hash "$HR")"
 HC="$WORK/hash-copia/outro/caminho"
