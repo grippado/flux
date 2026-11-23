@@ -574,6 +574,125 @@ printf '%s\n' '' "<raiz>/.claude/flux-context.json $CA_MARK" '' \
     "O elo sobe a árvore atrás de \`flux-context.json\` em \`.claude/\`. $CA_MARK" >> "$CA_SKILL"
 t_eq "linha com o marcador passa" "0" "$(ca_run)"
 
+echo "# receita do hash do conjunto (review-agents.md, 1b)"
+RA_SHARED="$HERE/../plugins/flux/shared/review-agents.md"
+HASH_RECIPE="$WORK/agents-hash.sh"
+awk '/^##/ { on = ($0 == "### 1b — L3, specialists do repo") } on && /^```bash$/ { n++; inb = (n == 2); next } inb && /^```$/ { inb = 0; next } inb { print }' "$RA_SHARED" > "$HASH_RECIPE"
+t_true "receita do hash extraída de review-agents.md" '[ -s "$HASH_RECIPE" ]'
+agents_hash() {
+    AGENTS_DIR="$1" "${2:-$BASH_ABS}" -c ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\""
+}
+no_l_hash() {
+    (cd "$1" && find . -maxdepth 4 -type f -name '*.md' 2>/dev/null | LC_ALL=C sort | while IFS= read -r f; do printf '%s %s\n' "$(cksum < "$f")" "$f"; done) | cksum
+}
+HX="$WORK/hash-fora"
+HR="$WORK/hash-raiz"
+mkdir -p "$HX/arquivo" "$HX/suite" "$HR/proprio"
+printf '%s\n' '---' 'name: fixture-reviewer' '---' 'v1' > "$HX/arquivo/reviewer.md"
+printf '%s\n' '---' 'name: fixture-auditor' '---' 'v1' > "$HX/suite/auditor.md"
+printf '%s\n' '---' 'name: fixture-local' '---' 'v1' > "$HR/proprio/local.md"
+printf '%s\n' '{}' > "$HR/agents-index.json"
+ln -s "$HX/arquivo/reviewer.md" "$HR/reviewer.md"
+ln -s "$HX/suite" "$HR/suite"
+H0="$(agents_hash "$HR")"
+N0="$(no_l_hash "$HR")"
+t_true "hash do conjunto não vazio" '[ ${#H0} -eq 64 ]'
+t_eq "mesmo conjunto, mesmo hash" "$H0" "$(agents_hash "$HR")"
+printf '%s\n' 'v2' >> "$HX/arquivo/reviewer.md"
+H1="$(agents_hash "$HR")"
+t_true "agent exposto por symlink de arquivo muda o hash" '[ "$H1" != "$H0" ] && [ ${#H1} -eq 64 ]'
+printf '%s\n' 'v2' >> "$HX/suite/auditor.md"
+H2="$(agents_hash "$HR")"
+t_true "agent sob diretório symlinkado muda o hash" '[ "$H2" != "$H1" ] && [ ${#H2} -eq 64 ]'
+t_eq "controle: sem -L a mesma mudança passa por fresca" "$N0" "$(no_l_hash "$HR")"
+printf '%s\n' '{"x":1}' > "$HR/agents-index.json"
+t_eq "arquivo fora do conjunto (.json) não muda o hash" "$H2" "$(agents_hash "$HR")"
+HC="$WORK/hash-copia/outro/caminho"
+mkdir -p "$HC"
+cp -RL "$HR/." "$HC/"
+t_eq "mesma árvore sob outro path absoluto dá o mesmo hash" "$H2" "$(agents_hash "$HC")"
+t_eq "receita roda igual em sh" "$H2" "$(agents_hash "$HR" sh)"
+if command -v zsh > /dev/null 2>&1; then
+    t_eq "receita roda igual em zsh" "$H2" "$(agents_hash "$HR" zsh)"
+fi
+HE="$(AGENTS_DIR="$WORK/hash-nao-existe" "$BASH_ABS" -ec ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\"")"
+t_eq "raiz inexistente dá hash vazio, sem erro sob set -e" ":0" "$HE:$?"
+HU="$WORK/hash-ilegivel"
+mkdir -p "$HU"
+printf 'x\n' > "$HU/trancado.md"
+chmod 000 "$HU/trancado.md"
+if [ -r "$HU/trancado.md" ]; then
+    printf 'skip - arquivo sem permissão continua legível (root)\n'
+else
+    t_eq "arquivo ilegível no conjunto dá hash vazio" "" "$(agents_hash "$HU")"
+fi
+chmod 600 "$HU/trancado.md"
+if command -v shellcheck > /dev/null 2>&1; then
+    shellcheck -s sh -e SC2148,SC2034 "$HASH_RECIPE" > "$WORK/sc-hash.txt" 2>&1
+    t_eq "shellcheck limpo na receita do hash" "0" "$?"
+fi
+
+echo "# check-agents-hash"
+AH_SRC="$HERE/check-agents-hash.sh"
+AH_PLUGIN="$HERE/../plugins/flux"
+
+ah_tree() {
+    AH_DIR="$WORK/ah-$1"
+    mkdir -p "$AH_DIR/scripts" "$AH_DIR/plugins/flux/shared" "$AH_DIR/plugins/flux/skills/map" "$AH_DIR/plugins/flux/skills/equip"
+    cp "$AH_SRC" "$AH_DIR/scripts/check-agents-hash.sh"
+    cp "$AH_PLUGIN/shared/review-agents.md" "$AH_PLUGIN/shared/agents-index.md" "$AH_DIR/plugins/flux/shared/"
+    cp "$AH_PLUGIN/skills/map/SKILL.md" "$AH_DIR/plugins/flux/skills/map/SKILL.md"
+    cp "$AH_PLUGIN/skills/equip/SKILL.md" "$AH_DIR/plugins/flux/skills/equip/SKILL.md"
+}
+
+ah_run() {
+    "$BASH_ABS" "$AH_DIR/scripts/check-agents-hash.sh" > "$AH_DIR/out.txt" 2>&1
+    echo "$?"
+}
+
+ah_strip() {
+    awk -v cut="$2" '!(index($0, cut))' "$AH_DIR/plugins/flux/$1" > "$AH_DIR/tmp" && mv "$AH_DIR/tmp" "$AH_DIR/plugins/flux/$1"
+}
+
+ah_tree base
+t_eq "canário do hash verde na árvore real" "0" "$(ah_run)"
+
+ah_tree index-json
+sed 's/<receita do hash do conjunto, 1b do review-agents.md>/<sha do conjunto>/' "$AH_PLUGIN/shared/agents-index.md" > "$AH_DIR/plugins/flux/shared/agents-index.md"
+t_eq "agents-index sem o ponteiro no formato falha" "1" "$(ah_run)"
+t_has "formato aponta o agents-index" "agents-index.md:0: esperava 2" "$AH_DIR/out.txt"
+
+ah_tree index-frescor
+ah_strip shared/agents-index.md 'recalculado pela receita do hash do conjunto'
+t_eq "agents-index sem o ponteiro no Frescor falha" "1" "$(ah_run)"
+
+ah_tree map
+ah_strip skills/map/SKILL.md 'receita do hash do conjunto (1b do'
+t_eq "map sem o ponteiro falha" "1" "$(ah_run)"
+t_has "map aponta o arquivo" "map/SKILL.md:0" "$AH_DIR/out.txt"
+
+ah_tree equip
+ah_strip skills/equip/SKILL.md 'calculado pela receita do hash do conjunto'
+t_eq "equip sem o ponteiro falha" "1" "$(ah_run)"
+
+ah_tree sem-receita
+awk '/^\*\*Receita do hash do conjunto\.\*\*/ { skip = 1 } skip && /^```$/ { if (++fence == 2) { skip = 0; next } } !skip' "$AH_PLUGIN/shared/review-agents.md" > "$AH_DIR/plugins/flux/shared/review-agents.md"
+t_eq "review-agents sem a receita falha" "1" "$(ah_run)"
+
+ah_tree deriva
+sed "s/^  find -L \. -maxdepth 4 /  find -L . -maxdepth 3 /" "$AH_PLUGIN/shared/review-agents.md" > "$AH_DIR/plugins/flux/shared/review-agents.md"
+t_eq "receita com find divergente do canônico falha" "1" "$(ah_run)"
+t_has "deriva aponta o comando canônico" "não usa o comando canônico" "$AH_DIR/out.txt"
+
+ah_tree parafrase
+printf '%s\n' '' 'A varredura de agents é por `**.md`.' >> "$AH_DIR/plugins/flux/skills/map/SKILL.md"
+t_eq "paráfrase **.md reintroduzida falha" "1" "$(ah_run)"
+t_has "paráfrase aponta a linha" "map/SKILL.md:" "$AH_DIR/out.txt"
+
+ah_tree improviso
+printf '%s\n' '' 'Calcular com `find . -name "*.md" | xargs cat | shasum -a 256`.' >> "$AH_DIR/plugins/flux/skills/equip/SKILL.md"
+t_eq "hash improvisado fora do 1b falha" "1" "$(ah_run)"
+
 echo "# shellcheck"
 if command -v shellcheck > /dev/null 2>&1; then
     shellcheck "$RUN_SH" > "$WORK/sc.txt" 2>&1

@@ -11,4 +11,4 @@ A landing e a página de releases leem `docs/latest-release.json`, que só o wor
 - Depois do merge de um bump, conferir se a run foi aprovada e se a tag existe. Run rejeitada ou expirada não publica nada e não avisa ninguém.
 - Reparo, tag de catch-up e como conferir: seção [Publicar uma versão](README.md#publicar-uma-versão) do README.
 
-Checks antes de abrir PR: `scripts/check-manifests.sh`, `scripts/check-codex-agent-contract.sh`, `scripts/check-prune-parity.sh` e `scripts/check-context-ascent.sh` (ver "Contribuindo" no README).
+Checks antes de abrir PR: `scripts/check-manifests.sh`, `scripts/check-codex-agent-contract.sh`, `scripts/check-prune-parity.sh`, `scripts/check-context-ascent.sh` e `scripts/check-agents-hash.sh` (ver "Contribuindo" no README).

@@ -325,6 +325,34 @@ limita a descida que o `-L` abre: o arranjo mais fundo que a família produz é 
 dentro dele; sem limite, um symlink para um diretório grande vira uma descida inteira por ele. Quem
 precisa listar agents em disco aponta para este comando, não o reescreve.
 
+**Receita do hash do conjunto.** O `dir_sha256` e o `synced_from_sha256` do
+`${FLUX_ROOT}/shared/agents-index.md` são sempre esta receita, e quem grava ou confere um deles aponta
+para cá. O **conjunto** é a saída crua do comando canônico acima, antes do filtro de intenção de
+review: todo `.md` até a profundidade 4, com o path relativo à raiz (começando em `./`), em ordem de
+bytes (`LC_ALL=C`), e o conteúdo lido através de symlink. Entrada: `AGENTS_DIR`, a raiz. Saída:
+`AGENTS_SHA256`, vazio quando a raiz não existe ou um arquivo do conjunto não pode ser lido.
+
+```bash
+AGENTS_SHA256=
+flux_sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi | cut -d' ' -f1; }
+if [ -d "${AGENTS_DIR:-}" ] && FLUX_LISTA=$(cd "$AGENTS_DIR" &&
+  find -L . -maxdepth 4 -type f -name '*.md' 2>/dev/null | LC_ALL=C sort |
+  while IFS= read -r flux_f; do
+    [ -r "$flux_f" ] || exit 1
+    printf '%s %s\n' "$(flux_sha < "$flux_f")" "$flux_f"
+  done); then
+  AGENTS_SHA256=$(printf '%s\n' "$FLUX_LISTA" | flux_sha)
+fi
+```
+
+Cada linha da lista é o hash de um arquivo seguido do path, e o hash à esquerda é o `sha256` daquele
+agent no índice. Path relativo é o que deixa o hash igual entre máquinas e entre a origem e um clone;
+o `-L` é o que faz um agent exposto por symlink mudar o hash quando o arquivo de destino muda, em vez
+de um espelho velho passar por fresco. `AGENTS_SHA256` vazio nunca é comparado: o elo trata a lente
+como ausente, porque um hash de entrada vazia compararia igual na próxima vez. A receita é POSIX e
+roda igual em `sh`, `bash` e `zsh`, com `sha256sum` (GNU) ou `shasum -a 256` (macOS); o
+`scripts/test-run.sh` executa este bloco contra uma fixture com symlink de arquivo e de diretório.
+
 Um agent entra em L3 quando satisfaz **qualquer** critério:
 
 - está em `<repo-checkout>/.claude/agents/review/`;

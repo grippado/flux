@@ -204,7 +204,8 @@ Sem manifesto nenhum: perfil genérico, e o levantamento cobre os repos detectad
    repo, as três lentes: L1 (holístico resolvido), L2 (suite curada, pela cascata de
    `specialists_root`), L3 (o diretório de agents do repo e o filtro de intenção de review, ambos
    definidos no 1b do `${FLUX_ROOT}/shared/review-agents.md` — não reenunciar o path aqui).
-5. **Computar colisões** de `name:` entre tudo que foi levantado, e o `sha256` de cada conjunto.
+5. **Computar colisões** de `name:` entre tudo que foi levantado, e o `sha256` de cada conjunto pela
+   receita do hash do conjunto (1b do `${FLUX_ROOT}/shared/review-agents.md`), sem reescrevê-la aqui.
 6. **Relatar** (formato abaixo).
 7. **Gate de escrita** e, aceito, gravar o índice conforme o contrato de destino.
 8. **Despacho dos consertos**, quando o usuário aceitar algum no gate (seção própria abaixo), e

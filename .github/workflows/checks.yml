@@ -48,8 +48,11 @@ jobs:
       - name: check-context-ascent
         run: scripts/check-context-ascent.sh
 
+      - name: check-agents-hash
+        run: scripts/check-agents-hash.sh
+
       - name: shellcheck
-        run: shellcheck plugins/flux/scripts/run.sh scripts/test-run.sh scripts/check-prune-parity.sh scripts/check-context-ascent.sh
+        run: shellcheck plugins/flux/scripts/run.sh scripts/test-run.sh scripts/check-prune-parity.sh scripts/check-context-ascent.sh scripts/check-agents-hash.sh
 
       - name: awk do runner
         run: (awk --version 2>/dev/null || awk -W version 2>&1) | head -1
