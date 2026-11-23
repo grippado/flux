@@ -89,23 +89,28 @@ volta como `answers` (uma lista de escolhas por pergunta) na mesma sessão. O Op
 sozinho um campo de resposta livre; ele não é opção do Flux e uma resposta livre não é escolha de
 opção: tratá-la como mensagem do usuário e reapresentar o gate, sem agir.
 
-Round-trip **lido no código, não exercitado em sessão real**. Como no Codex, uma resposta com
-escolha na própria sessão é a comprovação de que ele funciona ali; não se exige prova antes da
-primeira chamada.
+**Estado: round-trip não comprovado.** O caminho acima foi lido no código do OpenCode, não
+exercitado numa sessão real, e [`hitl.md`](hitl.md) só admite a pergunta estruturada com round-trip
+comprovado. Até que a comprovação seja registrada nesta seção, com data, versão do OpenCode e o que
+se observou (como faz "Perguntas ao usuário" do [`codex-compat.md`](codex-compat.md)), o OpenCode
+**não usa a tool `question`**: todo GATE vai ao fallback numerado de [`hitl.md`](hitl.md), e o elo
+declara `pergunta estruturada ausente` em `degradacoes:` ([`preflight.md`](preflight.md), Passo 5),
+porque o mecanismo estruturado não está disponível como contrato. Registrada a comprovação, a tool
+passa a valer com o mapeamento acima e as condições abaixo.
 
-Cai no fallback numerado de [`hitl.md`](hitl.md), com as opções e descrições completas e espera de
-escolha explícita no chat, quando qualquer destas condições valer:
+Com a comprovação registrada, cai no fallback numerado de [`hitl.md`](hitl.md), com as opções e
+descrições completas e espera de escolha explícita no chat, quando qualquer destas condições valer:
 
 - a tool `question` não está disponível para o agent da sessão;
-- a chamada é recusada ou volta sem escolha nenhuma;
-- a pessoa dispensa a pergunta: o OpenCode encerra o turno, e dispensa não é consentimento;
+- a chamada é aceita e volta sem escolha nenhuma: isso não comprova round-trip;
+- a chamada é recusada, ou a pessoa dispensa a pergunta (o OpenCode encerra o turno, e dispensa não
+  é consentimento);
 - o menu do gate não cabe na tool: nunca truncar opção em silêncio;
 - a sessão é headless (o bloco de preflight traz `gate_signal:`): vale o sinal `flux-gate/1` de
   [`hitl.md`](hitl.md), "Execução headless".
 
-Nos três primeiros casos, declarar `pergunta estruturada ausente` em `degradacoes:`
-([`preflight.md`](preflight.md), Passo 5). Menu que não cabe e sessão headless seguem o numerado
-sem o token.
+A semântica do token é a do Codex: só os dois primeiros casos declaram `pergunta estruturada
+ausente`. Recusa, dispensa, menu que não cabe e sessão headless seguem o numerado sem o token.
 
 ### Adaptador de instruções de agente
 
