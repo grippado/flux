@@ -71,12 +71,13 @@ incluam o contexto de execução verificável.
 
 **`HARNESS`** — avaliar os marcadores de execução no ambiente do shell desta execução:
 
-1. Se `CODEX_THREAD_ID` estiver presente e não vazio, `HARNESS` é `codex`. O Codex injeta esse
+1. Se `CODEX_THREAD_ID` estiver presente e não vazio, e `OPENCODE_SESSION_ID` não, `HARNESS` é `codex`. O Codex injeta esse
    identificador nas execuções de ferramentas de shell; ele identifica a sessão ativa mesmo quando
    a CLI encontrou `FLUX_ROOT` por uma heurística que escolheu o cache de outro harness. Este é o marcador mais
-   específico e vence qualquer outro marcador presente. Usar somente a presença, nunca gravar o
+   específico e vence os marcadores da tabela; o único conflito que ele não resolve sozinho é com
+   `OPENCODE_SESSION_ID`, no passo 2. Usar somente a presença, nunca gravar o
    valor do identificador. Isso não muda a resolução de `FLUX_ROOT`.
-2. Sem `CODEX_THREAD_ID`, se `OPENCODE_SESSION_ID` estiver presente e não vazio, `HARNESS` é
+2. Se `OPENCODE_SESSION_ID` estiver presente e não vazio, e `CODEX_THREAD_ID` não, `HARNESS` é
    `opencode`. O OpenCode injeta esse identificador no ambiente da tool de shell, e ele vence os
    marcadores da tabela pelo mesmo motivo do anterior: identifica a sessão ativa, enquanto
    `CLAUDECODE` ou uma variável de raiz de plugin podem ter sido herdados do terminal que abriu o

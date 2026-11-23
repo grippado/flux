@@ -6,7 +6,7 @@ SRC="$REPO_ROOT/plugins/flux"
 DEST="${FLUX_OPENCODE_DIR:-$HOME/.config/opencode}"
 
 if [ ! -f "$SRC/.claude-plugin/plugin.json" ] || [ ! -d "$SRC/skills" ]; then
-  echo "erro: $SRC nao parece o plugin do flux." >&2
+  echo "erro: $SRC não parece o plugin do flux." >&2
   echo "rode este script de dentro do checkout do flux." >&2
   exit 1
 fi
@@ -15,21 +15,21 @@ if command -v opencode >/dev/null 2>&1; then
   OC_VERSION="$(opencode --version 2>/dev/null | head -n 1 || true)"
   OC_MAJOR="$(printf '%s\n' "$OC_VERSION" | sed -n 's/^[^0-9]*\([0-9][0-9]*\)\..*/\1/p')"
   if [ -z "$OC_MAJOR" ]; then
-    echo "aviso: nao consegui ler a versao do OpenCode ('$OC_VERSION'); o flux exige OpenCode 2.x." >&2
+    echo "aviso: não consegui ler a versão do OpenCode ('$OC_VERSION'); o flux exige OpenCode 2.x." >&2
   elif [ "$OC_MAJOR" -lt 2 ]; then
-    echo "erro: OpenCode $OC_VERSION detectado. O flux so suporta OpenCode 2.x (V2)." >&2
+    echo "erro: OpenCode $OC_VERSION detectado. O flux só suporta OpenCode 2.x (V2)." >&2
     echo "atualize o OpenCode e rode este script de novo. Nada foi instalado." >&2
     exit 1
   fi
 else
-  echo "aviso: binario 'opencode' nao encontrado no PATH; instalando mesmo assim (o flux exige OpenCode 2.x)." >&2
+  echo "aviso: binário 'opencode' não encontrado no PATH; instalando mesmo assim (o flux exige OpenCode 2.x)." >&2
 fi
 
 PYTHON=""
 for candidate in python3 python; do
   if command -v "$candidate" >/dev/null 2>&1; then PYTHON="$candidate"; break; fi
 done
-[ -n "$PYTHON" ] || { echo "erro: python3 nao encontrado (necessario para gerar commands e agents)." >&2; exit 1; }
+[ -n "$PYTHON" ] || { echo "erro: python3 não encontrado (necessário para gerar commands e agents)." >&2; exit 2; }
 
 mkdir -p "$DEST/skills" "$DEST/commands" "$DEST/agents"
 
@@ -90,9 +90,9 @@ for verb in verbs:
     link = os.path.join(skills_dest, skill_id)
     for other in (os.path.join(home, '.claude', 'skills', skill_id), os.path.join(home, '.agents', 'skills', skill_id)):
         if os.path.lexists(other):
-            warnings.append(f'skill {skill_id} tambem existe em {other}; no OpenCode a ultima carregada vence')
+            warnings.append(f'skill {skill_id} também existe em {other}; no OpenCode a última carregada vence')
     if os.path.lexists(link):
-        warnings.append(f'{link} ja existe e nao foi criado por este script; mantido, /flux/{verb} nao instalado')
+        warnings.append(f'{link} ja existe e não foi criado por este script; mantido, /flux/{verb} não instalado')
         continue
     os.symlink(os.path.join(src, 'skills', verb), link)
     linked += 1
@@ -147,7 +147,7 @@ flux instalado em: $DEST
 origem:            $SRC
 
 Os verbos ficam como /flux/peek, /flux/review, /flux/iterate, etc.
-Fallback de raiz, se a sessao nao resolver FLUX_ROOT pelo symlink:
+Fallback de raiz, se a sessão não resolver FLUX_ROOT pelo symlink:
   export FLUX_HOME="$SRC"
 
 Reinicie o OpenCode. Se mover o checkout, rode este script de novo.

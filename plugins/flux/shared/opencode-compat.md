@@ -42,8 +42,9 @@ lugares ou um diretório real de terceiro no destino, e não sobrescreve nada qu
 
 Onde um contrato Claude/Cursor disser `Task tool`, o adaptador OpenCode usa a tool `subagent`. O
 resto do protocolo não muda: vale [`fanout-discipline.md`](fanout-discipline.md) como está escrito.
-O agent `general` do OpenCode tem `question` e `subagent` negados, o que já impede um subagente de
-abrir gate com o usuário ou de despachar outro nível.
+O agent `general` do OpenCode tem `question` e `subagent` negados. Para os agents `flux-*` gerados
+sem `permissions`, o default não foi apurado; vale de qualquer forma a regra da família de que
+subagente não abre gate com o usuário.
 
 Os agents da família ficam registrados como `flux-<nome>` (`flux-pr-reviewer`,
 `flux-issue-creator`, `flux-sentry-prospector`, `flux-datadog-prospector`). É a segunda forma do
@@ -65,7 +66,7 @@ No OpenCode, a pergunta estruturada é a tool `question`. A main renderiza a `Ga
   primeiro e a saída inócua por último.
 - `multiple`: `false`, salvo quando a spec declara multi-select.
 
-O gate continua na main: o agent primário tem `question` liberado e os subagentes não. A resposta
+O gate continua na main: o agent primário `build` tem `question` liberado; o `general` não. A resposta
 volta como `answers` (uma lista de escolhas por pergunta) na mesma sessão. O OpenCode acrescenta
 sozinho um campo de resposta livre; ele não é opção do Flux e uma resposta livre não é escolha de
 opção: tratá-la como mensagem do usuário e reapresentar o gate, sem agir.
