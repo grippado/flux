@@ -34,9 +34,27 @@ diretório de configuração do OpenCode.
 `kit origem nao consultada`. A remediação é declarar `kits` no manifesto
 ([`codex-compat.md`](codex-compat.md), "Recursos").
 
+**Manifesto de instalação.** O instalador grava em `$DEST/.flux-install.json` a lista dos caminhos
+que gerou (`skills`, `commands`, `agents`, relativos ao destino). Numa rodada seguinte, ele só
+sobrescreve ou remove o que estiver listado ali, e por isso um verbo ou agent que saiu da família
+também sai do destino. O que existe nos mesmos lugares (`skills/flux-*`, `commands/flux/*.md`,
+`agents/flux-*.md`) e não está no manifesto fica, com aviso: um specialist L2 registrado como
+`agents/flux-repo-owner.md` ou um command de terceiro em `commands/flux/` sobrevivem a qualquer
+reinstalação. Numa instalação feita antes do manifesto existir, conta como gerado só o que bate com
+o que a versão anterior produzia: skill que é symlink para `.../plugins/flux/skills/<verbo>`, command
+cujo corpo é exatamente o que manda carregar a skill `flux-<verbo>`, e agent byte a byte igual ao que
+o gerador produz da fonte atual.
+
+Antes de tocar no destino, o instalador lê e valida todos os frontmatters da fonte e o manifesto, e
+recusa com erro, sem alterar nada, a forma que não entende: valor em bloco `>` ou `|`, escape
+inválido entre aspas duplas, comentário inline num valor, `readonly` que não seja `true` ou `false`.
+Cada arquivo é gerado num diretório temporário dentro do destino e trocado no lugar por rename, e o
+manifesto é o último a ser gravado.
+
 **Colisão de ID.** Na colisão de ID de skill o último carregado vence, e o OpenCode também lê
 `~/.claude/skills` e `~/.agents/skills`. O instalador avisa quando encontra `flux-<verbo>` nesses
-lugares ou um diretório real de terceiro no destino, e não sobrescreve nada que não gerou.
+lugares. No destino, um `skills/flux-<verbo>` que não é dele fica, e o command `/flux/<verbo>`
+daquele verbo não é instalado.
 
 ## Delegação
 

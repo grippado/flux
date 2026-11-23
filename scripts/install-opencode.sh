@@ -31,81 +31,113 @@ for candidate in python3 python; do
 done
 [ -n "$PYTHON" ] || { echo "erro: python3 não encontrado (necessário para gerar commands e agents)." >&2; exit 2; }
 
-mkdir -p "$DEST/skills" "$DEST/commands" "$DEST/agents"
-
 "$PYTHON" - "$SRC" "$DEST" "$HOME" <<'PY'
-import glob, json, os, re, shutil, sys
+import glob, json, os, re, shutil, sys, tempfile
 
 src, dest, home = sys.argv[1], sys.argv[2], sys.argv[3]
-skills_dest = os.path.join(dest, 'skills')
-commands_dest = os.path.join(dest, 'commands', 'flux')
-agents_dest = os.path.join(dest, 'agents')
+MANIFEST = '.flux-install.json'
+STAGING_PREFIX = '.flux-install-'
+OWNED_PATTERNS = {
+    'skills': re.compile(r'^skills/flux-[^/]+$'),
+    'commands': re.compile(r'^commands/flux/[^/]+\.md$'),
+    'agents': re.compile(r'^agents/flux-[^/]+\.md$'),
+}
+KEY_LINE = re.compile(r'^([A-Za-z_][A-Za-z0-9_-]*):(?:[ \t]+(.*?))?[ \t]*$')
+BLOCK_SCALAR = re.compile(r'^[>|][-+0-9]*[ \t]*(#.*)?$')
+NAME_RE = re.compile(r'^[a-z0-9][a-z0-9-]*$')
 warnings = []
 
-def split_frontmatter(path):
-    text = open(path, encoding='utf-8').read()
-    if not text.startswith('---'):
-        return '', text
-    _, head, body = text.split('---', 2)
-    return head, body.lstrip('\n')
 
-def field(head, name):
-    match = re.search(r'^' + name + r':[ \t]*(.*?)[ \t]*$', head, re.M)
-    if not match:
+class Refused(Exception):
+    pass
+
+
+def parse_frontmatter(path):
+    with open(path, encoding='utf-8') as handle:
+        text = handle.read()
+    lines = text.split('\n')
+    if not lines or lines[0] != '---':
+        raise Refused(f'{path}: não começa com frontmatter (---)')
+    try:
+        close = lines.index('---', 1)
+    except ValueError:
+        raise Refused(f'{path}: frontmatter sem a linha --- de fechamento')
+    head = lines[1:close]
+    body = '\n'.join(lines[close + 1:]).lstrip('\n')
+    fields = {}
+    nested_ok = False
+    for number, line in enumerate(head, start=2):
+        if not line.strip() or line.lstrip().startswith('#'):
+            continue
+        if line[0] in ' \t':
+            if not nested_ok:
+                raise Refused(f'{path}:{number}: linha indentada fora de um bloco aninhado; o parser só entende escalar em uma linha')
+            continue
+        match = KEY_LINE.match(line)
+        if not match:
+            raise Refused(f'{path}:{number}: linha de frontmatter que o parser não entende: {line!r}')
+        key, value = match.group(1), match.group(2) or ''
+        if key in fields:
+            raise Refused(f'{path}:{number}: chave {key} repetida')
+        if BLOCK_SCALAR.match(value):
+            raise Refused(f'{path}:{number}: {key} em bloco > ou | não é suportado; use escalar entre aspas numa linha')
+        fields[key] = (number, value)
+        nested_ok = value == ''
+    return fields, body
+
+
+def scalar(path, fields, key):
+    if key not in fields:
         return None
-    value = match.group(1)
-    if value.startswith('"') and value.endswith('"') and len(value) >= 2:
-        return json.loads(value)
-    if value.startswith("'") and value.endswith("'") and len(value) >= 2:
-        return value[1:-1].replace("''", "'")
-    return value
+    number, raw = fields[key]
+    where = f'{path}:{number}: {key}'
+    if raw == '':
+        raise Refused(f'{where} não é um escalar em uma linha')
+    if raw.startswith('"'):
+        if len(raw) < 2 or not raw.endswith('"'):
+            raise Refused(f'{where} entre aspas duplas sem fechamento, ou com algo depois das aspas')
+        try:
+            value = json.loads(raw)
+        except ValueError as exc:
+            raise Refused(f'{where} com escape inválido ({exc})')
+        if not isinstance(value, str):
+            raise Refused(f'{where} não é uma string')
+        return value
+    if raw.startswith("'"):
+        inner = raw[1:-1]
+        if len(raw) < 2 or not raw.endswith("'") or "'" in inner.replace("''", ''):
+            raise Refused(f'{where} entre aspas simples malformado')
+        return inner.replace("''", "'")
+    if raw[0] in '[{&*!%@`':
+        raise Refused(f'{where} começa com {raw[0]!r}, forma YAML que o parser não entende')
+    if ' #' in raw or '\t#' in raw:
+        raise Refused(f'{where} com comentário inline; tire o comentário ou ponha o valor entre aspas')
+    return raw
 
-def ours(link, verb):
-    target = os.readlink(link).rstrip('/')
-    return target.endswith(os.path.join('plugins', 'flux', 'skills', verb))
 
-verbs = sorted(
-    os.path.basename(d) for d in glob.glob(os.path.join(src, 'skills', '*'))
-    if os.path.isfile(os.path.join(d, 'SKILL.md'))
-)
+def flag(path, fields, key):
+    if key not in fields:
+        return False
+    number, raw = fields[key]
+    if raw not in ('true', 'false'):
+        raise Refused(f'{path}:{number}: {key} precisa ser true ou false, sem comentário (recebi {raw!r})')
+    return raw == 'true'
 
-removed = 0
-for entry in sorted(glob.glob(os.path.join(skills_dest, 'flux-*'))):
-    verb = os.path.basename(entry)[len('flux-'):]
-    if os.path.islink(entry) and ours(entry, verb):
-        os.remove(entry)
-        removed += 1
-if os.path.isdir(commands_dest):
-    shutil.rmtree(commands_dest)
-for entry in sorted(glob.glob(os.path.join(agents_dest, 'flux-*.md'))):
-    if os.path.isfile(entry) or os.path.islink(entry):
-        os.remove(entry)
-        removed += 1
 
-os.makedirs(commands_dest, exist_ok=True)
+def command_template(skill_id):
+    return (
+        f'Carregue a skill `{skill_id}` com a tool `skill` e siga-a integralmente.\n\n'
+        'Argumentos do usuário: $ARGUMENTS\n'
+    )
 
-linked, commands, agents = 0, 0, 0
-for verb in verbs:
-    skill_id = 'flux-' + verb
-    link = os.path.join(skills_dest, skill_id)
-    for other in (os.path.join(home, '.claude', 'skills', skill_id), os.path.join(home, '.agents', 'skills', skill_id)):
-        if os.path.lexists(other):
-            warnings.append(f'skill {skill_id} também existe em {other}; no OpenCode a última carregada vence')
-    if os.path.lexists(link):
-        warnings.append(f'{link} ja existe e não foi criado por este script; mantido, /flux/{verb} não instalado')
-        continue
-    os.symlink(os.path.join(src, 'skills', verb), link)
-    linked += 1
 
-    head, _ = split_frontmatter(os.path.join(src, 'skills', verb, 'SKILL.md'))
-    description = field(head, 'description') or f'flux {verb}'
-    with open(os.path.join(commands_dest, verb + '.md'), 'w', encoding='utf-8') as out:
-        out.write('---\n')
-        out.write('description: ' + json.dumps(description, ensure_ascii=False) + '\n')
-        out.write('---\n\n')
-        out.write(f'Carregue a skill `{skill_id}` com a tool `skill` e siga-a integralmente.\n\n')
-        out.write('Argumentos do usuário: $ARGUMENTS\n')
-    commands += 1
+def command_content(skill_id, description):
+    return (
+        '---\n'
+        'description: ' + json.dumps(description, ensure_ascii=False) + '\n'
+        '---\n\n' + command_template(skill_id)
+    )
+
 
 readonly_rules = [
     ('*', 'deny'),
@@ -116,29 +148,213 @@ readonly_rules = [
     ('external_directory', 'allow'),
 ]
 
-for agent_file in sorted(glob.glob(os.path.join(src, 'agents', '*.md'))):
-    head, body = split_frontmatter(agent_file)
-    name = field(head, 'name') or os.path.splitext(os.path.basename(agent_file))[0]
-    description = field(head, 'description') or name
-    readonly = (field(head, 'readonly') or '').lower() == 'true'
-    with open(os.path.join(agents_dest, 'flux-' + name + '.md'), 'w', encoding='utf-8') as out:
-        out.write('---\n')
-        out.write('description: ' + json.dumps(description, ensure_ascii=False) + '\n')
-        out.write('mode: subagent\n')
-        if readonly:
-            out.write('permissions:\n')
-            for action, effect in readonly_rules:
-                out.write(f'  - action: {json.dumps(action)}\n')
-                out.write('    resource: "*"\n')
-                out.write(f'    effect: {effect}\n')
-        out.write('---\n\n')
-        out.write(body)
-    agents += 1
+
+def agent_content(description, readonly, body):
+    out = ['---\n', 'description: ' + json.dumps(description, ensure_ascii=False) + '\n', 'mode: subagent\n']
+    if readonly:
+        out.append('permissions:\n')
+        for action, effect in readonly_rules:
+            out.append(f'  - action: {json.dumps(action)}\n')
+            out.append('    resource: "*"\n')
+            out.append(f'    effect: {effect}\n')
+    out.append('---\n\n')
+    out.append(body)
+    return ''.join(out)
+
+
+def skill_link_is_ours(abs_path, verb):
+    if not os.path.islink(abs_path):
+        return False
+    target = os.readlink(abs_path).rstrip('/')
+    return target.endswith(os.path.join('plugins', 'flux', 'skills', verb))
+
+
+def read_text(abs_path):
+    try:
+        with open(abs_path, encoding='utf-8') as handle:
+            return handle.read()
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+def legacy_command_is_ours(abs_path, stem):
+    if os.path.islink(abs_path) or not os.path.isfile(abs_path):
+        return False
+    text = read_text(abs_path)
+    if text is None:
+        return False
+    pattern = r'---\ndescription: "(?:[^"\\]|\\.)*"\n---\n\n' + re.escape(command_template('flux-' + stem))
+    return re.fullmatch(pattern, text) is not None
+
+
+def load_manifest():
+    path = os.path.join(dest, MANIFEST)
+    if not os.path.lexists(path):
+        return None
+    try:
+        with open(path, encoding='utf-8') as handle:
+            data = json.load(handle)
+    except (OSError, ValueError) as exc:
+        raise Refused(f'{path}: manifesto de instalação ilegível ({exc}); corrija ou remova o arquivo e rode de novo')
+    if not isinstance(data, dict):
+        raise Refused(f'{path}: manifesto de instalação não é um objeto JSON')
+    listed = set()
+    for kind, pattern in OWNED_PATTERNS.items():
+        entries = data.get(kind, [])
+        if not isinstance(entries, list):
+            raise Refused(f'{path}: campo {kind} não é uma lista')
+        for rel in entries:
+            if (not isinstance(rel, str) or os.path.isabs(rel) or '..' in rel.split('/')
+                    or os.path.normpath(rel) != rel or not pattern.match(rel)):
+                warnings.append(f'entrada {rel!r} do manifesto ignorada: fora dos caminhos que o instalador gera')
+                continue
+            listed.add(rel)
+    return listed
+
+
+try:
+    verbs = sorted(
+        os.path.basename(d) for d in glob.glob(os.path.join(src, 'skills', '*'))
+        if os.path.isfile(os.path.join(d, 'SKILL.md'))
+    )
+    desired = {}
+    skill_of_command = {}
+    for verb in verbs:
+        skill_id = 'flux-' + verb
+        skill_md = os.path.join(src, 'skills', verb, 'SKILL.md')
+        fields, _ = parse_frontmatter(skill_md)
+        description = scalar(skill_md, fields, 'description') or f'flux {verb}'
+        link_rel = 'skills/' + skill_id
+        command_rel = f'commands/flux/{verb}.md'
+        desired[link_rel] = ('link', os.path.join(src, 'skills', verb))
+        desired[command_rel] = ('file', command_content(skill_id, description))
+        skill_of_command[command_rel] = link_rel
+    for agent_file in sorted(glob.glob(os.path.join(src, 'agents', '*.md'))):
+        fields, body = parse_frontmatter(agent_file)
+        name = scalar(agent_file, fields, 'name') or os.path.splitext(os.path.basename(agent_file))[0]
+        if not NAME_RE.match(name):
+            raise Refused(f'{agent_file}: name {name!r} não serve como nome de arquivo de agent')
+        description = scalar(agent_file, fields, 'description') or name
+        readonly = flag(agent_file, fields, 'readonly')
+        desired[f'agents/flux-{name}.md'] = ('file', agent_content(description, readonly, body))
+    listed = load_manifest()
+except Refused as exc:
+    print(f'erro: {exc}', file=sys.stderr)
+    print(f'nada foi alterado em {dest}.', file=sys.stderr)
+    sys.exit(1)
+
+
+def existing_namespace():
+    found = set()
+    for entry in glob.glob(os.path.join(dest, 'skills', 'flux-*')):
+        found.add('skills/' + os.path.basename(entry))
+    for entry in glob.glob(os.path.join(dest, 'commands', 'flux', '*.md')):
+        found.add('commands/flux/' + os.path.basename(entry))
+    for entry in glob.glob(os.path.join(dest, 'agents', 'flux-*.md')):
+        found.add('agents/' + os.path.basename(entry))
+    return found
+
+
+def already_current(rel):
+    kind, payload = desired[rel]
+    abs_path = os.path.join(dest, rel)
+    if kind == 'link':
+        return os.path.islink(abs_path) and os.readlink(abs_path) == payload
+    return not os.path.islink(abs_path) and os.path.isfile(abs_path) and read_text(abs_path) == payload
+
+
+def is_ours(rel):
+    abs_path = os.path.join(dest, rel)
+    if not os.path.lexists(abs_path):
+        return False
+    if rel.startswith('skills/'):
+        if not skill_link_is_ours(abs_path, rel[len('skills/flux-'):]):
+            return False
+        return listed is None or rel in listed
+    if os.path.islink(abs_path) or not os.path.isfile(abs_path):
+        return False
+    if listed is not None:
+        return rel in listed
+    if rel.startswith('commands/'):
+        return legacy_command_is_ours(abs_path, os.path.splitext(os.path.basename(rel))[0])
+    return rel in desired and read_text(abs_path) == desired[rel][1]
+
+
+present = existing_namespace()
+writes, kept, blocked, orphans = [], [], set(), []
+for rel in sorted(desired, key=lambda item: (not item.startswith('skills/'), item)):
+    if rel in skill_of_command and skill_of_command[rel] in blocked:
+        if is_ours(rel):
+            orphans.append(rel)
+        continue
+    abs_path = os.path.join(dest, rel)
+    if not os.path.lexists(abs_path) or (is_ours(rel) and not already_current(rel)):
+        writes.append(rel)
+    elif already_current(rel):
+        kept.append(rel)
+    else:
+        blocked.add(rel)
+        if rel.startswith('skills/'):
+            verb = rel[len('skills/flux-'):]
+            warnings.append(f'{abs_path} já existe e não foi criado por este script; mantido, /flux/{verb} não instalado')
+        else:
+            warnings.append(f'{abs_path} já existe e não foi criado por este script; mantido sem sobrescrever')
+
+for verb in verbs:
+    skill_id = 'flux-' + verb
+    for other in (os.path.join(home, '.claude', 'skills', skill_id), os.path.join(home, '.agents', 'skills', skill_id)):
+        if os.path.lexists(other):
+            warnings.append(f'skill {skill_id} também existe em {other}; no OpenCode a última carregada vence')
+
+for rel in sorted(present - set(desired)):
+    if is_ours(rel):
+        orphans.append(rel)
+    else:
+        warnings.append(f'{os.path.join(dest, rel)} não foi gerado por este script; mantido')
+if listed is not None:
+    for rel in sorted(listed - present - set(desired)):
+        warnings.append(f'{rel} consta do manifesto mas não existe mais; esquecido')
+
+for sub in ('skills', os.path.join('commands', 'flux'), 'agents'):
+    os.makedirs(os.path.join(dest, sub), exist_ok=True)
+for stale in glob.glob(os.path.join(dest, STAGING_PREFIX + '*')):
+    if os.path.isdir(stale) and not os.path.islink(stale):
+        shutil.rmtree(stale, ignore_errors=True)
+
+staging = tempfile.mkdtemp(prefix=STAGING_PREFIX, dir=dest)
+try:
+    for index, rel in enumerate(writes):
+        kind, payload = desired[rel]
+        staged = os.path.join(staging, str(index))
+        if kind == 'link':
+            os.symlink(payload, staged)
+        else:
+            with open(staged, 'w', encoding='utf-8') as out:
+                out.write(payload)
+        os.replace(staged, os.path.join(dest, rel))
+    for rel in orphans:
+        os.remove(os.path.join(dest, rel))
+    installed = set(writes) | set(kept)
+    record = {
+        'generated_by': 'scripts/install-opencode.sh',
+        'source': src,
+    }
+    for kind in OWNED_PATTERNS:
+        record[kind] = sorted(rel for rel in installed if rel.startswith(kind + '/'))
+    staged = os.path.join(staging, MANIFEST)
+    with open(staged, 'w', encoding='utf-8') as out:
+        json.dump(record, out, ensure_ascii=False, indent=2)
+        out.write('\n')
+    os.replace(staged, os.path.join(dest, MANIFEST))
+finally:
+    shutil.rmtree(staging, ignore_errors=True)
 
 for message in warnings:
     print('aviso: ' + message, file=sys.stderr)
-print(f'{removed} itens gerados antes removidos')
-print(f'{linked} skills ligadas por symlink, {commands} commands, {agents} agents')
+origin = 'pelo manifesto anterior' if listed is not None else 'sem manifesto anterior, pelo formato da versão anterior'
+print(f'{len(writes)} itens escritos, {len(kept)} já atualizados, {len(orphans)} removidos por não serem mais gerados (dono reconhecido {origin})')
+print(f"{len(record['skills'])} skills ligadas por symlink, {len(record['commands'])} commands, {len(record['agents'])} agents")
+print(f'manifesto de instalação: {os.path.join(dest, MANIFEST)}')
 PY
 
 cat <<EOF
