@@ -440,6 +440,140 @@ echo "# nenhum dado bruto no run"
 t_true "nenhum arquivo do run cita o diretório de trabalho" '! grep -rqF "$WORK" "$RUN_DIR"'
 t_true "nenhum arquivo do run cita HOME do usuário" '! grep -rqF "$HOME" "$RUN_DIR"'
 
+echo "# receita de leitura do token (api-first.md, Ler o token)"
+API_FIRST="$HERE/../plugins/flux/shared/api-first.md"
+RECIPE="$WORK/token-recipe.sh"
+CHECK="$WORK/token-check.sh"
+extract_block() {
+    awk -v want="$1" '/^## / { sec = ($0 == "## Ler o token") } sec && /^```bash$/ { n++; inb = (n == want); next } inb && /^```$/ { inb = 0; next } inb { print }' "$API_FIRST"
+}
+extract_block 1 > "$RECIPE"
+extract_block 2 > "$CHECK"
+t_true "receita extraída de api-first.md" '[ -s "$RECIPE" ]'
+t_true "conferência de aspas extraída de api-first.md" '[ -s "$CHECK" ]'
+SECRETS="$WORK/secrets"
+cat > "$SECRETS" << 'SECRETS_EOF'
+# comentario
+FLUX_T_DUPLA="fake-dupla"
+FLUX_T_SIMPLES='fake-simples'
+export FLUX_T_EXPORT="fake-export"
+FLUX_T_CRU=fake-cru
+  export   FLUX_T_ESPACO='fake espaco'  
+FLUX_T_REPETIDA="fake-velha"
+FLUX_T_REPETIDA="fake-nova"
+FLUX_T_PREFIXO_LONGO="fake-longo"
+FLUX_T_MISTA="fake'
+MY_TOKEN=fake-sufixo
+SECRETS_EOF
+printf 'FLUX_T_CRLF="fake-crlf"\r\n' >> "$SECRETS"
+read_token() {
+    env -u "$1" TOKEN_VAR="$1" SECRETS_FILE="$2" "${3:-$BASH_ABS}" -c ". \"$RECIPE\"; printf '%s' \"\$TOKEN\""
+}
+t_eq "VAR=\"valor\" devolve o valor cru" "fake-dupla" "$(read_token FLUX_T_DUPLA "$SECRETS")"
+t_eq "VAR='valor' devolve o valor cru" "fake-simples" "$(read_token FLUX_T_SIMPLES "$SECRETS")"
+t_eq "export VAR=\"valor\" devolve o valor cru" "fake-export" "$(read_token FLUX_T_EXPORT "$SECRETS")"
+t_eq "VAR=valor devolve o valor cru" "fake-cru" "$(read_token FLUX_T_CRU "$SECRETS")"
+t_eq "espaço em volta da linha não entra no valor" "fake espaco" "$(read_token FLUX_T_ESPACO "$SECRETS")"
+t_eq "CRLF no fim da linha não entra no valor" "fake-crlf" "$(read_token FLUX_T_CRLF "$SECRETS")"
+t_eq "chave repetida: vale a última" "fake-nova" "$(read_token FLUX_T_REPETIDA "$SECRETS")"
+t_eq "nome não casa com prefixo de outro nome" "" "$(read_token FLUX_T_PREFIXO "$SECRETS")"
+t_eq "aspas desparelhadas ficam no valor" "\"fake'" "$(read_token FLUX_T_MISTA "$SECRETS")"
+t_eq "variável ausente devolve vazio" "" "$(read_token FLUX_T_NAO_EXISTE "$SECRETS")"
+t_eq "arquivo ausente devolve vazio" "" "$(read_token FLUX_T_CRU "$WORK/nao-existe")"
+t_eq "ambiente vence o arquivo" "fake-env" "$(FLUX_T_CRU=fake-env TOKEN_VAR=FLUX_T_CRU SECRETS_FILE="$SECRETS" "$BASH_ABS" -c ". \"$RECIPE\"; printf '%s' \"\$TOKEN\"")"
+cp "$SECRETS" "$WORK/.secrets-home"
+t_eq "secrets_file com ~/ expande para HOME" "fake-dupla" "$(HOME="$WORK" read_token FLUX_T_DUPLA \~/.secrets-home)"
+t_eq "receita roda em sh POSIX" "fake-export" "$(read_token FLUX_T_EXPORT "$SECRETS" sh)"
+t_eq "nome não casa com sufixo de outro nome" "" "$(read_token TOKEN "$SECRETS")"
+t_eq "TOKEN_VAR vazio devolve vazio" "" "$(env -u TOKEN_VAR SECRETS_FILE="$SECRETS" sh -ec ". \"$RECIPE\"; printf '%s' \"\$TOKEN\"")"
+t_eq "set -e com a variável no ambiente" "fake-env" "$(FLUX_T_CRU=fake-env TOKEN_VAR=FLUX_T_CRU SECRETS_FILE="$SECRETS" sh -ec ". \"$RECIPE\"; printf '%s' \"\$TOKEN\"")"
+t_eq "set -e com a variável só no arquivo" "fake-dupla" "$(env -u FLUX_T_DUPLA TOKEN_VAR=FLUX_T_DUPLA SECRETS_FILE="$SECRETS" sh -ec ". \"$RECIPE\"; printf '%s' \"\$TOKEN\"")"
+t_eq "set -e com variável ausente e arquivo ausente" "vazio" "$(env -u FLUX_T_CRU TOKEN_VAR=FLUX_T_CRU SECRETS_FILE="$WORK/nao-existe" sh -ec ". \"$RECIPE\"; printf '%s' \"\${TOKEN:-vazio}\"")"
+cp "$SECRETS" "$WORK/.secrets"
+t_eq "SECRETS_FILE vazio cai em HOME/.secrets" "fake-dupla" "$(HOME="$WORK" env -u FLUX_T_DUPLA -u SECRETS_FILE TOKEN_VAR=FLUX_T_DUPLA sh -ec ". \"$RECIPE\"; printf '%s' \"\$TOKEN\"")"
+if command -v zsh > /dev/null 2>&1; then
+    t_eq "receita roda em zsh" "fake-dupla" "$(read_token FLUX_T_DUPLA "$SECRETS" zsh)"
+    t_eq "receita roda em zsh com set -e" "fake-simples" "$(env -u FLUX_T_SIMPLES TOKEN_VAR=FLUX_T_SIMPLES SECRETS_FILE="$SECRETS" zsh -ec ". \"$RECIPE\"; printf '%s' \"\$TOKEN\"")"
+else
+    printf 'skip - zsh não encontrado\n'
+fi
+LOCKED="$WORK/secrets-trancado"
+cp "$SECRETS" "$LOCKED"
+chmod 000 "$LOCKED"
+if [ -r "$LOCKED" ]; then
+    printf 'skip - arquivo sem permissão continua legível (root)\n'
+else
+    t_eq "secrets_file ilegível acusa SECRETS_ILEGIVEL=1" "1:" "$(env -u FLUX_T_CRU TOKEN_VAR=FLUX_T_CRU SECRETS_FILE="$LOCKED" sh -ec ". \"$RECIPE\"; printf '%s:%s' \"\$SECRETS_ILEGIVEL\" \"\$TOKEN\"")"
+fi
+chmod 600 "$LOCKED"
+t_eq "secrets_file legível sem a variável acusa SECRETS_ILEGIVEL=0" "0:" "$(env -u FLUX_T_NAO_EXISTE TOKEN_VAR=FLUX_T_NAO_EXISTE SECRETS_FILE="$SECRETS" sh -ec ". \"$RECIPE\"; printf '%s:%s' \"\$SECRETS_ILEGIVEL\" \"\$TOKEN\"")"
+check_token() {
+    TOKEN="$1" sh -ec ". \"$CHECK\"; printf '%s' \"\$TOKEN_SUSPEITO\""
+}
+t_eq "conferência acusa aspas duplas em volta" "1" "$(check_token '"x"')"
+t_eq "conferência acusa aspa simples no fim" "1" "$(check_token "x'")"
+t_eq "conferência acusa espaço no começo" "1" "$(check_token ' x')"
+t_eq "conferência não acusa valor limpo" "0" "$(check_token 'x')"
+if command -v shellcheck > /dev/null 2>&1; then
+    shellcheck -s sh -e SC2148,SC2154,SC2034 "$RECIPE" > "$WORK/sc-recipe.txt" 2>&1
+    t_eq "shellcheck limpo na receita" "0" "$?"
+    shellcheck -s sh -e SC2148,SC2154,SC2034 "$CHECK" > "$WORK/sc-check.txt" 2>&1
+    t_eq "shellcheck limpo na conferência" "0" "$?"
+fi
+
+echo "# check-context-ascent"
+CA_SRC="$HERE/check-context-ascent.sh"
+CA_SHARED="$HERE/../plugins/flux/shared/flux-context.md"
+CA_MARK='<!-- context-ascent: ignore -->'
+
+ca_tree() {
+    CA_DIR="$WORK/ca-$1"
+    mkdir -p "$CA_DIR/scripts" "$CA_DIR/plugins/flux/skills/fixture" "$CA_DIR/plugins/flux/shared"
+    cp "$CA_SRC" "$CA_DIR/scripts/check-context-ascent.sh"
+    cp "$CA_SHARED" "$CA_DIR/plugins/flux/shared/flux-context.md"
+    CA_SKILL="$CA_DIR/plugins/flux/skills/fixture/SKILL.md"
+    printf '%s\n' '# fixture' '' \
+        'Procurar `flux-context.json` subindo a árvore, na ordem da seção "O manifesto" (em cada nível,' \
+        '`.claude/` antes de `.cursor/`).' > "$CA_SKILL"
+}
+
+ca_run() {
+    "$BASH_ABS" "$CA_DIR/scripts/check-context-ascent.sh" > "$CA_DIR/out.txt" 2>&1
+    echo "$?"
+}
+
+ca_tree base
+t_eq "canário verde na fixture base" "0" "$(ca_run)"
+
+ca_tree lista-longe
+printf '%s\n' '' '```' '<âncora>/.claude/flux-context.json' '```' '' 'a' '' 'b' '' 'c' '' \
+    'Também vale `.cursor/flux-context.json`.' >> "$CA_SKILL"
+t_eq "lista só .claude/ com .cursor/ longe falha" "1" "$(ca_run)"
+t_has "lista longe aponta a linha da lista" "SKILL.md:7: lista" "$CA_DIR/out.txt"
+
+ca_tree reflow
+printf '%s\n' '' 'O elo procura `flux-context.json` subindo a árvore, em' '`.claude/` de cada nível.' >> "$CA_SKILL"
+t_eq "subida quebrada em duas linhas falha" "1" "$(ca_run)"
+t_has "reflow aponta a linha inicial do parágrafo" "SKILL.md:6: parágrafo" "$CA_DIR/out.txt"
+
+ca_tree sinonimo
+printf '%s\n' '' 'O elo sobe a árvore atrás de `flux-context.json` em `.claude/`.' >> "$CA_SKILL"
+t_eq "sinônimo sobe falha" "1" "$(ca_run)"
+
+ca_tree fonte
+grep -vxF '<âncora>/.cursor/flux-context.json' "$CA_SHARED" > "$CA_DIR/plugins/flux/shared/flux-context.md"
+t_eq "flux-context.md sem a linha .cursor/ falha" "1" "$(ca_run)"
+t_has "fonte aponta a linha perdida" "perdeu a linha <âncora>/.cursor/flux-context.json" "$CA_DIR/out.txt"
+
+ca_tree fonte-l2
+grep -vF '.cursor/agents/review/*.md' "$CA_SHARED" > "$CA_DIR/plugins/flux/shared/flux-context.md"
+t_eq "default de specialists_root sem .cursor/agents/review falha" "1" "$(ca_run)"
+
+ca_tree marcador
+printf '%s\n' '' "<raiz>/.claude/flux-context.json $CA_MARK" '' \
+    "O elo sobe a árvore atrás de \`flux-context.json\` em \`.claude/\`. $CA_MARK" >> "$CA_SKILL"
+t_eq "linha com o marcador passa" "0" "$(ca_run)"
+
 echo "# shellcheck"
 if command -v shellcheck > /dev/null 2>&1; then
     shellcheck "$RUN_SH" > "$WORK/sc.txt" 2>&1

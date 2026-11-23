@@ -27,9 +27,11 @@ finge que há (tabela de canais).
 Para no primeiro "não". Cada degrau que falha tem um destino declarado.
 
 1. **Existe token?** O nome da variável vem do manifesto (`<canal>_token_env`); o valor vem do ambiente
-   e, faltando lá, do `secrets_file` (default `~/.secrets`, `KEY=value`). Regras de manuseio em
-   `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do token". Ausente nos dois: **gate de
-   token ausente** (abaixo). **Nunca cai para MCP em silêncio.**
+   e, faltando lá, do `secrets_file` (default `~/.secrets`), lidos pela receita de "Ler o token"
+   (abaixo). Regras de manuseio em `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do
+   token". Ausente nos dois: **gate de
+   token ausente** (abaixo). `secrets_file` ilegível não é ausência: sai com `sem token` e a frase de
+   "Ler o token", sem setup guiado. **Nunca cai para MCP em silêncio.**
 2. **O token autentica?** Uma query barata de identidade (`{ viewer { id name } }` no Linear). Status diferente de `200` **ou payload com `errors`**: MCP, porque GraphQL costuma devolver falha de auth com `200`. Na leitura, este degrau e o seguinte se fundem na própria query de leitura, que prova as duas coisas em um request só.
 3. **O token enxerga o alvo?** Para leitura, a própria query de leitura é a sonda: alvo nulo ou erro de
    escopo cai para MCP. Para escrita, é a query que resolve os identificadores do destino.
@@ -89,8 +91,8 @@ fonte única. Caminho por API não gera token, porque é o default. Não existe 
 campo fora do gabarito é campo inventado.
 
 Ausência de token nunca vira o motivo `sem token` sozinha: ela abre o gate, e o token declara o
-**desfecho** (`opt-out` se o usuário escolheu MCP, `sem token` só se o setup guiado falhou ou não havia
-interação possível). Um cache-hit de `"mcp"` sai como `opt-out`: é a mesma escolha, relembrada, e o
+**desfecho** (`opt-out` se o usuário escolheu MCP, `sem token` só se o setup guiado falhou, não havia
+interação possível ou o `secrets_file` está ilegível). Um cache-hit de `"mcp"` sai como `opt-out`: é a mesma escolha, relembrada, e o
 banner não pode apagá-la fingindo omissão. Ao citar a variável, citar o **nome**, nunca o valor.
 **Nunca imprimir o token**, nem em log, nem ao ecoar erro da API, nem no board.
 
@@ -115,20 +117,85 @@ não é hardcoded no corpo de nenhum elo, porque quem tem dois workspaces tem du
 
 Uma linha "adotado" só existe quando o corpo do elo cita este arquivo.
 
+## Ler o token
+
+Receita única de leitura de token para qualquer canal e qualquer elo, inclusive os que não sobem a
+escada: o gate externo (`${FLUX_ROOT}/shared/quality-gate-api.md`) e a observabilidade do `probe` e do
+`datadog-prospector` leem a chave daqui. Citar esta seção não é adotar a escada; a tabela "Quem adota"
+continua listando só quem aplica os degraus.
+
+Entradas: `TOKEN_VAR`, o **nome** da variável (campo `*_token_env` ou `token_env` do manifesto), e
+`SECRETS_FILE` (default `~/.secrets`). Saída: `TOKEN` com o valor cru e `SECRETS_ILEGIVEL` (`1` quando
+o `secrets_file` existe e não pode ser lido). Ordem fixa: ambiente primeiro, `secrets_file` depois.
+
+```bash
+SECRETS_FILE="${SECRETS_FILE:-$HOME/.secrets}"
+case $SECRETS_FILE in \~/*) SECRETS_FILE="$HOME/${SECRETS_FILE#\~/}" ;; esac
+TOKEN=
+if [ -n "${TOKEN_VAR:-}" ]; then
+  TOKEN=$(printenv "$TOKEN_VAR" || :)
+  [ -n "$TOKEN" ] || [ ! -r "$SECRETS_FILE" ] || TOKEN=$(sed -n "s/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}${TOKEN_VAR}=//p" "$SECRETS_FILE" | tail -n 1 | sed -e 's/[[:space:]]*$//' -e 's/^\(["'\'']\)\(.*\)\1$/\2/')
+fi
+if [ -e "$SECRETS_FILE" ] && [ ! -r "$SECRETS_FILE" ]; then SECRETS_ILEGIVEL=1; else SECRETS_ILEGIVEL=0; fi
+```
+
+O bloco é autossuficiente e seguro com `set -e`. `TOKEN_VAR` vazio não tem default: cada canal declara
+o seu (`linear_token_env`, `token_env` do `quality_gate`, `token_env` do provider de telemetria), e cair
+no nome de outro canal mandaria a chave de um serviço para outro. Sem nome, `TOKEN` sai vazio e o elo
+segue o caminho de token ausente. Não rodar a receita com `set -x`: o trace imprime o valor; desligar
+antes com `{ set +x; } 2>/dev/null`.
+
+**Formato aceito no `secrets_file`**, uma chave por linha, linhas com `#` ignoradas:
+
+- `VAR=valor`, `VAR="valor"` e `VAR='valor'`: um par de aspas simples ou duplas em volta do valor sai
+  na leitura. É o formato que `source` entende, e no ambiente o valor já chega cru;
+- `export VAR=...`: o `export` no começo da linha é aceito e ignorado;
+- chave repetida: vale a última linha, como no `source`.
+
+Fora do formato: escape dentro das aspas, comentário depois do valor e valor em mais de uma linha. A
+receita não expande `$` nem `~` no valor. Ela é POSIX (`sed` básico, sem `-E`, sem `grep -P`) e roda
+igual em BSD e GNU, em `sh`, `dash`, `bash` e `zsh`; `scripts/test-run.sh` executa este bloco e o da
+conferência abaixo contra os formatos acima.
+
+**Nunca imprimir o valor.** Para diagnosticar, só o comprimento (`${#TOKEN}`) ou um predicado.
+
+**`TOKEN` vazio** tem duas causas, e a mensagem diz qual. Com `SECRETS_ILEGIVEL=1`, a frase é
+`secrets_file ilegível: <caminho>`, e o conserto é a permissão do arquivo, não uma chave nova: o elo não
+abre o setup guiado para gravar num arquivo que não consegue ler. Com `SECRETS_ILEGIVEL=0`, a frase é
+`variável <TOKEN_VAR> ausente no ambiente e no secrets_file`. Num canal da escada, as duas saem com o
+motivo `sem token` (grafia em `${FLUX_ROOT}/shared/preflight.md`, Passo 5), com a frase na prosa do
+banner.
+
+**Autenticação recusada com token lido do arquivo** (401, ou `errors` de autenticação no GraphQL): antes de
+dizer que a chave é inválida, conferir, sem imprimir, se o valor ainda tem aspas ou espaço em volta:
+
+```bash
+case $TOKEN in \"*|*\"|\'*|*\'|[[:space:]]*|*[[:space:]]) TOKEN_SUSPEITO=1 ;; *) TOKEN_SUSPEITO=0 ;; esac
+```
+
+Com `TOKEN_SUSPEITO=1`, a frase de diagnóstico é `valor de <TOKEN_VAR> em <caminho do secrets_file>
+tem aspas ou espaço em volta`: cita o caminho do `secrets_file` e o nome da variável, sem número de
+linha e sem conteúdo. Num canal da escada, o motivo é `token mal formatado` em vez de
+`token nao autentica` (grafia em `${FLUX_ROOT}/shared/preflight.md`, Passo 5). Fora da escada, a mesma
+frase vai na mensagem de degradação ou de aborto da fonte.
+
+**Token exposto durante a sessão** (o valor apareceu em saída de comando, log, board ou chat): avisar
+**uma vez**, recomendar a rotação da chave no serviço e seguir sem perguntar nada. Se o usuário já
+mandou seguir, isso vale para o resto da execução e não se pergunta de novo. A exposição não bloqueia o
+uso nem abre gate. A leitura continua na ordem normal (ambiente, depois arquivo), e a cópia do ambiente
+não é tratada como diferente da do arquivo: as duas são o mesmo segredo. Rotacionar é ação do usuário,
+nunca do elo.
+
 ## O canal Linear
 
 **Criar a chave:** `https://linear.app/settings/account/security` (Settings, Security & access, Personal
 API keys), com um label que identifique a máquina e o verbo (`flux-<verbo>-<hostname>`). No
-`secrets_file`, uma linha `<TOKEN_VAR>=<valor>`, sem `export`.
+`secrets_file`, uma linha `<TOKEN_VAR>=<valor>`, com ou sem aspas em volta do valor (formato em "Ler o
+token", acima).
 
-Autenticação por header, sem prefixo `Bearer` (a chave pessoal do Linear vai crua):
-
-```bash
-TOKEN_VAR="${LINEAR_TOKEN_ENV:-LINEAR_API_KEY}"      # linear_token_env do manifesto
-SECRETS_FILE="${SECRETS_FILE:-$HOME/.secrets}"       # secrets_file do manifesto
-TOKEN=$(printenv "$TOKEN_VAR")
-[ -z "$TOKEN" ] && TOKEN=$(grep -E "^${TOKEN_VAR}=" "$SECRETS_FILE" 2>/dev/null | cut -d= -f2-)
-```
+`TOKEN_VAR` = `linear_token_env` do manifesto (default `LINEAR_API_KEY`) e `SECRETS_FILE` =
+`secrets_file` (default `~/.secrets`); o valor sai da receita de "Ler o token". Autenticação por header,
+sem prefixo `Bearer` (a chave pessoal do Linear vai crua).
 
 **Leitura de ticket, um request.** Aceita o identificador (`ENG-123`); a URL é reduzida ao
 identificador antes:

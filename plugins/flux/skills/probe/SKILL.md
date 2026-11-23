@@ -172,6 +172,11 @@ provider; ausente → o agente da família de mesmo nome; ausente esse → `gene
 declarada). Extrair também `SPECIALISTS_ROOT`, `REPOS`, `WORKSPACE_ROOT`, `VAULT_ROOT`, `VAULT_CTX`,
 `VAULT_CTX_ROOT` e `NO_EMDASH`.
 
+Para a observabilidade, extrair ainda `TOKEN_ENV` = `telemetry.datadog.token_env` (nome da variável,
+nunca o valor; o contrato não declara default, então ausente é **perguntado**, nunca chutado) e
+`SECRETS_FILE` = `telemetry.datadog.secrets_file`, ausente esse o `secrets_file` do topo do manifesto,
+ausente os dois `~/.secrets` (`${FLUX_ROOT}/shared/flux-context.md`).
+
 Sem manifesto: perfil genérico. O que não estiver declarado é derivado do alvo quando ele é uma URL (a
 org, no rastreador; a query, a janela e o site, na observabilidade) e, não sendo, **perguntado** —
 nunca chutado. Sem `VAULT_ROOT` o dossiê sai no chat, e a perda é declarada no banner.
@@ -214,9 +219,12 @@ sentry auth status                                       # identidade e orgs alc
 
 **Observabilidade:**
 
+Token pela receita de `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token", com `TOKEN_VAR` =
+`TOKEN_ENV` e `SECRETS_FILE`, os dois resolvidos no Step 0-context (ambiente primeiro, arquivo depois,
+valor nunca impresso):
+
 ```bash
-DD=$(grep "^${TOKEN_ENV}=" "${SECRETS_FILE}" | cut -d= -f2-)      # nunca ecoar o valor
-curl -s -H "Authorization: Bearer $DD" "https://api.${SITE}/api/v2/current_user"
+curl -s -H "Authorization: Bearer $TOKEN" "https://api.${SITE}/api/v2/current_user"
 ```
 
 - **Autenticação é `Authorization: Bearer`** com o token de usuário, não os headers de chave de org. E
@@ -263,7 +271,8 @@ si e é a paralelização que torna a comparação cliente contra servidor barat
 
 Prompt auto-contido (o subagente não herda a conversa), com o que cada fonte precisa: para o
 rastreador, a issue, a `ORG` e o `SAMPLE`; para a observabilidade, a pergunta em uma linha, a query, a
-janela, a janela de controle, o `SITE`, o `TOKEN_ENV` e o `SECRETS_FILE`. Nos dois casos, a hipótese em
+janela, a janela de controle, o `SITE`, o `TOKEN_ENV`, o `SECRETS_FILE` e o `FLUX_ROOT` resolvido como
+caminho absoluto (o prospector abre `${FLUX_ROOT}/shared/api-first.md` por ele). Nos dois casos, a hipótese em
 teste quando já houver uma.
 
 > **A pergunta que vai ao prospector de observabilidade não é a query.** Ele constrói a query; o que

@@ -1,23 +1,23 @@
 {
   "latest": {
-    "version": "1.54.0",
-    "tag": "v1.54.0",
-    "published_at": "2026-11-19T14:53:07Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.54.0",
+    "version": "1.54.3",
+    "tag": "v1.54.3",
+    "published_at": "2026-11-23T18:57:50Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.54.3",
     "summary": {
-      "en": "flux:review drafts a PR-channel thread notice by review outcome (approved, approved with comments, commented), flux:iterate drafts a follow-up to reviewers on the user's own PRs, and flux:reply shows a preview of the exact draft before every save gate (draft only, never posts).",
-      "pt": "o flux:review rascunha na thread do pedido o aviso conforme o desfecho da review (aprovada, aprovada com comentários, comentada), o flux:iterate rascunha o retorno aos revisores nas PRs do próprio usuário, e o flux:reply mostra o preview do rascunho exato antes de todo gate de salvar (só rascunha, nunca posta)."
+      "en": "iterate, land and reply now walk up the tree through .claude/ and .cursor/ like the shared contract; new CI canary guards it.",
+      "pt": "iterate, land e reply sobem a árvore por .claude/ e .cursor/ como o contrato do shared; um canário novo no CI segura a regressão."
     },
     "changelog_source": "tag_message"
   },
   "previous": {
-    "version": "1.53.0",
-    "tag": "v1.53.0",
-    "published_at": "2026-11-19T03:18:21Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.53.0",
+    "version": "1.54.2",
+    "tag": "v1.54.2",
+    "published_at": "2026-11-23T18:57:22Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.54.2",
     "summary": {
-      "en": "flux:build now offers to request review in the team PR channel once the PR exists, via the flux:reply quick path (draft only).",
-      "pt": "o flux:build agora oferece pedir review no canal de PRs do time depois que a PR nasce, pelo caminho rápido do flux:reply (só rascunha)."
+      "en": "Single token recipe for secrets_file strips quotes and optional export, plus 401 diagnosis and a one-time warning on exposed tokens.",
+      "pt": "Receita única de token no secrets_file tira aspas e export opcional, com diagnóstico de 401 e aviso único para token exposto."
     },
     "changelog_source": "tag_message"
   },

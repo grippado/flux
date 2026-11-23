@@ -48,7 +48,7 @@ O `flux-context.json` pode declarar o bloco abaixo (todos os campos são opciona
 | `org` | ausente | Organização do SonarCloud (parâmetro `organization=`). Ignorado para SonarQube. |
 | `project_key_template` | ausente | Template com `{repo}` substituído pelo slug do repo, como `specialists_root` já faz. Ausente = sem chave de projeto = sem consulta. |
 | `token_env` | `SONAR_TOKEN` | Nome da variável de ambiente com o token. |
-| `secrets_file` | `~/.secrets` | Arquivo de secrets no formato `KEY=value`, sem `export`, uma chave por linha, comentários com `#`. |
+| `secrets_file` | `~/.secrets` | Arquivo de secrets lido quando a variável não está no ambiente. Formato aceito em `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token". |
 
 Quando qualquer campo indispensável estiver ausente (sem `provider`, sem `project_key_template` ou
 sem token encontrado), cair em **degradação declarada** (ver seção abaixo).
@@ -56,12 +56,10 @@ sem token encontrado), cair em **degradação declarada** (ver seção abaixo).
 ## Resolução do token — nunca ecoar, nunca gravar
 
 A sessão de um subagente não herda variáveis de ambiente carregadas interativamente no shell do
-usuário. Ler a chave diretamente do arquivo de secrets, assim (substituindo `SONAR_TOKEN` pelo
-valor de `token_env` quando configurado diferente):
-
-```bash
-TOKEN=$(grep -E '^SONAR_TOKEN=' ~/.secrets | cut -d= -f2-)
-```
+usuário. Por isso a leitura cai no arquivo de secrets quando a variável não está no ambiente, pela
+receita única de `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token", com `TOKEN_VAR` = `token_env`
+(default `SONAR_TOKEN`) e `SECRETS_FILE` = `secrets_file` deste bloco. A mesma seção diz o que fazer
+com autenticação recusada e com token exposto durante a sessão.
 
 Regras de segurança, sem exceção:
 

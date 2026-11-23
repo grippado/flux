@@ -52,9 +52,46 @@ fonte barata é o índice, quando ele existe e está fresco (`${FLUX_ROOT}/share
 `manifests`); sem índice, a varredura:
 
 ```bash
-find "$HOME" -maxdepth 4 -type f \
-  \( -path '*/.claude/flux-context.json' -o -path '*/.cursor/flux-context.json' \) 2>/dev/null
+find -L "$HOME" -maxdepth 6 \
+  \( -name .git -o -name node_modules -o -name .cache -o -name .npm -o -name .yarn \
+     -o -path "$HOME/Library" -o -path "$HOME/Applications" -o -path "$HOME/Pictures" \
+     -o -path "$HOME/Movies" -o -path "$HOME/Music" -o -path "$HOME/.Trash" \
+     -o -path "$HOME/go" -o -path "$HOME/.local" \) -prune -o \
+  -type f \( -path '*/.claude/flux-context.json' -o -path '*/.cursor/flux-context.json' \) -print 2>/dev/null |
+  while IFS= read -r m; do
+    r=$(readlink -f "$m" 2>/dev/null); [ -n "$r" ] || r=$m
+    printf '%s\t%s\n' "$r" "$m"
+  done |
+  awk -F '\t' '!seen[$1]++ { print $2 }'
 ```
+
+Esta é a **varredura canônica de manifestos**: quem precisa descobrir manifestos na máquina (o
+`${FLUX_CMD}map`, o índice) aponta para ela, não a reescreve. Quatro propriedades não são opcionais:
+
+- **Segue symlink (`-L`).** É comum o `.claude/` de um workspace, ou o próprio diretório do workspace,
+  ser um symlink para dentro de um repositório de dotfiles. Sem `-L` o `find` não desce nele, o
+  manifesto não aparece, e o elo cai em perfil genérico com o manifesto certo a um symlink de
+  distância. Com `-L`, `-maxdepth` conta pelo caminho percorrido, não pelo destino, e um ciclo de
+  symlink só produz o aviso de loop do `find`, que o `2>/dev/null` descarta.
+- **Dedup por caminho real.** O mesmo manifesto alcançado por dois caminhos é **um** candidato, não
+  dois: a chave é o `readlink -f`, e o caminho emitido é o primeiro em que ele foi achado. Sem isso,
+  um manifesto só reivindica o slug duas vezes e o passo abaixo pergunta ao usuário entre ele e ele
+  mesmo. É o mesmo critério da CLI (`scanForManifests`, em `cli/src/resolve.ts`). **Sem
+  `readlink -f`** (sistema antigo, ou o comando falhou), a chave cai para o próprio caminho
+  percorrido: a varredura deixa de deduplicar e erra para o lado seguro, uma pergunta a mais ao
+  usuário, nunca a fusão de manifestos distintos numa chave vazia.
+- **Poda dos diretórios pesados, em dois grupos.** Os genéricos (`.git`, `node_modules`, `.cache`,
+  `.npm`, `.yarn`) são podados em qualquer nível, por `-name`. Os diretórios do sistema do usuário
+  (`Library`, `Applications`, `Pictures`, `Movies`, `Music`, `.Trash`, `go`, `.local`) são podados
+  **só no topo do `$HOME`**, por `-path "$HOME/<nome>"`: podá-los por nome em qualquer nível esconderia
+  um repositório legítimo chamado `go` (`~/www/go/.claude/`) ou um manifesto sob um `.local` aninhado
+  (`~/x/.local/y/.claude/`). Com `-L`, o `-path` casa o caminho percorrido, não o destino do symlink.
+  Os dois grupos são os mesmos que a CLI pula (o segundo só quando o diretório-pai é a raiz da
+  varredura), e `scripts/check-prune-parity.sh` falha o CI quando divergem. Seguir symlink sem podar
+  transforma a varredura numa descida por caches e bibliotecas do sistema.
+- **Profundidade igual à da CLI.** `-maxdepth 6` conta o próprio arquivo: o manifesto de um diretório
+  até quatro níveis abaixo do `$HOME` (`<dir>/.claude/flux-context.json`), que é exatamente o alcance
+  do `scanForManifests`.
 
 Um manifesto **reivindica** o slug quando ele aparece no campo `repos`, ou quando existe
 `<workspace_root>/<slug>/.git`. Então:
@@ -248,9 +285,9 @@ com o reviewer de outro time sem que nada acuse o problema.
   Ausente → `LINEAR_API_KEY`; não existindo essa variável, o degrau 1 abre o gate de token ausente de
   `${FLUX_ROOT}/shared/api-first.md`, que pergunta e nunca cai em MCP em silêncio. Não é falha: é o
   caminho default de quem nunca configurou chave.
-- `secrets_file` — arquivo de secrets da máquina, no formato `KEY=value` (sem `export`, uma chave por
-  linha, comentários com `#`), consultado quando a variável nomeada por um campo `*_token_env` não
-  está no ambiente. Default `~/.secrets`. Existe porque **a sessão de um subagente não herda o que foi
+- `secrets_file` — arquivo de secrets da máquina (formato aceito e receita de leitura em
+  `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token"), consultado quando a variável nomeada por
+  um campo `*_token_env` não está no ambiente. Default `~/.secrets`. Existe porque **a sessão de um subagente não herda o que foi
   exportado interativamente no shell do usuário**: sem ler o arquivo, todo elo que roda em fan-out
   concluiria "sem token" numa máquina que tem token. O bloco `quality_gate` aceita um `secrets_file`
   próprio, que **vence** este para aquele bloco — um cofre separado para o token do gate externo é
@@ -290,8 +327,8 @@ com o reviewer de outro time sem que nada acuse o problema.
   `<vault_root>/<vault_context>` acerta por coincidência até o dia em que os dois divergem. Ausente →
   o elo assume um vault sem separação por contexto e usa `vault_root` também como raiz de leitura.
 - `workspace_root` — raiz onde os checkouts dos repos vivem, usada por
-  `flux:land` pra resolver checkouts cross-repo. Sem o campo, assume o diretório pai do `.claude/`
-  onde o manifesto foi encontrado.
+  `flux:land` pra resolver checkouts cross-repo. Sem o campo, assume o pai do diretório
+  (`.claude/` ou `.cursor/`) onde o manifesto foi encontrado.
 - `linear_org` — org do Linear, usada por `flux:issue` pra montar URLs de ticket
   (`https://linear.app/{linear_org}/issue/...`) e pelo doc apontado em `linear_ops` no roteamento de team.
 - `tracker_repo_map` — opcional. Mapa `{ "<projeto ou time do tracker>": "<slug de repo>" }`, terceira e
@@ -404,7 +441,7 @@ com o reviewer de outro time sem que nada acuse o problema.
     `specialists_root` já faz. **Ausente = sem chave de projeto = sem consulta.**
   - `token_env`: nome da variável com o token. Default `SONAR_TOKEN`.
   - `secrets_file`: arquivo de secrets a ler quando a variável não estiver no ambiente.
-    Default `~/.secrets`. Formato `KEY=value`, sem `export`, uma chave por linha.
+    Default `~/.secrets`. Formato em `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token".
 
 ## Perfil genérico (sem manifesto)
 
@@ -417,7 +454,9 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
 - `doc_reviewer` = o mesmo genérico, em modo doc.
 - `answerer` = o próprio `flux:iterate --dry` sem agente dedicado.
 - `specialists_root` = override local do repo: `<repo-checkout>/.claude/agents/reviewer.md` ou
-  `<repo-checkout>/.claude/agents/review/*.md`. Sem isso → só holístico (fallback gracioso).
+  `<repo-checkout>/.claude/agents/review/*.md`, e depois `<repo-checkout>/.cursor/agents/reviewer.md`
+  ou `<repo-checkout>/.cursor/agents/review/*.md`, na mesma ordem `.claude/` antes de `.cursor/` do
+  override do preflight (Passo 3). Sem isso → só holístico (fallback gracioso).
 - `kits_root` = ausente; a cascata de destino cai no degrau que pergunta.
 - `kits` = ausente; a descoberta de kits sobra com os irmãos de `${FLUX_ROOT}` (Passo 1d do preflight),
   que é justamente o caminho de quem instalou um kit como plugin sem declarar manifesto nenhum. Não

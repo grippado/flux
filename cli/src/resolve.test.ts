@@ -98,6 +98,20 @@ describe("resolve: .claude vence .cursor no mesmo nivel", () => {
   });
 });
 
+describe("resolve: nivel mais fundo vence o diretorio", () => {
+  it(".cursor mais fundo vence .claude mais raso", async () => {
+    makeManifest(tmpDir, ".claude", { name: "claude-raso" });
+    const deep = join(tmpDir, "repo");
+    mkdirSync(deep, { recursive: true });
+    makeManifest(deep, ".cursor", { name: "cursor-fundo" });
+
+    const ctx = await resolveContext({ cwd: deep });
+
+    expect(ctx.profile).toBe("cursor-fundo");
+    expect(ctx.manifest_path).toBe(join(deep, ".cursor", "flux-context.json"));
+  });
+});
+
 describe("resolve: perfil generico sem manifesto", () => {
   it("retorna perfil generico quando nao ha manifesto", async () => {
     const isolatedDir = mkdtempSync(join(tmpdir(), "flux-isolated-"));

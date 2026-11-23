@@ -134,7 +134,7 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    rodado de qualquer lugar tem que achar o perfil do workspace onde `backoffice-bff` vive.
 
 2. Se encontrar (perfil declarado), extrair:
-   - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o diretório pai do `.claude/` onde o manifesto foi achado)
+   - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o pai do diretório (`.claude/` ou `.cursor/`) onde o manifesto foi achado)
    - `REPOS` = `repos` (lista de repos conhecidos, usada para validar e sugerir)
    - `EXEC_COMMAND` = `exec_command` se presente, senão `workflow` (nome do comando nativo de execução dos repos deste contexto)
    - `EXEC_FALLBACK` = `exec_fallback` se presente, escalar **ou** mapa por repo; **sem default**

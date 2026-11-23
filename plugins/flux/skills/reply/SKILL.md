@@ -45,13 +45,18 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:reply` 
 
 ## Step 0-context: resolver perfil (leve)
 
-Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md` — procurar `flux-context.json` em `.claude/` subindo a árvore a partir do `cwd`. Extrair apenas:
+Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Neste elo a **âncora é o `cwd`**: o alvo do
+reply é um permalink do Slack ou um alias do `slack_directory`, e nenhum dos dois é âncora (o que conta
+como âncora está na seção "Qual é a âncora" de `${FLUX_ROOT}/shared/flux-context.md`); o alias, além
+disso, só resolve depois do manifesto, porque `SLACK_DIR` vem dele. Com a âncora no `cwd`,
+procurar `flux-context.json` subindo a árvore a partir dela, na ordem da seção "O manifesto" de
+`${FLUX_ROOT}/shared/flux-context.md` (em cada nível, `.claude/` antes de `.cursor/`; o nível mais fundo vence, qualquer que seja o diretório que o abriga). Extrair apenas:
 
 - `VAULT_ROOT` = `vault_root` (onde persistir o board e o sidecar de watch)
 - `VAULT_CTX` = `vault_context` (campo `context:` no frontmatter do board)
 - `NO_EMDASH` = `no_emdash` (regra de travessão em textos externos)
 - `REPOS` = `repos` (repos conhecidos do contexto, para resolver checkouts locais)
-- `WORKSPACE_ROOT` = pai do diretório `.claude/` onde o manifesto foi encontrado; sem manifesto: `pwd`
+- `WORKSPACE_ROOT` = `workspace_root`; sem o campo, o pai do diretório (`.claude/` ou `.cursor/`) onde o manifesto foi encontrado; sem manifesto: `pwd`
 - `PROSPECTOR` = `slack_prospector` do manifesto; sem o campo: `general-purpose`
 - `ANSWERER` = `slack_answerer` do manifesto; sem o campo: `general-purpose`
 - `MCP_SLACK` = `mcp.slack` do manifesto; sem o campo: descobrir a capacidade na sessão (ver "Validar ambiente")

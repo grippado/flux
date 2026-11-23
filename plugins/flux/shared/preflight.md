@@ -417,9 +417,10 @@ se um `subagent_type` está registrado**. Não existe `command -v` para agente. 
 de agentes que o harness injeta no contexto da sessão, o que faz desta verificação uma
 **introspecção**, não uma medição. Duas consequências, e todo o resto do contrato depende das duas.
 
-**Achar o arquivo responde outra pergunta.** Um `ls` em `.claude/agents/` diz que alguém escreveu um
-agente, não que este processo consegue invocá-lo. Quem confunde as duas produz a falha do `1a-bis`:
-lente listada no banner e nunca executada.
+**Achar o arquivo responde outra pergunta.** Listar `.claude/agents/` (pelo comando canônico de
+descoberta de agents, no 1b de `${FLUX_ROOT}/shared/review-agents.md`, que segue symlink) diz que
+alguém escreveu um agente, não que este processo consegue invocá-lo. Quem confunde as duas produz a
+falha do `1a-bis`: lente listada no banner e nunca executada.
 
 **A lista é da sessão, e a sessão do subagente não é a sua.** Um subagente pode receber um conjunto
 diferente de agentes registrados, então uma verificação feita lá dentro não é comparável com a feita
@@ -495,7 +496,7 @@ que o banner precisa ser.
 | `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4, 5 ou 6 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
 | `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) e no OpenCode quando o nome não está registrado na sessão (`${FLUX_ROOT}/shared/opencode-compat.md`) |
 | `harness nao verificavel` | `HARNESS = unknown`: nenhum marcador identifica um único harness depois da precedência (marcadores ausentes ou em conflito) — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
-| `transporte mcp` | um canal com dois caminhos (`${FLUX_ROOT}/shared/api-first.md`) foi servido pelo MCP em vez da API — sai com o canal e o motivo em grafia fixa: `transporte mcp (linear: sem token \| token nao autentica \| alvo nao enxergado \| canario falhou \| leitura falhou \| opt-out)`. Caminho por API não gera token: é o default, e declarar o default é ruído | o elo que aplicou o contrato (`issue`, `build`, `land`) |
+| `transporte mcp` | um canal com dois caminhos (`${FLUX_ROOT}/shared/api-first.md`) foi servido pelo MCP em vez da API — sai com o canal e o motivo em grafia fixa: `transporte mcp (linear: sem token \| token nao autentica \| token mal formatado \| alvo nao enxergado \| canario falhou \| leitura falhou \| opt-out)`. `token mal formatado` substitui `token nao autentica` quando a conferência de "Ler o token" acusa aspas ou espaço em volta do valor. Caminho por API não gera token: é o default, e declarar o default é ruído | o elo que aplicou o contrato (`issue`, `build`, `land`) |
 | `versao ilegivel` | `FLUX_VERSION = unknown`: nenhum dos três manifests (`plugin.json`) existe, ou o primeiro que existe está ilegível ou sem o campo `version` — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
 | `chain interrompido` | um elo do chain parou por falha, ou deixou decisão sem resposta, e os elos seguintes **não rodaram** — sai com o elo e o motivo, e acompanha o bloco de estado do chain. Usuário que escolhe a saída inócua de um gate **não** gera este token: é decisão, não interrupção | o `flux:chain` (`${FLUX_ROOT}/shared/chain.md`, "Falha no meio") |
 | `pergunta estruturada ausente` | o GATE caiu no menu numerado de `${FLUX_ROOT}/shared/hitl.md` por uma das condições que o adaptador do harness marca como geradoras do token, em "Perguntas ao usuário" de `${FLUX_ROOT}/shared/codex-compat.md` ou de `${FLUX_ROOT}/shared/opencode-compat.md`; sai sem motivo adicional. Chamada recusada, menu que não coube na ferramenta e sessão headless não geram token: o numerado ali é o contrato, não ausência | o elo que apresenta o gate (`${FLUX_ROOT}/shared/codex-compat.md` ou `${FLUX_ROOT}/shared/opencode-compat.md`, "Perguntas ao usuário") |
