@@ -457,7 +457,7 @@ que o banner precisa ser.
 
 | token | quando | quem emite |
 |-------|--------|-----------|
-| `L3 stale` | a lente L3 roda por espelho (degrau 1 da escada) e a origem mudou desde `synced_from_sha256` | o elo que resolveu as lentes |
+| `L3 stale` | a lente L3 roda por espelho (degrau 1 da escada) e a origem mudou desde `synced_from_sha256`, com o hash atual da origem recalculado pela receita do hash do conjunto (1b do `${FLUX_ROOT}/shared/review-agents.md`) | o elo que resolveu as lentes |
 | `indice ausente` | não há `flux-agents.json` na raiz de agents | idem |
 | `indice stale` | há índice, e ele não passou o teste de frescor | idem |
 | `kit ambiguo` | N kits, **já filtrados por `provides`** (a contagem é sempre depois do filtro), casaram com o mesmo repo, **e o degrau que ia escolher entre eles foi de fato alcançado** — ambiguidade só é acionável para quem ia escolher, e a cascata de L2 para no primeiro degrau que existir. Sai com a lista dos candidatos (`${FLUX_ROOT}/shared/kit-format.md`) | o elo que **consome** `KIT_ROOTS`: hoje, só o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), na leitura. **Na escrita: não implementado** (LAB-71) |

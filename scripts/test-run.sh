@@ -644,7 +644,7 @@ ah_tree() {
     AH_DIR="$WORK/ah-$1"
     mkdir -p "$AH_DIR/scripts" "$AH_DIR/plugins/flux/shared" "$AH_DIR/plugins/flux/skills/map" "$AH_DIR/plugins/flux/skills/equip"
     cp "$AH_SRC" "$AH_DIR/scripts/check-agents-hash.sh"
-    cp "$AH_PLUGIN/shared/review-agents.md" "$AH_PLUGIN/shared/agents-index.md" "$AH_DIR/plugins/flux/shared/"
+    cp "$AH_PLUGIN/shared/review-agents.md" "$AH_PLUGIN/shared/agents-index.md" "$AH_PLUGIN/shared/preflight.md" "$AH_DIR/plugins/flux/shared/"
     cp "$AH_PLUGIN/skills/map/SKILL.md" "$AH_DIR/plugins/flux/skills/map/SKILL.md"
     cp "$AH_PLUGIN/skills/equip/SKILL.md" "$AH_DIR/plugins/flux/skills/equip/SKILL.md"
 }
@@ -678,6 +678,21 @@ t_has "map aponta o arquivo" "map/SKILL.md:0" "$AH_DIR/out.txt"
 ah_tree equip
 ah_strip skills/equip/SKILL.md 'calculado pela receita do hash do conjunto'
 t_eq "equip sem o ponteiro falha" "1" "$(ah_run)"
+
+ah_tree map-stale
+ah_strip skills/map/SKILL.md 'espelho L3 defasado'
+t_eq "map sem o ponteiro no espelho defasado falha" "1" "$(ah_run)"
+t_has "espelho defasado aponta o map" "map/SKILL.md:0: esperava 1 parágrafo(s) com synced_from_sha256" "$AH_DIR/out.txt"
+
+ah_tree equip-4c
+ah_strip skills/equip/SKILL.md 'com o `l3.dir_sha256` recalculado'
+t_eq "equip sem o ponteiro no Step 4c falha" "1" "$(ah_run)"
+t_has "Step 4c aponta o equip" "equip/SKILL.md:0: esperava 1 parágrafo(s) com dir_sha256" "$AH_DIR/out.txt"
+
+ah_tree preflight
+ah_strip shared/preflight.md '| `L3 stale` |'
+t_eq "preflight sem o ponteiro no L3 stale falha" "1" "$(ah_run)"
+t_has "L3 stale aponta o preflight" "preflight.md:0" "$AH_DIR/out.txt"
 
 ah_tree sem-receita
 awk '/^\*\*Receita do hash do conjunto\.\*\*/ { skip = 1 } skip && /^```$/ { if (++fence == 2) { skip = 0; next } } !skip' "$AH_PLUGIN/shared/review-agents.md" > "$AH_DIR/plugins/flux/shared/review-agents.md"

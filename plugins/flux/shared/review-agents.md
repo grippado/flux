@@ -306,8 +306,8 @@ do usuário, e passa pelo gate de destino (`${FLUX_ROOT}/shared/write-destinatio
 
 ### 1b — L3, specialists do repo
 
-Varrer `<repo-checkout>/.claude/agents/**.md` e **filtrar por intenção de review**. A varredura é
-feita com o **comando canônico de descoberta de agents**, que vale para toda raiz de agents que a
+Varrer `<repo-checkout>/.claude/agents/` com o **comando canônico de descoberta de agents** abaixo e
+**filtrar por intenção de review**. O comando vale para toda raiz de agents que a
 família lista em disco (o diretório de agents do repo, a raiz de agents do usuário, uma suite curada,
 um espelho):
 
@@ -352,7 +352,7 @@ fi
 ```
 
 Cada linha da lista é o hash de um arquivo seguido do path, e o hash à esquerda é o `sha256` daquele
-agent no índice. Path relativo é o que deixa o hash igual entre máquinas e entre a origem e um clone;
+arquivo. Path relativo é o que deixa o hash igual entre máquinas e entre a origem e um clone;
 o `-L` é o que faz um agent exposto por symlink mudar o hash quando o arquivo de destino muda, em vez
 de um espelho velho passar por fresco. O `CDPATH=''` e o `> /dev/null` impedem que um `CDPATH`
 exportado faça o `cd` imprimir o diretório dentro da lista e mudar o hash da mesma árvore.

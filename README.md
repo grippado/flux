@@ -511,7 +511,7 @@ scripts/check-manifests.sh            # version e name iguais nos cinco manifest
 scripts/check-codex-agent-contract.sh # o adaptador Codex continua descrito nos shared/
 scripts/check-prune-parity.sh         # poda da varredura de manifestos igual no flux-context.md e na CLI; roda em CI
 scripts/check-context-ascent.sh       # todo verbo sobe a árvore por .claude/ e .cursor/ (ou aponta para o shared)
-scripts/check-agents-hash.sh          # receita do hash do conjunto de agents no 1b do review-agents.md, e agents-index, map e equip apontam para ela
+scripts/check-agents-hash.sh          # receita do hash do conjunto de agents no 1b do review-agents.md, e agents-index, map, equip e preflight apontam para ela
 shellcheck plugins/flux/scripts/*.sh  # recomendado ao tocar em scripts (ver "Scripts auxiliares")
 scripts/test-iterate-watch-gate.sh    # ao tocar em iterate-watch-gate.sh: gh e sleep falsos, sem rede e sem espera
 scripts/test-run.sh                   # writer do run (run.sh): schema, permissões, recusa de path absoluto; roda em CI
@@ -535,7 +535,7 @@ uma redação nova pode escapar dele e um texto legítimo pode acendê-lo. Para 
 que contiver `<!-- context-ascent: ignore -->` sai da avaliação das regras de lista e de parágrafo (o
 marcador some na renderização do Markdown; a vigia do `flux-context.md` não o aceita); use com parcimônia e prefira reescrever o texto. O `check-agents-hash.sh` é o canário do hash do
 conjunto de agents: falha se o 1b do `review-agents.md` perder a receita, se o `find` dela divergir do
-comando canônico de descoberta, se `agents-index.md`, `map` ou `equip` deixarem de apontar para ela, ou
+comando canônico de descoberta, se `agents-index.md`, `preflight.md` (token `L3 stale`), `map` ou `equip` deixarem de apontar para ela, ou
 se algum outro arquivo do plugin parafrasear a descoberta (`**.md`) ou improvisar um `sha256sum`/`shasum`;
 o `test-run.sh` executa a receita contra symlink de arquivo e de diretório. Esses scripts
 rodam em CI

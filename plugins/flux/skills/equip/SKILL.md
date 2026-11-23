@@ -410,7 +410,8 @@ Nesse modo, devolver os fatos no contrato de retorno e deixar a reconciliação 
 igual, com o contrato de destino inteiro valendo.
 
 Invocado direto, sem `--from-map`: ao equipar um repo (Steps 4, 4b e 5), **atualizar a entrada dele**
-no `flux-agents.json` e recomputar `collisions`.
+no `flux-agents.json`, com o `l3.dir_sha256` recalculado pela receita do hash do conjunto (1b do
+`${FLUX_ROOT}/shared/review-agents.md`), e recomputar `collisions`.
 
 ### Arquivo existente sob `--from-map`
 

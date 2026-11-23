@@ -78,8 +78,11 @@ while read -r rel term min; do
     fi
 done <<'TARGETS'
 shared/agents-index.md dir_sha256 2
-skills/map/SKILL.md sha256 1
+skills/map/SKILL.md dir_sha256 1
+skills/map/SKILL.md synced_from_sha256 1
 skills/equip/SKILL.md synced_from_sha256 1
+skills/equip/SKILL.md dir_sha256 1
+shared/preflight.md synced_from_sha256 1
 TARGETS
 
 shopt -s nullglob
@@ -100,4 +103,4 @@ if [ "$fail" -ne 0 ]; then
     exit 1
 fi
 
-echo "check-agents-hash: receita do hash no 1b derivada do comando canônico; agents-index, map e equip apontam para ela."
+echo "check-agents-hash: receita do hash no 1b derivada do comando canônico; agents-index, map, equip e preflight apontam para ela."

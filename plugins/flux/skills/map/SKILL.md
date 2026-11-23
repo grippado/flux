@@ -233,7 +233,7 @@ O corpo tem três seções, e **a terceira é a razão de o verbo existir**:
 |---|---|
 | repo com `L2 ausente` | `${FLUX_CMD}equip <slug> --agents-only` |
 | repo com `L3` presente e inalcançável | o degrau aplicável da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) |
-| espelho L3 defasado (`synced_from_sha256` ≠ atual) | `${FLUX_CMD}equip <slug> --expose-l3` |
+| espelho L3 defasado (`synced_from_sha256` ≠ atual, recalculado pela receita do hash do conjunto, 1b do `${FLUX_ROOT}/shared/review-agents.md`) | `${FLUX_CMD}equip <slug> --expose-l3` |
 | colisão de `name:` entre suites | a remediação da terceira causa do 1a-bis (`${FLUX_ROOT}/shared/review-agents.md`) |
 | manifesto declarando repo sem checkout local | clonar, ou remover do `repos` — dizer as duas, não escolher |
 | agent sem `name:` no frontmatter | apontar o arquivo; por que ele não é invocável está no item 2 do 1a-bis |
