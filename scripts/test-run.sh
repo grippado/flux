@@ -440,6 +440,49 @@ echo "# nenhum dado bruto no run"
 t_true "nenhum arquivo do run cita o diretório de trabalho" '! grep -rqF "$WORK" "$RUN_DIR"'
 t_true "nenhum arquivo do run cita HOME do usuário" '! grep -rqF "$HOME" "$RUN_DIR"'
 
+echo "# receita de leitura do token (api-first.md, Ler o token)"
+API_FIRST="$HERE/../plugins/flux/shared/api-first.md"
+RECIPE="$WORK/token-recipe.sh"
+awk '/^## Ler o token$/ { sec = 1; next } sec && /^```bash$/ { inb = 1; next } inb && /^```$/ { exit } inb { print }' "$API_FIRST" > "$RECIPE"
+t_true "receita extraída de api-first.md" '[ -s "$RECIPE" ]'
+t_true "receita lê o ambiente antes do arquivo" 'grep -q "printenv" "$RECIPE"'
+SECRETS="$WORK/secrets"
+cat > "$SECRETS" << 'SECRETS_EOF'
+# comentario
+FLUX_T_DUPLA="fake-dupla"
+FLUX_T_SIMPLES='fake-simples'
+export FLUX_T_EXPORT="fake-export"
+FLUX_T_CRU=fake-cru
+  export   FLUX_T_ESPACO='fake espaco'  
+FLUX_T_REPETIDA="fake-velha"
+FLUX_T_REPETIDA="fake-nova"
+FLUX_T_PREFIXO_LONGO="fake-longo"
+FLUX_T_MISTA="fake'
+SECRETS_EOF
+printf 'FLUX_T_CRLF="fake-crlf"\r\n' >> "$SECRETS"
+read_token() {
+    env -u "$1" TOKEN_VAR="$1" SECRETS_FILE="$2" "${3:-$BASH_ABS}" -c ". \"$RECIPE\"; printf '%s' \"\$TOKEN\""
+}
+t_eq "VAR=\"valor\" devolve o valor cru" "fake-dupla" "$(read_token FLUX_T_DUPLA "$SECRETS")"
+t_eq "VAR='valor' devolve o valor cru" "fake-simples" "$(read_token FLUX_T_SIMPLES "$SECRETS")"
+t_eq "export VAR=\"valor\" devolve o valor cru" "fake-export" "$(read_token FLUX_T_EXPORT "$SECRETS")"
+t_eq "VAR=valor devolve o valor cru" "fake-cru" "$(read_token FLUX_T_CRU "$SECRETS")"
+t_eq "espaço em volta da linha não entra no valor" "fake espaco" "$(read_token FLUX_T_ESPACO "$SECRETS")"
+t_eq "CRLF no fim da linha não entra no valor" "fake-crlf" "$(read_token FLUX_T_CRLF "$SECRETS")"
+t_eq "chave repetida: vale a última" "fake-nova" "$(read_token FLUX_T_REPETIDA "$SECRETS")"
+t_eq "nome não casa com prefixo de outro nome" "" "$(read_token FLUX_T_PREFIXO "$SECRETS")"
+t_eq "aspas desparelhadas ficam no valor" "\"fake'" "$(read_token FLUX_T_MISTA "$SECRETS")"
+t_eq "variável ausente devolve vazio" "" "$(read_token FLUX_T_NAO_EXISTE "$SECRETS")"
+t_eq "arquivo ausente devolve vazio" "" "$(read_token FLUX_T_CRU "$WORK/nao-existe")"
+t_eq "ambiente vence o arquivo" "fake-env" "$(FLUX_T_CRU=fake-env TOKEN_VAR=FLUX_T_CRU SECRETS_FILE="$SECRETS" "$BASH_ABS" -c ". \"$RECIPE\"; printf '%s' \"\$TOKEN\"")"
+cp "$SECRETS" "$WORK/.secrets-home"
+t_eq "secrets_file com ~/ expande para HOME" "fake-dupla" "$(HOME="$WORK" read_token FLUX_T_DUPLA \~/.secrets-home)"
+t_eq "receita roda em sh POSIX" "fake-export" "$(read_token FLUX_T_EXPORT "$SECRETS" sh)"
+if command -v shellcheck > /dev/null 2>&1; then
+    shellcheck -s sh -e SC2148,SC2154 "$RECIPE" > "$WORK/sc-recipe.txt" 2>&1
+    t_eq "shellcheck limpo na receita" "0" "$?"
+fi
+
 echo "# shellcheck"
 if command -v shellcheck > /dev/null 2>&1; then
     shellcheck "$RUN_SH" > "$WORK/sc.txt" 2>&1

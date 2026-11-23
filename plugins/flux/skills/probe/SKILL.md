@@ -214,9 +214,11 @@ sentry auth status                                       # identidade e orgs alc
 
 **Observabilidade:**
 
+Token pela receita de `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token", com `TOKEN_VAR` =
+`TOKEN_ENV` e o `SECRETS_FILE` do perfil (ambiente primeiro, arquivo depois, valor nunca impresso):
+
 ```bash
-DD=$(grep "^${TOKEN_ENV}=" "${SECRETS_FILE}" | cut -d= -f2-)      # nunca ecoar o valor
-curl -s -H "Authorization: Bearer $DD" "https://api.${SITE}/api/v2/current_user"
+curl -s -H "Authorization: Bearer $TOKEN" "https://api.${SITE}/api/v2/current_user"
 ```
 
 - **Autenticação é `Authorization: Bearer`** com o token de usuário, não os headers de chave de org. E

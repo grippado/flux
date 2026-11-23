@@ -27,8 +27,9 @@ finge que há (tabela de canais).
 Para no primeiro "não". Cada degrau que falha tem um destino declarado.
 
 1. **Existe token?** O nome da variável vem do manifesto (`<canal>_token_env`); o valor vem do ambiente
-   e, faltando lá, do `secrets_file` (default `~/.secrets`, `KEY=value`). Regras de manuseio em
-   `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do token". Ausente nos dois: **gate de
+   e, faltando lá, do `secrets_file` (default `~/.secrets`), lidos pela receita de "Ler o token"
+   (abaixo). Regras de manuseio em `${FLUX_ROOT}/shared/quality-gate-api.md`, seção "Resolução do
+   token". Ausente nos dois: **gate de
    token ausente** (abaixo). **Nunca cai para MCP em silêncio.**
 2. **O token autentica?** Uma query barata de identidade (`{ viewer { id name } }` no Linear). Status diferente de `200` **ou payload com `errors`**: MCP, porque GraphQL costuma devolver falha de auth com `200`. Na leitura, este degrau e o seguinte se fundem na própria query de leitura, que prova as duas coisas em um request só.
 3. **O token enxerga o alvo?** Para leitura, a própria query de leitura é a sonda: alvo nulo ou erro de
@@ -115,20 +116,63 @@ não é hardcoded no corpo de nenhum elo, porque quem tem dois workspaces tem du
 
 Uma linha "adotado" só existe quando o corpo do elo cita este arquivo.
 
+## Ler o token
+
+Receita única de leitura de token para qualquer canal e qualquer elo, inclusive os que não sobem a
+escada: o gate externo (`${FLUX_ROOT}/shared/quality-gate-api.md`) e a observabilidade do `probe` e do
+`datadog-prospector` leem a chave daqui. Citar esta seção não é adotar a escada; a tabela "Quem adota"
+continua listando só quem aplica os degraus.
+
+Entradas: `TOKEN_VAR`, o **nome** da variável (campo `*_token_env` ou `token_env` do manifesto), e
+`SECRETS_FILE`. Saída: `TOKEN` com o valor cru. Ordem fixa: ambiente primeiro, `secrets_file` depois.
+
+```bash
+TOKEN=$(printenv "$TOKEN_VAR")
+case $SECRETS_FILE in \~/*) SECRETS_FILE="$HOME/${SECRETS_FILE#\~/}" ;; esac
+[ -z "$TOKEN" ] && TOKEN=$(sed -n "s/^[[:space:]]*\(export[[:space:]]\{1,\}\)\{0,1\}${TOKEN_VAR}=//p" "$SECRETS_FILE" 2>/dev/null | tail -n 1 | sed -e 's/[[:space:]]*$//' -e 's/^\(["'\'']\)\(.*\)\1$/\2/')
+```
+
+**Formato aceito no `secrets_file`**, uma chave por linha, linhas com `#` ignoradas:
+
+- `VAR=valor`, `VAR="valor"` e `VAR='valor'`: um par de aspas simples ou duplas em volta do valor sai
+  na leitura. É o formato que `source` entende, e no ambiente o valor já chega cru;
+- `export VAR=...`: o `export` no começo da linha é aceito e ignorado;
+- chave repetida: vale a última linha, como no `source`.
+
+Fora do formato: escape dentro das aspas, comentário depois do valor e valor em mais de uma linha. A
+receita não expande `$` nem `~` no valor. Ela é POSIX (`sed` básico, sem `-E`, sem `grep -P`) e roda
+igual em BSD e GNU; `scripts/test-run.sh` executa este bloco contra os formatos acima.
+
+**Nunca imprimir o valor.** Para diagnosticar, só o comprimento (`${#TOKEN}`) ou um predicado.
+
+**Autenticação recusada com token lido do arquivo** (401, ou `errors` de autenticação no GraphQL): antes de
+dizer que a chave é inválida, conferir, sem imprimir, se o valor ainda tem aspas ou espaço em volta:
+
+```bash
+case $TOKEN in \"*|*\"|\'*|*\'|[[:space:]]*|*[[:space:]]) TOKEN_SUSPEITO=1 ;; *) TOKEN_SUSPEITO=0 ;; esac
+```
+
+Com `TOKEN_SUSPEITO=1`, o banner diz que o valor lido tem aspas ou espaço em volta e aponta a linha
+do `secrets_file` pelo nome da variável. Num canal da escada, o motivo é `token com aspas` em vez de
+`token nao autentica` (grafia em `${FLUX_ROOT}/shared/preflight.md`, Passo 5). Fora da escada, a mesma
+frase vai na mensagem de degradação ou de aborto da fonte.
+
+**Token exposto durante a sessão** (o valor apareceu em saída de comando, log, board ou chat): avisar
+**uma vez**, recomendar a rotação da chave no serviço e seguir. A exposição não bloqueia o uso nem abre
+gate: o consentimento do usuário para seguir vale para o resto da execução, sem nova pergunta. A
+leitura continua na ordem normal (ambiente, depois arquivo), e a cópia do ambiente não é tratada como
+diferente da do arquivo: as duas são o mesmo segredo. Rotacionar é ação do usuário, nunca do elo.
+
 ## O canal Linear
 
 **Criar a chave:** `https://linear.app/settings/account/security` (Settings, Security & access, Personal
 API keys), com um label que identifique a máquina e o verbo (`flux-<verbo>-<hostname>`). No
-`secrets_file`, uma linha `<TOKEN_VAR>=<valor>`, sem `export`.
+`secrets_file`, uma linha `<TOKEN_VAR>=<valor>`, com ou sem aspas em volta do valor (formato em "Ler o
+token", acima).
 
-Autenticação por header, sem prefixo `Bearer` (a chave pessoal do Linear vai crua):
-
-```bash
-TOKEN_VAR="${LINEAR_TOKEN_ENV:-LINEAR_API_KEY}"      # linear_token_env do manifesto
-SECRETS_FILE="${SECRETS_FILE:-$HOME/.secrets}"       # secrets_file do manifesto
-TOKEN=$(printenv "$TOKEN_VAR")
-[ -z "$TOKEN" ] && TOKEN=$(grep -E "^${TOKEN_VAR}=" "$SECRETS_FILE" 2>/dev/null | cut -d= -f2-)
-```
+`TOKEN_VAR` = `linear_token_env` do manifesto (default `LINEAR_API_KEY`) e `SECRETS_FILE` =
+`secrets_file` (default `~/.secrets`); o valor sai da receita de "Ler o token". Autenticação por header,
+sem prefixo `Bearer` (a chave pessoal do Linear vai crua).
 
 **Leitura de ticket, um request.** Aceita o identificador (`ENG-123`); a URL é reduzida ao
 identificador antes:

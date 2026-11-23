@@ -285,8 +285,9 @@ com o reviewer de outro time sem que nada acuse o problema.
   Ausente → `LINEAR_API_KEY`; não existindo essa variável, o degrau 1 abre o gate de token ausente de
   `${FLUX_ROOT}/shared/api-first.md`, que pergunta e nunca cai em MCP em silêncio. Não é falha: é o
   caminho default de quem nunca configurou chave.
-- `secrets_file` — arquivo de secrets da máquina, no formato `KEY=value` (sem `export`, uma chave por
-  linha, comentários com `#`), consultado quando a variável nomeada por um campo `*_token_env` não
+- `secrets_file` — arquivo de secrets da máquina, uma chave por linha (`KEY=value`, valor com ou sem
+  aspas, `export` opcional, comentários com `#`; formato e receita de leitura em
+  `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token"), consultado quando a variável nomeada por um campo `*_token_env` não
   está no ambiente. Default `~/.secrets`. Existe porque **a sessão de um subagente não herda o que foi
   exportado interativamente no shell do usuário**: sem ler o arquivo, todo elo que roda em fan-out
   concluiria "sem token" numa máquina que tem token. O bloco `quality_gate` aceita um `secrets_file`
@@ -441,7 +442,7 @@ com o reviewer de outro time sem que nada acuse o problema.
     `specialists_root` já faz. **Ausente = sem chave de projeto = sem consulta.**
   - `token_env`: nome da variável com o token. Default `SONAR_TOKEN`.
   - `secrets_file`: arquivo de secrets a ler quando a variável não estiver no ambiente.
-    Default `~/.secrets`. Formato `KEY=value`, sem `export`, uma chave por linha.
+    Default `~/.secrets`. Formato em `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token".
 
 ## Perfil genérico (sem manifesto)
 

@@ -56,9 +56,12 @@ e às vezes o repo publica vários.
 
 ## Passo 2 — Autenticar pelo caminho que funciona
 
+Ler o token pela receita de `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token", com `TOKEN_VAR` =
+`<TOKEN_ENV>` e `SECRETS_FILE` = `<SECRETS_FILE>`: ambiente primeiro, arquivo depois, aspas tiradas,
+valor nunca impresso.
+
 ```bash
-DD=$(grep '^<TOKEN_ENV>=' <SECRETS_FILE> | cut -d= -f2-)     # nunca ecoe o valor
-curl -s -H "Authorization: Bearer $DD" "https://api.<SITE>/api/v2/current_user"
+curl -s -H "Authorization: Bearer $TOKEN" "https://api.<SITE>/api/v2/current_user"
 ```
 
 Três armadilhas verificadas, e todas parecem falta de acesso sem ser:
