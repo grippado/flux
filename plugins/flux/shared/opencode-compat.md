@@ -182,9 +182,12 @@ do `iterate`.
 `peek` sobre um working tree descartável.** Comprovado:
 
 - o command `/flux/peek` carrega a skill instalada e segue o corpo dela;
-- `FLUX_ROOT` resolve para o checkout do instalador quando o Step 0-cli passa a raiz do verbo à
-  CLI (`${FLUX_ROOT}/shared/step0-cli.md`); sem isso, a heurística da CLI escolheu outra
-  instalação da família na mesma máquina, de outra versão;
+- `FLUX_ROOT` resolve para o checkout do instalador: numa sessão OpenCode (`OPENCODE_SESSION_ID`),
+  a CLI lê o `source` do `.flux-install.json` antes da heurística (`flux_root_source:
+  "opencode-install-manifest"`). Antes disso, a heurística escolheu o plugin do Claude Code
+  instalado na mesma máquina, de outra versão, em quatro sessões seguidas, e instruir o modelo a
+  passar `FLUX_HOME` (pelo Step 0-cli ou pelo command gerado) não resolveu. Uma CLI anterior a esta
+  versão não conhece o manifesto: com ela, exportar o `FLUX_HOME` que o instalador imprime;
 - `HARNESS=opencode`, com o banner saindo `carimbo: opencode | flux:peek@<versão>`;
 - o despacho do holístico pela tool `subagent`, pelo nome `flux-pr-reviewer`, e o retorno do
   parecer para a sessão principal;

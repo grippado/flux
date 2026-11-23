@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { resolveContext } from "./resolve.ts";
+import { resolveContext, resolveFluxRootOpenCode } from "./resolve.ts";
 import { buildPrompt, buildCommand, resolveInvocation } from "./prompt.ts";
 import { resolveHarness, UNKNOWN_HARNESS } from "./harness.ts";
 import { SUPPORTED_VERBS, TICKET_PATTERN, LINEAR_URL_PATTERN } from "./index.ts";
@@ -457,5 +457,54 @@ describe("ticket como alvo: fora da v0", () => {
   it("detecta URL do Linear", () => {
     expect(LINEAR_URL_PATTERN.test("https://linear.app/g-lab-s/issue/LAB-126/foo")).toBe(true);
     expect(LINEAR_URL_PATTERN.test("https://github.com/foo")).toBe(false);
+  });
+});
+
+describe("resolveFluxRootOpenCode: manifesto do instalador do OpenCode", () => {
+  const saved = { session: process.env["OPENCODE_SESSION_ID"], dir: process.env["FLUX_OPENCODE_DIR"] };
+
+  afterEach(() => {
+    if (saved.session === undefined) delete process.env["OPENCODE_SESSION_ID"];
+    else process.env["OPENCODE_SESSION_ID"] = saved.session;
+    if (saved.dir === undefined) delete process.env["FLUX_OPENCODE_DIR"];
+    else process.env["FLUX_OPENCODE_DIR"] = saved.dir;
+  });
+
+  function install(source: string): string {
+    const configDir = join(tmpDir, "opencode");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(join(configDir, ".flux-install.json"), JSON.stringify({ source, skills: [], commands: [], agents: [] }));
+    return configDir;
+  }
+
+  it("usa o source do manifesto numa sessão OpenCode", () => {
+    const root = join(tmpDir, "checkout", "plugins", "flux");
+    mkdirSync(join(root, "shared"), { recursive: true });
+    process.env["FLUX_OPENCODE_DIR"] = install(root);
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    expect(resolveFluxRootOpenCode()).toEqual({ root, source: "opencode-install-manifest" });
+  });
+
+  it("ignora o manifesto fora de sessão OpenCode", () => {
+    const root = join(tmpDir, "checkout", "plugins", "flux");
+    mkdirSync(join(root, "shared"), { recursive: true });
+    process.env["FLUX_OPENCODE_DIR"] = install(root);
+    delete process.env["OPENCODE_SESSION_ID"];
+    expect(resolveFluxRootOpenCode()).toBeNull();
+  });
+
+  it("ignora source que não é uma raiz do flux", () => {
+    process.env["FLUX_OPENCODE_DIR"] = install(join(tmpDir, "nao-existe"));
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    expect(resolveFluxRootOpenCode()).toBeNull();
+  });
+
+  it("ignora manifesto ilegível", () => {
+    const configDir = join(tmpDir, "opencode");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(join(configDir, ".flux-install.json"), "{");
+    process.env["FLUX_OPENCODE_DIR"] = configDir;
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    expect(resolveFluxRootOpenCode()).toBeNull();
   });
 });

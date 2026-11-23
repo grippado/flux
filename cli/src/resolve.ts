@@ -102,6 +102,22 @@ export function resolveFluxRootHeuristic(homeDir?: string): { root: string; sour
   return null;
 }
 
+export function resolveFluxRootOpenCode(homeDir?: string): { root: string; source: string } | null {
+  const session = process.env["OPENCODE_SESSION_ID"];
+  if (!session) return null;
+  const configDir = process.env["FLUX_OPENCODE_DIR"] || join(homeDir ?? homedir(), ".config", "opencode");
+  let data: unknown;
+  try {
+    data = JSON.parse(readFileSync(join(configDir, ".flux-install.json"), "utf-8"));
+  } catch {
+    return null;
+  }
+  if (!data || typeof data !== "object") return null;
+  const source = (data as Record<string, unknown>)["source"];
+  if (typeof source !== "string" || !existsSync(join(source, "shared"))) return null;
+  return { root: source, source: "opencode-install-manifest" };
+}
+
 function resolveFluxRoot(): { root: string; source: string } {
   const candidateEnvs = [
     ["CLAUDE_PLUGIN_ROOT", "env:CLAUDE_PLUGIN_ROOT"],
@@ -129,6 +145,9 @@ function resolveFluxRoot(): { root: string; source: string } {
 
   const fluxHome = process.env["FLUX_HOME"];
   if (fluxHome && existsSync(fluxHome)) return { root: fluxHome, source: "env:FLUX_HOME" };
+
+  const openCode = resolveFluxRootOpenCode();
+  if (openCode) return openCode;
 
   const heuristic = resolveFluxRootHeuristic();
   if (heuristic) return heuristic;
