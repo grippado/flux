@@ -583,7 +583,7 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
    publicação do item 2. Quem aplica é a main, depois do retorno do motor, e não o motor: o body é
    criado pelo motor do repo (nativo,
    `exec_fallback` ou autônomo), e nenhum deles é obrigado a conhecer esta regra. O algoritmo usa
-   `HARNESS_LABEL` do preflight, portanto funciona da mesma forma para Claude Code, Cursor, Codex e
+   `HARNESS_LABEL` do preflight, portanto funciona da mesma forma para Claude Code, Cursor, Codex, OpenCode e
    um harness não verificável (`AI agent`), sem inferir produto pelo motor. Se a forma for ambígua,
    preservar o body e não compactar. Motor sem PR (`pr: null`) → nada a conciliar. `PR_NUMBER` e
    `REPO_FULL` são parseados da URL de PR devolvida pelo motor (`github.com/<owner>/<repo>/pull/<n>`);

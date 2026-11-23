@@ -100,7 +100,7 @@ provenance:                         # contrato: board-template.md, seção "Bloc
   generator: "flux-review"
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"
   session_sources: ["<path do .jsonl>", "..."]
-  harness: "<claude-code | cursor | codex | unknown>"
+  harness: "<claude-code | cursor | codex | opencode | unknown>"
   flux_version: "<versão do manifesto, ou unknown>"
   model: "<autorreportado no system prompt, ou unknown>"
   effort: "<CLAUDE_EFFORT, fallback do system prompt, ou unknown>"

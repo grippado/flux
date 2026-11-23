@@ -148,7 +148,7 @@ executa sem `FLUX_CMD`.
 ### Elos que despacham irmãos no Codex
 
 `${FLUX_CMD}` não resolve no Codex hoje. O Passo 1b do [`preflight.md`](preflight.md) verifica
-`/flux:`, `/flux-` e `/`, e nenhuma dessas formas corresponde ao modo como o Codex expõe a skill.
+`/flux:`, `/flux-`, `/flux/` e `/`, e nenhuma dessas formas corresponde ao modo como o Codex expõe a skill.
 Pela regra do próprio passo, `FLUX_CMD` fica `UNAVAILABLE`.
 
 Isso atinge os elos que **despacham um irmão**, e são três — mas eles reagem de formas diferentes, e a

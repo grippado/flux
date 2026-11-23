@@ -21,7 +21,7 @@ Co-Authored-By: <modelo> <noreply@domínio>
 
 - **Atribuição do harness**: tudo antes do último ` | `. Quando a linha já foi escrita pelo harness,
   preservar byte a byte. Quando não existe, usar `HARNESS_LABEL` do preflight: `Claude Code`,
-  `Cursor`, `Codex` ou `AI agent`. Portanto o algoritmo não depende de um harness específico.
+  `Cursor`, `Codex`, `OpenCode` ou `AI agent`. Portanto o algoritmo não depende de um harness específico.
 - **Par de proveniência**: `namespace:verbo@versão`, em que `namespace` e `verbo` usam letras,
   números e hífens; a versão é qualquer token sem espaço. O primeiro pode ser do motor, por exemplo
   `core:implement-task@0.62.10`; os seguintes podem ser `flux:build@1.39.0` e

@@ -214,7 +214,7 @@ provenance:                           # contrato e checklist antes de gravar: se
   generator: "<verbo que abriu o artefato; enum na seção Bloco `provenance`, abaixo>"
   captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
   session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
-  harness: "<claude-code | cursor | codex | unknown>"
+  harness: "<claude-code | cursor | codex | opencode | unknown>"
   flux_version: "<versão pela cascata de manifestos definida em preflight.md, ou unknown>"
   model: "<autorreportado no system prompt, ou unknown>"
   effort: "<CLAUDE_EFFORT, fallback do system prompt, ou unknown>"
@@ -244,7 +244,7 @@ artefato de volta à sessão e à máquina que o produziram.
 | `generator` | um valor do enum abaixo | não |
 | `captured_at` | `date "+%Y-%m-%d %H:%M %z"`, literal | não |
 | `session_sources` | lista de paths absolutos de `.jsonl`, ou `[]` | não (`[]` é o valor de ausência) |
-| `harness` | `claude-code` \| `cursor` \| `codex` \| `unknown` | sim |
+| `harness` | `claude-code` \| `cursor` \| `codex` \| `opencode` \| `unknown` | sim |
 | `flux_version` | `version` do primeiro `plugin.json` da cascata | sim |
 | `model` | `MODEL` resolvido no Step 0 (preflight, 1a-harness) | sim |
 | `effort` | `EFFORT` resolvido no Step 0 (preflight, 1a-harness) | sim |
@@ -295,7 +295,7 @@ quanto os rascunhos do `--dry`. Verbo novo que grave o bloco entra neste enum an
      já referenciados): gravar `session_sources: []`.
 - **`harness`**: o valor de `HARNESS` resolvido no Step 0 pelo Passo 1a-harness de
   `${FLUX_ROOT}/shared/preflight.md`, copiado sem reavaliar. O vocabulário é fechado: `claude-code`,
-  `cursor`, `codex` ou `unknown`. Nome de produto, versão de harness ou rótulo de exibição (como o
+  `cursor`, `codex`, `opencode` ou `unknown`. Nome de produto, versão de harness ou rótulo de exibição (como o
   `HARNESS_LABEL` do carimbo de PR) não entram aqui.
 - **`flux_version`**: o valor de `FLUX_VERSION` resolvido no Step 0 pelo mesmo Passo 1a-harness,
   copiado sem reavaliar.
@@ -328,7 +328,7 @@ Quem grava o bloco confere, **antes** do Write, e corrige o que falhar em vez de
 1. **Chaves**: as dez estão presentes, nenhuma a mais dentro de `provenance` (`run_id` e afins vão no
    topo do frontmatter).
 2. **`generator`**: está no enum, e é o verbo que abriu o artefato.
-3. **`harness`**: está em `claude-code | cursor | codex | unknown`.
+3. **`harness`**: está em `claude-code | cursor | codex | opencode | unknown`.
 4. **`unknown`**: como valor inteiro de chave, aparece só em `harness`, `flux_version`, `model` ou
    `effort`, e cada um é o valor que o Step 0 resolveu (ver "Quando `unknown` é permitido"). Dentro
    do `stamp` ele aparece por herança, e isso não viola este item.

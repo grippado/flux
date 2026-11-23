@@ -91,7 +91,7 @@ exit_code: 0                # null quando não observável
 writer: cli
 session_id: lq1x2y3z-9f8e7d6c
 harness:
-  value: claude-code        # claude-code | cursor | codex | unknown
+  value: claude-code        # claude-code | cursor | codex | opencode | unknown
   source: cli-launch        # cli-launch | default | plugin-root-env | unknown
 model: unknown
 effort: unknown

@@ -11,6 +11,10 @@
 > adaptadores Claude/Cursor dizem `Task tool`, o Codex usa sua delegação nativa de subagentes;
 > nenhum nome de ferramenta é simulado.
 
+> **OpenCode:** carregar [`opencode-compat.md`](opencode-compat.md) junto deste contrato. Onde os
+> adaptadores Claude/Cursor dizem `Task tool`, o OpenCode usa a tool `subagent`; onde dizem
+> `AskUserQuestion`, usa a tool `question`. Nenhum nome de ferramenta é simulado.
+
 > **Este passo roda depois da âncora.** O parse do alvo e a resolução do manifesto vêm antes, porque
 > o agente holístico que o Passo 3 verifica vem do perfil. Ver `${FLUX_ROOT}/shared/flux-context.md`,
 > seção "Ordem obrigatória". Verificar o holístico antes de saber o perfil valida o agente errado.
@@ -34,7 +38,10 @@ ordem, parando no primeiro que existir:
 5. O diretório dois níveis acima do arquivo do verbo em execução (de `skills/<verbo>/SKILL.md`
    sobe para a raiz da instalação). Se o arquivo foi carregado por symlink, resolver o alvo real
    antes de subir (`readlink -f`) — é o caminho da instalação local do Cursor, que é um symlink
-   para o checkout.
+   para o checkout, e o do OpenCode: o `scripts/install-opencode.sh` liga cada
+   `skills/flux-<verbo>/` por symlink para `plugins/flux/skills/<verbo>/`, e o `Base directory` que a
+   tool `skill` entrega não passa por realpath. Sem o `readlink -f`, subir dois níveis cairia no
+   diretório de configuração do OpenCode, que não tem `shared/`.
 6. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável.
 
 Se nenhum resolver, é `UNAVAILABLE`: abortar informando que a instalação da família não foi
@@ -69,7 +76,14 @@ incluam o contexto de execução verificável.
    a CLI encontrou `FLUX_ROOT` por uma heurística que escolheu o cache de outro harness. Este é o marcador mais
    específico e vence qualquer outro marcador presente. Usar somente a presença, nunca gravar o
    valor do identificador. Isso não muda a resolução de `FLUX_ROOT`.
-2. Sem `CODEX_THREAD_ID`, aplicar a tabela aos marcadores presentes. A presença de `CLAUDECODE`
+2. Sem `CODEX_THREAD_ID`, se `OPENCODE_SESSION_ID` estiver presente e não vazio, `HARNESS` é
+   `opencode`. O OpenCode injeta esse identificador no ambiente da tool de shell, e ele vence os
+   marcadores da tabela pelo mesmo motivo do anterior: identifica a sessão ativa, enquanto
+   `CLAUDECODE` ou uma variável de raiz de plugin podem ter sido herdados do terminal que abriu o
+   OpenCode. Só a presença conta, nunca o valor. Com `CODEX_THREAD_ID` e `OPENCODE_SESSION_ID`
+   presentes ao mesmo tempo, nenhum dos dois resolve sozinho: `HARNESS = unknown`, porque um deles
+   foi herdado e não há sinal verificável de qual.
+3. Sem nenhum dos dois, aplicar a tabela aos marcadores presentes. A presença de `CLAUDECODE`
    basta; `CLAUDE_CODE_ENTRYPOINT` e as variáveis de raiz de plugin precisam estar não vazias.
 
 | marcador de execução | `HARNESS` |
@@ -78,12 +92,15 @@ incluam o contexto de execução verificável.
 | `${CLAUDE_PLUGIN_ROOT}` não vazio | `claude-code` |
 | `${CURSOR_PLUGIN_ROOT}` não vazio | `cursor` |
 | `${CODEX_PLUGIN_ROOT}` não vazio | `codex` |
+| `OPENCODE` igual a `1` | `opencode` |
+| `AI_AGENT` igual a `opencode` | `opencode` |
 
 Se os marcadores presentes apontarem para um único harness, usar esse valor. Se apontarem para
 harnesses diferentes e nenhum marcador de maior precedência resolver o conflito, `HARNESS = unknown`.
 `CLAUDECODE` e `CLAUDE_CODE_ENTRYPOINT` são suficientes para reconhecer o Claude Code; não é
 necessário depender de `${CLAUDE_PLUGIN_ROOT}`. O Cursor continua `unknown` quando nenhum marcador
-verificável do Cursor está presente.
+verificável do Cursor está presente. `AGENT=1`, que o OpenCode também injeta, não identifica produto
+nenhum e não entra na tabela.
 
 O candidato 4 da resolução de `FLUX_ROOT` (marcador `.codex-plugin/plugin.json`) sozinho não
 identifica o harness com confiança: toda instalação da família inclui os três manifests
@@ -99,6 +116,7 @@ atribuição):
 | `claude-code` | `Claude Code` |
 | `cursor` | `Cursor` |
 | `codex` | `Codex` |
+| `opencode` | `OpenCode` |
 | `unknown` | `AI agent` |
 
 Com `HARNESS = unknown`, o label é `AI agent`: nomear produto não verificado num texto público seria
@@ -167,7 +185,8 @@ expõe**, nesta ordem, parando na primeira que existir:
 
 1. `/flux:` — plugin com namespace por `:` (Claude Code).
 2. `/flux-` — plugin com namespace achatado por hífen.
-3. `/` — skills registradas sem namespace de plugin.
+3. `/flux/` — commands agrupados num subdiretório `flux/` (OpenCode, pelo `install-opencode.sh`).
+4. `/` — skills registradas sem namespace de plugin.
 
 Vale aqui o mesmo rigor do Passo 3: **resolver não é verificar**. Escrever `/flux:iterate` num
 prompt de subagente sem confirmar que essa forma existe produz a pior falha possível — o subagente
@@ -468,7 +487,7 @@ que o banner precisa ser.
 | `transporte mcp` | um canal com dois caminhos (`${FLUX_ROOT}/shared/api-first.md`) foi servido pelo MCP em vez da API — sai com o canal e o motivo em grafia fixa: `transporte mcp (linear: sem token \| token nao autentica \| alvo nao enxergado \| canario falhou \| leitura falhou \| opt-out)`. Caminho por API não gera token: é o default, e declarar o default é ruído | o elo que aplicou o contrato (`issue`, `build`, `land`) |
 | `versao ilegivel` | `FLUX_VERSION = unknown`: nenhum dos três manifests (`plugin.json`) existe, ou o primeiro que existe está ilegível ou sem o campo `version` — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
 | `chain interrompido` | um elo do chain parou por falha, ou deixou decisão sem resposta, e os elos seguintes **não rodaram** — sai com o elo e o motivo, e acompanha o bloco de estado do chain. Usuário que escolhe a saída inócua de um gate **não** gera este token: é decisão, não interrupção | o `flux:chain` (`${FLUX_ROOT}/shared/chain.md`, "Falha no meio") |
-| `pergunta estruturada ausente` | o harness é Codex, `request_user_input` não está disponível na sessão foi aceita sem escolha ou voltou vazia nas três tentativas, e o GATE caiu no menu numerado de `${FLUX_ROOT}/shared/hitl.md`; sai sem motivo adicional. Menu que não coube na ferramenta e sessão headless não geram token: o numerado ali é o contrato, não ausência | o elo que apresenta o gate (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário") |
+| `pergunta estruturada ausente` | o harness é Codex, `request_user_input` não está disponível na sessão foi aceita sem escolha ou voltou vazia nas três tentativas, e o GATE caiu no menu numerado de `${FLUX_ROOT}/shared/hitl.md`; ou o harness é OpenCode e a tool `question` não está disponível, foi recusada ou voltou sem escolha nas condições de `${FLUX_ROOT}/shared/opencode-compat.md`. Sai sem motivo adicional. Menu que não coube na ferramenta e sessão headless não geram token: o numerado ali é o contrato, não ausência | o elo que apresenta o gate (`${FLUX_ROOT}/shared/codex-compat.md` ou `${FLUX_ROOT}/shared/opencode-compat.md`, "Perguntas ao usuário") |
 | `gate signal indisponivel` | o bloco `PREFLIGHT RESOLVIDO` da invocação traz `gate_signal: indisponivel (<motivo>)`: a CLI não tem como receber o sinal de gate pendente nesta execução; sai com o motivo que o bloco trouxe, sem reescrever. Campo ausente **não** gera token | ainda não implementado por nenhum elo: quem passar a **ler** o bloco da invocação e puder parar num gate (`${FLUX_ROOT}/shared/hitl.md`, "Execução headless") |
 | `gate signal nao gravado` | o bloco traz `gate_signal: <caminho>` e a gravação do sinal falhou (diretório ausente, sem permissão, rename recusado): sai com o motivo literal do erro, e o gate ficou pendente sem sinal. Não bloqueia o elo | ainda não implementado por nenhum elo: o mesmo que lê `gate_signal` (`${FLUX_ROOT}/shared/hitl.md`, "Execução headless") |
 | `rastro de force-push so no chat` | o elo pode publicar resolução de conflito com `--force-with-lease` (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5) e roda sem board, então o relato do push sai só no resumo da rodada. Declarado no banner inicial, antes de qualquer push. `--dry` e `--no-rebase` não geram o token: não publicam resolução | o `flux:iterate` em perfil sem `VAULT_ROOT` e sem `--parent-board` |
