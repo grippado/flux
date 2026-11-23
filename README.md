@@ -406,7 +406,7 @@ Esses nomes de variável são a única dependência de harness nos contratos com
 
 ### O manifesto de contexto
 
-Um `flux-context.json` num `.claude/` (ou `.cursor/`) de workspace ou repo. O comando procura o **mais próximo** subindo a árvore a partir do `cwd`, consultando `.claude/` antes de `.cursor/` em cada nível — mas proximidade sempre vence diretório. Achou → perfil declarado. Não achou → perfil genérico.
+Um `flux-context.json` num `.claude/` (ou `.cursor/`) de workspace ou repo. O comando procura o **mais próximo** subindo a árvore a partir da âncora, consultando `.claude/` antes de `.cursor/` em cada nível — mas proximidade sempre vence diretório. Achou → perfil declarado. Não achou → perfil genérico.
 
 ```json
 {
@@ -526,7 +526,7 @@ mesmo pelo texto dos `shared/`: é um canário que falha se a descrição do ada
 subida do manifesto: falha se um SKILL listar `.claude/flux-context.json` sem o `.cursor/`
 correspondente, descrever a subida só por `.claude/`, ancorar a raiz do workspace só no `.claude/` ou
 copiar o default de `SPECIALISTS_ROOT` sem o ramo `agents/review/*.md`, em vez de apontar para
-`shared/flux-context.md`. Os três scripts rodam em CI
+`shared/flux-context.md`. Esses scripts rodam em CI
 ([`checks.yml`](.github/workflows/checks.yml)) a cada PR, então esquecer de rodá-los aqui custa uma
 ida ao GitHub, não uma regressão publicada.
 
