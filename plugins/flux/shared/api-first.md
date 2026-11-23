@@ -91,8 +91,8 @@ fonte única. Caminho por API não gera token, porque é o default. Não existe 
 campo fora do gabarito é campo inventado.
 
 Ausência de token nunca vira o motivo `sem token` sozinha: ela abre o gate, e o token declara o
-**desfecho** (`opt-out` se o usuário escolheu MCP, `sem token` só se o setup guiado falhou ou não havia
-interação possível). Um cache-hit de `"mcp"` sai como `opt-out`: é a mesma escolha, relembrada, e o
+**desfecho** (`opt-out` se o usuário escolheu MCP, `sem token` só se o setup guiado falhou, não havia
+interação possível ou o `secrets_file` está ilegível). Um cache-hit de `"mcp"` sai como `opt-out`: é a mesma escolha, relembrada, e o
 banner não pode apagá-la fingindo omissão. Ao citar a variável, citar o **nome**, nunca o valor.
 **Nunca imprimir o token**, nem em log, nem ao ecoar erro da API, nem no board.
 
