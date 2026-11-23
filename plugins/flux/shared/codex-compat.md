@@ -17,6 +17,10 @@ plugin por caminho relativo ao marketplace e **não documenta uma variável de r
 
 Não copiar nem duplicar os contratos compartilhados.
 
+O manifesto de contexto não ganha diretório próprio no Codex: o `flux-context.json` vai em `.claude/`
+ou `.cursor/`, e a subida segue a seção "O manifesto" de [`flux-context.md`](flux-context.md). Não
+existe `.codex/flux-context.json`.
+
 **Consequência para kits, e ela é do caso ordinário.** O degrau 3 do `KIT_ROOTS` (irmãos de
 `${FLUX_ROOT}`, Passo 1d do [`preflight.md`](preflight.md)) só vale quando a raiz veio dos candidatos
 1 a 3, porque são os únicos em que o harness declarou ter instalado o plugin. Resolvendo pelo

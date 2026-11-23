@@ -327,8 +327,8 @@ com o reviewer de outro time sem que nada acuse o problema.
   `<vault_root>/<vault_context>` acerta por coincidência até o dia em que os dois divergem. Ausente →
   o elo assume um vault sem separação por contexto e usa `vault_root` também como raiz de leitura.
 - `workspace_root` — raiz onde os checkouts dos repos vivem, usada por
-  `flux:land` pra resolver checkouts cross-repo. Sem o campo, assume o diretório pai do `.claude/`
-  onde o manifesto foi encontrado.
+  `flux:land` pra resolver checkouts cross-repo. Sem o campo, assume o pai do diretório
+  (`.claude/` ou `.cursor/`) onde o manifesto foi encontrado.
 - `linear_org` — org do Linear, usada por `flux:issue` pra montar URLs de ticket
   (`https://linear.app/{linear_org}/issue/...`) e pelo doc apontado em `linear_ops` no roteamento de team.
 - `tracker_repo_map` — opcional. Mapa `{ "<projeto ou time do tracker>": "<slug de repo>" }`, terceira e
@@ -454,7 +454,9 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
 - `doc_reviewer` = o mesmo genérico, em modo doc.
 - `answerer` = o próprio `flux:iterate --dry` sem agente dedicado.
 - `specialists_root` = override local do repo: `<repo-checkout>/.claude/agents/reviewer.md` ou
-  `<repo-checkout>/.claude/agents/review/*.md`. Sem isso → só holístico (fallback gracioso).
+  `<repo-checkout>/.claude/agents/review/*.md`, e depois `<repo-checkout>/.cursor/agents/reviewer.md`
+  ou `<repo-checkout>/.cursor/agents/review/*.md`, na mesma ordem `.claude/` antes de `.cursor/` do
+  override do preflight (Passo 3). Sem isso → só holístico (fallback gracioso).
 - `kits_root` = ausente; a cascata de destino cai no degrau que pergunta.
 - `kits` = ausente; a descoberta de kits sobra com os irmãos de `${FLUX_ROOT}` (Passo 1d do preflight),
   que é justamente o caminho de quem instalou um kit como plugin sem declarar manifesto nenhum. Não

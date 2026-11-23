@@ -521,6 +521,59 @@ if command -v shellcheck > /dev/null 2>&1; then
     t_eq "shellcheck limpo na conferência" "0" "$?"
 fi
 
+echo "# check-context-ascent"
+CA_SRC="$HERE/check-context-ascent.sh"
+CA_SHARED="$HERE/../plugins/flux/shared/flux-context.md"
+CA_MARK='<!-- context-ascent: ignore -->'
+
+ca_tree() {
+    CA_DIR="$WORK/ca-$1"
+    mkdir -p "$CA_DIR/scripts" "$CA_DIR/plugins/flux/skills/fixture" "$CA_DIR/plugins/flux/shared"
+    cp "$CA_SRC" "$CA_DIR/scripts/check-context-ascent.sh"
+    cp "$CA_SHARED" "$CA_DIR/plugins/flux/shared/flux-context.md"
+    CA_SKILL="$CA_DIR/plugins/flux/skills/fixture/SKILL.md"
+    printf '%s\n' '# fixture' '' \
+        'Procurar `flux-context.json` subindo a árvore, na ordem da seção "O manifesto" (em cada nível,' \
+        '`.claude/` antes de `.cursor/`).' > "$CA_SKILL"
+}
+
+ca_run() {
+    "$BASH_ABS" "$CA_DIR/scripts/check-context-ascent.sh" > "$CA_DIR/out.txt" 2>&1
+    echo "$?"
+}
+
+ca_tree base
+t_eq "canário verde na fixture base" "0" "$(ca_run)"
+
+ca_tree lista-longe
+printf '%s\n' '' '```' '<âncora>/.claude/flux-context.json' '```' '' 'a' '' 'b' '' 'c' '' \
+    'Também vale `.cursor/flux-context.json`.' >> "$CA_SKILL"
+t_eq "lista só .claude/ com .cursor/ longe falha" "1" "$(ca_run)"
+t_has "lista longe aponta a linha da lista" "SKILL.md:7: lista" "$CA_DIR/out.txt"
+
+ca_tree reflow
+printf '%s\n' '' 'O elo procura `flux-context.json` subindo a árvore, em' '`.claude/` de cada nível.' >> "$CA_SKILL"
+t_eq "subida quebrada em duas linhas falha" "1" "$(ca_run)"
+t_has "reflow aponta a linha inicial do parágrafo" "SKILL.md:6: parágrafo" "$CA_DIR/out.txt"
+
+ca_tree sinonimo
+printf '%s\n' '' 'O elo sobe a árvore atrás de `flux-context.json` em `.claude/`.' >> "$CA_SKILL"
+t_eq "sinônimo sobe falha" "1" "$(ca_run)"
+
+ca_tree fonte
+grep -vxF '<âncora>/.cursor/flux-context.json' "$CA_SHARED" > "$CA_DIR/plugins/flux/shared/flux-context.md"
+t_eq "flux-context.md sem a linha .cursor/ falha" "1" "$(ca_run)"
+t_has "fonte aponta a linha perdida" "perdeu a linha <âncora>/.cursor/flux-context.json" "$CA_DIR/out.txt"
+
+ca_tree fonte-l2
+grep -vF '.cursor/agents/review/*.md' "$CA_SHARED" > "$CA_DIR/plugins/flux/shared/flux-context.md"
+t_eq "default de specialists_root sem .cursor/agents/review falha" "1" "$(ca_run)"
+
+ca_tree marcador
+printf '%s\n' '' "<raiz>/.claude/flux-context.json $CA_MARK" '' \
+    "O elo sobe a árvore atrás de \`flux-context.json\` em \`.claude/\`. $CA_MARK" >> "$CA_SKILL"
+t_eq "linha com o marcador passa" "0" "$(ca_run)"
+
 echo "# shellcheck"
 if command -v shellcheck > /dev/null 2>&1; then
     shellcheck "$RUN_SH" > "$WORK/sc.txt" 2>&1

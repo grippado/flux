@@ -89,13 +89,9 @@ conferir `command -v jq` junto com os outros dois.
 Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
 1. Resolver a **âncora** (alvo primeiro, `cwd` depois — ver `${FLUX_ROOT}/shared/flux-context.md`,
-   seção "Qual é a âncora") e procurar `flux-context.json` em `.claude/` subindo a árvore a partir
-   dela:
-   ```
-   <cwd>/.claude/flux-context.json
-   <parent>/.claude/flux-context.json
-   ...
-   ```
+   seção "Qual é a âncora") e procurar `flux-context.json` subindo a árvore a partir dela, na ordem
+   da seção "O manifesto" de `${FLUX_ROOT}/shared/flux-context.md` (em cada nível, `.claude/` antes de
+   `.cursor/`; o nível mais fundo vence, qualquer que seja o diretório que o abriga).
 
 2. Se encontrar (perfil declarado), extrair as variáveis de sessão:
    - `HOLISTIC` = `holistic_reviewer`
@@ -115,7 +111,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `VAULT_CTX` = `generic`
    - `VAULT_CTX_ROOT` = nenhum (sem vault não há rodada anterior para procurar)
    - `NO_EMDASH` = `false`
-   - `SPECIALISTS_ROOT` = `<repo-checkout>/.claude/agents/reviewer.md` ou `<repo-checkout>/.claude/agents/review/*.md`
+   - `SPECIALISTS_ROOT` = o default de `specialists_root` da seção "Perfil genérico (sem manifesto)" de `${FLUX_ROOT}/shared/flux-context.md`
    - `ANSWERER` = o próprio `<HOLISTIC>` com instrução de rascunhar réplicas (sem agente dedicado)
    - `SLACK_DIR` = nenhum (sem diretório, nenhum aviso no canal)
 

@@ -97,13 +97,9 @@ As flags podem aparecer em qualquer posição e combinadas.
 **Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`.** Em resumo:
 
 1. Resolver a **âncora** (alvo primeiro, `cwd` depois — ver `${FLUX_ROOT}/shared/flux-context.md`,
-   seção "Qual é a âncora") e procurar `flux-context.json` em `.claude/` subindo a árvore a partir
-   dela:
-   ```
-   <cwd>/.claude/flux-context.json
-   <parent>/.claude/flux-context.json
-   ...
-   ```
+   seção "Qual é a âncora") e procurar `flux-context.json` subindo a árvore a partir dela, na ordem
+   da seção "O manifesto" de `${FLUX_ROOT}/shared/flux-context.md` (em cada nível, `.claude/` antes de
+   `.cursor/`; o nível mais fundo vence, qualquer que seja o diretório que o abriga).
 
 2. Se encontrar (perfil declarado), extrair:
    - `HOLISTIC` = `holistic_reviewer`
@@ -115,15 +111,15 @@ As flags podem aparecer em qualquer posição e combinadas.
    - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `REPOS` = `repos` (lista de repos conhecidos do contexto)
    - `LINEAR_TOKEN_ENV` = `linear_token_env` e `SECRETS_FILE` = `secrets_file` (leitura da issue por API, `${FLUX_ROOT}/shared/api-first.md`; ausentes = `LINEAR_API_KEY` e `~/.secrets`)
-   - `WORKSPACE_ROOT` = pai do diretório `.claude/` onde o manifesto foi encontrado
-     (ex.: manifesto em `<raiz>/.claude/flux-context.json` → `WORKSPACE_ROOT=<raiz>`)
+   - `WORKSPACE_ROOT` = `workspace_root`; sem o campo, o pai do diretório (`.claude/` ou `.cursor/`)
+     onde o manifesto foi encontrado (ex.: manifesto em `<raiz>/.cursor/` → `WORKSPACE_ROOT=<raiz>`)
 
 3. Se não encontrar (perfil genérico):
    - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3), nunca um nome fixo
    - `VAULT_ROOT` = não persiste por default; `--board <path>` ou criar em `pwd`
    - `VAULT_CTX` = `generic`
    - `NO_EMDASH` = `false`
-   - `SPECIALISTS_ROOT` = `<repo-checkout>/.claude/agents/reviewer.md` (override local)
+   - `SPECIALISTS_ROOT` = o default de `specialists_root` da seção "Perfil genérico (sem manifesto)" de `${FLUX_ROOT}/shared/flux-context.md`
    - `REPOS` = [] (descoberta dinâmica a partir dos repos no workspace)
    - `WORKSPACE_ROOT` = `pwd`
 

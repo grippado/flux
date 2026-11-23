@@ -72,16 +72,9 @@ perda no banner de perfil, que abre todo output.
 Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
 1. Resolver a **âncora** (alvo primeiro, `cwd` depois — ver `${FLUX_ROOT}/shared/flux-context.md`,
-   seção "Qual é a âncora") e procurar `flux-context.json` em `.claude/` ou `.cursor/` subindo a
-   árvore a partir dela (em cada nível `.claude/` é consultado antes de `.cursor/`, e o nível mais
-   fundo vence, como em `${FLUX_ROOT}/shared/flux-context.md`):
-   ```
-   <âncora>/.claude/flux-context.json
-   <âncora>/.cursor/flux-context.json
-   <parent>/.claude/flux-context.json
-   <parent>/.cursor/flux-context.json
-   ...
-   ```
+   seção "Qual é a âncora") e procurar `flux-context.json` subindo a árvore a partir dela, na ordem
+   da seção "O manifesto" de `${FLUX_ROOT}/shared/flux-context.md` (em cada nível, `.claude/` antes de
+   `.cursor/`; o nível mais fundo vence, qualquer que seja o diretório que o abriga).
 
 2. Se encontrar (perfil declarado), extrair as variáveis de sessão:
    - `HOLISTIC` = `holistic_reviewer` (campo ausente → cascata genérica do preflight, Passo 3)
@@ -97,7 +90,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `SPECIALISTS_SPEC` = `specialists_spec` (espec que rege a autoria da suite; opcional)
    - `SPECIALISTS_REPO` = `specialists_repo` (repo onde a suite versionada vive, para PR; opcional)
-   - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o pai do `.claude/` achado)
+   - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o pai do `.claude/` ou `.cursor/` achado)
    - `LINEAR_ORG` = `linear_org` (org do Linear, para montar URLs de ticket; opcional)
    - `SLACK_DIR` = `slack_directory` (diretório de alias do Slack, `${FLUX_ROOT}/shared/slack-directory.md`; só para o aviso no canal depois do Step 8b, opcional)
 
@@ -116,7 +109,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `VAULT_CTX_ROOT` = nenhum (sem vault não há rodada anterior para procurar)
    - `NO_EMDASH` = `false`
    - `REPOS` = [] (detecção de stack dinâmica a partir do checkout local)
-   - `SPECIALISTS_ROOT` = `<repo-checkout>/.claude/agents/reviewer.md` ou `<repo-checkout>/.claude/agents/review/*.md`
+   - `SPECIALISTS_ROOT` = o default de `specialists_root` da seção "Perfil genérico (sem manifesto)" de `${FLUX_ROOT}/shared/flux-context.md`
    - `SPECIALISTS_SPEC` = nenhum (a autoria segue o checklist embutido no Bootstrap)
    - `SPECIALISTS_REPO` = nenhum (a suite é escrita no próprio checkout, sem PR)
    - `WORKSPACE_ROOT` = `cwd`
