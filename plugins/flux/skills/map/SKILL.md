@@ -206,6 +206,7 @@ Sem manifesto nenhum: perfil genérico, e o levantamento cobre os repos detectad
    definidos no 1b do `${FLUX_ROOT}/shared/review-agents.md` — não reenunciar o path aqui).
 5. **Computar colisões** de `name:` entre tudo que foi levantado, e o `sha256` de cada conjunto pela
    receita do hash do conjunto (1b do `${FLUX_ROOT}/shared/review-agents.md`), sem reescrevê-la aqui.
+   Receita vazia: não gravar o `dir_sha256` daquele repo (nunca `""`) e declarar no relatório.
 6. **Relatar** (formato abaixo).
 7. **Gate de escrita** e, aceito, gravar o índice conforme o contrato de destino.
 8. **Despacho dos consertos**, quando o usuário aceitar algum no gate (seção própria abaixo), e

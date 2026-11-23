@@ -330,7 +330,11 @@ precisa listar agents em disco aponta para este comando, não o reescreve.
 para cá. O **conjunto** é a saída crua do comando canônico acima, antes do filtro de intenção de
 review: todo `.md` até a profundidade 4, com o path relativo à raiz (começando em `./`), em ordem de
 bytes (`LC_ALL=C`), e o conteúdo lido através de symlink. Entrada: `AGENTS_DIR`, a raiz. Saída:
-`AGENTS_SHA256`, vazio quando a raiz não existe ou um arquivo do conjunto não pode ser lido.
+`AGENTS_SHA256`, vazio quando a raiz não existe, quando um arquivo listado não pode ser lido (o que
+inclui nome de arquivo com newline, que a leitura linha a linha parte em dois) ou quando não há
+`sha256sum` nem `shasum` na máquina. Diretório sem permissão de leitura e symlink quebrado saem do
+conjunto em silêncio (é o `2>/dev/null` do comando canônico), sem esvaziar o hash; raiz existente sem
+nenhum `.md` dá um hash constante, não vazio.
 
 ```bash
 AGENTS_SHA256=
@@ -348,8 +352,13 @@ fi
 Cada linha da lista é o hash de um arquivo seguido do path, e o hash à esquerda é o `sha256` daquele
 agent no índice. Path relativo é o que deixa o hash igual entre máquinas e entre a origem e um clone;
 o `-L` é o que faz um agent exposto por symlink mudar o hash quando o arquivo de destino muda, em vez
-de um espelho velho passar por fresco. `AGENTS_SHA256` vazio nunca é comparado: o elo trata a lente
-como ausente, porque um hash de entrada vazia compararia igual na próxima vez. A receita é POSIX e
+de um espelho velho passar por fresco. `AGENTS_SHA256` vazio nunca é comparado, porque um hash de
+entrada vazia compararia igual na próxima vez, e invalida só a **comparação**, não a lente: o elo
+trata aquela entrada do índice como stale, segue a varredura direta e declara `indice stale` com a
+causa, o mesmo caminho do "Divergiu" da seção Frescor do `${FLUX_ROOT}/shared/agents-index.md`. A
+receita não reclassifica lente: raiz inexistente continua `ausente` pelo passo 1a, e arquivo ilegível
+continua `inalcancavel` pelo 1a-bis. Na hora de gravar, receita vazia significa não gravar o campo
+(`dir_sha256` ou `synced_from_sha256`) e declarar isso no relatório; nunca gravar `""`. A receita é POSIX e
 roda igual em `sh`, `bash` e `zsh`, com `sha256sum` (GNU) ou `shasum -a 256` (macOS); o
 `scripts/test-run.sh` executa este bloco contra uma fixture com symlink de arquivo e de diretório.
 

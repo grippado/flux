@@ -139,7 +139,7 @@ O índice é validado, não confiado. Na leitura, conferir:
    ausente, não adivinhar).
 2. Para cada repo que o elo vai de fato usar — **e só para esses** —, comparar `dir_sha256` com o
    estado atual do diretório de agents daquele repo, recalculado pela receita do hash do conjunto (1b do
-   `${FLUX_ROOT}/shared/review-agents.md`). Receita com saída vazia não compara: a lente fica ausente.
+   `${FLUX_ROOT}/shared/review-agents.md`). Receita com saída vazia não compara; ver o 1b.
 3. **Quando o índice for usado para resolver âncora** (`${FLUX_ROOT}/shared/flux-context.md`, passo 2),
    conferir que cada `path` de `manifests` ainda existe. Um manifesto removido ou renomeado passa
    incólume pelos dois testes acima e faz o elo resolver o **contexto errado** — a mesma classe de

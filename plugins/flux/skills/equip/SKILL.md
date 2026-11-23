@@ -387,7 +387,8 @@ no 1b-bis, e é lá que ele se mantém. Não repetir aqui.
   transformaria um espelho em fork, e o próximo `--expose-l3` teria que decidir entre duas verdades.
 - **Proveniência obrigatória.** Gravar no índice o `sha256` do conjunto de origem
   (`l3.mirror.synced_from_sha256`), calculado pela receita do hash do conjunto (1b do
-  `${FLUX_ROOT}/shared/review-agents.md`) sobre o diretório de agents do repo. É o que permite a um elo declarar a degradação `L3 stale`
+  `${FLUX_ROOT}/shared/review-agents.md`) sobre o diretório de agents do repo. Receita vazia na hora
+  de gravar: não gravar o `synced_from_sha256` (nunca `""`) e declarar a ausência no relatório. É o que permite a um elo declarar a degradação `L3 stale`
   (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) em vez de rodar uma cópia velha em silêncio.
 - **Re-executar é idempotente**: origem inalterada ⇒ nada a escrever, e diga isso em uma linha.
 
