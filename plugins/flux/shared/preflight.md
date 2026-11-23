@@ -186,11 +186,20 @@ expõe**, nesta ordem, parando na primeira que existir:
 2. `/flux-` — plugin com namespace achatado por hífen.
 3. `/` — skills registradas sem namespace de plugin.
 
-**OpenCode.** Nenhuma dessas formas conta no OpenCode, e `FLUX_CMD` fica `UNAVAILABLE`, como no
-Codex. O instalador registra commands `/flux/<verbo>`, mas o despacho de um irmão por eles não foi
-comprovado; e a lista de skills mostra os IDs `flux-<verbo>`, que casariam `/flux-` sem que exista
-command com esse nome. A forma `/flux/<verbo>` só aparece em texto impresso para o usuário digitar,
-nas condições de [`opencode-compat.md`](opencode-compat.md), "Elos que despacham irmãos no OpenCode".
+**Só conta como forma um command invocável que a sessão lista.** A forma existe quando a sessão
+lista um command com aquele nome, isto é, um nome que ela aceita digitado depois de `/`. Um ID de
+skill que só existe para ser carregado por tool nunca conta, mesmo quando tem o mesmo formato de uma
+das formas acima, e um nome que a sessão não lista não conta por dedução. A regra não depende de
+`HARNESS`: vale igual com `HARNESS = unknown`, com marcadores em conflito ou com variáveis que
+mudaram de nome.
+
+**O caso do OpenCode.** É o exemplo que motiva a regra. A lista de skills do OpenCode mostra os IDs
+`flux-<verbo>`, que têm o formato de `/flux-` sem que exista command com esse nome, e por isso não
+contam. Os commands que o instalador registra são `/flux/<verbo>`, forma que não está na lista acima
+porque o despacho de um irmão por eles não foi comprovado. Com nenhuma forma valendo, `FLUX_CMD` fica
+`UNAVAILABLE`, como no Codex. A forma `/flux/<verbo>` só aparece em texto impresso para o usuário
+digitar, nas condições de [`opencode-compat.md`](opencode-compat.md), "Elos que despacham irmãos no
+OpenCode".
 
 Vale aqui o mesmo rigor do Passo 3: **resolver não é verificar**. Escrever `/flux:iterate` num
 prompt de subagente sem confirmar que essa forma existe produz a pior falha possível — o subagente

@@ -58,7 +58,8 @@ mensagem já montada.
 Revalidar **apenas** o que `session_revalidation_required` lista — tipicamente 4 itens, todos
 introspecção de sessão que nenhum processo externo pode fazer (preflight.md, 3-bis):
 
-1. `flux_cmd` — qual forma a sessão expõe (`/flux:` → `/flux-` → `/`), senão `UNAVAILABLE`.
+1. `flux_cmd` — resolvido pelo Passo 1b de `${FLUX_ROOT}/shared/preflight.md`, com a cascata e a
+   regra de que só conta command invocável que a sessão lista; nenhuma forma → `UNAVAILABLE`.
 2. `adddir_cmd` — se a sessão expõe `/add-dir` ou equivalente, senão `UNAVAILABLE`.
 3. `holistic_verification` — o candidato está registrado na sessão? Não → seguir a cascata do
    Passo 3 com as formas de `holistic.generic_forms`; nenhuma → abortar como o Passo 3 manda.

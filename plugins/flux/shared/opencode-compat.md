@@ -152,8 +152,8 @@ No OpenCode, `FLUX_CMD` fica `UNAVAILABLE`, como no Codex, e o Passo 1b do
 [`preflight.md`](preflight.md) diz isso. O instalador expõe os verbos como commands `/flux/<verbo>`,
 mas o que **não foi apurado** é o despacho: um subagente, ou a própria main dentro de um elo,
 invocar `/flux/<verbo>` e receber o verbo de verdade, em vez de improvisar. Nenhuma das formas do
-Passo 1b conta aqui; em particular, a lista de skills mostra os IDs `flux-<verbo>` e casaria `/flux-`,
-que não é command no OpenCode.
+Passo 1b conta aqui: os IDs de skill `flux-<verbo>` não são command, e o Passo 1b só aceita command
+invocável que a sessão lista.
 
 Com `FLUX_CMD` indisponível, cada elo que despacha irmão reage como descrito em "Elos que despacham
 irmãos no Codex" do [`codex-compat.md`](codex-compat.md), inclusive a oferta de aviso pelo `reply`,
