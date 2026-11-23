@@ -259,7 +259,8 @@ comando único de retomada; ver abaixo.
 
 - **Harness.** O nome de cada elo e do próprio chain vem de `${FLUX_CMD}`, nunca `/flux:` literal.
   O chain **despacha irmãos**, então herda o limite que o `flux:land` já tem no Codex, onde
-  `FLUX_CMD` fica `UNAVAILABLE` (`${FLUX_ROOT}/shared/codex-compat.md`). O caminho de ausência é
+  `FLUX_CMD` fica `UNAVAILABLE` (`${FLUX_ROOT}/shared/codex-compat.md`), e no OpenCode, pelo mesmo
+  motivo (`${FLUX_ROOT}/shared/opencode-compat.md`). O caminho de ausência é
   declarado: recusa e plano (que nomeiam só verbos) funcionam, e a fase de execução **aborta no
   preflight** com a mensagem padrão, nomeando `FLUX_CMD`. Nunca degrada para executar o pipeline de
   um elo inline, fora do contrato.

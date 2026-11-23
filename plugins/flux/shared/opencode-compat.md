@@ -110,12 +110,14 @@ sem o token.
 ### Adaptador de instruções de agente
 
 Para os agents da família, vale o nome registrado `flux-<nome>`, verificado pela lista de agents da
-sessão como manda o Passo 3-bis do [`preflight.md`](preflight.md). Para L1 de override, L2 e L3 de
-repo (`.claude/agents/`, `.cursor/agents/`, raízes do manifesto) não foi apurado se o OpenCode os
-registra. Quando o nome não estiver na lista da sessão, aplicar literalmente "Adaptador de
-instruções de agente" do [`codex-compat.md`](codex-compat.md): resolver uma fonte de instruções
-legível, despachar o subagente `general` com o path absoluto e registrar o path no rodapé de
-cobertura. Não criar agents no diretório do OpenCode para simular registro.
+sessão como manda o Passo 3-bis do [`preflight.md`](preflight.md). O OpenCode não registra os agents
+de L1 de override, L2 e L3 que moram nos diretórios do Claude e do Cursor (`.claude/agents/`,
+`.cursor/agents/`) e nas raízes do manifesto. Quando o nome não estiver na lista da sessão, vale a
+exceção do adaptador de instruções estendida ao OpenCode no Passo 3 do
+[`preflight.md`](preflight.md) e no [`review-agents.md`](review-agents.md): aplicar literalmente
+"Adaptador de instruções de agente" do [`codex-compat.md`](codex-compat.md), com o subagente
+`general` no papel do subagente nativo genérico. Não criar agents no diretório do OpenCode para
+simular registro.
 
 ## Capacidades ausentes
 
@@ -123,11 +125,14 @@ O perfil genérico continua válido sem MCP, vault, Linear, Slack ou specialists
 condições de "Capacidades ausentes" do [`codex-compat.md`](codex-compat.md). Além delas, o OpenCode
 não tem `ScheduleWakeup` nem `SendMessage`. O que degrada, por verbo:
 
-- **`reply`**: sem acompanhamento agendado do caso; cada rodada é uma invocação manual.
-- **`land`**: sem board-keeper por `SendMessage` e sem re-checagem agendada; e o despacho do
-  `iterate` por PR depende de subagente invocar um verbo (abaixo).
+- **`land`** e **`chain`**: abortam a fase de despacho porque `FLUX_CMD` fica `UNAVAILABLE` (abaixo),
+  antes de chegar ao board-keeper por `SendMessage` ou à re-checagem agendada.
 - **`iterate`**: a passada roda inteira; o watch segue "Watch do iterate", abaixo.
-- **`chain`**: depende de despachar irmãos (abaixo).
+- **`reply`**: o modo watch reagenda o próximo tick por `ScheduleWakeup` reinvocando
+  `${FLUX_CMD}reply`, e aqui não há nenhum dos dois. O verbo roda a passada, e a próxima é uma
+  invocação manual. O [`codex-compat.md`](codex-compat.md) não dá a essa ausência um tratamento
+  próprio no Codex, que tem o mesmo limite, e o Passo 5 do [`preflight.md`](preflight.md) não tem
+  token para ela; este item é o registro dela, sem token novo.
 
 ### Alcance da L3 e índice de agents
 
@@ -138,18 +143,25 @@ raiz declarada o `flux:map` diz que não tem destino.
 
 ### Elos que despacham irmãos no OpenCode
 
-O Passo 1b do [`preflight.md`](preflight.md) tenta `/flux/` antes de `/`, e é essa a forma que o
-instalador expõe. Ela resolve quando a sessão lista os commands `flux/<verbo>`; sem a lista à vista,
-`FLUX_CMD` é `UNAVAILABLE` e o texto nomeia o verbo, pela regra do próprio passo.
+No OpenCode, `FLUX_CMD` fica `UNAVAILABLE`, como no Codex, e o Passo 1b do
+[`preflight.md`](preflight.md) diz isso. O instalador expõe os verbos como commands `/flux/<verbo>`,
+mas o que **não foi apurado** é o despacho: um subagente, ou a própria main dentro de um elo,
+invocar `/flux/<verbo>` e receber o verbo de verdade, em vez de improvisar. Nenhuma das formas do
+Passo 1b conta aqui; em particular, a lista de skills mostra os IDs `flux-<verbo>` e casaria `/flux-`,
+que não é command no OpenCode.
 
-O que **não foi apurado** é o despacho: um subagente, ou a própria main dentro de um elo, invocar
-`/flux/<verbo>` e receber o verbo de verdade, em vez de improvisar. Até uma sessão real comprovar,
-toda fase que despacha irmão segue o comportamento de "Elos que despacham irmãos no Codex", em
-[`codex-compat.md`](codex-compat.md): `land` aborta a fase de entrega multi-PR, `chain` valida e
-imprime o plano mas aborta a execução, `map` imprime as remediações em vez de despachar o `equip`, o
-encadeamento fatia-por-fatia do `refine` cai no fechamento padrão, e as ofertas de `reply` e de
-Bootstrap imprimem a instrução e não executam. Texto impresso para o usuário digitar continua usando
-`${FLUX_CMD}`, que aqui é `/flux/`.
+Com `FLUX_CMD` indisponível, cada elo que despacha irmão reage como descrito em "Elos que despacham
+irmãos no Codex" do [`codex-compat.md`](codex-compat.md), inclusive a oferta de aviso pelo `reply`,
+a oferta de Bootstrap e o encadeamento do `refine`, e as ofertas de `equip --expose-l3` e `map` de
+"Alcance da L3 e índice de agents" de lá. Este arquivo não repete esse comportamento.
+
+**Texto impresso para o usuário.** Vale a regra do Passo 1b para `FLUX_CMD` indisponível: nomear o
+verbo. Quando o texto disser a forma que a sessão expõe para o usuário digitar, no OpenCode ela é
+`/flux/<verbo>`, que é a que o instalador registra, e só quando a sessão lista o command
+`flux/<verbo>`: com colisão de skill o instalador não o cria, e sem a lista à vista o texto fica só
+no nome do verbo. Essa forma vale só para o usuário digitar; nunca
+entra em prompt de subagente nem no `prompt` de um wake. Quando uma sessão real comprovar o despacho,
+o registro com data entra nesta seção e o Passo 1b passa a aceitar `/flux/`.
 
 ## Watch do iterate
 

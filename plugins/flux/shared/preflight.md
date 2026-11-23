@@ -38,10 +38,7 @@ ordem, parando no primeiro que existir:
 5. O diretório dois níveis acima do arquivo do verbo em execução (de `skills/<verbo>/SKILL.md`
    sobe para a raiz da instalação). Se o arquivo foi carregado por symlink, resolver o alvo real
    antes de subir (`readlink -f`) — é o caminho da instalação local do Cursor, que é um symlink
-   para o checkout, e o do OpenCode: o `scripts/install-opencode.sh` liga cada
-   `skills/flux-<verbo>/` por symlink para `plugins/flux/skills/<verbo>/`, e o `Base directory` que a
-   tool `skill` entrega não passa por realpath. Sem o `readlink -f`, subir dois níveis cairia no
-   diretório de configuração do OpenCode, que não tem `shared/`.
+   para o checkout, e o do OpenCode ([`opencode-compat.md`](opencode-compat.md), "Recursos").
 6. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável.
 
 Se nenhum resolver, é `UNAVAILABLE`: abortar informando que a instalação da família não foi
@@ -186,8 +183,13 @@ expõe**, nesta ordem, parando na primeira que existir:
 
 1. `/flux:` — plugin com namespace por `:` (Claude Code).
 2. `/flux-` — plugin com namespace achatado por hífen.
-3. `/flux/` — commands agrupados num subdiretório `flux/` (OpenCode, pelo `install-opencode.sh`).
-4. `/` — skills registradas sem namespace de plugin.
+3. `/` — skills registradas sem namespace de plugin.
+
+**OpenCode.** Nenhuma dessas formas conta no OpenCode, e `FLUX_CMD` fica `UNAVAILABLE`, como no
+Codex. O instalador registra commands `/flux/<verbo>`, mas o despacho de um irmão por eles não foi
+comprovado; e a lista de skills mostra os IDs `flux-<verbo>`, que casariam `/flux-` sem que exista
+command com esse nome. A forma `/flux/<verbo>` só aparece em texto impresso para o usuário digitar,
+nas condições de [`opencode-compat.md`](opencode-compat.md), "Elos que despacham irmãos no OpenCode".
 
 Vale aqui o mesmo rigor do Passo 3: **resolver não é verificar**. Escrever `/flux:iterate` num
 prompt de subagente sem confirmar que essa forma existe produz a pior falha possível — o subagente
@@ -369,6 +371,13 @@ Tipos de requisito:
 > agente registrado. Declarar essa tentativa como degradação e só anunciar/invocar a fonte que foi
 > realmente lida pelo subagente nativo. As regras abaixo, sobre `subagent_type`, continuam para
 > Claude Code e Cursor.
+>
+> **Exceção OpenCode.** A mesma exceção vale no OpenCode, pelo mesmo motivo: ele não registra os
+> agents que moram em `.claude/agents/`, `.cursor/agents/` e nas raízes do manifesto. O genérico da
+> família é registrado como `flux-pr-reviewer` e segue as regras de `subagent_type` abaixo; um
+> `holistic_reviewer` ou override cujo nome não esteja na lista de agents da sessão segue o
+> adaptador do Codex, com o subagente `general` no papel do subagente nativo
+> ([`opencode-compat.md`](opencode-compat.md), "Adaptador de instruções de agente").
 
 Este passo existe porque a falha mais perigosa da família é resolver um nome de agente e invocá-lo
 sem checar se ele existe. Quando isso acontece, ou a invocação falha no meio do trabalho, ou o
@@ -483,7 +492,7 @@ que o banner precisa ser.
 | `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | o sub-passo **1a-kit** (`${FLUX_ROOT}/shared/review-agents.md`), que roda mesmo quando a cascata de L2 não chega ao degrau do kit. **Na escrita: não implementado** (LAB-71) |
 | `kit nao avaliado` | o casamento daquele kit **dependeria** de `files`/`any_of` — ele não declara `repos`, ou declara e não casou por ele — e não há checkout local para testar. Nunca "casa por arquivo": o que não pôde ser testado não passou nem falhou | idem |
 | `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4, 5 ou 6 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
-| `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) |
+| `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) e no OpenCode quando o nome não está registrado na sessão (`${FLUX_ROOT}/shared/opencode-compat.md`) |
 | `harness nao verificavel` | `HARNESS = unknown`: nenhum marcador identifica um único harness depois da precedência (marcadores ausentes ou em conflito) — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
 | `transporte mcp` | um canal com dois caminhos (`${FLUX_ROOT}/shared/api-first.md`) foi servido pelo MCP em vez da API — sai com o canal e o motivo em grafia fixa: `transporte mcp (linear: sem token \| token nao autentica \| alvo nao enxergado \| canario falhou \| leitura falhou \| opt-out)`. Caminho por API não gera token: é o default, e declarar o default é ruído | o elo que aplicou o contrato (`issue`, `build`, `land`) |
 | `versao ilegivel` | `FLUX_VERSION = unknown`: nenhum dos três manifests (`plugin.json`) existe, ou o primeiro que existe está ilegível ou sem o campo `version` — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
