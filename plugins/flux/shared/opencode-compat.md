@@ -43,21 +43,23 @@ sobrescreve ou remove o que estiver listado ali, e por isso um verbo ou agent qu
 também sai do destino. O que existe nos mesmos lugares (`skills/flux-*`, `commands/flux/*.md`,
 `agents/flux-*.md`) e não está no manifesto fica, com aviso: um specialist L2 registrado como
 `agents/flux-repo-owner.md` ou um command de terceiro em `commands/flux/` sobrevivem a qualquer
-reinstalação. Numa instalação feita antes do manifesto existir, conta como gerado só o que bate com
-o que a versão anterior produzia: skill que é symlink para `.../plugins/flux/skills/<verbo>`, command
-cujo corpo é exatamente o que manda carregar a skill `flux-<verbo>`, e agent byte a byte igual ao que
-o gerador produz da fonte atual.
+reinstalação. Sem manifesto no destino, nada do que já existe ali é tratado como gerado: o que é
+idêntico ao que o instalador produziria fica como está e passa a constar do manifesto novo, e todo o
+resto fica como de terceiro, com aviso, inclusive restos de uma instalação anterior. O aviso diz o
+remédio: se esses arquivos vieram do flux, apagá-los e rodar o instalador de novo.
 
 Antes de tocar no destino, o instalador lê e valida todos os frontmatters da fonte e o manifesto, e
 recusa com erro, sem alterar nada, a forma que não entende: valor em bloco `>` ou `|`, escape
-inválido entre aspas duplas, comentário inline num valor, `readonly` que não seja `true` ou `false`.
+inválido entre aspas duplas, comentário inline num valor, valor sem aspas com dois-pontos seguido de
+espaço (que o YAML não carregaria como o texto esperado), caractere que não é UTF-8 válido (como um
+surrogate `\ud800` isolado) e `readonly` que não seja `true` ou `false`.
 Cada arquivo é gerado num diretório temporário dentro do destino e trocado no lugar por rename, e o
 manifesto é o último a ser gravado.
 
 **Colisão de ID.** Na colisão de ID de skill o último carregado vence, e o OpenCode também lê
 `~/.claude/skills` e `~/.agents/skills`. O instalador avisa quando encontra `flux-<verbo>` nesses
 lugares. No destino, um `skills/flux-<verbo>` que não é dele fica, e o command `/flux/<verbo>`
-daquele verbo não é instalado.
+daquele verbo não é instalado. A mensagem final lista só os commands que de fato ficaram instalados.
 
 ## Delegação
 

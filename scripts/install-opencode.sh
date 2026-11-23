@@ -86,11 +86,23 @@ def parse_frontmatter(path):
     return fields, body
 
 
+def utf8(where, value):
+    try:
+        value.encode('utf-8')
+    except UnicodeEncodeError as exc:
+        raise Refused(f'{where} com caractere que não é UTF-8 válido ({exc.reason})')
+    return value
+
+
 def scalar(path, fields, key):
     if key not in fields:
         return None
     number, raw = fields[key]
     where = f'{path}:{number}: {key}'
+    return utf8(where, scalar_value(where, raw))
+
+
+def scalar_value(where, raw):
     if raw == '':
         raise Refused(f'{where} não é um escalar em uma linha')
     if raw.startswith('"'):
@@ -112,6 +124,8 @@ def scalar(path, fields, key):
         raise Refused(f'{where} começa com {raw[0]!r}, forma YAML que o parser não entende')
     if ' #' in raw or '\t#' in raw:
         raise Refused(f'{where} com comentário inline; tire o comentário ou ponha o valor entre aspas')
+    if ': ' in raw or ':\t' in raw or raw.endswith(':'):
+        raise Refused(f'{where} sem aspas contém dois-pontos seguido de espaço; ponha o valor entre aspas')
     return raw
 
 
@@ -175,16 +189,6 @@ def read_text(abs_path):
             return handle.read()
     except (OSError, UnicodeDecodeError):
         return None
-
-
-def legacy_command_is_ours(abs_path, stem):
-    if os.path.islink(abs_path) or not os.path.isfile(abs_path):
-        return False
-    text = read_text(abs_path)
-    if text is None:
-        return False
-    pattern = r'---\ndescription: "(?:[^"\\]|\\.)*"\n---\n\n' + re.escape(command_template('flux-' + stem))
-    return re.fullmatch(pattern, text) is not None
 
 
 def load_manifest():
@@ -264,20 +268,25 @@ def already_current(rel):
 
 
 def is_ours(rel):
+    if listed is None or rel not in listed:
+        return False
     abs_path = os.path.join(dest, rel)
     if not os.path.lexists(abs_path):
         return False
     if rel.startswith('skills/'):
-        if not skill_link_is_ours(abs_path, rel[len('skills/flux-'):]):
-            return False
-        return listed is None or rel in listed
-    if os.path.islink(abs_path) or not os.path.isfile(abs_path):
-        return False
-    if listed is not None:
-        return rel in listed
-    if rel.startswith('commands/'):
-        return legacy_command_is_ours(abs_path, os.path.splitext(os.path.basename(rel))[0])
-    return rel in desired and read_text(abs_path) == desired[rel][1]
+        return skill_link_is_ours(abs_path, rel[len('skills/flux-'):])
+    return not os.path.islink(abs_path) and os.path.isfile(abs_path)
+
+
+foreign_items = []
+
+
+def foreign(abs_path):
+    foreign_items.append(abs_path)
+    if listed is None:
+        return (f'{abs_path} já existe e não há manifesto de instalação em {dest} para provar que é do flux; '
+                'tratado como de terceiro')
+    return f'{abs_path} já existe e não consta do manifesto de instalação; tratado como de terceiro'
 
 
 present = existing_namespace()
@@ -296,9 +305,9 @@ for rel in sorted(desired, key=lambda item: (not item.startswith('skills/'), ite
         blocked.add(rel)
         if rel.startswith('skills/'):
             verb = rel[len('skills/flux-'):]
-            warnings.append(f'{abs_path} já existe e não foi criado por este script; mantido, /flux/{verb} não instalado')
+            warnings.append(f'{foreign(abs_path)}; mantido, /flux/{verb} não instalado')
         else:
-            warnings.append(f'{abs_path} já existe e não foi criado por este script; mantido sem sobrescrever')
+            warnings.append(f'{foreign(abs_path)}; mantido sem sobrescrever')
 
 for verb in verbs:
     skill_id = 'flux-' + verb
@@ -310,7 +319,7 @@ for rel in sorted(present - set(desired)):
     if is_ours(rel):
         orphans.append(rel)
     else:
-        warnings.append(f'{os.path.join(dest, rel)} não foi gerado por este script; mantido')
+        warnings.append(f'{foreign(os.path.join(dest, rel))}; mantido')
 if listed is not None:
     for rel in sorted(listed - present - set(desired)):
         warnings.append(f'{rel} consta do manifesto mas não existe mais; esquecido')
@@ -349,12 +358,27 @@ try:
 finally:
     shutil.rmtree(staging, ignore_errors=True)
 
+if listed is None and foreign_items:
+    warnings.append(
+        f'{dest} não tinha manifesto de instalação, e {len(foreign_items)} item(ns) flux-* que já estavam lá ficaram '
+        'como de terceiro. Se vieram de uma instalação anterior do flux, apague-os e rode este script de novo'
+    )
 for message in warnings:
     print('aviso: ' + message, file=sys.stderr)
-origin = 'pelo manifesto anterior' if listed is not None else 'sem manifesto anterior, pelo formato da versão anterior'
-print(f'{len(writes)} itens escritos, {len(kept)} já atualizados, {len(orphans)} removidos por não serem mais gerados (dono reconhecido {origin})')
+if listed is not None:
+    origin = 'pelo manifesto anterior'
+elif present:
+    origin = 'sem manifesto anterior: só o que já era idêntico ao gerado foi adotado'
+else:
+    origin = 'instalação nova'
+print(f'{len(writes)} itens escritos, {len(kept)} já atualizados, {len(orphans)} removidos por não serem mais gerados ({origin})')
 print(f"{len(record['skills'])} skills ligadas por symlink, {len(record['commands'])} commands, {len(record['agents'])} agents")
 print(f'manifesto de instalação: {os.path.join(dest, MANIFEST)}')
+installed_verbs = ['/flux/' + os.path.splitext(os.path.basename(rel))[0] for rel in record['commands']]
+if installed_verbs:
+    print('verbos instalados: ' + ', '.join(installed_verbs))
+else:
+    print('nenhum command de verbo instalado')
 PY
 
 cat <<EOF
@@ -362,7 +386,6 @@ cat <<EOF
 flux instalado em: $DEST
 origem:            $SRC
 
-Os verbos ficam como /flux/peek, /flux/review, /flux/iterate, etc.
 Fallback de raiz, se a sessão não resolver FLUX_ROOT pelo symlink:
   export FLUX_HOME="$SRC"
 
