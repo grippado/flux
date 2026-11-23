@@ -510,6 +510,7 @@ claude plugin validate ./plugins/flux # plugin + frontmatter de cada skill
 scripts/check-manifests.sh            # version e name iguais nos cinco manifests
 scripts/check-codex-agent-contract.sh # o adaptador Codex continua descrito nos shared/
 scripts/check-prune-parity.sh         # poda da varredura de manifestos igual no flux-context.md e na CLI; roda em CI
+scripts/check-context-ascent.sh       # todo verbo sobe a árvore por .claude/ e .cursor/ (ou aponta para o shared)
 shellcheck plugins/flux/scripts/*.sh  # recomendado ao tocar em scripts (ver "Scripts auxiliares")
 scripts/test-iterate-watch-gate.sh    # ao tocar em iterate-watch-gate.sh: gh e sleep falsos, sem rede e sem espera
 scripts/test-run.sh                   # writer do run (run.sh): schema, permissões, recusa de path absoluto; roda em CI
@@ -521,7 +522,11 @@ nenhum dos dois enxerga `.cursor-plugin/` nem `.codex-plugin/`. É por isso que 
 existe: um bump que esquece parte dos cinco passa verde nos dois `validate`, e o mesmo corpo de skills
 chega ao usuário com versão diferente conforme o harness. O `check-codex-agent-contract.sh` faz o
 mesmo pelo texto dos `shared/`: é um canário que falha se a descrição do adaptador Codex sumir de
-`codex-compat.md`, `preflight.md` ou `review-agents.md`. Os dois scripts rodam em CI
+`codex-compat.md`, `preflight.md` ou `review-agents.md`. O `check-context-ascent.sh` é o canário da
+subida do manifesto: falha se um SKILL listar `.claude/flux-context.json` sem o `.cursor/`
+correspondente, descrever a subida só por `.claude/`, ancorar a raiz do workspace só no `.claude/` ou
+copiar o default de `SPECIALISTS_ROOT` sem o ramo `agents/review/*.md`, em vez de apontar para
+`shared/flux-context.md`. Os três scripts rodam em CI
 ([`checks.yml`](.github/workflows/checks.yml)) a cada PR, então esquecer de rodá-los aqui custa uma
 ida ao GitHub, não uma regressão publicada.
 
