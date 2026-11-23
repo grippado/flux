@@ -48,7 +48,7 @@ O `flux-context.json` pode declarar o bloco abaixo (todos os campos são opciona
 | `org` | ausente | Organização do SonarCloud (parâmetro `organization=`). Ignorado para SonarQube. |
 | `project_key_template` | ausente | Template com `{repo}` substituído pelo slug do repo, como `specialists_root` já faz. Ausente = sem chave de projeto = sem consulta. |
 | `token_env` | `SONAR_TOKEN` | Nome da variável de ambiente com o token. |
-| `secrets_file` | `~/.secrets` | Arquivo de secrets, uma chave por linha (`KEY=value`, valor com ou sem aspas, `export` opcional, comentários com `#`). Formato em `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token". |
+| `secrets_file` | `~/.secrets` | Arquivo de secrets lido quando a variável não está no ambiente. Formato aceito em `${FLUX_ROOT}/shared/api-first.md`, seção "Ler o token". |
 
 Quando qualquer campo indispensável estiver ausente (sem `provider`, sem `project_key_template` ou
 sem token encontrado), cair em **degradação declarada** (ver seção abaixo).
