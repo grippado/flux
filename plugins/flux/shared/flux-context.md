@@ -327,8 +327,8 @@ com o reviewer de outro time sem que nada acuse o problema.
   `<vault_root>/<vault_context>` acerta por coincidência até o dia em que os dois divergem. Ausente →
   o elo assume um vault sem separação por contexto e usa `vault_root` também como raiz de leitura.
 - `workspace_root` — raiz onde os checkouts dos repos vivem, usada por
-  `flux:land` pra resolver checkouts cross-repo. Sem o campo, assume o diretório pai do `.claude/`
-  onde o manifesto foi encontrado.
+  `flux:land` pra resolver checkouts cross-repo. Sem o campo, assume o pai do diretório
+  (`.claude/` ou `.cursor/`) onde o manifesto foi encontrado.
 - `linear_org` — org do Linear, usada por `flux:issue` pra montar URLs de ticket
   (`https://linear.app/{linear_org}/issue/...`) e pelo doc apontado em `linear_ops` no roteamento de team.
 - `tracker_repo_map` — opcional. Mapa `{ "<projeto ou time do tracker>": "<slug de repo>" }`, terceira e
