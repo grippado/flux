@@ -117,7 +117,13 @@ export function resolveFluxRootOpenCode(
   let data: unknown;
   try {
     data = JSON.parse(readFileSync(manifestPath, "utf-8"));
-  } catch {
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      warnings?.push(
+        `manifesto do OpenCode em ${manifestPath} ilegível (${(e as Error).message}); ` +
+          "rode scripts/install-opencode.sh de novo a partir do checkout"
+      );
+    }
     return null;
   }
   const source = data && typeof data === "object" ? (data as Record<string, unknown>)["source"] : undefined;

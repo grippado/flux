@@ -630,12 +630,32 @@ describe("FLUX_ROOT: manifesto do instalador do OpenCode e precedência", () => 
     expect(ctx.warnings.some((w) => w.includes("manifesto do OpenCode"))).toBe(false);
   });
 
-  it("ignora manifesto ilegível, sem aviso", () => {
+  it("manifesto ilegível é ignorado com aviso e remédio", () => {
     const { home } = fakeHome();
     install(defaultConfigDir(home), "{");
     process.env["OPENCODE_SESSION_ID"] = "ses_test";
     const warnings: string[] = [];
     expect(resolveFluxRootOpenCode(home, warnings)).toBeNull();
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain(".flux-install.json");
+    expect(warnings[0]).toContain("scripts/install-opencode.sh");
+  });
+
+  it("manifesto ausente não avisa", () => {
+    const { home } = fakeHome();
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    const warnings: string[] = [];
+    expect(resolveFluxRootOpenCode(home, warnings)).toBeNull();
     expect(warnings).toEqual([]);
+  });
+
+  it("CLAUDECODE na mesma sessão OpenCode não bloqueia o manifesto", async () => {
+    const { home, checkout } = fakeHome();
+    install(defaultConfigDir(home), { source: checkout });
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    process.env["CLAUDECODE"] = "1";
+    const ctx = await resolveIn(home);
+    expect(ctx.flux_root_source).toBe("opencode-install-manifest");
+    expect(ctx.flux_root).toBe(checkout);
   });
 });
