@@ -37,7 +37,8 @@ diretório de configuração do OpenCode.
 
 **Manifesto de instalação.** O instalador grava em `$DEST/.flux-install.json` a lista dos caminhos
 que gerou (`skills`, `commands`, `agents`, relativos ao destino) e `source`, o caminho absoluto de
-`plugins/flux` no checkout de origem. Os quatro campos são contrato: `source` é lido pela CLI como
+`plugins/flux` no checkout de origem. Esses quatro campos são contrato (o quinto, `generated_by`, é
+informativo): `source` é lido pela CLI como
 candidato 7 da cascata de `FLUX_ROOT` (Passo 1a do [`preflight.md`](preflight.md)), e mudar o nome
 ou o formato dele exige mudar a CLI junto. Numa rodada seguinte, ele só
 sobrescreve ou remove o que estiver listado ali, e por isso um verbo ou agent que saiu da família
@@ -135,7 +136,7 @@ sessão como manda o Passo 3-bis do [`preflight.md`](preflight.md). O OpenCode n
 de L1 de override, L2 e L3 que moram nos diretórios do Claude e do Cursor (`.claude/agents/`,
 `.cursor/agents/`) e nas raízes do manifesto. Quando o nome não estiver na lista da sessão, vale a
 exceção do adaptador de instruções estendida ao OpenCode no Passo 3 do
-[`preflight.md`](preflight.md) e no [`review-agents.md`](review-agents.md): aplicar literalmente
+[`preflight.md`](preflight.md) e no [`review-agents.md`](review-agents.md): aplicar
 "Adaptador de instruções de agente" do [`codex-compat.md`](codex-compat.md), com o subagente
 `general` no papel do subagente nativo genérico, e com uma diferença no último degrau de L1: o
 genérico da família está registrado como `flux-pr-reviewer`, então ele é invocado por esse nome, como
@@ -162,7 +163,9 @@ não tem `ScheduleWakeup` nem `SendMessage`. O que degrada, por verbo:
   `${FLUX_CMD}reply`, e aqui não há nenhum dos dois. O verbo roda a passada, e a próxima é uma
   invocação manual. O [`codex-compat.md`](codex-compat.md) não dá a essa ausência um tratamento
   próprio no Codex, que tem o mesmo limite, e o Passo 5 do [`preflight.md`](preflight.md) não tem
-  token para ela; este item é o registro dela, sem token novo.
+  token para ela. O elo declara a perda em `degradacoes:` do banner com texto livre, como o gabarito
+  do `reply` permite: `watch indisponivel (sem reagendamento; proxima passada e manual)`. Não há
+  token canônico novo.
 
 ### Alcance da L3 e índice de agents
 
