@@ -81,9 +81,16 @@ def parse_frontmatter(path):
             raise Refused(f'{path}:{number}: chave {key} repetida')
         if BLOCK_SCALAR.match(value):
             raise Refused(f'{path}:{number}: {key} em bloco > ou | não é suportado; use escalar entre aspas numa linha')
+        if value[:1] not in ('"', "'"):
+            unquoted_colon(f'{path}:{number}: {key}', value)
         fields[key] = (number, value)
         nested_ok = value == ''
     return fields, body
+
+
+def unquoted_colon(where, raw):
+    if ': ' in raw or ':\t' in raw or raw.endswith(':'):
+        raise Refused(f'{where} sem aspas contém dois-pontos seguido de espaço; ponha o valor entre aspas')
 
 
 def utf8(where, value):
@@ -120,12 +127,11 @@ def scalar_value(where, raw):
         if len(raw) < 2 or not raw.endswith("'") or "'" in inner.replace("''", ''):
             raise Refused(f'{where} entre aspas simples malformado')
         return inner.replace("''", "'")
-    if raw[0] in '[{&*!%@`':
-        raise Refused(f'{where} começa com {raw[0]!r}, forma YAML que o parser não entende')
+    if raw[0] in '[{&*!%@`|>-?' or raw.startswith('<<'):
+        raise Refused(f'{where} começa com {raw[:2] if raw.startswith("<<") else raw[0]!r}, forma YAML que o parser não entende; ponha o valor entre aspas')
     if ' #' in raw or '\t#' in raw:
         raise Refused(f'{where} com comentário inline; tire o comentário ou ponha o valor entre aspas')
-    if ': ' in raw or ':\t' in raw or raw.endswith(':'):
-        raise Refused(f'{where} sem aspas contém dois-pontos seguido de espaço; ponha o valor entre aspas')
+    unquoted_colon(where, raw)
     return raw
 
 
@@ -293,8 +299,12 @@ present = existing_namespace()
 writes, kept, blocked, orphans = [], [], set(), []
 for rel in sorted(desired, key=lambda item: (not item.startswith('skills/'), item)):
     if rel in skill_of_command and skill_of_command[rel] in blocked:
+        abs_path = os.path.join(dest, rel)
         if is_ours(rel):
             orphans.append(rel)
+        elif os.path.lexists(abs_path):
+            skill_id = skill_of_command[rel][len('skills/'):]
+            warnings.append(f'{foreign(abs_path)}; mantido sem sobrescrever, porque a skill {skill_id} também é de terceiro')
         continue
     abs_path = os.path.join(dest, rel)
     if not os.path.lexists(abs_path) or (is_ours(rel) and not already_current(rel)):
