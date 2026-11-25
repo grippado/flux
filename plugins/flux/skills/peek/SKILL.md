@@ -1,6 +1,6 @@
 ---
 name: peek
-description: "Relance read-only de working tree / branch / diff / PR / doc; roda só o reviewer holístico; imprime parecer com badges no chat; não posta, não aplica, não grava no vault (exceto `--save`). Para review formal que persiste e posta, use o verbo `review` da família."
+description: "Relance read-only de working tree / branch / diff / PR / doc; roda só o reviewer holístico; imprime parecer com badges no chat; não posta, não aplica; numa sessão que já tem board, registra o relance na Timeline dele (e, com `--save`, o parecer como seção). Para review formal que persiste e posta, use o verbo `review` da família."
 user-invocable: true
 requires:
   hard:
@@ -12,6 +12,8 @@ requires:
     - bin: gh
     - checkout_local
     - index
+    - vault
+    - file: shared/board-template.md
 ---
 
 # /flux:peek

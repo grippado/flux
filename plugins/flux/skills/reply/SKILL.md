@@ -320,7 +320,7 @@ Invocar `Skill(maria-bonita)` uma vez para carimbar o veredito de 1 linha no cha
 Resolver o board conforme `## Casos multi-superfície` (procurar antes de criar). Path e naming em `## Board no vault`.
 
 - **Caso novo**: criar o arquivo já com o painel montado (mesmo que várias pendências comecem `🟡 ABERTA`) e **anunciar o caminho no chat**. O board nasce cedo, não no fim.
-- **Caso existente**: atualizar **as seções afetadas** — painel (delta de pendências), 🧭 Rastro (se houve migração), 🔬 Achados (fatos novos + riscados), ✍️ Rascunhos, Timeline (append), TL;DR e Próximo movimento (reescritos, não anexados), e `runs[]` quando a sessão é nova no caso. Nunca criar arquivo novo para um caso que já tem board.
+- **Caso existente**: atualizar **as seções afetadas** — painel (delta de pendências), 🧭 Rastro (se houve migração), 🔬 Achados (fatos novos + riscados), ✍️ Rascunhos, Timeline (append), TL;DR e Próximo movimento (reescritos, não anexados), e `provenance.runs` quando a sessão é nova no caso. Nunca criar arquivo novo para um caso que já tem board.
 - **Todo tick rola o carimbo de data** (frontmatter `updated:` e TL;DR), mesmo tick sem novidade.
 
 Usar Write/Edit. Se `ANSWER` veio malformado, abortar sem gravar.
@@ -464,7 +464,7 @@ Entrar no loop de polling (ver `## Modo watch`).
 
 ## Board no vault
 
-**O formato é fonte única compartilhada:** `${FLUX_ROOT}/shared/board-template.md`, **perfil conversa** (`type: thread`, `generator: "flux-reply"`, `tags: [board, slack, orchestration]`). Frontmatter (com `runs[]`, `case_keys` e `provenance`), seções, legendas e carimbo de data vivem lá e **não são repetidos aqui**.
+**O formato é fonte única compartilhada:** `${FLUX_ROOT}/shared/board-template.md`, **perfil conversa** (`type: thread`, `generator: "flux-reply"`, `tags: [board, slack, orchestration]`). Frontmatter (com `provenance.runs`, `case_keys` e `provenance`), seções, legendas e carimbo de data vivem lá e **não são repetidos aqui**.
 
 Parâmetros específicos deste comando:
 

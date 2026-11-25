@@ -334,7 +334,7 @@ execução** (`type: flux-build`, `generator: "flux-build"`). O board nasce ante
 worktree por muitos minutos: board que nasce depois do trabalho é ata.
 
 1. **Anunciar o path no chat** na criação ou na retomada.
-2. **Frontmatter** pelo template, inclusive `runs[]` desta sessão e o `provenance` com o checklist,
+2. **Frontmatter** pelo template, inclusive a linha desta sessão em `provenance.runs` e o `provenance` com o checklist,
    mais os campos do perfil: `repo`, `ticket`, `engine`, `engine_kind`, `worktree`, `branch`,
    `pr: null`, `scope`.
 3. **Painel** com uma linha por etapa do motor, todas `⏳ pendente`:

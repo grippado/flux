@@ -2,24 +2,27 @@
 
 > Formato canônico do que o `flux:review` grava, nos perfis **PR** e **doc**. A review não tem nota
 > própria: cada execução é uma `### Rodada K · <data> · <harness>` dentro da seção
-> `## 🔎 Review · PR #N` do board da sessão (`board-template.md`, "Seções por verbo"). Os H2 deste
-> template viram H4 dentro da rodada. Não duplicar este template no comando.
+> `## 🔎 Review · PR #N` do board da sessão (`board-template.md`, "Seções por verbo"). Este arquivo é
+> o dono dos níveis de heading: a seção é H2 e a rodada H3, então cada nível dos exemplos abaixo desce
+> dois (os H2 viram H4, os H3 viram H5). Não duplicar este template no comando.
 >
 > Badges: `${FLUX_ROOT}/shared/review-legend.md`. A rodada é um **parecer read-only**, um snapshot:
 > o que é vivo (TL;DR, Próximo movimento, Timeline) é do board, não da rodada.
 
 ## Regra de ouro do painel
 
-O **Painel de findings** (seção 📊) é a ÚNICA tabela que lista findings no documento. Nenhuma outra
-seção pode ter tabela paralela de findings — o resto é prosa. (A tabela de arquivos em 📎 Escopo é outra
-coisa, permitida.)
+O **Painel de findings** é a ÚNICA tabela que lista findings. Ele mora no `## 📊 Painel` do board,
+sempre com os findings da rodada mais recente; a rodada não repete a tabela, só a contagem por badge.
+Nenhuma outra seção tem tabela paralela de findings. (A tabela de arquivos em 📎 Escopo é outra coisa,
+permitida.)
 
 ## Âncoras internas (vale para os dois perfis)
 
 O artefato é lido **no Obsidian**, que ancora por texto de heading. Âncora de Pandoc não resolve lá.
 
 - ❌ `{#f1}` no heading · ❌ `[f1](#f1)` no link (rende "Unable to find f1 in ..." ao clicar)
-- ✅ heading curto e estável: `### f1 · {rótulo curto do problema}`
+- ✅ heading curto e estável: `f1 · {rótulo curto do problema}`; com mais de uma rodada no board,
+  `f1 · {rótulo} · r{K}`, senão os wikilinks colidem entre rodadas
 - ✅ link: `[[#f1 · {rótulo curto}|f1]]`, ou com alias descritivo nas prioridades
 
 Detalhe completo (headers estáveis, alias sem backtick, unicidade) na subseção "Âncoras internas" do
@@ -61,9 +64,8 @@ Montar esta linha em itálico, sem blockquote nem emoji. Começar com `Review vi
 somente quando cada valor estiver disponível; pôr `EFFORT` entre parênteses após `MODEL`, ou escrever
 `effort={EFFORT}` quando só o esforço estiver disponível. Omitir campos vazios ou `unknown` por
 completo; nunca inferir nem usar os valores de specialists. Exemplo para Codex sem model ou effort
-verificáveis: `_Review via Codex · flux:review@1.46.1_`. O frontmatter mantém os campos estruturados
-`harness`, `flux_version`, `model`, `effort` e `stamp`, incluindo `unknown` quando um dado não estiver
-disponível.
+verificáveis: `_Review via Codex · flux:review@1.46.1_`. Os campos estruturados (`harness`,
+`model`, `effort`, inclusive `unknown`) ficam na linha desta sessão em `provenance.runs` do board.
 
 ---
 
@@ -71,19 +73,15 @@ disponível.
 
 ### Campos no frontmatter do board
 
-A rodada não grava frontmatter. O que ela acrescenta ou atualiza no frontmatter do board, com os
-valores da rodada mais recente: `repo` (slug puro), `pr`, `pr_number`, `pr_url`, `ticket`,
-`ticket_url`, `author`, `reviewer`, `own_pr`, `status`
-(`approved | approved-with-suggestions | approved-with-questions | request-changes`), `head_sha`,
-`counts` (`{ request-change: N, breaking-change: N, question: N, suggestion: N, praise: N, note: N }`),
-`reverified_threads` (só quando o Passo 4b rodou) e a `case_key`
-`pr:<owner>/<repo>#<n>`. Board aberto pela própria review é do perfil review (`type: pr-review`) e
-grava o `provenance` do template, com `generator: "flux-review"`. Com run, o `run_id` vai no item desta sessão em `runs[]`.
+A rodada não grava frontmatter. Os campos que ela atualiza no board são os do bloco "review" do
+frontmatter de `board-template.md`, com os valores da rodada mais recente, mais `repo`, `pr`,
+`pr_number`, `ticket` e a `case_key` `pr:<owner>/<repo>#<n>`. Com run, o `run_id` vai na linha desta
+sessão em `provenance.runs`.
 
 ### Corpo
 
 ```markdown
-# Review PR #{number} — [{TICKET}] {título da PR}
+### Rodada {K} · {DD/MM HH:MM} · {harness}
 
 [#{number}]({pr_url}) · `{repo-slug}` · @{author} · [{TICKET}]({ticket_url}) · +{adds}/-{dels} (size_{x}) · head [`{head_sha:0:7}`](https://github.com/{owner}/{repo}/commit/{head_sha}) · **{status traduzido}**
 
@@ -173,7 +171,7 @@ fix/decisão concreta. Convergência entre lentes: anotar "(corroborado por {spe
 - {N} arquivos, +{adds}/-{dels}, {resumo do escopo}. {Sem/Com mudança de API/BFF, env vars, flags.}
 - **Fora de escopo:** {o que não entrou e por quê, linkado quando aplicável}.
 - **Threads anteriores:** {resolvidas/abertas, com [link]({url}) para as relevantes}.
-- **Reviews anteriores:** {[[YYYY-MM-DD-repo-PRn]] quando re-run, senão omitir}.
+- **Rodada anterior:** {[[#Rodada {K-1} · ...]] quando re-run; nota legada `[[YYYY-MM-DD-repo-PRn]]` quando a anterior vive fora do board; senão omitir}.
 
 | arquivo | +/- |
 |---|---|
@@ -206,15 +204,17 @@ Tradução do STATUS (conforme `review-legend.md`): `approved` → "Aprovar"; `a
 Mesma espinha visual, adaptada a documento (sem `head_sha`/permalink de código; a âncora é a seção +
 trecho verbatim). Diferenças em relação ao perfil PR:
 
-- **Frontmatter:** `type: doc-review`, `source_url` (URL do doc) no lugar de `pr_url`/`head_sha`,
-  `execution_status: open`, `own_doc: {true|false}`.
+- **Frontmatter do board:** os campos de doc do bloco "review" de `board-template.md` (`source_url`,
+  `own_doc`, `actions`) e a `case_key` `doc:<file_id>`. `type: doc-review` só quando a review abriu o
+  board.
 - **Linha de metadados:** `[{DOC_TITLE}]({source_url}) · autor · última atualização · {status}`.
 - **Findings:** a âncora é `§seção "trecho verbatim"` (ver **Amarração de trechos** abaixo, é regra,
   não estilo). Links de código quando o doc afirma algo sobre um repo (permalink no branch default do
   repo citado, já que doc não tem `head_sha`).
 - **Painel de findings:** coluna `local` = `§seção` **mais** o trecho verbatim curto entre aspas.
-- **Seções extras** (mantidas do doc-reviewer): `## TL;DR` e `## Resumo Executivo` ao final, para quem
-  não vai ler o doc inteiro.
+- **Seções extras** (mantidas do doc-reviewer): `Resumo` e `Resumo executivo` ao final da rodada, para
+  quem não vai ler o doc inteiro. Não usar o heading `TL;DR`: o do board é um só, e é reescrito com o
+  veredito da rodada.
 - **📎 Escopo** vira "Repos referenciados" (lista linkada) em vez de tabela de arquivos.
 - **Seção obrigatória quando `own_doc == true`:** `## ⚡ Ações no documento`, entre o painel e os
   findings (ver abaixo). Ela é a fonte única de execução: edições, respostas às threads e perguntas

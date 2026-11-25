@@ -258,7 +258,8 @@ que se ganha:
 
 - **Watch ligado** → criar o keeper na fase em que o board nasce, antes do primeiro tick.
 - **`--once` / passada única** → **não criar**. É uma escrita só; a main grava direto e o keeper
-  seria overhead puro. (Inclui todo `/flux:iterate --auto --once` despachado por um delivery.)
+  seria overhead puro. O `/flux:iterate --auto --once --parent-board` despachado por um delivery não
+  escreve board nenhum: devolve o delta ao escritor do delivery.
 - **`flux:build`** → **não criar**. O board de execução tem exatamente duas escritas (nascimento
   antes do despacho, fechamento no retorno do motor) e nenhum tick intermediário: a main grava
   direto. O que continua valendo com força total é o **escritor único**: o subagente que roda o

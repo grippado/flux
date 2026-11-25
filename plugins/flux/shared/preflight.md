@@ -151,7 +151,7 @@ Os dois campos **não entram** na cascata de resolução de `FLUX_ROOT` nem afet
 
 ### 1a-run — `VIOLEET_RUN_ID` e `SESSION_ID`
 
-Identificam **esta sessão** no board (`runs[]` e passo 1 de "Resolver o board" em
+Identificam **esta sessão** no board (`provenance.runs` e passo 1 de "Resolver o board" em
 `${FLUX_ROOT}/shared/board-template.md`). Lidos do ambiente do shell desta execução, sem inferir:
 
 - **`VIOLEET_RUN_ID`**: o valor de `FLUXD_RUN_ID` quando presente **e** casando com
@@ -161,9 +161,10 @@ Identificam **esta sessão** no board (`runs[]` e passo 1 de "Resolver o board" 
   no formato UUID. Nos demais harnesses, `null`: o Passo 1a-harness proíbe gravar o valor de
   `CODEX_THREAD_ID`, e o Cursor não expõe id verificável.
 
-`null` nos dois não gera token de banner: é o caso comum fora do painel. Sem nenhum dos dois, o passo 1
-de "Resolver o board" não tem como reconhecer a sessão depois de uma compactação de contexto, e o
-board da sessão é reencontrado pelas `case_keys` (passo 2).
+Um dos dois `null` não gera token. Os **dois** `null` (Cursor e Codex fora de um lançador que exporte
+`FLUXD_RUN_ID`) geram `sessao nao identificavel` no banner de todo elo que grava board: a sessão só
+é reconhecida pelo path do board que ela anunciou no chat, e uma compactação de contexto que o perca
+faz o verbo seguinte abrir um segundo board.
 
 ### 1b — `FLUX_CMD`
 
@@ -491,6 +492,8 @@ que o banner precisa ser.
 | `rastro de force-push so no chat` | o elo pode publicar resolução de conflito com `--force-with-lease` (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5) e roda sem board, então o relato do push sai só no resumo da rodada. Declarado no banner inicial, antes de qualquer push. `--dry` e `--no-rebase` não geram o token: não publicam resolução | o `flux:iterate` em perfil sem `VAULT_ROOT` e sem `--parent-board` |
 | `alias sem diretorio` | o pedido ao `flux:reply` não traz permalink do Slack e nomeia pessoa ou canal por nome ("com X", "no Y"), e o manifesto não declara `slack_directory` (ou o arquivo não abre, ou `version` não é a conhecida). Permalink informado **não** gera o token: não havia alias a resolver. Sai sem motivo adicional | o `flux:reply` (`${FLUX_ROOT}/shared/slack-directory.md`, "Degradação") |
 | `rastro de gate so no chat` | o `flux:reply` rodou o caminho rápido do diretório (sem board, sem Timeline) e apresentou GATE: o bloco da `GateSpec` e o resultado da escolha saem só no chat, como pede `${FLUX_ROOT}/shared/hitl.md`, "Registrar antes e depois". Sai sem motivo adicional | o `flux:reply`, no caminho rápido |
+| `sem vault` | o elo grava board, mas `VAULT_ROOT` não está resolvido: o board sai só no chat (ou em `--save <dir>`). Sai sem motivo adicional | todo elo que grava board (`${FLUX_ROOT}/shared/board-template.md`, "Resolver o board") |
+| `sessao nao identificavel` | `VIOLEET_RUN_ID` e `SESSION_ID` são `null` (Passo 1a-run): a regra de um board por sessão depende do path anunciado no chat. Sai sem motivo adicional | todo elo que grava board |
 
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
 encheria de ruído o banner de toda máquina que não usa kit. Só os quatro estados de kit acima são

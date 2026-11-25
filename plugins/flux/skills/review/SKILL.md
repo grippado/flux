@@ -6,6 +6,7 @@ requires:
   hard:
     - file: shared/review-legend.md
     - file: shared/review-artifact-template.md
+    - file: shared/board-template.md
     - file: shared/flux-context.md
     - bin: git
     - agent: ${HOLISTIC}
@@ -446,7 +447,7 @@ recapitular).
 A review **não tem nota própria**: é a seção `## 🔎 Review · PR #N` do board resolvido no 3b, com um
 `### Rodada K · <data> · <harness>` por execução, sem apagar as anteriores. Sem board resolvido,
 nasce um, **perfil review** do template: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-review-pr<N>-<repo-slug>.md`
-(sem PR: `flux-review-<repo-slug>-<branch-slug>.md`), `type: pr-review`, com `repo`, `pr_number`,
+(sem PR: `flux-review-<repo-slug>-<branch-slug>.md`, com a `case_key` `branch:<owner>/<repo>@<branch>`), `type: pr-review`, com `repo`, `pr_number`,
 `context`, `pending_organize: true` e `case_keys` no frontmatter: é o sinal com que o `/organize`
 roteia a nota.
 
@@ -474,13 +475,13 @@ STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificaç�
   atualizar a mesma entrada após a escolha. Sem escolha, preservar `pendente` e não registrar ação.
 - `## 🎯 Veredito & prioridades` no topo, com cada prioridade linkando pro `#fN` e pro código.
 - Frontmatter do board: `pr_url`, `head_sha`, `counts` e `status` da rodada mais recente; a
-  `case_key` da PR; a entrada desta sessão em `runs[]` com `review` em `verbs`. Com `run_id:` na
-  invocação, `run_id: "{run_id}"` no item desta sessão em `runs[]`. Board novo grava o `provenance` pelo contrato do template
+  `case_key` da PR; a linha desta sessão em `provenance.runs` com `review` em `verbs`. Com `run_id:` na
+  invocação, `run_id: "{run_id}"` na linha desta sessão em `provenance.runs`. Board novo grava o `provenance` pelo contrato do template
   (`generator: "flux-review"`), com o checklist antes do Write; board existente não o reescreve.
 - Linha na Timeline do board, tipo `review`, com a contagem por badge e o link da seção.
 
 Gravar com Write (board novo) ou Edit (board existente). Sem `VAULT_ROOT` e sem `--save`: imprimir no
-chat; com `--save <dir>`, gravar o board em `<dir>/`. Com `run_id:` na invocação, registrar o output (item 1 de "Registro do run").
+chat; com `--save <dir>`, gravar o board em `<dir>/` (`board-template.md`, "Resolver o board"). Com `run_id:` na invocação, registrar o output (item 1 de "Registro do run").
 
 ### 7. Resposta no chat
 
@@ -843,9 +844,9 @@ adaptada a documento:
   painel). Sem `head_sha`/permalink de código; quando o doc afirmar algo sobre um repo, linkar o
   permalink no branch default do repo citado.
 - Frontmatter do board: `source_url`, `own_doc`, `counts`, `actions: {N}` (quando
-  `IS_OWN_DOC == true`) e `status` da rodada mais recente, mais `case_keys` e `runs[]`.
-- `## 📎 Escopo` vira "Repos referenciados" (lista linkada). Manter `## TL;DR` e `## Resumo Executivo`
-  ao final (seções próprias do doc-review).
+  `IS_OWN_DOC == true`) e `status` da rodada mais recente, mais `case_keys` e a linha desta sessão em `provenance.runs`.
+- `📎 Escopo` vira "Repos referenciados" (lista linkada). `Resumo` e `Resumo executivo` ao final da
+  rodada, conforme o perfil doc do template (sem heading `TL;DR`).
 - **Quando `IS_OWN_DOC == true`: gravar `## ⚡ Ações no documento`** logo após o painel e antes de
   `## 🔎 Findings`, preenchida com o `ACOES` retornado pelo subagent (seção d4). É obrigatória, não
   opt-in. Se `OPEN_THREADS` estiver vazio e não houver ação de edição, a seção entra com a linha

@@ -760,6 +760,7 @@ note_has_run_id() {
             sub(/[ \t]+$/, "", v)
             if (v == id || v == "\"" id "\"" || v == "\047" id "\047") hit = 1
         }
+        $0 ~ ("[{,][ \t]*run_id:[ \t]*[\"\047]?" id "[\"\047]?[ \t]*[,}]") { hit = 1 }
         END { if (!hit) exit 1 }
     ' "$1" 2> /dev/null
 }

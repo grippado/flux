@@ -88,8 +88,7 @@ Resolver conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board": o
 `case_key` `source:<SOURCE normalizado>`, nos dois lugares (`<VAULT_ROOT>/0-inbox/` e
 `<VAULT_CTX_ROOT>/`, onde o `/organize` pode já tê-lo promovido); senão um novo no Step 1-ter.
 
-**Normalizar o `SOURCE`:** URL do Slack ou de PR sem query string nem `?thread_ts=`; texto livre como
-`texto-livre:<slug>` (minúsculas, sem acento, pontuação virando hífen). Casou parcialmente (mesmo repo
+A forma normalizada da chave está na tabela de `case_keys` do template. Casou parcialmente (mesmo repo
 e tema, slug diferente) ou mais de um candidato: **GATE** (`${FLUX_ROOT}/shared/hitl.md`) perguntando
 qual retomar, ou se é pedido novo. Nunca escolher por data.
 
@@ -116,11 +115,11 @@ nenhum; **retomar** o que ele achou, se achou — seguindo o **perfil exploraç�
 
 1. **Caminho:** o board resolvido no Step 1-bis; ou, sendo novo,
    `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md` (`generator: "flux-issue"`).
-2. **Nasce com** o frontmatter do template (`runs[]`, `case_keys`, `execution_status: active`,
+2. **Nasce com** o frontmatter do template (`provenance.runs`, `case_keys`, `execution_status: active`,
    `source`, `repos`, `linear_ids: []`, `origin_board` quando houver), o TL;DR com o `REQUEST` em uma
    frase, o 🎯 Próximo movimento apontando para a prospecção e o painel com **uma linha
    `🔧 APURANDO` por repo** de `TARGET_REPOS`. Linha na Timeline, tipo `prospecção`. **Retomando:**
-   não recriar o cabeçalho; registrar esta run em `runs[]`, reescrever o TL;DR e reabrir as linhas de
+   não recriar o cabeçalho; registrar esta run em `provenance.runs`, reescrever o TL;DR e reabrir as linhas de
    apuração refeitas.
 3. **Sem `VAULT_ROOT`** (perfil genérico): não há board; tudo sai no chat, como antes. É capacidade que
    degrada, não requisito — declarar a perda no banner de perfil e seguir.

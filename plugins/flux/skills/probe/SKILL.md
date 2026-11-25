@@ -242,8 +242,8 @@ cruzados.
 ## Step 3 — Abrir (ou retomar) o board, antes do fan-out
 
 Resolver conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board": o board desta
-sessão; senão o do caso, pela `case_key` `source:<alvos ordenados e normalizados, separados por
-espaço>` ou pela de qualquer alvo isolado, no inbox ou já promovido; senão um novo em
+sessão; senão o do caso, pela `case_key` `source:` dos alvos (forma na tabela de `case_keys`
+do template) ou pela de qualquer alvo isolado, no inbox ou já promovido; senão um novo em
 `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-probe-<slug>.md`, perfil exploração,
 `generator: "flux-probe"`. **Anunciar o path no chat.**
 
@@ -378,7 +378,7 @@ issue sem o gate que a governa.
 ## Step 7 — Consolidar e apontar o próximo elo
 
 1. Escrever a seção **7-octies 🔭 Telemetria** do `${FLUX_ROOT}/shared/board-template.md`.
-2. Rolar o carimbo de data (frontmatter `updated:`, TL;DR, painel).
+2. Rolar o carimbo de data (frontmatter `updated:` e o `**Agora:**` do TL;DR).
 3. `execution_status: open` — o board segue vivo, com o rascunho por escrever. **Este elo nunca grava
    `done`**: quem fecha é o `flux:issue`, quando a issue nasce.
 4. 🎯 Próximo Movimento e resposta no chat, escolhendo **um** destino conforme o que a síntese produziu,

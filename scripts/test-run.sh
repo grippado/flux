@@ -220,6 +220,12 @@ t_has "run_id dentro de runs[] do board é aceito" "0-inbox/board.md" "$WORK/rr.
 printf -- '---\nruns:\n  - violeet_run_id: "%s"\n---\n' "$RUN" > "$VAULT/0-inbox/board.md"
 rs resolve-ref --run "$RUN" --vault-root "$VAULT" > "$WORK/rr.txt" 2> /dev/null
 t_true "violeet_run_id não conta como run_id" '! grep -q "0-inbox/board.md" "$WORK/rr.txt"'
+printf -- '---\nprovenance:\n  runs:\n    - { violeet_run_id: null, harness: codex, run_id: "%s", verbs: [review] }\n---\n' "$RUN" > "$VAULT/0-inbox/board.md"
+rs resolve-ref --run "$RUN" --vault-root "$VAULT" > "$WORK/rr.txt" 2> /dev/null
+t_has "run_id em flow mapping de provenance.runs é aceito" "0-inbox/board.md" "$WORK/rr.txt"
+printf -- '---\nprovenance:\n  runs:\n    - { violeet_run_id: "%s", harness: codex }\n---\n' "$RUN" > "$VAULT/0-inbox/board.md"
+rs resolve-ref --run "$RUN" --vault-root "$VAULT" > "$WORK/rr.txt" 2> /dev/null
+t_true "violeet_run_id em flow mapping não conta" '! grep -q "0-inbox/board.md" "$WORK/rr.txt"'
 rm -f "$VAULT/0-inbox/board.md"
 printf -- '---\r\nrun_id: "%s"\r\n---\r\n' "$RUN" > "$VAULT/0-inbox/crlf.md"
 rm -f "$VAULT/0-inbox/forma.md" "$VAULT/0-inbox/so-no-corpo.md"

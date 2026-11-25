@@ -277,7 +277,7 @@ que nunca passou pelo grill.
 ## Step 3 — Resolver o board, antes do fan-out
 
 Resolver conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board", com a mesma
-normalização de `source` do `flux:issue` (Step 1-bis): o board desta sessão; senão o do caso pela
+chave `source:` da tabela de `case_keys` do template: o board desta sessão; senão o do caso pela
 `case_key` `source:...`, no inbox ou já promovido; senão um novo em
 `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md`, perfil exploração,
 `generator: "flux-refine"`. **Anunciar o path no chat.** O board nasce antes do fan-out porque a
@@ -387,7 +387,7 @@ criação.
 1. Escrever a seção **7-septies 📐 Refinamento** do `${FLUX_ROOT}/shared/board-template.md` com os
    quatro blocos: **§1 PRD-fast**, **§2 TRD-fast**, **§3 Plano** e **§4 Veredito de escopo** (a faixa,
    os sinais lidos e, no 🟡, a lista nominal do que ficou raso).
-2. Rolar o carimbo de data (frontmatter `updated:`, TL;DR, painel) e gravar `scope:` no frontmatter.
+2. Rolar o carimbo de data (frontmatter `updated:` e o `**Agora:**` do TL;DR) e gravar `scope:` no frontmatter.
 3. `execution_status: open` — o board segue vivo, com o rascunho por escrever. Ele só fecha em `done`
    quando a issue nasce no Linear, e quem faz isso é o `flux:issue`. **Este elo nunca grava `done`.**
 4. 🎯 Próximo Movimento e resposta no chat apontando, com o `FLUX_CMD` resolvido:

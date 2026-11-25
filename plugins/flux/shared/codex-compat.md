@@ -129,6 +129,12 @@ declarar cada ausência como degradação: `reply` fica em modo rascunho sem Sla
 não persistem sem vault; `issue` não cria no Linear sem integração; e sem specialists só a lente
 holística é usada. Nenhuma dessas ausências autoriza inventar dados, endpoints ou agentes.
 
+**Identidade da sessão no board.** O Codex não expõe id de sessão que o flux possa gravar (o valor
+de `CODEX_THREAD_ID` é proibido, Passo 1a-harness do preflight). Fora de um lançador que exporte
+`FLUXD_RUN_ID`, `VIOLEET_RUN_ID` e `SESSION_ID` ficam `null`, o banner declara
+`sessao nao identificavel`, e a regra de um board por sessão depende do path que a sessão anunciou
+no chat (`board-template.md`, "Resolver o board", passo 1).
+
 ### Alcance da L3 e índice de agents
 
 O degrau 0 da escada de alcance ([`review-agents.md`](review-agents.md), 1b-bis) depende de

@@ -44,6 +44,7 @@ export const VERB_REQUIREMENTS: Record<string, VerbRequirements> = {
     hard: [
       { type: "file", name: "shared/review-legend.md" },
       { type: "file", name: "shared/review-artifact-template.md" },
+      { type: "file", name: "shared/board-template.md" },
       { type: "file", name: "shared/flux-context.md" },
       { type: "bin", name: "git" },
     ],
