@@ -202,14 +202,11 @@ Um caso vive em N superfícies ao longo do tempo. O board é do **caso**; `surfa
 
 ### Resolver o board antes de criar (SEMPRE)
 
-Antes de criar board novo, procurar um board existente do mesmo caso:
-
-1. **Por superfície:** grep em `<VAULT_ROOT>/0-inbox/` por boards `type: thread` cujo `surfaces[].channel_id` case com `CHANNEL_ID` (e `thread_ts`, quando houver). Casou → é este board, atualiza.
-2. **Por permalink histórico:** se o usuário passou mais de um link, casar por **qualquer** um deles. O link antigo é justamente o que reencontra o board.
-3. **Por tema, quando 1 e 2 falham:** se a superfície nova for desconhecida mas a conversa citar explicitamente uma thread já registrada (Slack marca `Forwarded message from`, ou o texto traz o permalink), casar por aí.
-4. Nada casou → board novo.
-
-**Nunca criar um segundo board para um caso que já tem um.** Caso fragmentado em várias notas é exatamente o problema que o board resolve. Na dúvida entre dois candidatos, abrir um GATE (`${FLUX_ROOT}/shared/hitl.md`) em vez de chutar.
+Resolver conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board": o board desta sessão;
+senão o do caso, por **qualquer** superfície (`case_key` `slack:<channel_id>/<thread_ts>`, ou as
+`surfaces[]` de board antigo), por qualquer permalink que o usuário passou, ou pela thread que a
+conversa cita explicitamente (`Forwarded message from`, permalink no texto); senão um board novo.
+Dois candidatos: GATE (`${FLUX_ROOT}/shared/hitl.md`), nunca chute.
 
 ### Registrar a superfície nova
 
@@ -229,7 +226,7 @@ Então, ao registrar superfície nova, **comparar item a item** o que chegou lá
 
 - O que **não** atravessou e é material (ressalva de escopo, risco, número, achado de segurança) vira **pendência no painel** ou item do 🎯 Próximo Movimento, marcado como "não chegou ao time novo".
 - Se o corte muda a decisão que o time novo vai tomar, isso é `🔒 BLOQUEIA`, não `⚪ INFORMATIVA`.
-- Registrar linha na Timeline de Eventos, tipo `migração`, dizendo o que foi levado e o que ficou de fora.
+- Registrar linha na Timeline, tipo `migração`, dizendo o que foi levado e o que ficou de fora.
 
 ### Rascunhos órfãos
 
@@ -312,7 +309,7 @@ Delegar ao `<ANSWERER>` (um só) via Task tool, passando:
 
 Passar também, quando o board já existe: as **pendências em aberto** do painel (para o rascunho não repetir pergunta já feita nem ignorar pergunta que ficou sem resposta) e o **dossiê acumulado** (para o rascunho poder citar fato de rodada anterior sem reprospecção).
 
-O answerer retorna `JULGAMENTO` (`responder|reagir|nada` + emoji se `reagir`), `RASCUNHO` (Slack-safe), `PONTO_DE_ATENCAO` e `ATA` (a matéria-prima da Timeline Verbosa e do delta do painel). Guardar como `ANSWER`.
+O answerer retorna `JULGAMENTO` (`responder|reagir|nada` + emoji se `reagir`), `RASCUNHO` (Slack-safe), `PONTO_DE_ATENCAO` e `ATA` (a matéria-prima da Timeline e do delta do painel). Guardar como `ANSWER`.
 
 ### 6. Carimbo Maria Bonita
 
@@ -323,8 +320,8 @@ Invocar `Skill(maria-bonita)` uma vez para carimbar o veredito de 1 linha no cha
 Resolver o board conforme `## Casos multi-superfície` (procurar antes de criar). Path e naming em `## Board no vault`.
 
 - **Caso novo**: criar o arquivo já com o painel montado (mesmo que várias pendências comecem `🟡 ABERTA`) e **anunciar o caminho no chat**. O board nasce cedo, não no fim.
-- **Caso existente**: atualizar **as seções afetadas** — painel (delta de pendências), 🧭 Rastro (se houve migração), 🔬 Achados (fatos novos + riscados), ✍️ Rascunhos, Timeline Verbosa (append), Timeline de Eventos, Próximo Movimento (reescrito, não anexado). Nunca criar arquivo novo para um caso que já tem board.
-- **Todo tick rola o carimbo de data** (frontmatter `updated:`, TLDR, título do painel), mesmo tick sem novidade.
+- **Caso existente**: atualizar **as seções afetadas** — painel (delta de pendências), 🧭 Rastro (se houve migração), 🔬 Achados (fatos novos + riscados), ✍️ Rascunhos, Timeline (append), TL;DR e Próximo movimento (reescritos, não anexados), e `runs[]` quando a sessão é nova no caso. Nunca criar arquivo novo para um caso que já tem board.
+- **Todo tick rola o carimbo de data** (frontmatter `updated:` e TL;DR), mesmo tick sem novidade.
 
 Usar Write/Edit. Se `ANSWER` veio malformado, abortar sem gravar.
 
@@ -467,7 +464,7 @@ Entrar no loop de polling (ver `## Modo watch`).
 
 ## Board no vault
 
-**O formato é fonte única compartilhada:** siga `${FLUX_ROOT}/shared/board-template.md`, **perfil conversa** (`type: thread`). Todas as seções (Frontmatter → H1+TLDR → 🎯 Próximo Movimento → 📊 Painel → ⏰ Timeline Verbosa → 📅 Timeline de Eventos → ✅ Ação/Continuidade → 🧭 Rastro do caso → 🔬 Achados → ✍️ Rascunhos), a legenda de ícones, a regra do painel e a disciplina de carimbo de data vivem lá e **não são repetidas aqui**.
+**O formato é fonte única compartilhada:** `${FLUX_ROOT}/shared/board-template.md`, **perfil conversa** (`type: thread`, `generator: "flux-reply"`, `tags: [board, slack, orchestration]`). Frontmatter (com `runs[]`, `case_keys` e `provenance`), seções, legendas e carimbo de data vivem lá e **não são repetidos aqui**.
 
 Parâmetros específicos deste comando:
 
@@ -524,7 +521,7 @@ blockquote:
   - Delta não vazio → roda passos 2-7 com escopo no delta. Para cada mensagem nova, o answerer julga:
     - `responder` → **auto-salvar o rascunho** (`slack_send_message_draft` na superfície certa, privado e reversível) + registrar em ✍️ Rascunhos e na Timeline. **Nunca** enviar.
     - `reagir` → registrar o emoji sugerido como **pendência** no board. Não reagir sozinho.
-    - `nada` → registrar "sem ação: {motivo}" na Timeline Verbosa.
+    - `nada` → registrar "sem ação: {motivo}" na Timeline.
     - `round++`, atualizar `lastSeenTs` **da superfície**, zerar `quietTicks`.
   - **Delta que revela superfície nova** (alguém encaminhou o caso para outro canal, ou o usuário foi marcado em outro lugar sobre o mesmo assunto) → rodar `## Casos multi-superfície`: registrar em `surfaces:`, reconciliar o encaminhamento, e passar a varrer a nova. **Não abrir board novo.**
   - Delta vazio em todas as superfícies ativas → `quietTicks++`.

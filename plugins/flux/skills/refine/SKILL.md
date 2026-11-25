@@ -235,7 +235,7 @@ vermelho (critério exato no bullet acima): uma escolha não tomada, e o pedido 
    Caminho grill chegou até aqui antes do Step 3 ter rodado, **abrir ou retomar o board agora** (só
    essa parte do Step 3 — a pergunta de repo, quando o Step 3 tiver uma, continua adiada para quando
    o fluxo normal chegar lá de verdade; o grill nunca antecipa essa pergunta). Registrar duas linhas
-   novas na Timeline de Eventos do board (perfil exploração, `${FLUX_ROOT}/shared/board-template.md`):
+   novas na Timeline do board (perfil exploração, `${FLUX_ROOT}/shared/board-template.md`):
    tipo `decisão`, citando a opção escolhida e a evidência que a sustentou; e tipo `escopo`, com o
    veredito de T0 mudando de 🔴 para o que ele vira a seguir. Não criar seção nova no board: os dois
    tipos já existem para isto. Sem `VAULT_ROOT` (perfil genérico), a mesma degradação do Step 3 se
@@ -274,17 +274,14 @@ que nunca passou pelo grill.
 
 ---
 
-## Step 3 — Abrir (ou retomar) o board, antes do fan-out
+## Step 3 — Resolver o board, antes do fan-out
 
-Mesma disciplina do `flux:issue`, Steps 1-bis e 1-ter, e pelos mesmos motivos: procurar um board de
-exploração cujo `source` case com o `SOURCE` nos dois lugares onde ele pode estar
-(`<VAULT_ROOT>/0-inbox/`, ainda não triado, e `<VAULT_CTX_ROOT>/linear/`, já promovido pelo
-`/organize`); casou, retoma onde ele estiver; não casou, cria em
-`<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md`. **Anunciar o path no chat.**
-
-> **Por que antes do fan-out.** O mesmo motivo dos outros elos: a prospecção roda em N subagentes por
-> minutos, e um board que nascesse depois não teria rastro de onde o trabalho parou. Board que nasce
-> depois do trabalho é ata, não board.
+Resolver conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board", com a mesma
+normalização de `source` do `flux:issue` (Step 1-bis): o board desta sessão; senão o do caso pela
+`case_key` `source:...`, no inbox ou já promovido; senão um novo em
+`<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md`, perfil exploração,
+`generator: "flux-refine"`. **Anunciar o path no chat.** O board nasce antes do fan-out porque a
+prospecção roda em N subagentes por minutos.
 
 Duas particularidades deste elo:
 
@@ -336,7 +333,7 @@ aparecem no embasamento, quantas slices o trabalho tem.
   board e para o pré-refinamento.
 
 Reemitir a linha `escopo` do banner com o veredito apurado, e registrar a mudança de faixa (quando
-houver) como linha da Timeline de Eventos, tipo `escopo`.
+houver) como linha da Timeline, tipo `escopo`.
 
 ---
 
@@ -390,7 +387,7 @@ criação.
 1. Escrever a seção **7-septies 📐 Refinamento** do `${FLUX_ROOT}/shared/board-template.md` com os
    quatro blocos: **§1 PRD-fast**, **§2 TRD-fast**, **§3 Plano** e **§4 Veredito de escopo** (a faixa,
    os sinais lidos e, no 🟡, a lista nominal do que ficou raso).
-2. Rolar o carimbo de data (frontmatter `updated:`, TLDR, painel) e gravar `scope:` no frontmatter.
+2. Rolar o carimbo de data (frontmatter `updated:`, TL;DR, painel) e gravar `scope:` no frontmatter.
 3. `execution_status: open` — o board segue vivo, com o rascunho por escrever. Ele só fecha em `done`
    quando a issue nasce no Linear, e quem faz isso é o `flux:issue`. **Este elo nunca grava `done`.**
 4. 🎯 Próximo Movimento e resposta no chat apontando, com o `FLUX_CMD` resolvido:
@@ -493,7 +490,7 @@ Faltando qualquer uma das três, segue o fechamento padrão acima. Dadas as trê
    (`#2 ⟵ bloqueada por #1`, Step 7), blockers primeiro; entre fatias sem dependência entre si (grafo
    parcial), a ordem em que elas aparecem no plano do Step 7 desempata. Para cada fatia, repetir os
    **Steps 0 a 8 deste mesmo skill**, com `REQUEST` = o texto da fatia — é uma rodada nova e completa,
-   não uma continuação (banner próprio, board próprio, T0/T1 próprios). **Uma fatia encadeada nunca
+   não uma continuação (banner próprio, T0/T1 próprios, seção própria `## 📐 Refinamento · fatia N de M` no mesmo board desta sessão, com a `case_key` `source:` da fatia acrescentada). **Uma fatia encadeada nunca
    encadeia de novo**, mesmo que ela própria caia nas três condições acima: fecha oferecendo a fatia 1
    dela normalmente. Isso evita recursão sem limite de profundidade — o teto de 8 é sobre a cadeia que
    começou aqui, não cumulativo entre níveis.
@@ -501,29 +498,27 @@ Faltando qualquer uma das três, segue o fechamento padrão acima. Dadas as trê
    relacionado à decisão original do grill), aborta por requisito `hard` faltando no meio da cadeia
    (checkout que sumiu, vault indisponível — abortagem continua sendo abortagem, não 🔴, `Caminho
    vermelho` acima), ou abre o próprio Caminho grill e o usuário escolhe "nenhuma das opções" ali. Em
-   qualquer um desses casos: a cadeia **para ali**. As fatias já rodadas ficam com seus boards
+   qualquer um desses casos: a cadeia **para ali**. As fatias já rodadas ficam com suas seções no board
    normalmente (o `/flux:refine` não abre PR — isso é do `${FLUX_CMD}build`, mais adiante); as fatias
    que não rodaram entram nomeadas no handoff final, junto com a causa da parada. Uma fatia **pode**
    abrir o próprio Caminho grill normalmente (inclusive o GATE dele) — rodando na main, não em
    subagente (item 3 acima), isso não esbarra na proibição de gate dentro de subagente.
-5. **Cada board de fatia linka o anterior e o seguinte** pela forma de wikilink já documentada em
-   `${FLUX_ROOT}/shared/board-template.md`, "Disciplina de links" ("Board irmão": `[[nome-do-arquivo-sem-extensão]]`)
-   — não um campo de frontmatter novo, é prosa: uma linha dedicada logo após o TLDR do board, tipo
-   `> Fatia N de M desta cadeia. Anterior: [[<board N-1>]]. Próxima: [[<board N+1>]]` (omitir o lado
-   que não existir, na primeira e na última fatia). A fatia 1 também linka o board de origem (o que o
-   grill abriu no item 4 dele) na mesma linha.
+5. **As fatias ficam no mesmo board**, uma seção por fatia, na ordem da cadeia, cada uma com a
+   linha `> Fatia N de M desta cadeia.` logo abaixo do H2. As candidatas de todas as fatias entram no
+   mesmo painel, numeradas em sequência. O `flux:issue` de cada fatia acha o board pela `case_key`
+   dela.
 6. **Gate de confirmação a partir da 4ª fatia.** As três primeiras rodam direto, sem perguntar nada —
    é continuação do que o usuário já pediu ao usar `--grill` e já decidir no gate do grill, não uma
    ação nova de que ele precise ser avisado antes de começar. Antes de despachar a 4ª (só nesse ponto,
    não de novo depois): abrir um GATE (`${FLUX_ROOT}/shared/hitl.md`, "Como perguntar", protocolo não
    repetido aqui) perguntando se continua com as fatias restantes ou para ali.
    - **"continuar"** → segue até o fim ou até o teto de 8, sem novo gate.
-   - **"parar"** → as já rodadas ficam com seus boards; as restantes entram nomeadas no handoff, no
+   - **"parar"** → as já rodadas ficam com suas seções no board; as restantes entram nomeadas no handoff, no
      mesmo formato que o corte proposto normal usa.
 7. **Handoff único ao final.** As rodadas **intermediárias** da cadeia não emitem o Step 8 item 4 (o
    `${FLUX_CMD}issue <board>` de cada uma) — cada rodada intermediária ainda faz o resto do próprio
    Step 8 (escrever a 7-septies, rolar o carimbo, `execution_status`) normalmente, só o item 4 (o
-   aviso no chat) fica suprimido. Quem emite o handoff final, cobrindo todos os boards gerados:
+   aviso no chat) fica suprimido. Quem emite o handoff final, cobrindo todas as fatias do board:
    - **rodou tudo, ou parou numa fatia sem artefato (item 4)** → a última rodada que de fato executou
      emite o handoff final no lugar do seu próprio item 4 suprimido;
    - **parou no teto de 8, ou o usuário respondeu "parar" no gate** → nenhuma rodada nova chega a
@@ -548,9 +543,7 @@ Faltando qualquer uma das três, segue o fechamento padrão acima. Dadas as trê
   encadeamento fatia-por-fatia do Caminho vermelho também não é uma segunda rodada: é a orquestração
   de **N execuções completas e independentes** deste skill, uma por fatia, cada uma com o próprio
   PRD, TRD e plano nascendo do zero — nunca uma iteração voltando a mexer no artefato de uma fatia já
-  fechada. Gravar o wikilink de "Board irmão" no board da fatia anterior, depois que o dela já foi
-  fechado, não conta como reabrir esse artefato: é metadado de navegação entre dois artefatos
-  distintos, não uma edição do PRD/TRD/plano que ele já produziu.
+  fechada. Acrescentar a seção da fatia seguinte no mesmo board não reabre a seção da anterior.
 - **O gate mede tamanho, nunca valor.** Recusa nomeia sinais, nunca julga o mérito do pedido.
 - PT-BR com acentuação correta; EN no código. Sem em-dash no que puder ir para fora quando
   `NO_EMDASH == true` (o board é doc interno do vault; travessão liberado lá).

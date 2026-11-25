@@ -267,10 +267,11 @@ que se ganha:
 
 ### Quem é dono de quê
 
-O keeper é dono **apenas do board do elo que o criou**. Num delivery, os boards de iterate filhos
-continuam sendo escritos pelo próprio filho — ele tem o detalhe e morre com ele. O keeper do
-delivery só **registra o path** do board filho que veio no retorno. Serializar N filhos por um
-escritor único não compra nada e cria gargalo.
+**Um board, um keeper.** Como a sessão grava num board só (`board-template.md`, "As duas regras"),
+o segundo elo com watch na mesma sessão **retoma o keeper que já existe** por `SendMessage`, em vez de
+criar outro; dois keepers no mesmo arquivo seriam dois escritores. Num delivery, o iterate filho
+despachado com `--parent-board` não escreve board: devolve o delta da PR no retorno, e o keeper do
+delivery grava.
 
 ### Contrato do tick
 
@@ -281,7 +282,7 @@ produz board que diverge da realidade em silêncio, e o board é a memória dur�
 - tick: <horário local>
 - mudou: <sim|não (tick quiet)>
 - porPR|estado: <as métricas do painel: threads res/tot, CI, isDraft, SHA, veredito>
-- eventos: <o que é digno de Timeline de Eventos Relevantes, ou nenhum>
+- eventos: <o que é digno de linha na Timeline, ou nenhum>
 - proximoMovimento: <uma linha>
 ```
 

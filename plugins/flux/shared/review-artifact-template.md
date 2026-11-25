@@ -1,14 +1,12 @@
-# Template do artefato de review — fonte única
+# Template da review: o conteúdo da seção `🔎 Review` do board
 
-> Formato canônico do `.md` de review que o `flux:review` grava no vault, nos perfis **PR** e **doc**.
-> Referenciado pelo comando (Step 6) — **não duplicar este template dentro do comando**; ele aponta
-> para cá e só passa os dados coletados. Editar o formato do artefato significa editar ESTE arquivo.
+> Formato canônico do que o `flux:review` grava, nos perfis **PR** e **doc**. A review não tem nota
+> própria: cada execução é uma `### Rodada K · <data> · <harness>` dentro da seção
+> `## 🔎 Review · PR #N` do board da sessão (`board-template.md`, "Seções por verbo"). Os H2 deste
+> template viram H4 dentro da rodada. Não duplicar este template no comando.
 >
-> A legenda de badges vem de `${FLUX_ROOT}/shared/review-legend.md` (banners coloridos).
-> Este arquivo é o irmão do `board-template.md` (que serve o iterate/delivery): mesmo apego visual,
-> intuito diferente. O board é uma nota **viva** de orquestração; o review é um **parecer read-only**,
-> um snapshot de uma rodada. Por isso: sem timeline viva, sem carimbo que rola, sem "próximo movimento"
-> reescrito a cada tick.
+> Badges: `${FLUX_ROOT}/shared/review-legend.md`. A rodada é um **parecer read-only**, um snapshot:
+> o que é vivo (TL;DR, Próximo movimento, Timeline) é do board, não da rodada.
 
 ## Regra de ouro do painel
 
@@ -71,48 +69,16 @@ disponível.
 
 ## Perfil PR
 
-### Frontmatter
+### Campos no frontmatter do board
 
-```yaml
----
-context: "{VAULT_CTX}"
-type: pr-review
-repo: "{repo-slug}"          # slug puro (web-monorepo), nunca acme/web-monorepo
-pending_organize: true       # a review nasce no 0-inbox/; context + repo é o que o /organize usa pra rotear
-pr: {number}
-pr_url: "{url da PR}"
-ticket: "{TICKET-XXX ou null}"
-ticket_url: "{url Linear ou null}"
-author: "{gh-login}"
-reviewer: "{gh-login do revisor}"
-own_pr: {true|false}
-status: "{approved | approved-with-suggestions | approved-with-questions | request-changes}"
-head_sha: "{sha completo do head}"
-date: "{YYYY-MM-DD}"
-counts: { request-change: N, breaking-change: N, question: N, suggestion: N, praise: N, note: N }
-reverified_threads: {N ou omitir quando o Passo 4b não rodou}  # quantas threads próprias foram reverificadas nesta rodada
-run_id: "{run_id da invocação, ou omitir sem run}"
-pipeline: "flux:review (holistico {HOLISTIC} + specialists {lista}, reconciliados)"
-tags: [pr-review, {repo-slug}, {area-opcional}, {ticket-slug}]
-provenance:                         # contrato: board-template.md, seção "Bloco `provenance` (todos os perfis)"
-  machine: "<hostname -s>"
-  invocation: "<texto invocado que gerou esta review, como digitado; ex. no Claude Code: '/flux:review 5'>"
-  generator: "flux-review"
-  captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"
-  session_sources: ["<path do .jsonl>", "..."]
-  harness: "<claude-code | cursor | codex | unknown>"
-  flux_version: "<versão do manifesto, ou unknown>"
-  model: "<autorreportado no system prompt, ou unknown>"
-  effort: "<CLAUDE_EFFORT, fallback do system prompt, ou unknown>"
-  stamp: "<harness> | flux:review@<flux_version>"
----
-```
-
-O bloco `provenance` segue o contrato único de `board-template.md`, seção "Bloco `provenance`
-(todos os perfis)": as dez chaves, os formatos, o vocabulário de `harness`, o `stamp` derivado e o
-checklist antes de gravar vêm de lá, e não são redefinidos aqui. O que é deste artefato:
-`generator: "flux-review"` e verbo `review` no `stamp`. O perfil doc herda o bloco sem alteração (não
-é uma das diferenças listadas abaixo).
+A rodada não grava frontmatter. O que ela acrescenta ou atualiza no frontmatter do board, com os
+valores da rodada mais recente: `repo` (slug puro), `pr`, `pr_number`, `pr_url`, `ticket`,
+`ticket_url`, `author`, `reviewer`, `own_pr`, `status`
+(`approved | approved-with-suggestions | approved-with-questions | request-changes`), `head_sha`,
+`counts` (`{ request-change: N, breaking-change: N, question: N, suggestion: N, praise: N, note: N }`),
+`reverified_threads` (só quando o Passo 4b rodou) e a `case_key`
+`pr:<owner>/<repo>#<n>`. Board aberto pela própria review é do perfil review (`type: pr-review`) e
+grava o `provenance` do template, com `generator: "flux-review"`. Com run, o `run_id` vai no item desta sessão em `runs[]`.
 
 ### Corpo
 

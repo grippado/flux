@@ -241,11 +241,11 @@ cruzados.
 
 ## Step 3 — Abrir (ou retomar) o board, antes do fan-out
 
-`source` é a chave de identidade: a lista de alvos **ordenada e normalizada** (URLs canônicas,
-separadas por espaço). Procurar board de exploração cujo `source` case, nos dois lugares onde ele pode
-estar (`<VAULT_ROOT>/0-inbox/`, ainda não triado, e `<VAULT_CTX_ROOT>/linear/`, já promovido pelo
-`/organize`). Casou: retoma aquele. Não casou: cria em
-`<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-probe-<slug>.md`. **Anunciar o path no chat.**
+Resolver conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board": o board desta
+sessão; senão o do caso, pela `case_key` `source:<alvos ordenados e normalizados, separados por
+espaço>` ou pela de qualquer alvo isolado, no inbox ou já promovido; senão um novo em
+`<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-probe-<slug>.md`, perfil exploração,
+`generator: "flux-probe"`. **Anunciar o path no chat.**
 
 > **O infixo é `flux-probe` porque é o verbo que abriu o board**, e o `type` continua `flux-issue`
 > porque o perfil é o de exploração. Os dois convivem pela mesma regra que já vale para o `flux:refine`:
@@ -378,7 +378,7 @@ issue sem o gate que a governa.
 ## Step 7 — Consolidar e apontar o próximo elo
 
 1. Escrever a seção **7-octies 🔭 Telemetria** do `${FLUX_ROOT}/shared/board-template.md`.
-2. Rolar o carimbo de data (frontmatter `updated:`, TLDR, painel).
+2. Rolar o carimbo de data (frontmatter `updated:`, TL;DR, painel).
 3. `execution_status: open` — o board segue vivo, com o rascunho por escrever. **Este elo nunca grava
    `done`**: quem fecha é o `flux:issue`, quando a issue nasce.
 4. 🎯 Próximo Movimento e resposta no chat, escolhendo **um** destino conforme o que a síntese produziu,

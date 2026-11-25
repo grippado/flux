@@ -149,6 +149,22 @@ no Passo 5, abaixo).
 Os dois campos **não entram** na cascata de resolução de `FLUX_ROOT` nem afetam `HARNESS` ou
 `FLUX_CMD` — são metadado adicional do mesmo passo, não uma nova cascata.
 
+### 1a-run — `VIOLEET_RUN_ID` e `SESSION_ID`
+
+Identificam **esta sessão** no board (`runs[]` e passo 1 de "Resolver o board" em
+`${FLUX_ROOT}/shared/board-template.md`). Lidos do ambiente do shell desta execução, sem inferir:
+
+- **`VIOLEET_RUN_ID`**: o valor de `FLUXD_RUN_ID` quando presente **e** casando com
+  `^run-[0-9a-f]{16}$`; gravado literal, com o prefixo `run-`. É o id da run que o painel do violeet
+  abriu para esta sessão. Ausente ou fora do formato: `null`.
+- **`SESSION_ID`**: com `HARNESS = claude-code`, o valor de `CLAUDE_CODE_SESSION_ID` quando presente e
+  no formato UUID. Nos demais harnesses, `null`: o Passo 1a-harness proíbe gravar o valor de
+  `CODEX_THREAD_ID`, e o Cursor não expõe id verificável.
+
+`null` nos dois não gera token de banner: é o caso comum fora do painel. Sem nenhum dos dois, o passo 1
+de "Resolver o board" não tem como reconhecer a sessão depois de uma compactação de contexto, e o
+board da sessão é reencontrado pelas `case_keys` (passo 2).
+
 ### 1b — `FLUX_CMD`
 
 Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR dentro de subagente;

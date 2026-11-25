@@ -131,14 +131,13 @@ look é o relance rápido; o formato completo (painel, permalinks, ação) é do
 - Sem seção `## Decisão` formal, sem checklist, sem cobertura de specialists.
 - Se `LOOK_REPORT` vier vazio (sem findings): imprimir só o `SUMARIO` com a conclusão do subagent.
 
-**Com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-flux-peek-{alvo-slug}.md` além de
-imprimir no chat. O arquivo inclui um frontmatter com o bloco `provenance` conforme o contrato de
-`${FLUX_ROOT}/shared/board-template.md`, seção "Bloco `provenance` (todos os perfis)": as dez chaves,
-os formatos e o vocabulário vêm de lá, e o checklist daquela seção roda antes do Write. O que é deste
-verbo: `generator: "flux-peek"` e verbo `peek` no `stamp`.
-Só o bloco `provenance` é herdado; campos de board como `type`, `context` e `pending_organize`
-não fazem sentido fora do vault e não são incluídos. Não persiste no vault automaticamente
-(escolha explícita do usuário).
+**Sessão com board** (`${FLUX_ROOT}/shared/board-template.md`, "Resolver o board", passo 1): o
+relance entra como linha na Timeline do board (`verbo: peek`) e, com `--save`, o parecer vira a seção
+`## 👁️ peek · <alvo>` dele, em vez de arquivo próprio. O peek nunca **abre** board.
+
+**Sessão sem board, com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-flux-peek-{alvo-slug}.md`
+além de imprimir no chat, com frontmatter só com o bloco `provenance` do template
+(`generator: "flux-peek"`, checklist antes do Write). Fora do vault, os campos de board não entram.
 
 ## Pipeline leve de doc (target = URL de Google Docs / Drive)
 

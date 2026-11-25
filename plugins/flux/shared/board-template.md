@@ -1,792 +1,387 @@
-# Template compartilhado de board (build + iterate + delivery + slack + issue)
+# Board da família `flux:`: um por sessão, um por caso
 
-> Fonte única do formato de board vivo do vault, referenciada por `/flux:iterate`,
-> `/flux:land`, `/flux:reply`, `/flux:issue`, `/flux:refine` e `/flux:probe`. **Não duplicar este template dentro dos comandos** — cada comando
-> aponta para cá e só declara os parâmetros específicos dele (naming, gatilho de criação, escopo do painel).
-> Editar o formato do board significa editar ESTE arquivo, e os comandos herdam a mudança.
+> Fonte única do formato do board, referenciada por todo verbo que grava no vault. Um verbo aponta
+> para cá e declara só o que lhe é próprio (o que o painel lista, a seção que ele acrescenta). Editar
+> o formato do board é editar ESTE arquivo.
 
-O board é uma **nota viva** em `<VAULT_ROOT>/0-inbox/` — **todos** os perfis, sem exceção, inclusive o
-de exploração, que até 2026-08-12 nascia direto em `linear/`. Nasce cedo (não no fim), tem o caminho anunciado
-no chat na criação, e é atualizado a CADA passo relevante e a CADA tick do watch. Timeline em horário
-local. É doc interno do vault (travessão/en-dash liberados aqui; a proibição de travessão vale só para
-texto postado no GitHub/Slack, via iterate).
+O board é uma **nota viva** em `<VAULT_ROOT>/0-inbox/`. Nasce cedo, tem o caminho anunciado no chat
+na criação e é atualizado a cada passo relevante e a cada tick do watch. É doc interno do vault: o
+travessão é liberado aqui (a proibição vale só para o que é postado no GitHub ou no Slack).
 
-## Cinco perfis do mesmo template
+## As duas regras
 
-| Perfil | Comando | O que o painel lista | `type` no frontmatter | Naming do arquivo |
-|--------|---------|----------------------|-----------------------|-------------------|
-| **execução** | `/flux:build` | N linhas (as etapas do motor) | `flux-build` | `YYYY-MM-DD-HHMM-flux-build-<repo-slug>-<slug-do-ticket>.md` |
-| **single-PR** | `/flux:iterate` | 1 linha (a PR única) | `flux-iterate` | `YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md` |
-| **multi-PR** | `/flux:land` | N linhas (todas as PRs da entrega) | `flux-land` | `YYYY-MM-DD-HHMM-flux-land-<slug>.md` |
-| **conversa** | `/flux:reply` | N linhas (pendências em aberto do caso) | `thread` | `YYYY-MM-DD-HHMM-flux-reply-<slug-do-caso>.md` |
-| **exploração** | `/flux:issue` + `/flux:refine` + `/flux:probe` | N linhas (as issues candidatas) | `flux-issue` | `YYYY-MM-DD-HHMM-flux-issue-<slug>.md` (ou `flux-probe-<slug>`, quando o `probe` abriu) |
+1. **Uma sessão grava em um board só.** Tudo o que a sessão faz entra nele: cada verbo do flux, cada
+   rodada, cada review, cada rascunho, e também as skills e os comandos de fora do flux que rodarem
+   na mesma sessão. Nenhum verbo cria uma segunda nota na mesma sessão. O review, o `peek --save` e o
+   `iterate --dry` deixaram de gravar artefato próprio: viram seção do board (ver "Seções por
+   verbo").
+2. **Um caso tem um board só, e ele atravessa sessões.** Iterar uma PR hoje no Claude Code e de novo
+   na segunda no Codex atualiza **o mesmo** board, que ganha a run nova em `runs:` e passa a mostrar,
+   na Timeline, qual harness fez cada passo.
 
-> **O nome do arquivo carrega o nome do comando.** O infixo é sempre `flux-<verbo>`, igual ao comando que
-> gerou o board — quem lista o `0-inbox/` sabe de onde cada nota veio sem abrir nenhuma. Os infixos antigos
-> (`build-`, `iterate-`, `delivery-`, `slack-board-`) foram aposentados em 2026-08-03; boards já gravados com
-> eles foram renomeados no vault. Não emitir nome novo no padrão velho.
->
-> **O `type` tem que ser canônico** quando o vault declara um schema (`<VAULT_ROOT>/.schema/note-schema.json`). `flux-build`,
-> `flux-iterate`, `flux-land`, `thread` e `flux-issue` estão no enum; os nomes antigos `build`/`iterate`/`delivery`/`issue-draft`
-> (e, antes deles, `iterate-board`/`delivery-flow`/`slack-ata`/`slack-thread`) só sobrevivem no mapa de colapso,
-> por compatibilidade com os boards já gravados. Emitir tipo fora do enum
-> faz o lint do vault **abortar o commit**, quando houver um. `repo:` também é validado: use
-> o slug puro (`web-monorepo`), nunca `acme/web-monorepo`.
->
-> **Por que o perfil conversa NÃO tem um `type: flux-reply`:** `thread` não é carimbo do flux, é o type
-> genérico do vault — colapsa `reply`, `session`, `context-save` e `handoff`, e cobre centenas de notas que
-> nada têm a ver com esta família. O board do reply se distingue pelo **nome do arquivo** (`flux-reply-`),
-> não pelo type. Renomear `thread` arrastaria o vault inteiro para pagar por um comando só.
->
-> **Por que o perfil conversa usa `thread` e não `slack`:** no schema, `slack` é o type de *digest*
-> (`done_signal: born_done`, nasce fechado — é o que o `/cantar` emite). `thread` tem exatamente o
-> lifecycle de um caso vivo: `default_state: open`, `done_when: "discussão resolvida"`,
-> `done_signal: manual`. É também o type que as atas de Slack já usavam, então os boards antigos
-> continuam válidos sem migração de schema.
+As duas regras juntas dão a forma: **sessão → no máximo 1 board; board → N sessões**.
 
-As **seções, a ordem, a legenda de ícones e a disciplina de carimbo de data são idênticas** nos cinco
-perfis. O que muda é o que o painel lista, o bloco de proveniência (abaixo), as três seções extras do
-perfil conversa (7-ter, 7-quater, 7-quinquies), as três seções extras do perfil exploração (7-sexies,
-7-septies e 7-octies, que também herda a 7-quater) e a coluna de esforço do perfil execução.
+## Resolver o board (todo verbo, antes do primeiro Write)
 
-### O que o perfil execução herda e o que ele acrescenta
+Rodar no Step 0, depois do preflight, nesta ordem. Parar no primeiro que casar.
 
-O `flux:build` despacha para o motor nativo do repo, que roda **longe da main, num worktree, por muitos
-minutos**. Sem board, esse intervalo é cego: o retorno de `< 40 linhas` do subagente é a primeira e
-única notícia, e se o motor travar no meio não sobra rastro de onde parou.
+1. **Esta sessão já tem board.** Procurar em `<VAULT_ROOT>/0-inbox/` e em `<VAULT_CTX_ROOT>/` um
+   board cujo `runs[]` tenha o `violeet_run_id` (`VIOLEET_RUN_ID`) ou o `session_id` (`SESSION_ID`)
+   desta sessão, ambos resolvidos no preflight (Passo 1a-run). Casou: é ele, sempre. Se o caso do
+   verbo atual for outro, abrir o **gate de fuga de escopo**, abaixo, antes de gravar.
+2. **O caso já tem board.** Derivar as `case_keys` do alvo (tabela abaixo) e procurar nos mesmos dois
+   lugares um board que tenha qualquer uma delas. Casou: reabrir aquele board onde ele estiver
+   (atualizar nota já promovida é escrita legítima fora do inbox) e acrescentar esta run em `runs:`.
+   Board antigo sem `case_keys` também conta, pelas chaves legadas: `pr:` + `repo:`, `ticket:`,
+   `linear_ids`, `source:` e `surfaces[].channel_id` (+ `thread_ts`). **Exceção do land:** ele procura
+   só pela própria chave `land:...`; os boards que casarem pelo `pr:` ou pelo `ticket:` de cada PR são
+   de outros casos e entram em 🔗 Boards relacionados, nunca como candidato.
+3. **Nenhum casou.** Criar o board novo em `<VAULT_ROOT>/0-inbox/`, com o naming do verbo que o abriu.
 
-O perfil execução existe para tornar esse intervalo observável. A unidade do painel não é a PR nem a
-pendência: é a **etapa do motor** (contexto lido, plano, implementação, checks, PR). O board nasce
-**antes do despacho** (com as etapas ainda vazias) e é atualizado a cada retorno de etapa.
+Dois candidatos no passo 2: abrir um gate (`${FLUX_ROOT}/shared/hitl.md`) com os dois caminhos e o
+TL;DR de cada um, em vez de escolher sozinho. Sem `VAULT_ROOT` (perfil genérico), não há board: o
+verbo relata no chat e declara `sem vault` no banner.
 
-Diferenças de coluna no painel:
+### `case_keys`: a identidade do caso
 
-- **esforço** = `arquivos tocados · checks (verde/total)`, em vez de `rodadas · threads · flow`.
-- **estado** de cada etapa: `⏳ pendente`, `🔄 rodando`, `✅ ok`, `❌ falhou`, `⏭️ pulada`.
+Lista no frontmatter, com strings normalizadas. É ela que o passo 2 procura e é ela que cresce quando
+o mesmo board passa a cobrir mais de um alvo.
 
-Links obrigatórios neste perfil, assim que cada um existir (ver Disciplina de links):
+| alvo | chave |
+|---|---|
+| PR | `pr:<owner>/<repo>#<n>` |
+| Ticket | `ticket:<ID>` (maiúsculas, ex. `ticket:ENG-42`) |
+| Entrega multi-PR | `land:<IDs das issues, ordenados e separados por vírgula>` |
+| Thread ou DM do Slack | `slack:<channel_id>/<thread_ts>` (sem thread: `slack:<channel_id>/-`) |
+| Pedido de exploração | `source:<url normalizada>`, ou `source:texto-livre:<slug>` |
+| Doc do Google | `doc:<file_id>` |
 
-- o **ticket**, no TL;DR e no `🎯 Próximo Movimento`;
-- a **PR**, na linha 5 do painel, no `🎯 Próximo Movimento` e na timeline de eventos;
-- as **issues bloqueantes/relacionadas** do frontmatter, onde forem citadas;
-- a **PR de origem**, quando a task é reversão/continuação de outra.
+Um verbo **acrescenta** a chave do que produziu: o `issue` grava `ticket:<ID>` de cada issue que criou,
+o `build` grava `pr:...` quando abre a PR. É assim que o build de amanhã acha o board do refine de
+hoje, e o iterate acha o do build. Chave não se remove.
 
-O board do build **morre quando a PR nasce**: o `🎯 Próximo Movimento` final aponta para o
-`${FLUX_CMD}iterate` da PR criada, e o board do iterate assume dali (cross-link bidirecional, ver bloco de
-proveniência). Não é um board que vive por dias, é um board que cobre uma execução longa.
+### Quando o board fecha
 
-> **Por que `build` precisou entrar no enum do schema.** Nenhum type canônico existente descrevia
-> "execução longa que termina numa PR": `iterate` pressupõe PR já existente e `delivery` pressupõe N
-> PRs. Entrada registrada com `default_state: active` (o build já nasce rodando) e
-> `done_signal: manual` (fecha no handoff, não no merge — o merge é assunto do iterate).
+`execution_status` vai a `done` quando o **último** alvo vivo do caso fecha: a PR mergeada ou
+fechada (iterate, land), a issue criada sem trabalho seguinte nesta mesma cadeia (exploração), a
+conversa resolvida (reply). Enquanto houver alvo vivo nas `case_keys`, segue `active` (ou `open`,
+parado à espera de humano). Board `done` reaberto por uma sessão nova volta a `active`.
 
-### O que o perfil conversa herda e o que ele acrescenta
+### Gate de fuga de escopo
 
-O perfil conversa existe porque um caso de trabalho no Slack tem a mesma natureza de um delivery: nasce
-cedo, vive por dias, muda de estado, e a memória do que já foi apurado vale mais que a transcrição. A
-diferença é que a unidade de trabalho não é a PR, é a **pendência** — a pergunta em aberto e de quem é a
-bola. E o caso não vive num lugar só: ele **migra de superfície** (helpdesk → DM → canal de time), e essa
-migração é normal, não excepcional.
+Disparado quando a sessão já tem board (passo 1) e o verbo novo, ou o pedido novo do usuário, mira um
+alvo cujas `case_keys` não estão no board **e** que não é o próximo elo natural do mesmo caso. É elo
+natural o que nasce de algo que o board já produziu: a PR que o build abriu, a issue que o issue
+criou, o ticket que o refine fatiou. Pedido sem alvo identificável (pergunta solta, ajuste no
+próprio board) não dispara gate.
 
-Por isso o perfil conversa acrescenta três seções, e só ele as tem:
+O gate segue `${FLUX_ROOT}/shared/hitl.md` nos dois harnesses (`AskUserQuestion` no Claude Code,
+`request_user_input` no Codex, texto numerado onde não houver ferramenta de pergunta), com estas
+opções, nesta ordem:
 
-- **🧭 Rastro do caso** (7-ter) — as superfícies por onde o caso passou e por que mudou.
-- **🔬 Achados de codebase** (7-quater) — o dossiê verificado acumulado, que sobrevive às rodadas.
-- **✍️ Rascunhos** (7-quinquies) — o histórico de drafts, incluindo os que foram invalidados.
+1. **Abrir em sessão nova (Recomendado).** Com `VIOLEET_RUN_ID` resolvido, a sessão roda dentro do
+   painel do violeet: entregar o comando pronto para abrir a run nova pelo cmdK e o direcionamento
+   dela (pedido, alvo, o que já se sabe). Hoje o painel não aceita abrir run a partir da sessão;
+   enquanto não aceitar, isso é o mesmo mini-handoff do caso sem painel, colado no cmdK. Sem
+   `VIOLEET_RUN_ID`: entregar um **mini-handoff** num bloco copiável (objetivo, alvo com link, estado,
+   decisões já tomadas, o comando `${FLUX_CMD}<verbo> ...` a rodar) para o usuário levar a um
+   contexto novo. Nos dois casos, o verbo novo **não roda** nesta sessão.
+2. **Registrar neste board.** O verbo roda aqui; o board ganha as `case_keys` do alvo novo, e o TL;DR
+   passa a nomear os dois casos.
+3. **Cancelar.** Nada roda, nada se grava além do registro do gate.
 
-### O que o perfil exploração herda e o que ele acrescenta
+O gate e a escolha entram em `### Gates` (seção ✅ Ação) e geram linhas `pendência` e `decisão` na
+Timeline, como todo gate.
 
-O `flux:issue` dispara um prospector por repo (fan-out do Step 2) e só então sintetiza. Sem board, esse
-intervalo é cego pelo mesmo motivo do perfil execução: prospector que trava ou volta vazio não deixa
-rastro de onde parou. Por isso o board **nasce antes do fan-out**, com uma linha por repo em
-`🔧 APURANDO`. Board que nasce depois do trabalho é ata, não board.
+## Perfis: o que muda por verbo
 
-A unidade do painel é a **issue candidata** — cada slice que vai (ou não) virar issue no Linear, do
-rascunho até o identificador criado.
+O formato é um só. O perfil diz só o `type`, o naming do arquivo e a unidade do painel do verbo que
+**abriu** o board. Os verbos que entram depois não mudam o `type` nem o nome do arquivo: acrescentam
+a própria seção e as próprias `case_keys`.
 
-Ele acrescenta duas coisas ao trabalho que o comando já fazia:
+| Perfil | Quem abre | Unidade do painel | `type` | Naming |
+|---|---|---|---|---|
+| **execução** | `build` | etapas do motor | `flux-build` | `YYYY-MM-DD-HHMM-flux-build-<repo-slug>-<slug-do-ticket>.md` |
+| **single-PR** | `iterate` | a PR | `flux-iterate` | `YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md` |
+| **review** | `review` | os findings | `pr-review` (doc: `doc-review`) | `YYYY-MM-DD-HHMM-flux-review-pr<N>-<repo-slug>.md` |
+| **multi-PR** | `land` | as PRs da entrega | `flux-land` | `YYYY-MM-DD-HHMM-flux-land-<slug>.md` |
+| **conversa** | `reply` | as pendências do caso | `thread` | `YYYY-MM-DD-HHMM-flux-reply-<slug-do-caso>.md` |
+| **exploração** | `issue`, `refine`, `probe` | as issues candidatas | `flux-issue` | `YYYY-MM-DD-HHMM-flux-issue-<slug>.md` (ou `flux-probe-<slug>`) |
 
-- **O dossiê sobrevive.** A issue só carrega os achados que a embasam (`confirma`/`parcial`); o que foi
-  `refuta`/`sem-evidência` morria com o run e obrigava a reprospectar a mesma hipótese na próxima vez.
-  No board, ele fica — na 🔬 Achados de codebase (7-quater), a mesma seção do perfil conversa.
-- **As rodadas do gate deixam rastro.** Cada `Editar antes` versiona o rascunho (7-sexies) em vez de
-  sobrescrevê-lo, então dá para saber qual versão foi rejeitada e por quê.
-
-**Três verbos escrevem neste perfil, e o board é do pedido, não do verbo.** O `flux:issue` o abre
-quando vai direto ao corpo da issue; o `flux:refine` o abre antes, quando o pedido ainda precisa de
-PRD, TRD e plano, e acrescenta a 7-septies; o `flux:probe` o abre mais cedo ainda, quando o pedido
-chegou como um link de telemetria e ninguém sabe o que ele prova, e acrescenta a 7-octies. Rodando
-mais de um, o board é **um só**: cada verbo deixa as candidatas em `🟡 RASCUNHADA` com o que apurou, e
-o `flux:issue` as encontra pelo `source` (Step 1-bis), escreve os corpos e abre o gate de criação sem
-reprospectar nada.
-
-O nome do arquivo carrega `flux-issue` quando o `issue` ou o `refine` abriu, e `flux-probe` quando o
-`probe` abriu. **O `type` é `flux-issue` nos três casos**, porque o perfil é o mesmo: o nome do arquivo
-diz de onde a nota veio, o `type` diz o que ela é. Um infixo próprio para o `probe` existe porque ele é
-o único dos três que roda **antes de haver pedido** — quem lista o `0-inbox/` precisa distinguir de
-relance um rascunho de issue de uma investigação de produção que ainda pode não virar issue nenhuma.
-
-**Por que este perfil mora em `linear/` e não em `0-inbox/`.** Nos outros quatro, o board é a memória de
-um trabalho cujo produto está fora dele (a PR, a mensagem do Slack). Aqui o produto — o corpo da issue —
-é uma **seção do próprio board** (7-sexies), e é dela que a issue nasce no Linear. Duas notas por run
-separariam à força o que se lê junto, então é uma nota só, no lugar onde o rascunho de issue já morava.
-
-> **Por que este perfil não precisou mexer no schema.** Ao contrário do `build`, o type `issue-draft` já
-> era canônico e o lifecycle registrado já é exatamente o do board: `done_when: "issue criada no Linear a
-> partir do rascunho (dropped = rascunho descartado sem virar issue)"`, `default_state: open`,
-> `done_signal: manual`. O board nasce em `active` (o run está correndo) e fecha em `done` quando a issue
-> é criada.
+- **O infixo é o verbo que abriu**, para quem lista o `0-inbox/` saber de onde a nota veio. Os
+  infixos antigos (`build-`, `iterate-`, `delivery-`, `slack-board-`) estão aposentados.
+- **O `type` tem que ser canônico** no schema do vault (`<VAULT_ROOT>/.schema/note-schema.json`),
+  senão o lint aborta o commit. `repo:` é sempre o slug puro (`web-monorepo`, nunca `acme/web-monorepo`).
+- **`thread` no perfil conversa**: é o type genérico de caso vivo do vault (`default_state: open`,
+  `done_signal: manual`); o board do reply se distingue pelo nome do arquivo, não pelo type.
+- **O path é endereço, a identidade são as `case_keys`.** Path já ocupado por board de outro caso:
+  sufixar `-2`, `-3`. Sobrescrever board alheio é perda de trabalho.
+- **Execução**: o board nasce antes do despacho do motor, com as etapas vazias (`⏳ pendente`,
+  `🔄 rodando`, `✅ ok`, `❌ falhou`, `⏭️ pulada`), e a coluna de esforço é
+  `arquivos tocados · checks (verde/total)`. Quando a PR nasce, o board ganha `pr:...` em
+  `case_keys` e continua sendo o board do caso: o iterate dessa PR escreve nele.
+- **Exploração**: o board nasce antes do fan-out, com uma linha por repo em `🔧 APURANDO`. O
+  `refine`, o `probe` e o `issue` escrevem no mesmo board do pedido: o `issue` encontra pelo `source`
+  as candidatas que o `refine` deixou em `🟡 RASCUNHADA` e não reprospecta nada.
+- **Conversa**: o caso migra de superfície (helpdesk → DM → canal) e continua o mesmo board, por
+  qualquer uma das `surfaces`.
 
 ## Frontmatter
 
+Completo em todo board, gravado na criação; `updated:`, `runs:`, `case_keys:` e os campos de estado
+são atualizados depois. Os campos de um perfil só aparecem quando o verbo daquele perfil rodou.
+
 ```yaml
 ---
-title: "<Board do build — <ticket> (repo)>  |  <Board do iterate — PR #N (repo)>  |  <Delivery board — feature/issues>  |  <Board do issue — <pedido>>"
-date: "<YYYY-MM-DD>"
-updated: "<YYYY-MM-DD HH:MM>"       # rola a CADA tick, mesmo tick sem novidade
-type: flux-iterate                  # ou: flux-build | flux-land | thread | flux-issue  (canônicos; ver nota acima)
+title: "<o caso em uma linha, ex.: PR #12 (meu-repo): cache de sessão>"
+date: "<YYYY-MM-DD da criação>"
+updated: "<YYYY-MM-DD HH:MM>"         # rola a cada escrita e a cada tick
+type: flux-iterate                    # do verbo que abriu (tabela de perfis)
 context: <VAULT_CTX>
 pending_organize: true
-# execução (build):
-repo: "<repo-slug>"                 # slug puro, sem a org
-ticket: <ENG-XXXX|null>
-engine: "<nome do comando, ou 'autonomo'>"      # motor que de fato rodou
-engine_kind: nativo                 # nativo | fallback | autonomo
-worktree: "<path do worktree dedicado>"
-branch: "<branch criada>"
-pr: <número|null>                   # null até o motor abrir a PR
-scope: cabe                          # cabe | cabe-raso | nao-cabe  (veredito do gate de escopo do
-                                     # Step 2-quater do flux:build, ver scope-gate.md)
-iterate_board: "<path do board do iterate, quando o handoff acontecer>"
-# single-PR (iterate):
-pr: <número>
-repo: "<repo-slug>"                 # slug puro, sem a org
-ticket: <CPU-XXXX|MOM-XXXX|null>
-parent_board: "<path do board do delivery-flow, se este iterate nasceu de um>"  # só quando --parent-board
-# multi-PR (delivery):
-issues: [CPU-XXXX, ...]
-repos: [...]
-iterate_boards: ["<path do board de iterate da PR #A>", "<...#B>"]   # preenchido conforme os filhos nascem
-# conversa (slack):
-source: slack
-surfaces:                            # TODAS as superfícies do caso, em ordem cronológica
-  - channel: "#helpdesk-comunicacao"
-    channel_id: "CXXXXXXXX"
-    thread_ts: "1720012800.123456"
-    url: "https://<ws>.slack.com/archives/CXXXXXXXX/p1720012800123456"
-    kind: thread                     # thread | dm | channel
-    status: parada                   # ativa | parada | migrada | resolvida
-  - channel: "DM <Nome>"
-    channel_id: "DXXXXXXXX"
-    thread_ts: null                  # DM sem thread: null
-    url: "https://<ws>.slack.com/archives/DXXXXXXXX"
-    kind: dm
-    status: migrada
-participants: ["Nome (U...)", "..."]  # união de todas as superfícies
-repos: [...]
-# exploração (issue):
-source: "<permalink do Slack | url da PR | url(s) de issue de telemetria | 'texto livre'>"
-                                     # chave de identidade deste perfil; N alvos = lista ordenada,
-                                     # normalizada, separada por espaço (o caso do flux:probe)
-repos: [...]                         # slugs puros
-telemetry:                           # só quando o flux:probe rodou; omitido se não rodou
-  - provider: sentry                 # uma entrada por fonte consultada
-    org: "<org na fonte>"
-    issues: ["<SHORT-ID>", "..."]
-    sample: "<M de C eventos>"       # M < C significa dossiê de amostra (ver 7-octies)
-  - provider: datadog
-    site: "<site>"
-    services: ["<svc>", "..."]
-    window: "<from → to>"            # janela legível, nunca epoch
-    control: "<janela de controle, ou null>"
-labels_propostas: { tipo: "...", application: "...", agent_autonomy: "AFK|HITL", prioridade: N }
-linear_ids: []                       # preenchido após a criação; [] até lá
-execution_status: active             # active ao nascer · done ao criar no Linear
-                                     # open se parou no rascunho · dropped se descartado
-origin_board: "<path do board de conversa que originou o pedido, ou omitido>"
-scope: cabe                          # cabe | cabe-raso | nao-cabe  (só quando o flux:refine rodou;
-                                     # veredito de T1, ver scope-gate.md — omitido se ele não rodou)
-# todos os perfis:
-tags: [board, <build|iterate|delivery|slack|issue-draft>, orchestration]
-provenance:                           # contrato e checklist antes de gravar: seção Bloco `provenance`, abaixo
-  machine: "<hostname -s>"            # piso mínimo, sem depender de env var de instalação pessoal
-  invocation: "<texto invocado que gerou o artefato, como digitado; ex. no Claude Code: '/flux:build flux LAB-149'>"
-  generator: "<verbo que abriu o artefato; enum na seção Bloco `provenance`, abaixo>"
-  captured_at: "<YYYY-MM-DD HH:MM ±HHMM>"  # mesmo formato de `updated:`, mesma leitura de `date` (ver Disciplina de carimbo de data)
-  session_sources: ["<path do .jsonl>", "..."]  # ver "Bloco `provenance`" abaixo; [] quando não há candidato
-  harness: "<claude-code | cursor | codex | unknown>"
-  flux_version: "<versão pela cascata de manifestos definida em preflight.md, ou unknown>"
-  model: "<autorreportado no system prompt, ou unknown>"
-  effort: "<CLAUDE_EFFORT, fallback do system prompt, ou unknown>"
-  stamp: "<harness> | flux:<verbo>@<flux_version>"  # derivado dos campos acima, nunca digitado
+execution_status: active              # active | open | done | dropped
+repo: "<repo-slug>"                   # repo principal; `repos: [...]` quando forem vários
+case_keys: ["pr:acme/meu-repo#12", "ticket:ENG-42"]
+runs:                                 # uma entrada por sessão que escreveu aqui, em ordem
+  - violeet_run_id: "run-<16 hex>"  # VIOLEET_RUN_ID do preflight, ou null
+    session_id: "<uuid>"              # SESSION_ID do preflight, ou null
+    harness: claude-code              # HARNESS do preflight
+    machine: "<hostname -s>"
+    started_at: "<YYYY-MM-DD HH:MM ±HHMM>"   # date da primeira escrita desta run
+    verbs: [build, review]            # verbos do flux que esta run rodou aqui, em ordem
+    run_id: "<id do ledger>"          # só com `--record` (shared/run.md); omitido sem run
+tags: [board, <build|iterate|review|delivery|slack|issue-draft>, orchestration]   # o do perfil que abriu
+# por perfil (só quando o verbo rodou):
+pr: <número|null>                     # execução, single-PR, review
+pr_number: <número>                   # review (obrigatório no schema de pr-review)
+ticket: <ID|null>
+engine: "<motor que rodou>"           # execução
+engine_kind: nativo                   # nativo | fallback | autonomo
+worktree: "<path>"                    # execução
+branch: "<branch>"
+scope: cabe                           # cabe | cabe-raso | nao-cabe (scope-gate.md)
+issues: [LAB-1, ...]                  # multi-PR
+source: "<permalink | url | 'texto livre'>"   # exploração e conversa
+surfaces:                             # conversa: todas as superfícies, em ordem cronológica
+  - { channel: "#canal", channel_id: "C...", thread_ts: "<ts>|null", url: "<permalink>",
+      kind: thread, status: ativa }   # kind: thread|dm|channel · status: ativa|parada|migrada|resolvida
+participants: ["Nome (U...)"]         # conversa: união das superfícies
+telemetry:                            # exploração, quando o probe rodou; uma entrada por fonte
+  - { provider: sentry, org: "<org>", issues: ["<SHORT-ID>"], sample: "<M de C eventos>" }
+  - { provider: datadog, site: "<site>", services: ["<svc>"], window: "<de → até>", control: "<janela|null>" }
+labels_propostas: { tipo: "...", application: "...", agent_autonomy: "AFK|HITL", prioridade: N }   # exploração
+linear_ids: []                        # exploração; preenchido ao criar
+origin_board: "[[...]]"               # board de onde o pedido veio, quando houver
+provenance: {...}                     # dez chaves, gravadas uma vez; ver abaixo
 ---
 ```
 
+- **`runs[]` é a fonte de "quem fez o quê".** Cada sessão que escreve no board acrescenta a sua
+  entrada na primeira escrita e atualiza o `verbs` dela depois. Nunca reescrever a entrada de outra
+  run. Dentro de cada run, o campo `violeet_run_id` tem essa grafia exata: é a chave de junção com a
+  telemetria e com `~/.fluxd/runs/<id>/`.
+- **`violeet_run_id` e `session_id` são `null` quando a fonte não existe** (fora do painel do
+  violeet; harness que não expõe id de sessão). `null` é ausência verificada, não esquecimento.
+- `run_id` (o ledger de `shared/run.md`) é outra coisa: id de uma execução gravada com `--record`. Fica no item da run que o produziu, em `runs[]`, para duas execuções no mesmo board não se sobrescreverem. Board antigo com `run_id` no topo continua sendo achado pelo `run.sh resolve-ref`.
+
 ## Bloco `provenance` (todos os perfis)
 
-Esta seção é o **contrato único** do bloco `provenance`. Vale para todo artefato que a família grava
-com esse bloco, seja board ou não: os boards dos cinco perfis, o artefato de review
-(`review-artifact-template.md`), o parecer do `flux:peek --save` e os rascunhos do `flux:iterate --dry`.
-Um verbo que grava o bloco **aponta para esta seção** e declara só o valor de `generator` e de
-`<verbo>` que lhe cabe; nunca redescreve chave, formato ou vocabulário. Redescrever é como o `peek`
-passou a gravar `captured_at` em ISO e o `iterate` passou a gravar o bloco pela metade.
-
-O bloco é resolvido no Step 0 de cada elo (o mesmo passo que já resolve o contexto) e gravado uma vez,
-no nascimento do artefato, nunca recalculado nos ticks seguintes. Ele é o que permite associar um
-artefato de volta à sessão e à máquina que o produziram.
-
-### As dez chaves (todas obrigatórias na gravação)
+Contrato único do bloco. Ele descreve **o nascimento** do board (a sessão que o criou) e é gravado
+uma vez, nunca recalculado; as sessões seguintes se registram em `runs[]`. É também o que o notes-web
+usa para listar o board na home (`generator` começando por `flux-`).
 
 | chave | valor | `unknown` permitido? |
 |---|---|---|
 | `machine` | `hostname -s` | não |
-| `invocation` | o texto invocado que gerou o artefato, como digitado (ex. no Claude Code: `/flux:build flux LAB-149`) | não |
-| `generator` | um valor do enum abaixo | não |
+| `invocation` | o texto invocado, como digitado (ex.: `/flux:build flux LAB-149`) | não |
+| `generator` | o verbo que abriu, do enum abaixo | não |
 | `captured_at` | `date "+%Y-%m-%d %H:%M %z"`, literal | não |
-| `session_sources` | lista de paths absolutos de `.jsonl`, ou `[]` | não (`[]` é o valor de ausência) |
-| `harness` | `claude-code` \| `cursor` \| `codex` \| `unknown` | sim |
-| `flux_version` | `version` do primeiro `plugin.json` da cascata | sim |
-| `model` | `MODEL` resolvido no Step 0 (preflight, 1a-harness) | sim |
-| `effort` | `EFFORT` resolvido no Step 0 (preflight, 1a-harness) | sim |
-| `stamp` | derivado: `<harness> \| flux:<verbo>@<flux_version>` | não (herda o `unknown` dos campos de que deriva) |
+| `session_sources` | paths absolutos de `.jsonl` candidatos, ou `[]` | não (`[]` é a ausência) |
+| `harness` | `HARNESS` do preflight: `claude-code` \| `cursor` \| `codex` \| `unknown` | sim |
+| `flux_version` | `FLUX_VERSION` do preflight | sim |
+| `model` | `MODEL` do preflight | sim |
+| `effort` | `EFFORT` do preflight | sim |
+| `stamp` | derivado: `<harness> \| flux:<verbo>@<flux_version>` | herda dos campos de origem |
 
-Chave ausente é defeito do gravador, não ausência de dado. Dado indisponível tem valor próprio:
-`unknown` nas quatro chaves que o admitem, `[]` em `session_sources`.
+**Enum de `generator`:** `flux-build` · `flux-iterate` · `flux-land` · `flux-issue` · `flux-reply` ·
+`flux-probe` · `flux-refine` · `flux-review` · `flux-peek`. Sempre com hífen; `flux:refine` com
+dois-pontos não é valor válido. Verbo novo entra no enum antes de gravar.
 
-### Enum de `generator`
+**`session_sources`:** em `~/.claude/projects/<cwd-codificado>/`, os `.jsonl` com mtime nas últimas
+48h que ainda não aparecem em nenhuma nota do vault (`grep -rl "<uuid>" <VAULT_ROOT>`), como paths
+absolutos. Com `SESSION_ID` resolvido, o candidato é só `<SESSION_ID>.jsonl`. Nenhum candidato: `[]`.
 
-`flux-build` · `flux-iterate` · `flux-land` · `flux-issue` · `flux-reply` · `flux-probe` ·
-`flux-refine` · `flux-review` · `flux-peek`
-
-`generator` registra **o verbo que efetivamente abriu o artefato**, não o `type` canônico. No perfil
-exploração o `type` é sempre `flux-issue`, mesmo quando quem abriu foi o `flux:probe` ou o
-`flux:refine` (ver `probe/SKILL.md`, "O infixo é `flux-probe` porque é o verbo que abriu o board"), e
-`generator` grava `flux-probe` ou `flux-refine`. O `flux-iterate` cobre tanto o board single-PR
-quanto os rascunhos do `--dry`. Verbo novo que grave o bloco entra neste enum antes de gravar.
-
-### Regras de cada chave
-
-- **`machine`**: `hostname -s`. Não depende de nenhuma env var de convenção pessoal de instalação —
-  este repo é distribuído publicamente, e uma env var como `$DOTFILES_AI_MACHINE` (usada por
-  ferramentas pessoais do tipo `/context-save`) não existe pra quem instala o plugin do zero.
-- **`invocation`**: o texto literal que o usuário invocou para gerar o artefato, como foi digitado.
-- **`captured_at`**: **mesmo formato e mesma leitura de `updated:`** (ver Disciplina de carimbo de
-  data) — uma leitura só, nunca estimativa, e nunca ISO8601: a disciplina de relógio deste arquivo
-  não produz ISO8601, e inventar uma conversão de cabeça é o mesmo modo de falha que a Disciplina de
-  carimbo de data existe para eliminar. Vale também para artefato sem `updated:` (review, peek,
-  rascunho do iterate): o formato é este, sem exceção.
-- **`session_sources`**: lista de **paths absolutos** para as transcripts de sessão (`.jsonl`)
-  candidatas a terem gerado o artefato — mesmo campo e mesmo formato de valor (path absoluto, não
-  UUID solto) que o `/context-save` do usuário já grava, e que permite a um pipeline de leitura
-  externo linkar a nota à sessão que a produziu. Resolvido no mesmo Step 0:
-  1. Localizar o diretório de transcripts do `cwd` atual em `~/.claude/projects/<cwd-codificado>/`,
-     usando a mesma codificação de path que o Claude Code usa para nomear esse diretório (`/` vira
-     `-`, prefixado com `-Users-...`).
-  2. Listar os `.jsonl` desse diretório com mtime nas últimas 48h.
-  3. Descartar os que já estejam referenciados em alguma nota `.md` do vault — o identificador de
-     cada transcript é o próprio nome do arquivo sem extensão (um UUID), e como esse UUID é
-     substring do path absoluto que uma nota anterior teria gravado em `session_sources`, o teste é
-     `grep -rl "<uuid-do-arquivo>" <VAULT_ROOT>`. `VAULT_ROOT` vem do perfil de contexto resolvido no
-     Step 0 (ver `flux-context.md`); este repo não hardcoda o path do vault de ninguém.
-  4. Gravar o **path absoluto completo** de cada `.jsonl` restante como item da lista, na ordem em
-     que foram encontrados — múltiplos candidatos não exigem desempate manual, viram lista, igual ao
-     precedente do `/context-save`.
-  5. Nenhum candidato (perfil genérico sem `VAULT_ROOT`, `cwd` sem diretório de transcripts, ou todos
-     já referenciados): gravar `session_sources: []`.
-- **`harness`**: o valor de `HARNESS` resolvido no Step 0 pelo Passo 1a-harness de
-  `${FLUX_ROOT}/shared/preflight.md`, copiado sem reavaliar. O vocabulário é fechado: `claude-code`,
-  `cursor`, `codex` ou `unknown`. Nome de produto, versão de harness ou rótulo de exibição (como o
-  `HARNESS_LABEL` do carimbo de PR) não entram aqui.
-- **`flux_version`**: o valor de `FLUX_VERSION` resolvido no Step 0 pelo mesmo Passo 1a-harness,
-  copiado sem reavaliar.
-- **`model`** e **`effort`**: os valores de `MODEL` e `EFFORT` resolvidos no Step 0 pelo mesmo Passo
-  1a-harness, copiados sem reavaliar. São os da **sessão que grava este bloco**, não os de um
-  subagente que ela tenha despachado no meio do trabalho (ex.: os specialists de `review-agents.md`
-  podem rodar com outro model/effort). `unknown` nestes dois campos não gera token no banner de
-  degradação (ver `preflight.md`, "Tokens canônicos de `degradacoes:`").
-- **`stamp`**: string de auditoria pronta para query — `<harness> | flux:<verbo>@<flux_version>`,
-  onde `<verbo>` é o `generator` sem o prefixo `flux-` (`flux-build` → verbo `build`; stamp usa
-  dois-pontos: `flux:build@1.34.0`). **Derivado, nunca digitado**: montado a partir dos valores de
-  `harness`, `generator` e `flux_version` já gravados no mesmo bloco, depois deles. É redundante de
-  propósito: a surface `provenance->>'stamp'` agrupa artefatos por ferramenta+versão sem exigir
-  parsing de `generator` e `flux_version` separados.
-
-### Quando `unknown` é permitido
-
-Só em `harness`, `flux_version`, `model` e `effort`, e exatamente quando o Passo 1a-harness de
-`${FLUX_ROOT}/shared/preflight.md` os resolve como `unknown`. As condições moram lá e não são
-relistadas aqui: o gravador copia os valores que o Step 0 calculou (`HARNESS`, `FLUX_VERSION`,
-`MODEL`, `EFFORT`) e nunca reavalia a fonte na hora de gravar. `unknown` é sinal verificado como
-indisponível, não esquecimento nem atalho: gravar `unknown` onde o Step 0 resolveu um valor é tão
-errado quanto trocar por um valor o `unknown` que ele resolveu. Nas demais chaves a fonte nunca falha
-(`hostname -s`, o texto invocado, o verbo que está rodando, o `date`), então `unknown` ali é defeito.
+**`unknown`** só aparece em `harness`, `flux_version`, `model` e `effort`, e só quando o preflight
+resolveu assim: o gravador copia os valores do Step 0, nunca reavalia. Nas outras chaves a fonte nunca
+falha, então `unknown` ali é defeito.
 
 ### Checklist antes de gravar
 
-Quem grava o bloco confere, **antes** do Write, e corrige o que falhar em vez de gravar mesmo assim:
-
-1. **Chaves**: as dez estão presentes, nenhuma a mais dentro de `provenance` (`run_id` e afins vão no
-   topo do frontmatter).
-2. **`generator`**: está no enum, e é o verbo que abriu o artefato.
-3. **`harness`**: está em `claude-code | cursor | codex | unknown`.
-4. **`unknown`**: como valor inteiro de chave, aparece só em `harness`, `flux_version`, `model` ou
-   `effort`, e cada um é o valor que o Step 0 resolveu (ver "Quando `unknown` é permitido"). Dentro
-   do `stamp` ele aparece por herança, e isso não viola este item.
-5. **`captured_at`**: casa com `YYYY-MM-DD HH:MM ±HHMM` e veio de um `date` desta escrita (sem `T`,
-   sem `Z`, sem segundos).
-6. **`session_sources`**: lista; cada item é path absoluto terminado em `.jsonl`, ou a lista é `[]`.
-7. **`stamp`**: é exatamente `<harness> | flux:<verbo>@<flux_version>` com os valores deste mesmo
-   bloco, e `<verbo>` é `generator` sem o prefixo `flux-`.
-
-Artefato antigo sem este bloco, ou com ele parcial, continua válido para leitura: os campos são
-aditivos, e ferramentas que os leem devem tratar ausência como "não informado", nunca como erro. O
-checklist vale para **gravação nova**; ele não autoriza reescrever artefato antigo.
-
-> **`source` é a chave de identidade do perfil exploração**, como `surfaces` é a do perfil conversa.
-> Antes de criar board novo, procurar um board cujo `source` case com o alvo em `<VAULT_ROOT>/0-inbox/`
-> **e** em `<VAULT_CTX_ROOT>/linear/`, porque o board de um pedido antigo pode já ter sido promovido
-> pelo `/organize` e some se a busca só olhar o inbox. Casou: atualiza aquele, onde ele estiver
-> (atualizar nota existente é escrita legítima fora do inbox). Não casou: board novo, no `0-inbox/`.
-> É o que impede o mesmo pedido, rodado duas vezes, virar dois rascunhos concorrentes da mesma issue.
->
-> **O `source` é a identidade; o nome do arquivo é só endereço.** O naming não carrega `HHMM` (é o
-> formato dos rascunhos que já existem no vault), então dois pedidos **diferentes** do mesmo dia podem
-> derivar o mesmo slug. Nesse caso — path ocupado por um board cujo `source` é **outro** — sufixar
-> `-2`, `-3`, e seguir. Sobrescrever um board de outro pedido porque o slug bateu é perda de trabalho.
-
-> **`surfaces` é a chave de identidade do perfil conversa.** Um caso é reencontrado por QUALQUER uma das
-> suas superfícies, não só pela primeira. Antes de criar board novo, procurar em `<VAULT_ROOT>/0-inbox/`
-> por um board cujo `surfaces[].channel_id` (+ `thread_ts`, quando houver) case com o alvo. Casou:
-> atualiza aquele board. Não casou: board novo. Isso é o que impede um caso de virar cinco notas soltas
-> quando a conversa anda de canal.
-
-## Disciplina de links (vale para todos os perfis)
-
-**Nada de citação nua.** Um board é feito para ser reaberto dias depois, de outra máquina, sem a
-sessão que o criou. Toda entidade citada tem que ser clicável de dentro dele, senão o board vira um
-resumo bonito que obriga você a ir procurar tudo de novo, que é exatamente o trabalho que ele deveria
-poupar.
-
-| entidade | forma do link |
-|----------|---------------|
-| **PR** | `[#{n}](https://github.com/{owner}/{repo}/pull/{n})` — no painel, no frontmatter e na timeline |
-| **Ticket** | `[{TICKET}](https://linear.app/{LINEAR_ORG}/issue/{TICKET})`. Sem `LINEAR_ORG`, omitir o link, nunca inventar a org |
-| **Issue relacionada / bloqueante** | mesmo formato do ticket, na seção onde ela é citada |
-| **Commit** | `[{sha:0:7}](https://github.com/{owner}/{repo}/commit/{sha})` |
-| **Código** | permalink no SHA: `https://github.com/{owner}/{repo}/blob/{sha}/{path}#L{n}` (range: `#L{a}-L{b}`). Diretório: `.../tree/{sha}/{path}`. Ver "O caso do código" abaixo |
-| **Issue criada** *(exploração)* | mesmo formato do ticket, na coluna `Linear` do painel; `n/d` enquanto a issue não existir |
-| **Board irmão** | wikilink `[[nome-do-arquivo-sem-extensão]]`, para o grafo do vault funcionar |
-| **Thread / mensagem** | o permalink real da superfície, nunca o nome do canal solto |
-| **Worktree / path local** | `` `código inline` ``, sem link (não é clicável e não deve fingir que é) |
-
-### O caso do código, que é o que mais escapa
-
-`arquivo:linha` em backticks **parece** uma citação completa, e é por isso que ele passa: tem o
-formato de uma referência, tem o ar de precisão, e some no meio de um parágrafo bem escrito sem
-disparar nenhum alarme. Mas `index.ts:145` não abre em lugar nenhum. Quem lê de outra máquina, ou
-daqui a três semanas, tem que clonar o repo, achar o arquivo entre os cinco `index.ts` de mesmo nome,
-e torcer para a linha 145 ainda ser aquela. **Numa superfície de chat isso é pior ainda**, porque
-quem lê não tem o checkout e muitas vezes nem tem o repo.
-
-Então, para código, a regra tem três partes, e as três valem em conjunto:
-
-1. **O link é obrigatório, não um enfeite quando sobra tempo.** Toda citação de `arquivo:linha` que
-   afirma alguma coisa sobre o código vira permalink. Vale no board, vale no rascunho de Slack, vale
-   no corpo de uma issue. A única citação que fica nua é a de um path que não existe no repo (um
-   arquivo proposto, um caminho hipotético), e essa não deveria estar em backticks de citação.
-2. **O alvo é um SHA, nunca um nome de branch.** `blob/main/...` aponta para uma linha que muda na
-   próxima entrega, e um permalink que envelhece mal é pior que citação nua: ele leva o leitor com
-   confiança para o lugar errado. Resolver o SHA uma vez, no começo (`git rev-parse origin/main`, ou
-   o `head_sha` da PR quando o alvo é uma PR), e usar o mesmo em todas as citações daquele artefato.
-3. **A linha citada é conferida contra aquele SHA**, não contra o working tree. Um checkout local
-   atrasado numera diferente do remoto, e o permalink sai apontando para outra coisa. Conferir com
-   `git show {sha}:{path} | sed -n '{a},{b}p'` antes de escrever o link.
-
-Na superfície de chat, a mesma regra na sintaxe de lá: `<{url}|{arquivo}:{linha}>` no mrkdwn do
-Slack. O texto visível continua curto (`validateUploadFiles/index.ts:62`); o que muda é só existir
-um alvo por trás dele.
-
-**Sem SHA resolvido, não invente o link.** Nesse caso a citação fica nua **e** o motivo entra como
-lacuna declarada, do mesmo jeito que qualquer outra fonte que não foi alcançada. O que não pode é a
-citação nua passar em silêncio, como se estivesse completa.
-
-**A primeira linha do `🎯 Próximo Movimento` tem que conter o link do alvo da ação.** Se o próximo
-passo é "rodar `${FLUX_CMD}iterate` na PR", o número da PR ali é um link. É a linha que você lê primeiro
-ao reabrir o board, e é o lugar onde a falta de link mais custa.
-
-**Nunca inventar link.** Entidade que ainda não existe (PR não aberta, board filho não criado) fica
-`n/d` até existir. Um link quebrado num board é pior que a ausência dele: ele mente com aparência de
-verdade.
-
-## Bloco de proveniência (cross-links bidirecionais)
-
-**Regra de ouro da proveniência: todo link é real e verificável — nunca inventar um path de board que não
-foi criado.** Se um lado ainda não existe, marcar `n/d` até existir.
-
-- **Board de iterate nascido de um delivery-flow** (flag `--parent-board <path>` presente): logo no TLDR,
-  uma linha explícita `> Executado a partir de um delivery-flow: [board da entrega](<parent_board>)`, e o
-  campo `parent_board:` no frontmatter. Sem a flag (iterate avulso do dia a dia), este bloco não aparece.
-- **Board de delivery-flow**: mantém a **lista de boards de iterate filhos** (ver seção 7-bis abaixo),
-  um link por PR, preenchida conforme cada iterate consolidado gera o seu. O frontmatter espelha em
-  `iterate_boards:`.
-
-- **Board de execução** (`/flux:build`): o vínculo é **para frente, no tempo**. O build produz a PR que
-  o iterate vai fechar, então quando a PR nasce o board de execução grava `pr:` e, no handoff, o
-  `iterate_board:`. O board do iterate correspondente aponta de volta com `parent_board:` apontando
-  para o board de execução, exatamente como faz com um delivery. Um board de build sem PR ao final é
-  legítimo (o motor pode ter falhado): fica `pr: null` com o estado da etapa que quebrou, e é isso que
-  torna a falha investigável depois.
-
-- **Board de conversa** (`/flux:reply`): a proveniência não é entre boards, é entre **superfícies** — o
-  caso é o mesmo, o lugar muda. Isso vive no `surfaces:` do frontmatter e na seção 🧭 Rastro do caso. Se
-  a conversa gerar uma issue (via `/flux:issue`) ou uma entrega (via `/flux:land`), registrar o link
-  forward na seção ✅ Ação / Continuidade, e o board de destino aponta de volta pelo path deste — no
-  perfil exploração, pelo campo `origin_board:`.
-
-- **Board de exploração** (`/flux:issue`): o vínculo é **para trás** pelo `origin_board:` (o board de
-  conversa de onde o pedido veio, quando veio de um), e **para frente** pelo `linear_ids:` — a issue
-  criada é o próximo elo, e o `🎯 Próximo Movimento` final aponta para o `${FLUX_CMD}build` dela. Não há board
-  filho a linkar: o board de execução do build nasce do ticket, não deste arquivo.
-
-O link forward (delivery → iterate) e o reverse (iterate → delivery) apontam um para o outro pelo path
-determinístico do naming acima, de modo que o vínculo fecha mesmo que o iterate rode em outra sessão.
-
-## Template fixo — sempre nesta ordem, sem exceção
-
-**Regra de ouro do painel:** o Painel (item 4) é a ÚNICA tabela de status da unidade de trabalho do
-documento (PR nos perfis de PR, pendência no perfil conversa, issue candidata no perfil exploração).
-Nenhuma outra seção pode conter tabela que
-liste essas unidades com colunas de status — qualquer info por-unidade que não seja o painel vira prosa
-(bullets, texto corrido), nunca tabela paralela. As duas únicas outras tabelas permitidas no documento
-são a Timeline de Eventos Relevantes (item 6) e o 🧭 Rastro do caso (7-ter, perfil conversa), ambas
-cronológicas e nenhuma delas de status.
-
-1. **Frontmatter** (acima).
-
-2. **Título (H1) + TLDR** — uma linha de título seguida de blockquote de 1-2 frases: o que é, o estado
-   atual resumido, o que falta. É o que se lê em 5 segundos. No perfil single-PR com proveniência, a
-   linha de proveniência (acima) entra logo após o TLDR.
-
-3. **🎯 PRÓXIMO MOVIMENTO (leia isto primeiro)** — lista numerada curta e imperativa do que precisa
-   acontecer a seguir, na ordem real. Reescrita (não só anexada) a cada atualização relevante.
-
-4. **📊 Painel (status ao vivo)** — fonte única da verdade de status.
-
-   **Perfis single-PR e multi-PR.** Colunas mínimas:
-
-   | PR | Ticket | Status | esforço (rodadas · threads · 👍/👎) | veredito |
-
-   **Perfil conversa.** A unidade não é a PR, é a **pendência**: cada linha é uma pergunta em aberto, uma
-   decisão travada ou um compromisso assumido por alguém. Colunas mínimas:
-
-   | # | Pendência | Bola com | Superfície | Status | desde |
-
-   - **Pendência**: a pergunta ou decisão em uma frase, do jeito que ela precisa ser respondida. Não é
-     resumo de assunto ("visibilidade de canal"), é o que está travado ("read-only bloqueia só iniciar
-     conversa ou também responder?").
-   - **Bola com**: quem precisa agir. Nome de pessoa, sempre — `Ana`, `Bruno`, `Cris`. Nunca "time" ou
-     "produto": pendência sem dono nomeado é pendência que não anda. Se não há dono definido, o valor é
-     `⚠️ sem dono` e isso vira item do Próximo Movimento.
-   - **Superfície**: onde essa pendência está viva agora (casa com uma entrada de `surfaces:`). Uma
-     pendência levantada na DM e ainda não recolocada no canal novo é um risco visível, não um detalhe.
-   - **desde**: data em que a pendência foi aberta. Pendência parada há dias salta à vista.
-   - Pendência resolvida **não sai do painel**: vira `🟣 RESOLVIDA` com o desfecho no lugar do texto de
-     status. O board é memória, não lista de TODO.
-
-   Legenda de `Status` — **single-PR e multi-PR** (incluir sempre como bloco de referência acima da
-   tabela, mesmo que nem todo ícone apareça no board corrente):
-
-   | ícone | significado |
-   |---|---|
-   | 🟣 | **MERGED** — já subiu, fim de linha nesta PR |
-   | 🟢 | **READY** — sem draft, sem trava, aguardando só aprovação humana |
-   | 🔒 | **HITL** — não-draft no GitHub, mas o flow segura o pedido de review por falta de validação humana específica (visual, produto, nome de evento). Usar mesmo que o GitHub mostre `isDraft: false`/`REVIEW_REQUIRED`. |
-   | 🔗 | **ORDEM** — trava de sequência de merge (depende de outra PR ainda não mergeada), não é qualidade |
-   | 🟡 | **DRAFT** — ainda em rascunho no GitHub |
-   | 🔧 | **FIXING** — o flow está fechando threads/CI antes de a PR virar qualquer estado anterior |
-
-   Legenda de `Status` — **perfil conversa**:
-
-   | ícone | significado |
-   |---|---|
-   | 🟣 | **RESOLVIDA** — respondida ou decidida; fica no painel como registro histórico |
-   | 🟢 | **RESPONDIDA** — você já respondeu/entregou; a bola está com o outro lado |
-   | 🔒 | **BLOQUEIA** — trava o próximo passo concreto do caso (virar ticket, subir PR, fechar o chamado) |
-   | 🟡 | **ABERTA** — perguntada, sem resposta ainda |
-   | 🔧 | **APURANDO** — prospector rodando / verificação de código em andamento |
-   | ⚪ | **INFORMATIVA** — registrada para não se perder, mas não aciona ninguém agora |
-
-   > **🔒 BLOQUEIA é o ícone que justifica o board.** Ele separa "o Alex ainda não respondeu" de "sem a
-   > resposta do Alex a issue nasce errada". Só use quando a ausência da resposta produz retrabalho ou
-   > decisão errada, e diga qual no campo de veredito/desfecho. Marcar tudo como bloqueio esvazia o sinal.
-
-   Detalhe das colunas — **single-PR e multi-PR**:
-
-   - **esforço** = `rodadas · threads (res/tot) · flow 👍/👎` numa célula compacta. **rodadas** = passadas
-     de iterate fechadas (contador `round`/`iterateRounds` do estado). **threads** = resolvidas/total do
-     GraphQL real. **flow 👍/👎** = reações aplicadas pelo flow, filtradas pela conta que roda o `gh`
-     (ex.: `.user.login=="<login do gh>"`), nunca reações de terceiros.
-   - **veredito**: uma frase curta (o que a PR faz + motivo do status). Detalhe técnico extenso vai para
-     a análise/timeline, não para esta célula.
-   - PR `MERGED`: status vira `🟣 MERGED (<data/hora>)`, esforço congela no momento do merge (registro
-     histórico) — não deletar a linha.
-   - **Todo número no painel vem de fonte real** (GraphQL de threads, `gh pr checks`, contador de estado).
-     Onde não houver fonte, `n/d` — proibido preencher métrica sem origem verificável.
-
-   **Perfil exploração.** A unidade é a **issue candidata** — cada slice que vai (ou não) nascer no
-   Linear. Colunas mínimas:
-
-   | # | Título proposto | Repo | Tipo | Autonomia | Embasamento | Status | Linear |
-
-   - **Título proposto**: o título no formato do `issue-template.md` (`[contexto]: [verbo] [assunto]`),
-     não um resumo do assunto.
-   - **Tipo**: `Feature` | `Bug` | `Improvement` | `Spike`, o mesmo que vai virar label.
-   - **Autonomia**: `AFK` | `HITL`, pelo critério do Step 3 do `flux:issue`. É o que diz se a issue
-     pode ser despachada sem ninguém olhando. `n/d` apenas quando o workspace não tem o label e a
-     degradação graciosa se aplicou; nesse caso a classificação continua no corpo da issue.
-   - **Embasamento**: contagem compacta dos achados que sustentam **aquela** candidata, no formato
-     `✔N ◐N ✘N ?N` (confirma · parcial · refuta · sem-evidência), contados da 🔬 Achados de codebase.
-     Vale a regra geral do painel: número sem fonte real é proibido, use `n/d`. Uma candidata com
-     `✔0 ◐0` é o sinal explícito de que faltou investigação, e não deve ir ao Linear assim.
-   - **Linear**: o identificador criado, linkado; `n/d` até existir.
-   - Candidata descartada **não sai do painel**: vira `⚪ DESCARTADA` com o motivo no lugar do veredito.
-     O board é memória: saber que uma ideia foi levantada e por que não virou issue evita levantá-la de novo.
-
-   Legenda de `Status` — **perfil exploração**:
-
-   | ícone | significado |
-   |---|---|
-   | 🟣 | **CRIADA** — issue existe no Linear; a coluna `Linear` traz o identificador linkado |
-   | 🟢 | **APROVADA** — passou pelo gate humano, ainda não criada (falha de criação para aqui) |
-   | 🔒 | **BLOQUEIA** — falta decisão ou informação humana sem a qual a issue nasce errada |
-   | 🟡 | **RASCUNHADA** — corpo escrito, aguardando o gate |
-   | 🔧 | **APURANDO** — prospector rodando neste repo / candidata ainda se formando |
-   | ⚪ | **DESCARTADA** — não vira issue; o motivo fica registrado na linha |
-
-   > **🔒 BLOQUEIA aqui tem o mesmo peso do perfil conversa**, aplicado à issue: use quando a ausência
-   > da informação faz a issue **nascer errada**, não para toda dúvida menor. É o ícone que segura a
-   > criação no Linear.
-
-   **Abaixo da tabela** (single-PR, multi-PR, conversa e exploração; o painel do perfil execução é
-   descrito na seção dele, lá em cima), ainda nesta seção, em prosa/lista — nunca tabelas novas:
-
-   - **single-PR e multi-PR:** ordem de merge, grafo de bloqueio (`#B ⟵ bloqueada por #A` + motivo),
-     contagem por repo, métricas agregadas, análise de segurança de subida (multi-PR) e go/no-go corrente
-     (ou `🏁 DONE`). No single-PR muitos desses itens colapsam para uma linha ou somem (não há ordem entre
-     PRs); manter só o que faz sentido para 1 PR.
-   - **conversa:** **estado do caso** em uma linha (o que precisa acontecer para ele fechar) e **o que já
-     está decidido** (as definições fechadas em rodadas anteriores, para ninguém reabrir por esquecimento).
-   - **exploração:** a **ordem de criação** das candidatas (blockers primeiro, para os `blockedByIds`
-     terem IDs reais) e o **grafo de bloqueio** entre elas (`#2 ⟵ bloqueada por #1` + motivo), na mesma
-     forma do multi-PR.
-
-5. **⏰ Timeline Verbosa** — narrativa cronológica por sessão: rodadas fechadas, pushes, mudanças de CI,
-   decisões, com detalhe técnico (arquivo:linha, causa raiz, decisão e porquê). Append, nunca reescreve o
-   passado. Separar por `### Sessão de <data>` quando o board for retomado.
-
-6. **📅 Timeline de Eventos Relevantes** — tabela compacta estilo post-mortem, índice escaneável da
-   verbosa (não a substitui):
-
-   | data | hora | evento | tipo | PR(s) |
-   |---|---|---|---|---|
-
-   - **tipo**: vocabulário fixo — `push`, `merge`, `conflito`, `decisão`, `review`, `ci`, `qa`,
-     `descoberta`, `pr-body`. No perfil conversa acrescentam-se: `migração` (o caso mudou de
-     superfície), `rascunho` (draft salvo/enviado/invalidado) e `pendência` (aberta ou fechada). No
-     perfil exploração acrescentam-se: `prospecção` (fan-out disparado / retorno de um repo),
-     `coleta` (alvo de telemetria agregado pelo `flux:probe`, com o denominador do que voltou),
-     `candidata` (aberta, redefinida ou descartada), `linear` (issue criada, com o identificador) e
-     `escopo` (veredito do gate de [`scope-gate.md`](scope-gate.md), e toda mudança de faixa entre
-     T0 e T1 — a linha diz **quais sinais** mudaram, não só a faixa nova). No perfil execução
-     acrescenta-se `escopo` também, com o mesmo sentido: o veredito do passe único do `flux:build`
-     e, quando houver, a **dispensa do gate** (pela opção "despachar inteiro" ou por `--no-slice`),
-     com os sinais que tinham sido apurados. A escolha do usuário no gate é `decisão`, não `escopo`.
-   - No perfil conversa a coluna final é **superfície**, não `PR(s)`. No perfil exploração é
-     **candidata** (o `#` da linha do painel), também não `PR(s)`.
-   - `pr-body` = reconciliação da descrição da PR (passo 8a do `/flux:iterate`). A linha diz **qual
-     afirmação** foi corrigida, não só "descrição atualizada"; o detalhe da evidência vai na verbosa.
-   - **Regra de captura**: toda vez que o carimbo de data rola (frontmatter `updated:`, painel, verbosa),
-     a MESMA ação insere uma linha aqui. Um tick sem novidade substantiva não gera linha (evita ruído),
-     mas ainda rola o carimbo de data das outras seções.
-
-7. **✅ Ação / Continuidade (HITL)** — checklist `- [ ]` de itens acionáveis para o usuário continuar a
-   parte humana (pedir review, criar flag, rodar QA). Marcar `- [x]` quando resolvido, não apagar a linha.
-
-   Quando o elo abrir um gate, acrescentar abaixo do checklist o bloco `### Gates`, em prosa ou lista
-   (nunca outra tabela de status), conforme `${FLUX_ROOT}/shared/hitl.md`: para cada gate, registrar
-   o snapshot de fatos e origens, pergunta, opções realmente apresentadas com IDs/rótulos/descrições,
-   estado `pendente` ou a escolha, a ação autorizada e seu resultado. A apresentação gera evento
-   `pendência` na Timeline; a resposta explícita gera `decisão`. Sem resposta, manter `pendente` e
-   não registrar resultado de ação.
-
-7-bis. **🔗 Boards de iterate por PR** *(só no perfil multi-PR / delivery-flow)* — lista em prosa (não
-   tabela), um item por PR, linkando o board de iterate filho que aquela PR gerou:
-
-   ```
-   - #1054 (api-gateway): [board do iterate](<VAULT_ROOT>/0-inbox/....md) — última rodada: 2
-   - #8057 (web-monorepo): [board do iterate](<VAULT_ROOT>/0-inbox/....md) — última rodada: 1
-   - #1157 (notifications): n/d (iterate ainda não rodou nesta PR)
-   ```
-
-   Preenchida conforme cada iterate consolidado (seção 4 do delivery) nasce. É a contraparte forward do
-   `parent_board` que cada board de iterate carrega (reverse).
-
-7-ter. **🧭 Rastro do caso** *(só no perfil conversa)* — por onde a conversa passou e por que mudou de
-   lugar. Tabela, porque é cronologia, não status de trabalho (a regra de ouro do painel proíbe outra
-   tabela **de status de PR**; esta é de superfícies e não conflita):
-
-   | quando | superfície | quem entrou | por que mudou |
-   |---|---|---|---|
-   | 30/07 09:48 | [#helpdesk-comunicacao](url) (thread) | Mariana, Alex | origem: chamado da escola |
-   | 31/07 09:46 | [DM Bruno](url) | Bruno | Ana levou o texto para validação antes de postar |
-   | 31/07 16:05 | [#agenda-e-conversas-ptd](url) (thread) | Cla, Torres | Alex escalou para design + EM |
-
-   - **Toda superfície nova é registrada aqui na mesma rodada em que é lida.** Migração de contexto é
-     comportamento normal do trabalho, não exceção: quem escala uma conversa não avisa o board.
-   - **Ao registrar uma superfície nova, comparar o que foi levado com o que o dossiê tem.** Quando
-     alguém encaminha um resumo, quase sempre encurta. O que ficou de fora (ressalva, número, risco) e
-     que os novos interlocutores **não** viram vira linha de pendência no painel ou item do Próximo
-     Movimento. Este é o erro que o rastro existe para pegar: o time novo decidindo com menos informação
-     do que o board tem, e ninguém percebendo.
-   - A superfície anterior não é abandonada em silêncio: ela ganha `status: migrada` (ou `parada`, se
-     ficou pendência aberta lá) no `surfaces:` do frontmatter, e o que restou nela vira pendência.
-
-7-quater. **🔬 Achados de codebase (dossiê acumulado)** *(perfis conversa e exploração)* — o ativo mais
-   caro do board: os fatos verificados em código pelos prospectors, acumulados por rodada, agrupados
-   **por repo** e em prosa/bullets (nunca tabela).
-
-   - Cada achado carrega **âncora real** (`arquivo:linha`, PR#, commit) e **veredito** contra o claim que
-     o motivou: `confirma` / `refuta` / `parcial` / `sem-evidência`.
-   - **Achado não expira ao mudar de rodada.** Um fato levantado na rodada 1 continua valendo na rodada 4
-     e é o que alimenta a issue no fim. Reprospectar o que já está aqui é desperdício: consultar primeiro.
-   - **No perfil exploração, esta seção guarda o dossiê inteiro, não só o que embasa.** A issue leva ao
-     Linear apenas os `confirma`/`parcial` (é o que manda o `issue-template.md`); os `refuta` e
-     `sem-evidência` ficam **aqui**, e são justamente o que evita reprospectar a mesma hipótese no
-     próximo run. Cada achado indica a qual candidata do painel ele serve (`#1`, `#2`), e é dessa
-     contagem que sai a coluna **Embasamento**.
-   - **Achado que foi invalidado não é apagado**, é marcado `~~riscado~~` com o motivo e a rodada em que
-     caiu. Saber que uma hipótese morreu, e por quê, vale tanto quanto o fato vivo.
-   - **Incertezas e lacunas ficam explícitas**, separadas dos fatos. O que virou pergunta ao interlocutor
-     tem que estar rastreável até a linha do painel que a representa.
-
-7-quinquies. **✍️ Rascunhos** *(só no perfil conversa)* — histórico dos drafts, um item por rascunho, em
-   prosa:
-
-   ```
-   - `Dr0BLK7Q7VUP` — 30/07 17:23, thread #helpdesk-comunicacao — ⚠️ INVALIDADO na rodada 3
-     (a seção "caminho que resolve hoje" caiu; não enviar como está)
-   - `Dr0BM36YGRE1` — 31/07 11:03, DM Alex — ✅ ENVIADO 11:15
-   - `Dr0BM9TEAQM7` — 31/07 13:35, DM Alex — ✅ ENVIADO (encaminhado por Alex ao canal, editado)
-   ```
-
-   - Estados: `PENDENTE` (salvo, não enviado), `ENVIADO`, `⚠️ INVALIDADO` (achado posterior derrubou
-     parte do texto), `DESCARTADO`.
-   - **Rascunho invalidado é evento de primeira classe**: gera linha na Timeline de Eventos (tipo
-     `decisão`) e item no Próximo Movimento. Um draft errado parado nos drafts do usuário é uma armadilha
-     esperando o dia em que ele apertar enviar sem reler.
-
-7-sexies. **📝 Rascunho da issue** *(só no perfil exploração)* — **o produto**: o corpo da(s) issue(s) no
-   formato canônico de [`issue-template.md`](issue-template.md), uma subseção `### #N — <título proposto>`
-   por candidata do painel. É daqui que a issue é criada no Linear; nenhum outro arquivo carrega o corpo.
-
-   - **Cada rodada do gate humano versiona, não sobrescreve.** Quando o usuário pede ajuste, a versão
-     nova entra como `#### v2 — <DD/MM HH:MM> (motivo: <o que mudou e por quê>)` e a anterior fica no
-     arquivo, colapsada em `<details>`. Mesma lógica de ✍️ Rascunhos: saber qual versão foi rejeitada, e
-     por quê, é metade do valor do board. Só a versão mais recente vai para o Linear.
-   - Toda edição de versão gera linha na Timeline de Eventos (tipo `decisão`) e reescreve o
-     🎯 Próximo Movimento.
-   - Candidata `⚪ DESCARTADA` **mantém** a sua subseção, marcada como descartada com o motivo. Rascunho
-     apagado é trabalho refeito no próximo run.
-   - Depois de criada no Linear, a subseção ganha o identificador linkado no cabeçalho — o corpo vira
-     registro histórico do que **foi** criado, e a issue passa a ser a fonte da verdade viva.
-
-7-septies. **📐 Refinamento** *(perfil exploração, só quando o `flux:refine` rodou)* — o refinamento
-   que **antecede** o corpo da issue: por que o pedido existe, onde ele encosta no código e em que
-   ordem se entrega. Quatro blocos, sempre nesta ordem:
-
-   - **§1 PRD-fast** — problema, user story, regras de negócio, edge cases, fora de escopo.
-   - **§2 TRD-fast** — contrato efetivo (inline), pontos de toque com `arquivo:linha` linkado e o
-     veredito do achado que sustenta cada um, decisões de implementação, riscos. O que não foi
-     apurado aparece **declarado como não apurado**, nunca preenchido pelo que provavelmente existe.
-   - **§3 Plano** — as slices em ordem, com o grafo de bloqueio e a classificação AFK/HITL de cada
-     uma. Sem tabela de status: as slices já são as linhas do Painel (item 4), e a regra de ouro
-     proíbe uma segunda tabela das mesmas unidades. Aqui elas aparecem em prosa/lista.
-   - **§4 Veredito de escopo** — a faixa apurada, os sinais lidos e, em 🟡, a **lista nominal** do que
-     ficou raso. Contrato em [`scope-gate.md`](scope-gate.md).
-
-   **A ordem de produção é a inversa da ordem no arquivo**, e é de propósito: refina-se antes de
-   escrever o corpo, mas o refinamento fica **depois** do rascunho no documento. O produto do board
-   é o corpo da issue (7-sexies), e ele não pode ser empurrado para baixo por um insumo — quem abre
-   o board dias depois procura o que vai virar issue, não o caminho até ela.
-
-   > **Por que o refinamento não vira um board próprio.** O `flux:refine` e o `flux:issue` tratam do
-   > **mesmo pedido**, e o `source` é a chave de identidade deste perfil. Um board separado faria o
-   > Step 1-bis do `flux:issue` não encontrar nada e reprospectar o que já tinha sido apurado, que é
-   > exatamente o desperdício que a 🔬 Achados de codebase existe para evitar. Uma nota por pedido,
-   > não uma por verbo.
-
-   **Recusa por escopo** (🔴 no `flux:refine`) usa a mesma seção, com duas trocas: o §3 traz o **corte
-   proposto** no lugar do plano (as frentes, o blocker, a fatia que cabe), e o §4 explica a recusa e
-   o encaminhamento. O que foi apurado fica na 🔬 Achados — é o que torna a próxima tentativa, já
-   cortada, mais barata que a primeira.
-
-7-octies. **🔭 Telemetria** *(perfil exploração, só quando o `flux:probe` rodou)* — o que os eventos de
-   produção **provam**, que é o insumo mais bruto do board e o único que não se reproduz lendo código.
-   Cinco blocos, sempre nesta ordem:
-
-   **Uma subseção por fonte consultada**, e o cabeçalho de cada uma nomeia a fonte e o escopo. Duas
-   fontes na mesma investigação é o caso bom, não o excepcional: uma costuma ver o cliente e a outra o
-   servidor, e é do confronto entre as duas que sai a pergunta mais decisiva do dossiê.
-
-   - **§1 Denominador** — em rastreador de erros: quantos eventos foram agregados de quantos existem,
-     quantas ocorrências individuais há dentro deles, quantos usuários, e a janela
-     (`firstSeen` → `lastSeen`). Em observabilidade: a **janela**, o escopo (serviços, ambiente, filtro)
-     e a janela de controle, porque ali não há universo fechado do qual amostrar. **Abre a seção porque
-     governa tudo abaixo dela**: um percentual de 100 eventos numa issue de 4 mil é uma afirmação sobre
-     a amostra, não sobre o problema, e um número sem janela não é reproduzível.
-   - **§2 Distribuições** — uma linha por tag ou campo relevante, com contagem **e** percentual. Tag
-     com valor único em 100% dos eventos entra sempre: é o que sustenta as frases que mudam
-     direcional ("isto é 100% Android", "isto é 100% na etapa de conversão").
-   - **§3 Números e correlações** — percentis dos campos numéricos, cada um com o seu denominador, e
-     as correlações em **faixa** (lote contra taxa de falha, tamanho contra duração). Faixa e não
-     coeficiente: num n de dezenas, r² dá falsa precisão.
-   - **§4 Plausibilidade** — as contas que confirmam ou **derrubam** a explicação corrente, com a conta
-     à mostra. Quando elas derrubam o que o time acredita hoje, isso sobe para o TL;DR do board: é o
-     achado mais valioso do dossiê e o mais fácil de perder por educação.
-   - **§5 O que a telemetria não diz** — as lacunas, e o que instrumentar para fechar cada uma.
-     Obrigatório e curto. Lacuna não declarada vira conclusão inventada por quem lê a nota depois.
-     **Fonte declarada no perfil e não consultada entra aqui por nome**: "o servidor não viu" e "não
-     perguntei ao servidor" são afirmações diferentes, e só uma delas é um achado.
-
-   **Os achados com veredito não moram aqui**, moram na 🔬 Achados de codebase (7-quater), junto com os
-   dos prospectors de código — é lá que o `flux:issue` procura embasamento, e dois lugares para a mesma
-   coisa faria metade dele ser ignorada. Esta seção guarda a **medição**; a 7-quater guarda a
-   **conclusão** que a medição sustenta.
-
-   > **Por que a telemetria fica depois do refinamento no arquivo.** Mesma lógica da 7-septies: a ordem
-   > de produção é a inversa da ordem no documento. Mede-se antes de refinar e refina-se antes de
-   > escrever o corpo, mas quem abre o board dias depois procura o que vai virar issue, não o caminho
-   > até ela. Insumo mais bruto, posição mais funda.
-
-## Disciplina de carimbo de data (vale para todos os perfis)
-
-Atualizar o board (painel + próximo movimento) a CADA passo relevante; nunca deixar para o fim. O carimbo
-de data (`updated:` no frontmatter, a linha "Última atualização"/TLDR e o timestamp do título do painel)
-rola junto a cada atualização e a cada tick do watch. Um board com painel novo e data velha confunde quem
-acompanha. Tick sem novidade substantiva: ainda rola a data (sinaliza "vivo, checado agora"), mas não cria
-linha nova na Timeline de Eventos Relevantes.
-
-**Todo carimbo de data vem de um `date` real, nunca de inferência.** Antes de nascer o board
-(`YYYY-MM-DD-HHMM` do nome do arquivo) e antes de cada rolagem de `updated:`, rodar
-`date "+%Y-%m-%d %H:%M %z"` (bash) e usar o valor literal — o comando já resolve o fuso da própria
-máquina, então nunca hardcodar um offset. Quem escreve o board não infere "agora": lê o relógio uma
-vez por escrita e propaga o mesmo valor para o `HHMM` do nome (só na criação), `updated:`, a linha
-"Última atualização"/TLDR e o timestamp do título do painel — as quatro leituras do mesmo instante
-não podem divergir entre si.
-
-> **Por que isto é regra, e não boa prática implícita.** Sem uma leitura determinística, um board
-> nasceu com o nome `2026-09-11-2046-flux-iterate-...md` (20:46) e `updated: "2026-09-11 21:03"`
-> enquanto o horário real de escrita era 17:55 — um drift de quase 3h, o exato offset de fuso de
-> quem escreveu (o padrão de quem lê UTC e rotula como local). O board nasce de uma instrução em
-> linguagem natural para um agente; sem o `date` explícito, "agora" vira estimativa, e a estimativa
-> erra pelo fuso.
+1. As dez chaves presentes, nenhuma a mais dentro de `provenance` (`runs`, `case_keys` e afins ficam
+   no topo).
+2. `generator` no enum, e é o verbo que abriu.
+3. `harness` em `claude-code | cursor | codex | unknown`.
+4. `unknown` como valor inteiro só nas quatro chaves que o admitem.
+5. `captured_at` casa com `YYYY-MM-DD HH:MM ±HHMM` e veio de um `date` desta escrita.
+6. `session_sources` é lista de paths absolutos `.jsonl`, ou `[]`.
+7. `stamp` é exatamente `<harness> | flux:<verbo>@<flux_version>` com os valores deste bloco.
+8. `runs[]` tem a entrada desta sessão, com `violeet_run_id` e `session_id` copiados do preflight
+   (valor ou `null`).
+
+Board antigo sem o bloco, sem `runs` ou sem `case_keys` continua válido para leitura: tudo é aditivo.
+O checklist vale para gravação nova e não autoriza reescrever nota antiga. Board antigo reaberto
+ganha `runs` e `case_keys` na primeira escrita nova; o `provenance` dele não é reescrito.
+
+## Corpo: sempre nesta ordem
+
+1. **Título (H1)**: o caso em uma linha.
+2. **`## TL;DR`**: 2 a 4 linhas, **reescritas a cada escrita**, nunca anexadas. A primeira linha é
+   `**Agora:** <o que a sessão está fazendo neste momento>`; depois, o estado do caso e o que falta.
+   É um H2 de propósito: é o que o notes-web extrai para a home. No fim da sessão, `Agora:` vira
+   `**Parado em:**`.
+3. **`## 🎯 Próximo movimento`**: lista numerada, curta, imperativa, na ordem real. Reescrita a cada
+   escrita. A primeira linha tem o link do alvo da ação.
+4. **`## 📊 Painel`**: a única tabela de status do documento (ver "Painel por perfil"). Board que
+   reúne verbos de perfis diferentes tem um painel por perfil, um abaixo do outro, cada um com
+   `### <perfil>`.
+5. **`## 👥 Quem tocou`**: um item por ator, reescrito quando entra ator novo. O usuário (decisões,
+   aprovações, validação humana); cada harness com as máquinas, as datas e os verbos (derivado de
+   `runs[]`); subagentes e specialists pelo que fizeram, sem listar cada despacho.
+6. **`## ⏰ Timeline`**: a única narrativa cronológica. Append, nunca reescreve o passado.
+
+   | quando | run | harness | verbo | tipo | evento |
+   |---|---|---|---|---|---|
+   | 25/11 19:52 | `a1b2` | claude-code | `review` | review | rodada 1 em [#12](url): 2 request-change |
+
+   - **run**: os 4 últimos hex do `violeet_run_id`, ou os 4 primeiros do `session_id`, ou `n/d`.
+   - **verbo**: o verbo do flux, ou `skill:<nome>` / `cmd:<nome>` para o que rodou fora do flux.
+   - **tipo**: `push`, `merge`, `conflito`, `decisão`, `review`, `ci`, `qa`, `descoberta`, `pr-body`,
+     `escopo`, `pendência`; conversa acrescenta `migração` e `rascunho`; exploração acrescenta
+     `prospecção`, `coleta`, `candidata` e `linear`. A escolha do usuário num gate é `decisão`.
+   - **evento**: uma ou duas frases, com link. O detalhe técnico (causa raiz, `arquivo:linha`, por que
+     a decisão foi aquela) vai na seção do verbo, não aqui.
+   - Uma linha por evento substantivo. Tick sem novidade rola o `updated:` e não gera linha.
+7. **`## ✅ Ação / Continuidade (HITL)`**: checklist `- [ ]` do que é humano (pedir review, criar
+   flag, rodar QA); `- [x]` quando resolvido, sem apagar. Abaixo, `### Gates`: para cada gate, os
+   fatos e as origens, a pergunta, as opções apresentadas, o estado (`pendente` ou a escolha) e o
+   resultado da ação, conforme `${FLUX_ROOT}/shared/hitl.md`.
+8. **Seções por verbo**, na ordem em que entraram (ver abaixo).
+
+**Regra do painel:** nenhuma outra seção lista as unidades de trabalho com colunas de status. As
+únicas outras tabelas permitidas são a Timeline e o 🧭 Rastro do caso, que são cronologia.
+
+### Skills e comandos de fora do flux
+
+Com a sessão já tendo board, o que roda fora do flux também entra nele: uma linha na Timeline com
+`verbo: skill:<nome>` (ou `cmd:<nome>`), o que fez em uma frase e o link do que produziu. Se a skill
+gravou nota própria (um `/context-save`, por exemplo), o board linka essa nota com wikilink e não a
+copia. Quem grava é a main da sessão, ao fim do passo; o flux não intercepta skill alheia.
+
+## Painel por perfil
+
+Legenda sempre acima da tabela, mesmo que nem todo ícone apareça. Todo número vem de fonte real
+(GraphQL de threads, `gh pr checks`, contador de estado); sem fonte, `n/d`. Unidade encerrada não sai
+do painel: muda de status e guarda o desfecho.
+
+**single-PR, multi-PR e execução depois da PR.** `| PR | Ticket | Status | esforço | veredito |`.
+Esforço = `rodadas · threads (res/tot) · flow 👍/👎`, com as reações filtradas pela conta do `gh`.
+Status: 🟣 MERGED · 🟢 READY · 🔒 HITL (o flow segura o pedido de review por falta de validação
+humana específica) · 🔗 ORDEM (depende de outra PR) · 🟡 DRAFT · 🔧 FIXING. Abaixo da tabela, em
+prosa: ordem de merge, grafo de bloqueio (`#B ⟵ bloqueada por #A` + motivo), go/no-go corrente.
+
+**review.** `| # | Finding | Badge | Arquivo | Status |`, com os badges de
+`${FLUX_ROOT}/shared/review-legend.md`. Status: 🟢 resolvido · 🟡 aberto · ⚪ descartado.
+
+**conversa.** `| # | Pendência | Bola com | Superfície | Status | desde |`. Pendência é a pergunta
+do jeito que ela precisa ser respondida, não o assunto. **Bola com** é sempre nome de pessoa; sem
+dono, `⚠️ sem dono`, e isso vira Próximo movimento. Status: 🟣 RESOLVIDA · 🟢 RESPONDIDA ·
+🔒 BLOQUEIA (sem a resposta, o próximo passo nasce errado; dizer qual) · 🟡 ABERTA · 🔧 APURANDO ·
+⚪ INFORMATIVA. Abaixo: estado do caso em uma linha e o que já está decidido.
+
+**exploração.** `| # | Título proposto | Repo | Tipo | Autonomia | Embasamento | Status | Linear |`.
+Título no formato do `issue-template.md`; Tipo `Feature | Bug | Improvement | Spike`; Autonomia
+`AFK | HITL`; Embasamento `✔N ◐N ✘N ?N`, contado da 🔬 Achados (✔0 ◐0 não vai ao Linear); Linear
+linkado ou `n/d`. Status: 🟣 CRIADA · 🟢 APROVADA · 🔒 BLOQUEIA · 🟡 RASCUNHADA · 🔧 APURANDO ·
+⚪ DESCARTADA. Abaixo: ordem de criação (blockers primeiro) e grafo de bloqueio.
+
+**execução.** `| Etapa | Estado | esforço | nota |`, com as etapas do motor (contexto, plano,
+implementação, checks, PR).
+
+## Seções por verbo
+
+Cada verbo que roda no board acrescenta a sua seção, abaixo das comuns, com H2 `## <ícone> <verbo> ·
+<alvo>`. Verbo que roda de novo no mesmo alvo atualiza a própria seção com um H3 por rodada
+(`### Rodada 2 · 30/11 · codex`), sem apagar a anterior.
+
+- **🔎 review** (`## 🔎 Review · PR #N`): o corpo do perfil PR (ou doc) de
+  `${FLUX_ROOT}/shared/review-artifact-template.md`, com os H2 dele rebaixados a H3. O frontmatter
+  daquele template não é gravado: `repo`, `pr_number` e a `case_key` vão no frontmatter do board. O
+  re-run de review procura a PR por `case_keys` (passo 2 de "Resolver o board"). Com mais de uma rodada no board, o header de finding leva a rodada (`f1 · rótulo · r2`), senão os wikilinks internos colidem entre rodadas.
+- **👁️ peek** (`--save`): o parecer, como seção.
+- **🔁 iterate**: o relato das rodadas (threads respondidas, pushes, CI); em `--dry`, os rascunhos
+  de réplica, como seção, com `[dry-run]` no TL;DR.
+- **🔗 Boards relacionados** *(multi-PR)*: um item por PR, com o wikilink do board de cada PR,
+  quando a PR já tem board de outro caso; `n/d` enquanto não tiver.
+- **🧭 Rastro do caso** *(conversa, seção 7-ter)*: tabela `| quando | superfície | quem entrou | por
+  que mudou |`. Toda superfície nova entra na rodada em que é lida; ao registrar, comparar o que foi
+  levado com o que o dossiê tem, e o que ficou de fora vira pendência. Superfície anterior ganha
+  `status: migrada` ou `parada` em `surfaces:`.
+- **🔬 Achados de codebase** *(conversa e exploração, seção 7-quater)*: o dossiê acumulado, por repo,
+  em bullets. Cada achado com âncora real e veredito (`confirma` / `refuta` / `parcial` /
+  `sem-evidência`) e, na exploração, a candidata a que serve (`#1`). Achado não expira entre rodadas
+  e não se apaga: o invalidado fica `~~riscado~~` com o motivo. Consultar antes de reprospectar.
+- **✍️ Rascunhos** *(conversa, seção 7-quinquies)*: um item por draft, com id, data, superfície e
+  estado (`PENDENTE`, `ENVIADO`, `⚠️ INVALIDADO`, `DESCARTADO`). Draft invalidado gera linha
+  `decisão` e item no Próximo movimento.
+- **📝 Rascunho da issue** *(exploração, seção 7-sexies)*: o produto. Um `### #N — <título>` por
+  candidata, no formato de `issue-template.md`. Ajuste do gate versiona (`#### v2 — <data> (motivo)`,
+  a anterior em `<details>`); candidata descartada mantém a subseção; criada no Linear, ganha o id
+  linkado no cabeçalho.
+- **📐 Refinamento** *(exploração, seção 7-septies, quando o refine rodou)*: §1 PRD-fast, §2 TRD-fast
+  (contrato inline, pontos de toque com `arquivo:linha` linkado, o não apurado declarado como tal),
+  §3 Plano (slices em prosa, grafo de bloqueio, AFK/HITL), §4 Veredito de escopo
+  (`scope-gate.md`). Na recusa, §3 traz o corte proposto e §4 o encaminhamento. Fica **depois** do
+  7-sexies: o produto vem antes do insumo.
+- **🔭 Telemetria** *(exploração, seção 7-octies, quando o probe rodou)*: uma subseção por fonte, com
+  §1 Denominador (o que foi agregado de quanto existe, a janela), §2 Distribuições (contagem e %),
+  §3 Números e correlações (percentis com denominador, correlação em faixa), §4 Plausibilidade (as
+  contas que confirmam ou derrubam a explicação corrente; o que derruba sobe ao TL;DR) e §5 O que a
+  telemetria não diz (lacunas, e fonte declarada não consultada por nome). Os vereditos moram na
+  🔬 Achados; aqui fica a medição.
+
+## Disciplina de links
+
+Um board é reaberto dias depois, de outra máquina, sem a sessão que o criou: toda entidade citada é
+clicável.
+
+| entidade | forma |
+|---|---|
+| PR | `[#{n}](https://github.com/{owner}/{repo}/pull/{n})` |
+| Ticket / issue | `[{ID}](https://linear.app/{LINEAR_ORG}/issue/{ID})`; sem `LINEAR_ORG`, sem link (nunca inventar a org) |
+| Commit | `[{sha:0:7}](https://github.com/{owner}/{repo}/commit/{sha})` |
+| Código | permalink no SHA: `.../blob/{sha}/{path}#L{a}-L{b}`; diretório `.../tree/{sha}/{path}` |
+| Board irmão, nota do vault | wikilink `[[nome-do-arquivo-sem-extensão]]` |
+| Thread / mensagem | o permalink real, nunca o nome do canal solto |
+| Path local | `` `código inline` ``, sem link |
+
+### O caso do código
+
+`arquivo:linha` em backticks parece citação e não abre em lugar nenhum. Três regras, juntas:
+
+1. Toda citação de código que afirma algo vira permalink, no board, no rascunho de Slack e no corpo
+   de issue. Só fica nu o path que não existe no repo (arquivo proposto).
+2. O alvo é um SHA, nunca uma branch. Resolver uma vez (`git rev-parse origin/main`, ou o `head_sha`
+   da PR) e usar em todas as citações do artefato.
+3. A linha é conferida contra aquele SHA (`git show {sha}:{path} | sed -n '{a},{b}p'`).
+
+No Slack, a mesma regra em mrkdwn: `<{url}|{arquivo}:{linha}>`. Sem SHA resolvido, a citação fica nua
+e o motivo entra como lacuna declarada. Entidade que ainda não existe fica `n/d`: link inventado é
+pior que link ausente.
+
+## Disciplina de carimbo de data
+
+Atualizar o board a cada passo relevante, nunca no fim. **Todo carimbo vem de um `date` real**:
+antes de criar o board e antes de cada escrita, rodar `date "+%Y-%m-%d %H:%M %z"` e usar o valor
+literal (o comando resolve o fuso da máquina; nunca hardcodar offset). A mesma leitura alimenta o
+`HHMM` do nome (só na criação), `updated:`, o `started_at` da run (só na primeira escrita dela) e a
+linha da Timeline. Inferir "agora" erra pelo fuso: já houve board com 3h de drift por isso.

@@ -325,39 +325,22 @@ A regra que ficou: **o build carrega o parecer que já existe; quem produz parec
 
 ---
 
-## Step 2-bis — Criar o board de execução (antes de despachar)
+## Step 2-bis — Resolver o board, antes de despachar
 
-Com `VAULT_ROOT` resolvido, criar o board **antes** de disparar o motor, seguindo o **perfil execução**
-de `${FLUX_ROOT}/shared/board-template.md` (`type: flux-build`).
+Com `VAULT_ROOT` resolvido, resolver o board **antes** de disparar o motor, conforme
+`${FLUX_ROOT}/shared/board-template.md`, "Resolver o board": o desta sessão, se já houver; senão o do
+caso (`case_keys`: `ticket:<ID>`, e `pr:...` quando a task continua uma PR); senão um novo, **perfil
+execução** (`type: flux-build`, `generator: "flux-build"`). O board nasce antes porque o motor roda em
+worktree por muitos minutos: board que nasce depois do trabalho é ata.
 
-> **Por que antes.** O motor roda em worktree, longe da main, por muitos minutos. Se o board nascesse
-> no fim, o intervalo inteiro seria cego e um motor que trava não deixaria rastro nenhum. Board que
-> nasce depois do trabalho é ata, não board.
-
-1. **Path:** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-build-<repo-slug>-<slug-do-ticket>.md`.
-   **Anunciar o path no chat** na criação, como fazem os outros elos.
-2. **Frontmatter:** herda o bloco comum aos cinco perfis do `board-template.md` inteiro (`title`,
-   `date`, `updated`, `type: flux-build`, `context`, `pending_organize: true`, `tags: [board, build,
-   orchestration]` e `provenance`), mais os campos específicos do perfil execução: `repo`, `ticket`,
-   `engine`, `engine_kind` (`nativo`/`fallback`), `worktree`, `branch`, `pr: null`, `scope`,
-   `iterate_board: null`. Montar o frontmatter olhando a seção **Frontmatter** do `board-template.md`
-   diretamente, nunca só esta lista resumida — ela existe para nomear a diferença, não para
-   substituir o gabarito completo.
-   O bloco `provenance` segue o contrato da seção **Bloco `provenance` (todos os perfis)** do
-   `board-template.md`, com `generator: "flux-build"` e verbo `build` no `stamp`, e passa pelo
-   checklist daquela seção antes do Write.
-   > **`provenance.generator` não é opcional.** Sem ele, o board fica de fora de qualquer indexação de
-   > sessão do dia que dependa desse campo (ex.: o painel "sessões de hoje" de um vault Obsidian que
-   > filtra por `generator?.startsWith("flux-")`) — o arquivo continua listado no inbox geral, mas some
-   > da lista que mais importa para quem acompanha o build em andamento. Achado em produção: um board de
-   > `flux:build` nasceu só com `machine`/`invocation` em `provenance`, sem `generator` nem
-   > `captured_at`, e não apareceu nas sessões do dia até a correção manual.
-3. **Painel:** uma linha por etapa do motor, todas nascendo `⏳ pendente`:
-   `contexto lido · plano · implementação · checks · PR`. Um motor nativo com etapas próprias
-   sobrescreve essa lista pelas dele, quando as declarar no retorno.
-4. **Sem `VAULT_ROOT`** (perfil genérico): não gravar arquivo. Imprimir o painel no chat a cada
-   atualização e declarar a perda no banner de perfil. O board é uma capacidade que degrada, não um
-   requisito que trava.
+1. **Anunciar o path no chat** na criação ou na retomada.
+2. **Frontmatter** pelo template, inclusive `runs[]` desta sessão e o `provenance` com o checklist,
+   mais os campos do perfil: `repo`, `ticket`, `engine`, `engine_kind`, `worktree`, `branch`,
+   `pr: null`, `scope`.
+3. **Painel** com uma linha por etapa do motor, todas `⏳ pendente`:
+   `contexto lido · plano · implementação · checks · PR`. Motor nativo que declara etapas próprias
+   substitui a lista.
+4. **Sem `VAULT_ROOT`:** sem arquivo; painel no chat a cada atualização e a perda declarada no banner.
 5. **Com `--dry`:** não criar board. O `--dry` não despacha, então não há execução para observar.
 
 ---
@@ -457,7 +440,7 @@ despacha resolve o gate primeiro e passa a decisão já tomada.
 
 Com board (sem `--dry`), sempre:
 
-1. **o veredito** — faixa e sinais lidos — como linha da Timeline de Eventos, tipo `escopo`, e
+1. **o veredito** — faixa e sinais lidos — como linha da Timeline, tipo `escopo`, e
    `scope:` no frontmatter;
 2. **a escolha do usuário** — como linha tipo `decisão`, dizendo qual opção e, se fatiou, o que ficou
    de fora **por nome**;
@@ -595,9 +578,10 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 4. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.
-5. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
-   vai para `done` quando a PR nasce sem bloqueio do item 2, e o board do `${FLUX_CMD}iterate`
-   assume dali. Gravar `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
+5. **O board continua sendo o do caso.** Quando a PR nasce, gravar `pr:` e acrescentar
+   `pr:<owner>/<repo>#<n>` em `case_keys`. O `${FLUX_CMD}review` e o `${FLUX_CMD}iterate` dessa PR,
+   nesta sessão ou em outra, escrevem neste mesmo board. `execution_status` segue `active` até o caso
+   fechar.
 6. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
    válido e é o que torna a falha investigável depois. Não apagar o board.
 7. **Oferecer o pedido de review no canal de PR.** Só quando o motor abriu PR, a auditoria do item 2
