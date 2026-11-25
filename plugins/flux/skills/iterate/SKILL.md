@@ -1,6 +1,6 @@
 ---
 name: iterate
-description: "Orquestrador `flux:iterate` — fecha o loop de UMA PR (checa se ela ainda funde com a base e resolve conflito mecânico, verifica threads contra o código real, aplica correções, responde, reage 👍/👎, resolve, commita, pusha, vigia CI + bot). `--dry` rascunha réplicas read-only e salva no vault. Global, resolve contexto via `flux-context.md`."
+description: "Orquestrador `flux:iterate` — fecha o loop de UMA PR (checa se ela ainda funde com a base, consulta specialists nos arquivos conflitantes e orienta a resolução mecânica, verifica threads contra o código real, aplica correções, responde, reage 👍/👎, resolve, commita, pusha, vigia CI + bot). `--dry` rascunha réplicas read-only e salva no vault. Global, resolve contexto via `flux-context.md`."
 user-invocable: true
 requires:
   hard:
@@ -113,13 +113,13 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 | `/flux:iterate 962 --auto` | Pula a confirmação interativa da 1ª passada e executa o fluxo completo direto |
 | `/flux:iterate 962 --once` | **Desliga o watch** (alias `--no-watch`): roda só uma passada e termina após o push |
 | `/flux:iterate 962 --dry` | Modo read-only: rascunha réplicas e salva no vault, **nunca** escreve no GitHub |
-| `/flux:iterate 962 --solo` | Pula os specialists; verificação de threads usa só `<HOLISTIC>` |
+| `/flux:iterate 962 --solo` | Pula specialists na verificação de threads e na consulta de conflito; usa `<HOLISTIC>` para as threads e o fallback genérico do gate para conflitos |
 | `/flux:iterate 962 --no-rebase` | **Desliga a resolução** do gate de conflito (alias `--skip-conflict-gate`): detecta e reporta o conflito, mas não toca no histórico da branch. Cai no modo degradado do passo 2b. |
 | `/flux:iterate 962 --parent-board <path>` | Não escreve board: devolve o delta ao board que o orquestrador (o `flux:land`, na mesma sessão) já resolveu. Passado automaticamente pelo land. |
 
 > **O watch é o default.** Depois da 1ª passada e do push, o comando fica vivo monitorando CI + novas rodadas do bot até a PR assentar (CI verde + nada novo) ou mergear. Use `--once` quando quiser só fechar a rodada atual e sair.
 
-As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebase` (alias `--skip-conflict-gate`) e `--parent-board <path>` podem aparecer em qualquer posição dos argumentos e combinadas entre si. As **rodadas subsequentes do watch rodam em `--auto`** (aplicam + postam + resolvem + commitam + pusham sozinhas). `--once` desliga o watch. `--solo` pula os specialists em todas as rodadas. `--no-rebase` persiste em todas as rodadas.
+As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebase` (alias `--skip-conflict-gate`) e `--parent-board <path>` podem aparecer em qualquer posição dos argumentos e combinadas entre si. As **rodadas subsequentes do watch rodam em `--auto`** (aplicam + postam + resolvem + commitam + pusham sozinhas). `--once` desliga o watch. `--solo` pula os specialists de review em todas as rodadas, inclusive na consulta de conflito. `--no-rebase` persiste em todas as rodadas.
 
 > **Resolver conflito já vem autorizado.** Invocar o iterate sem `--no-rebase` autoriza o push da resolução mecânica nas condições de `${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5. O `--auto` continua dispensando só a confirmação do plano de threads (passo 6).
 
@@ -327,19 +327,35 @@ Com `mergeable` / `mergeStateStatus` coletados no passo 2:
 - **`UNKNOWN`** → reconsultar (até 3 vezes, ~3s). Persistindo, medir localmente com `git merge-tree` e
   reportar que o GitHub não decidiu. **Nunca** seguir tratando como `MERGEABLE`.
 - **`CONFLICTING`** → acionar o gate:
-  1. **Reconhecer sem tocar no working tree**: `rev-list --left-right --count` (extensão da divergência)
-     e `merge-tree --write-tree --name-only` (arquivos em conflito).
-  2. **Classificar** mecânico vs semântico pela régua do shared. `--no-rebase`, PR de terceiro
-     (`author.login != ` conta autenticada) ou classificação semântica ⇒ **não resolver**: ir ao modo
-     degradado (abaixo). As demais causas de degradado (rebase abortado, gate vermelho, lease
-     recusado, worktree retida) estão na seção 6 do shared.
-  3. **Resolver via subagente executor** (o mesmo do passo 4, mesma disciplina de worktree e de
-     fan-out), que aplica a estratégia, roda o quality gate do repo e **para sem pushar**. O prompt
-     leva o `retainedResolutionSha` do estado, para a conferência do descarte condicionado (seção 4,
-     item 2, e seção 5 do shared).
-  4. **Publicar conforme a seção 5 do shared**, só se nenhum gate do item 3 voltou vermelho (`n/a`
-     não segura). Gate vermelho ⇒ não pushar: é bloqueio e o elo vai ao modo degradado. Depois do
-     push, registrar o relato conforme a seção 5.
+  1. **Reconhecer sem tocar no working tree**: registrar `BASE_SHA`, `PR_SHA`,
+     `rev-list --left-right --count` (extensão da divergência) e `CONFLICT_FILES` de
+     `merge-tree --write-tree --name-only`.
+  2. Antes de classificar o conflito e antes de triar threads ou sincronizar a PR, consultar os
+     specialists que cobrem esses arquivos pelo modo de assessoria de
+     `${FLUX_ROOT}/shared/review-agents.md`. Passar os dois SHAs, os paths conflitantes e o contexto
+     necessário para comparar os lados. Os specialists são leitores: classificam cada conflito e
+     propõem uma resolução, sem editar a worktree. Com `--solo`, pular esta consulta e usar o fallback
+     genérico.
+  3. Consolidar os pareceres com a classificação de `${FLUX_ROOT}/shared/merge-conflict-gate.md`.
+     Classificação semântica explícita significa bloqueio e escolha humana; os specialists podem
+     explicar alternativas, mas não escolher entre intenções. Sem specialist aplicável, em caso de
+     falha, incerteza, propostas incompatíveis ou proposta insegura, o executor único usa o fallback
+     genérico; se ele continuar sem uma resolução mecânica segura, manter o bloqueio. `--no-rebase` ou
+     PR de terceiro (`author.login` diferente da conta autenticada) também impede a escrita e leva ao
+     modo degradado. As demais causas de degradado (rebase abortado, gate vermelho, lease recusado,
+     worktree retida) estão na seção 6 do shared.
+  4. Para conflito mecânico, um único executor recebe todos os pareceres e aplica a síntese na
+     worktree dedicada, roda os quality gates e confirma que `BASE_SHA` foi incorporado, que não há
+     paths em conflito e que as verificações passaram. Sem specialists aplicáveis, quando falharem ou
+     quando as propostas não forem seguras, esse executor usa o fallback genérico atual do gate. Não
+     iniciar writers concorrentes. O prompt leva o `retainedResolutionSha` do estado, para a
+     conferência do descarte condicionado (seção 4, item 2, e seção 5 do shared).
+  5. **Publicar conforme a seção 5 do shared**, só se nenhum gate do item 4 voltou vermelho (`n/a`
+     não segura). Gate vermelho, resolução semanticamente bloqueada ou falha na verificação de base e
+     conflitos ⇒ não declarar resolução; seguir o modo degradado descrito abaixo. Depois do push,
+     registrar o relato conforme a seção 5.
+  6. Só após as verificações aprovadas e o push bem-sucedido retomar a triagem de CI, a oferta de
+     réplicas, a resolução de threads e a sincronização da PR.
 - **`BEHIND`** (sem conflito) → só atualizar se a proteção da base exigir branch atualizada. Não é
   conflito e não justifica force-push.
 
@@ -352,6 +368,9 @@ eufemismo o que ficou de pé. Tabela completa na seção 6 do shared.
 
 Conflito detectado **conta como trabalho acionável** para o passo 2a (a PR tem board). Emitir os
 eventos `conflito-detectado`, `conflito-resolvido` ou `conflito-bloqueado` no board e no hook Slack.
+Antes de seguir para réplicas ou threads, registrar na Timeline Verbosa os specialists invocados (ou
+nenhum/falha), a classificação final (`mecânico` ou `semântico`) e o resultado (resolução, fallback
+ou bloqueio); a Timeline de Eventos Relevantes recebe a linha correspondente com `tipo: conflito`.
 
 ### 2c. Triagem de CI (1ª passada E cada tick do watch)
 
