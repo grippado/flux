@@ -60,7 +60,11 @@ export const VERB_REQUIREMENTS: Record<string, VerbRequirements> = {
       { type: "file", name: "shared/review-legend.md" },
       { type: "bin", name: "git" },
     ],
-    soft: [{ type: "bin", name: "gh" }],
+    soft: [
+      { type: "bin", name: "gh" },
+      { type: "vault", name: "vault" },
+      { type: "file", name: "shared/board-template.md" },
+    ],
   },
   iterate: {
     hard: [

@@ -1,10 +1,10 @@
 # Template da review: o conteúdo da seção `🔎 Review` do board
 
 > Formato canônico do que o `flux:review` grava, nos perfis **PR** e **doc**. A review não tem nota
-> própria: cada execução é uma `### Rodada K · <data> · <harness>` dentro da seção
+> própria: cada execução é uma `### Rodada K · <DD/MM HH:MM> · <harness>` dentro da seção
 > `## 🔎 Review · PR #N` do board da sessão (`board-template.md`, "Seções por verbo"). Este arquivo é
-> o dono dos níveis de heading: a seção é H2 e a rodada H3, então cada nível dos exemplos abaixo desce
-> dois (os H2 viram H4, os H3 viram H5). Não duplicar este template no comando.
+> o dono dos níveis de heading: a seção é H2, a rodada H3, os blocos da rodada H4 e os findings e as
+> ações H5, como nos exemplos abaixo. Não duplicar este template no comando.
 >
 > Badges: `${FLUX_ROOT}/shared/review-legend.md`. A rodada é um **parecer read-only**, um snapshot:
 > o que é vivo (TL;DR, Próximo movimento, Timeline) é do board, não da rodada.
@@ -21,9 +21,9 @@ permitida.)
 O artefato é lido **no Obsidian**, que ancora por texto de heading. Âncora de Pandoc não resolve lá.
 
 - ❌ `{#f1}` no heading · ❌ `[f1](#f1)` no link (rende "Unable to find f1 in ..." ao clicar)
-- ✅ heading curto e estável: `f1 · {rótulo curto do problema}`; com mais de uma rodada no board,
-  `f1 · {rótulo} · r{K}`, senão os wikilinks colidem entre rodadas
-- ✅ link: `[[#f1 · {rótulo curto}|f1]]`, ou com alias descritivo nas prioridades
+- ✅ heading curto e estável, sempre com a rodada: `f1 · {rótulo curto do problema} · r{K}` (sem o
+  `r{K}`, os wikilinks colidem quando o board tem mais de uma rodada)
+- ✅ link: `[[#f1 · {rótulo curto} · r{K}|f1]]`, ou com alias descritivo nas prioridades
 
 Detalhe completo (headers estáveis, alias sem backtick, unicidade) na subseção "Âncoras internas" do
 perfil doc, mais abaixo. As regras são as mesmas nos dois perfis.
@@ -40,7 +40,7 @@ Nada de citação nua. Se o texto aponta para código, PR, thread, ticket ou doc
 - **Threads do bot / comentários:** o permalink (`url`) já coletado no GraphQL das threads.
 - **Ticket:** `{TICKET}` → Linear. Sem URL conhecida, usar `https://linear.app/{org}/issue/{TICKET}`
   (`LINEAR_ORG` do perfil; sem o campo, omitir o link).
-- **Docs / RFCs:** URL direto. **Reviews anteriores** (`-vN` da mesma PR): wikilink `[[nome-do-arquivo]]`.
+- **Docs / RFCs:** URL direto. **Rodada anterior:** wikilink para o heading dela no mesmo board; review legada em nota própria, `[[nome-do-arquivo]]`.
 
 ## Regras de escrita
 
@@ -87,36 +87,34 @@ sessão em `provenance.runs`.
 
 > Read-only. Nada foi commitado, aplicado ou postado no GitHub. {"Reconciliação de N pareceres (holístico + specialists)." quando houve specialists.}
 
-## 🎯 Veredito & prioridades
+#### 🎯 Veredito & prioridades
 
 > **{status traduzido}.** {1-2 frases: o que está sólido + o que trava o merge.}
 
 **Antes do merge:**
-1. [![{badge}]({banner-img})]({banner-link}) [[#f{n} · {rótulo curto}|{resumo curto}]] — {motivo}, [`arquivo:linha`]({permalink}).
+1. [![{badge}]({banner-img})]({banner-link}) [[#f{n} · {rótulo curto} · r{K}|{resumo curto}]] — {motivo}, [`arquivo:linha`]({permalink}).
 
 **Melhorias (não bloqueiam):**
-2. [![{badge}]({banner-img})]({banner-link}) [[#f{n} · {rótulo curto}|{resumo}]] — {motivo}.
+2. [![{badge}]({banner-img})]({banner-link}) [[#f{n} · {rótulo curto} · r{K}|{resumo}]] — {motivo}.
 
 (Se não há bloqueadores nem questions, "Antes do merge" vira "Nada trava o merge." Prioridades sempre
 linkam pro finding `#fN` e pro código.)
 
-## 📊 Painel de findings
-
-{tabela de legenda colorida de `review-legend.md`}
-
 **Contagem:** {n} request-change · {n} breaking-change · {n} question · {n} suggestion · {n} praise · {n} note
+
+{a tabela abaixo não fica na rodada: vai para o `## 📊 Painel` do board, no lugar da tabela da rodada anterior, com a legenda colorida de `review-legend.md` acima}
 
 | # | badge | local | resumo | bloqueia? |
 |---|-------|-------|--------|-----------|
-| [[#f1 · footer só publicado\|f1]] | [![question]({img})]({link}) | [`RecordEdit/index.tsx:74`]({permalink}) | footer só publicado | trava até responder |
-| [[#f2 · fidelidade do mock\|f2]] | [![suggestion]({img})]({link}) | [`...test.tsx:96`]({permalink}) | mock perde fidelidade | não |
+| [[#f1 · footer só publicado · r{K}\|f1]] | [![question]({img})]({link}) | [`RecordEdit/index.tsx:74`]({permalink}) | footer só publicado | trava até responder |
+| [[#f2 · fidelidade do mock · r{K}\|f2]] | [![suggestion]({img})]({link}) | [`...test.tsx:96`]({permalink}) | mock perde fidelidade | não |
 
-## 🚦 Gates
+#### 🚦 Gates
 
 > Só entra quando a rodada apresenta um gate. Este é o rastro auditável da `GateSpec`, não uma
 > segunda tabela de findings.
 
-### {gate-id}
+##### {gate-id}
 
 - **Estado:** `{pendente | concluído | bloqueado}`
 - **Snapshot:** `{fato=valor (origem)}`
@@ -130,7 +128,7 @@ Antes de perguntar, o artefato recebe o snapshot, pergunta e opções com estado
 da resposta explícita, atualizar somente escolha, efeito, resultado e estado. A ausência de resposta
 nunca vira ação concluída.
 
-## 🔁 Threads reverificadas
+#### 🔁 Threads reverificadas
 
 > Só entra quando o `flux:review` reverificou threads próprias (rodada anterior) com réplica pendente
 > do autor da PR (`${FLUX_ROOT}/skills/review/SKILL.md`, Passo 4b). Achado da reverificação é finding
@@ -138,13 +136,13 @@ nunca vira ação concluída.
 > rastreável por thread, **não** uma segunda tabela de findings (a regra de ouro do painel continua
 > valendo). Sem reverificação nesta rodada, omitir a seção inteira.
 
-- [[#f3 · correção confirmada\|f3]] — [thread original](https://github.com/acme/repo/pull/790#discussion_r123) → **PROCEDE**, corrigido em [`a1b2c3d`](https://github.com/acme/repo/commit/a1b2c3d...).
-- [[#f4 · correção parcial\|f4]] — [thread original](https://github.com/acme/repo/pull/790#discussion_r124) → **PROCEDE PARCIALMENTE**.
-- [[#f5 · alegação original mantida\|f5]] — [thread original](https://github.com/acme/repo/pull/790#discussion_r125) → **NAO PROCEDE**.
+- [[#f3 · correção confirmada · r{K}\|f3]] — [thread original](https://github.com/acme/repo/pull/790#discussion_r123) → **PROCEDE**, corrigido em [`a1b2c3d`](https://github.com/acme/repo/commit/a1b2c3d...).
+- [[#f4 · correção parcial · r{K}\|f4]] — [thread original](https://github.com/acme/repo/pull/790#discussion_r124) → **PROCEDE PARCIALMENTE**.
+- [[#f5 · alegação original mantida · r{K}\|f5]] — [thread original](https://github.com/acme/repo/pull/790#discussion_r125) → **NAO PROCEDE**.
 
-## 🔎 Findings
+#### 🔎 Findings
 
-### f1 · {rótulo curto do problema}
+##### f1 · {rótulo curto do problema} · r{K}
 
 **Local:** [`caminho/arquivo.ts:74,198`]({permalink})
 
@@ -158,7 +156,7 @@ nunca vira ação concluída.
 [thread anterior do bot]({url}), [PR relacionada](#{n}) e [doc]({url}) quando citados. Termina com o
 fix/decisão concreta. Convergência entre lentes: anotar "(corroborado por {specialist})".}
 
-### f2 · {rótulo curto}
+##### f2 · {rótulo curto} · r{K}
 
 **Local:** [`.../index.test.tsx:96`]({permalink})
 
@@ -166,7 +164,7 @@ fix/decisão concreta. Convergência entre lentes: anotar "(corroborado por {spe
 
 {...}
 
-## 📎 Escopo & contexto
+#### 📎 Escopo & contexto
 
 - {N} arquivos, +{adds}/-{dels}, {resumo do escopo}. {Sem/Com mudança de API/BFF, env vars, flags.}
 - **Fora de escopo:** {o que não entrou e por quê, linkado quando aplicável}.
@@ -177,14 +175,14 @@ fix/decisão concreta. Convergência entre lentes: anotar "(corroborado por {spe
 |---|---|
 | `pages/RecordEdit/index.tsx` | +63/-18 |
 
-## ✅ Ação
+#### ✅ Ação
 
 - [ ] {item acionável HITL — ex.: levar a #f1 ao PO: draft preenchido entra em modo edição?}
 - [ ] {alinhar description × código, etc.}
 
 (Checklist do que o usuário precisa fazer na parte humana. Marcar `- [x]` quando resolver, não apagar.)
 
-## 🔗 Cobertura & referências
+#### 🔗 Cobertura & referências
 
 - **Holístico:** {HOLISTIC} · **Specialists:** {lista dos que rodaram, ou "nenhum — repo sem suite", ou "modo --solo"}
 - **PR:** [#{number}]({pr_url}) · **Ticket:** [{TICKET}]({ticket_url})
@@ -237,7 +235,7 @@ todo finding tem o trecho amarrado em **três** lugares, e nenhum deles é opcio
    seção de postmortem/RFC costuma ter dezenas de linhas.
 
 O **header** fica fora dessa lista de propósito: ele precisa ser curto e estável, porque é o alvo dos
-links internos (ver "Âncoras internas" abaixo). Formato: `### f{n} · {rótulo curto do problema}`, tipo
+links internos (ver "Âncoras internas" abaixo). Formato: `##### f{n} · {rótulo curto do problema} · r{K}`, tipo
 `### f3 · janela de impacto`. Trecho verbatim no header cria header longo e frágil, que quebra todo
 link interno quando o trecho é reformulado.
 
@@ -251,7 +249,7 @@ proibidas porque não resolvem lá (rendem "Unable to find ..." ao clicar):
 
 Usar wikilink com alias, apontando para o **texto exato do heading**:
 
-- ✅ `[[#f3 · janela de impacto|f3]]`
+- ✅ `[[#f3 · janela de impacto · r{K}|f3]]`
 - ✅ `[[#c7 · Alessandra · §Timeline|c7]]`
 - ✅ `[[#⚡ Ações no documento]]` (quando o alias seria igual ao heading, omitir o alias)
 
@@ -261,8 +259,8 @@ Regras:
   findings tratam da mesma seção do doc (`c3 · Alessandra · §Impacto causado` e
   `c4 · Alessandra · §Impacto causado` convivem).
 - **Sem backtick no alias.** Dentro de wikilink o backtick não vira `code`, só polui: escrever
-  `[[#f6 · gatilho da divergência|Confirmar o gatilho do @playwright/test]]`.
-- **Alias descritivo é bem-vindo** nas prioridades e no roteiro (`[[#f1 · mecanismo da causa raiz|Mecanismo da causa raiz está errado]]`);
+  `[[#f6 · gatilho da divergência · r{K}|Confirmar o gatilho do @playwright/test]]`.
+- **Alias descritivo é bem-vindo** nas prioridades e no roteiro (`[[#f1 · mecanismo da causa raiz · r{K}|Mecanismo da causa raiz está errado]]`);
   no painel e nas listas de referência, alias curto (`f1`).
 - Ao renomear um header, atualizar os wikilinks que apontam para ele. Um wikilink órfão é erro de
   formatação, não detalhe estético.
@@ -324,23 +322,23 @@ Isso define a ordenação da lista:
 Formato:
 
 ```markdown
-## ⚡ Ações no documento
+#### ⚡ Ações no documento
 
 > {N} ações, na ordem de execução. Edições antes das respostas que elas sustentam, para que a notificação chegue com a alteração já no texto. Achado correspondente linkado em cada uma.
 
-### 1 · SUBSTITUIR em §{seção}
+##### 1 · SUBSTITUIR em §{seção}
 
 - **Remover:** "{verbatim que sai}"
 - **Inserir:** "{texto final que entra}"
-- **Achado:** [[#f{n} · {rótulo}|f{n}]]
+- **Achado:** [[#f{n} · {rótulo} · r{K}|f{n}]]
 
-### 2 · ACRESCENTAR em §{seção}
+##### 2 · ACRESCENTAR em §{seção}
 
 - **Onde:** depois de "{trecho verbatim}"
 - **Inserir:** "{texto final que entra}"
-- **Achado:** [[#f{n} · {rótulo}|f{n}]]
+- **Achado:** [[#f{n} · {rótulo} · r{K}|f{n}]]
 
-### 3 · RESPONDER {autor} (thread {n}, §{seção})
+##### 3 · RESPONDER {autor} (thread {n}, §{seção})
 
 - **Comentário:** "{verbatim do comentário}"
 - **Depende de:** ações 1 e 2 (executar antes de responder)

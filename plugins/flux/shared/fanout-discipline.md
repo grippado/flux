@@ -270,7 +270,9 @@ que se ganha:
 
 **Um board, um keeper.** Como a sessão grava num board só (`board-template.md`, "As duas regras"),
 o segundo elo com watch na mesma sessão **retoma o keeper que já existe** por `SendMessage`, em vez de
-criar outro; dois keepers no mesmo arquivo seriam dois escritores. Num delivery, o iterate filho
+criar outro; dois keepers no mesmo arquivo seriam dois escritores. Pelo mesmo motivo, um elo **sem**
+watch (issue, refine, probe, review, peek, build, `--once`) que cai num board com keeper vivo nesta
+sessão **manda o delta ao keeper** em vez de escrever direto. Num delivery, o iterate filho
 despachado com `--parent-board` não escreve board: devolve o delta da PR no retorno, e o keeper do
 delivery grava.
 

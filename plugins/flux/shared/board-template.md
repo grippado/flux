@@ -12,9 +12,9 @@ travessão é liberado aqui (a proibição vale só para o que é postado no Git
 
 1. **Uma sessão grava em um board só.** Tudo o que a sessão faz entra nele: cada verbo do flux, cada
    rodada, cada review, cada rascunho, e também as skills e os comandos de fora do flux que rodarem
-   na mesma sessão. Nenhum verbo cria uma segunda nota na mesma sessão. O review, o `peek --save` e o
-   `iterate --dry` deixaram de gravar artefato próprio: viram seção do board (ver "Seções por
-   verbo").
+   na mesma sessão. Nenhum verbo cria uma segunda nota na mesma sessão. O review e o `iterate --dry`
+   deixaram de gravar artefato próprio e viraram seção do board; o `peek --save`, numa sessão com
+   board, também (ver "Seções por verbo").
 2. **Um caso tem um board só, e ele atravessa sessões.** Iterar uma PR hoje no Claude Code e de novo
    na segunda no Codex atualiza **o mesmo** board, que ganha a run nova em `provenance.runs` e passa a mostrar,
    na Timeline, qual harness fez cada passo.
@@ -26,7 +26,7 @@ As duas regras juntas dão a forma: **sessão → no máximo 1 board; board → 
 Rodar no Step 0, depois do preflight, nesta ordem. Parar no primeiro que casar.
 
 1. **Esta sessão já tem board.** É o board cujo path esta sessão já anunciou no chat, ou o que tem em
-   `provenance.runs` o `violeet_run_id` (`VIOLEET_RUN_ID`) ou o `session_id` (`SESSION_ID`) desta
+   `provenance.runs` o id de lançador (`LAUNCHER_RUN_ID`) ou o `session_id` (`SESSION_ID`) desta
    sessão, procurado em `<VAULT_ROOT>/0-inbox/` e em `<VAULT_CTX_ROOT>/` (os dois ids vêm do Passo
    1a-run do preflight). Casou: é ele, sempre. Se o caso do verbo atual for outro, abrir o **gate de
    fuga de escopo**, abaixo, antes de gravar. Sem nenhum dos dois ids, só o path anunciado reconhece a
@@ -45,7 +45,8 @@ Rodar no Step 0, depois do preflight, nesta ordem. Parar no primeiro que casar.
 Dois candidatos no passo 2: abrir um gate (`${FLUX_ROOT}/shared/hitl.md`) com os dois caminhos e o
 TL;DR de cada um, em vez de escolher sozinho.
 
-Atalhos que pulam a resolução: `--board <path>` (land, reply) assume aquele board; `--parent-board
+Atalhos que pulam a resolução: `--board <path>` (land, reply) assume aquele board (e conta como o
+board desta sessão); `--parent-board
 <path>` (o iterate despachado pelo land) não escreve board e devolve o delta ao escritor do
 orquestrador. Sem `VAULT_ROOT` não há board no vault: o verbo relata no chat e declara `sem vault` no
 banner; com `--save <dir>` (review, peek), o board é gravado em `<dir>/`, com `session_sources: []`.
@@ -90,7 +91,7 @@ opções, nesta ordem:
 
 1. **Abrir em sessão nova (Recomendado).** Entregar um **mini-handoff** num bloco copiável
    (objetivo, alvo com link, estado, decisões já tomadas, o comando `${FLUX_CMD}<verbo> ...` a rodar)
-   para o usuário levar a um contexto novo. Com `VIOLEET_RUN_ID` resolvido, o bloco cita a run de
+   para o usuário levar a um contexto novo. Com `LAUNCHER_RUN_ID` resolvido, o bloco cita a run de
    origem, para o lançador que abriu a sessão poder encadear a nova. O verbo novo **não roda** nesta
    sessão.
 2. **Registrar neste board.** O verbo roda aqui; o board ganha as `case_keys` do alvo novo, e o TL;DR
@@ -112,10 +113,11 @@ Disciplina de links.
 |---|---|---|---|---|
 | **execução** | `build` | etapas do motor | `flux-build` | `YYYY-MM-DD-HHMM-flux-build-<repo-slug>-<slug-do-ticket>.md` |
 | **single-PR** | `iterate` | a PR | `flux-iterate` | `YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md` |
-| **review** | `review` | os findings | `pr-review` (doc: `doc-review`) | `YYYY-MM-DD-HHMM-flux-review-pr<N>-<repo-slug>.md` |
+| **review** | `review` | os findings | `pr-review` (doc: `doc-review`) | `YYYY-MM-DD-HHMM-flux-review-pr<N>-<repo-slug>.md`; sem PR, `flux-review-<repo-slug>-<branch-slug>`; doc, `flux-review-doc-<slug>` |
 | **multi-PR** | `land` | as PRs da entrega | `flux-land` | `YYYY-MM-DD-HHMM-flux-land-<slug>.md` |
 | **conversa** | `reply` | as pendências do caso | `thread` | `YYYY-MM-DD-HHMM-flux-reply-<slug-do-caso>.md` |
 | **exploração** | `issue`, `refine`, `probe` | as issues candidatas | `flux-issue` | `YYYY-MM-DD-HHMM-flux-issue-<slug>.md` (ou `flux-probe-<slug>`) |
+| **parecer** (fora de board) | `peek --save` sem board na sessão | não há painel | sem `type` | `YYYY-MM-DD-HHMM-flux-peek-<alvo-slug>.md` em `<dir>/` |
 
 - **O infixo é o verbo que abriu**, para quem lista o `0-inbox/` saber de onde a nota veio. Os
   infixos antigos (`build-`, `iterate-`, `delivery-`, `slack-board-`) estão aposentados.
@@ -209,7 +211,7 @@ provenance:
   effort: "<effort, ou unknown>"
   stamp: "claude-code | flux:build@<versão>"
   runs:                               # uma linha por sessão, em ordem; flow mapping, uma linha só
-    - { violeet_run_id: "run-<16 hex>", session_id: "<uuid>", harness: claude-code, machine: "<hostname -s>", started_at: "<YYYY-MM-DD HH:MM ±HHMM>", verbs: [build, review], model: "<id>" }
+    - { session_id: "<id>", harness: "claude-code", machine: "<hostname -s>", started_at: "<YYYY-MM-DD HH:MM ±HHMM>", verbs: [build, review], model: "<id>", effort: "<effort>", flux_version: "<versão>" }
 ```
 
 | chave | valor | `unknown` permitido? |
@@ -233,10 +235,17 @@ dois-pontos não é valor válido. Verbo novo entra no enum antes de gravar.
 **`runs`: quem fez o quê.** Cada sessão acrescenta a sua linha na primeira escrita e depois só
 atualiza o `verbs` dela; nunca reescreve a linha de outra run.
 
-- `violeet_run_id`: `VIOLEET_RUN_ID` do preflight, com essa grafia exata (é a chave de junção com a
-  telemetria e com a run do lançador), ou `null`.
+- `<launcher_run_key>`: só quando o manifesto declara `launcher_run_env` e `launcher_run_key`
+  (`flux-context.md`); a chave é o valor de `launcher_run_key`, com essa grafia exata, e o valor é
+  `LAUNCHER_RUN_ID` do preflight, ou `null`. É a chave de junção com a run do lançador e com a
+  telemetria dele. Exemplo, com `launcher_run_key: "acme_run_id"`:
+  `- { acme_run_id: "run-1a2b", session_id: "...", ... }`.
 - `session_id`: `SESSION_ID` do preflight, ou `null`. `null` nos dois é ausência verificada.
-- `harness`, `machine`, `model`: os desta sessão, mesmas fontes das chaves de nascimento.
+- `harness`, `machine`, `model`, `effort`, `flux_version`: os desta sessão, mesmas fontes das chaves
+  de nascimento.
+- **Aspas em todo valor de texto** da linha (`session_id`, id de lançador, `harness`, `machine`,
+  `started_at`, `model`, `effort`, `flux_version`): num flow mapping, um `[`, `:` ou `,` sem aspas
+  (como em `claude-opus-4-1[1m]`) quebra o parse do frontmatter inteiro. `null` vai sem aspas.
 - `started_at`: o `date` da primeira escrita desta sessão no board.
 - `verbs`: os verbos do flux que esta sessão rodou aqui, em ordem.
 - `run_id`: só quando a execução foi gravada com `--record` (`shared/run.md`); ficar na linha da run
@@ -248,8 +257,9 @@ atualiza o `verbs` dela; nunca reescreve a linha de outra run.
 `<SESSION_ID>.jsonl`. Nenhum candidato: `[]`.
 
 **`model` e `effort`** são os da sessão que grava, nunca os de um subagente que ela despachou.
-**`unknown`** só aparece em `harness`, `flux_version`, `model` e `effort` (também dentro de `runs`), e
-só quando o preflight resolveu assim: o gravador copia os valores do Step 0, nunca reavalia.
+**`unknown`** só aparece em `harness`, `flux_version`, `model` e `effort` (nas chaves de nascimento e
+na linha da run), e só quando o preflight resolveu assim: o gravador copia os valores do Step 0,
+nunca reavalia. Sessão sem id (os dois `null`) segue a regra de linha do Passo 1a-run do preflight.
 
 ### Checklist antes de gravar
 
@@ -261,8 +271,9 @@ só quando o preflight resolveu assim: o gravador copia os valores do Step 0, nu
 5. `captured_at` e `started_at` casam com `YYYY-MM-DD HH:MM ±HHMM` e vieram de um `date`.
 6. `session_sources` é lista de paths absolutos `.jsonl`, ou `[]`.
 7. `stamp` é exatamente `<harness> | flux:<verbo>@<flux_version>` com os valores deste bloco.
-8. `runs` tem a linha desta sessão, numa linha só, com `violeet_run_id` e `session_id` copiados do
-   preflight (valor ou `null`).
+8. `runs` tem a linha desta sessão, numa linha só, com `session_id` (e o id de lançador, quando o
+   manifesto o declara) copiados do preflight, valor entre aspas ou `null`, e todo valor de texto entre
+   aspas.
 
 Board antigo sem o bloco, sem `runs` ou sem `case_keys` continua válido para leitura: tudo é aditivo.
 O checklist vale para gravação nova e não autoriza reescrever nota antiga. Board antigo reaberto
@@ -291,7 +302,7 @@ sendo lido e achado pelo `run.sh resolve-ref`.
    |---|---|---|---|---|---|
    | 25/11 19:52 | `a1b2` | claude-code | `review` | review | rodada 1 em [#12](url): 2 request-change |
 
-   - **run**: os 4 últimos hex do `violeet_run_id`, ou os 4 primeiros do `session_id`, ou `n/d`.
+   - **run**: os 4 últimos caracteres do id de lançador, ou os 4 primeiros do `session_id`, ou `n/d`.
    - **verbo**: o verbo do flux, ou `skill:<nome>` / `cmd:<nome>` para o que rodou fora do flux.
    - **tipo**: `push`, `merge`, `conflito`, `decisão`, `review`, `ci`, `qa`, `descoberta`, `pr-body`,
      `escopo`, `pendência`; conversa acrescenta `migração` e `rascunho`; exploração acrescenta
@@ -355,10 +366,12 @@ Cada verbo que roda no board acrescenta a sua seção, abaixo das comuns, com H2
 <alvo>`. Verbo que roda de novo no mesmo alvo atualiza a própria seção com um H3 por rodada
 (`### Rodada 2 · 30/11 · codex`), sem apagar a anterior.
 
-- **🔎 review** (`## 🔎 Review · PR #N`): uma `### Rodada K · <data> · <harness>` por execução, com o
+- **🔎 review** (`## 🔎 Review · PR #N`, ou `## 🔎 Review · doc <título>`): uma
+  `### Rodada K · <DD/MM HH:MM> · <harness>` por execução, com o
   conteúdo de `${FLUX_ROOT}/shared/review-artifact-template.md`, que é o dono dos níveis de heading
   e do header de finding. Os campos de frontmatter da review são os do bloco "review" acima.
-- **👁️ peek**: uma linha na Timeline; com `--save`, o parecer como seção.
+- **👁️ peek**: numa sessão com board, uma linha na Timeline e, com `--save`, o parecer como seção. O
+  peek nunca abre board: sem board na sessão, o `--save` grava arquivo próprio (ver `peek/SKILL.md`).
 - **🔁 iterate**: o relato das rodadas (threads respondidas, pushes, CI); em `--dry`, os rascunhos
   de réplica, como seção, com `[dry-run]` no TL;DR.
 - **🔗 Boards relacionados** *(multi-PR)*: um item por PR, com o wikilink do board de cada PR,

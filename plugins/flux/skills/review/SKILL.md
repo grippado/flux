@@ -426,7 +426,7 @@ que corrigiu, linka `https://github.com/{owner}/{repo}/commit/{sha}`. Guardar a 
 como `REOPEN_CANDIDATES` = `[{thread_id, databaseId, url, veredito, commit_url|null, justificativa|null,
 autor_pr}]`, consumida pelo Step 8b.
 
-**4. Recapitulação.** Logo após `## 📊 Painel de findings` (Passo 6), acrescentar a lista (não uma
+**4. Recapitulação.** No começo da rodada (Passo 6), logo após a contagem por badge, acrescentar a lista (não uma
 tabela nova — a regra de ouro do painel permanece valendo) `## 🔁 Threads reverificadas`, um item por
 `REOPEN_CANDIDATES`:
 
@@ -445,7 +445,7 @@ recapitular).
 ### 5. Onde gravar
 
 A review **não tem nota própria**: é a seção `## 🔎 Review · PR #N` do board resolvido no 3b, com um
-`### Rodada K · <data> · <harness>` por execução, sem apagar as anteriores. Sem board resolvido,
+rodada por execução, sem apagar as anteriores (heading e níveis no `review-artifact-template.md`). Sem board resolvido,
 nasce um, **perfil review** do template: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-review-pr<N>-<repo-slug>.md`
 (sem PR: `flux-review-<repo-slug>-<branch-slug>.md`, com a `case_key` `branch:<owner>/<repo>@<branch>`), `type: pr-review`, com `repo`, `pr_number`,
 `context`, `pending_organize: true` e `case_keys` no frontmatter: é o sinal com que o `/organize`
@@ -453,31 +453,24 @@ roteia a nota.
 
 ### 6. Renderizar template e gravar
 
-Montar a rodada seguindo o **perfil PR** de `${FLUX_ROOT}/shared/review-artifact-template.md`
-— fonte única do conteúdo, com os H2 de lá rebaixados a H4 dentro da rodada (linha de metadados, e as seções 🎯 Veredito & prioridades →
-📊 Painel de findings → 🚦 Gates (quando houver gate) → 🔁 Threads reverificadas (quando houver `REOPEN_CANDIDATES`) → 🔎 Findings →
-📎 Escopo → ✅ Ação → 🔗 Cobertura), com a **disciplina de links**, as **regras de escrita** e a
-**regra de ouro do painel**. Tradução de STATUS e cálculo de `size_*` também vivem lá.
+Montar a rodada seguindo o **perfil PR** de `${FLUX_ROOT}/shared/review-artifact-template.md`,
+que é o dono do heading da rodada, dos níveis de heading, do painel de findings (que vai para o
+`## 📊 Painel` do board), do header de finding por rodada, da disciplina de links, das regras de
+escrita, da tradução de STATUS e do cálculo de `size_*`. Nada disso é redefinido aqui.
 
 Preencher com os dados coletados (`PR_URL`, `COMMIT_URL`, `TICKET_URL`, `HEAD_SHA`, `IS_OWN_PR`, tabela
 de arquivos, threads/reviews anteriores) + o `FINAL_REPORT` (SUMARIO, COMENTARIOS, CHECKLIST, VEREDITO,
 STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificação, já incorporados ao
-`FINAL_REPORT` pelo Passo 4b-3, mais a seção recapitulativa do 4b-4). Ao montar:
+`FINAL_REPORT` pelo Passo 4b-3, mais a recapitulação do 4b-4). Além do template:
 
-- Cada finding em `## 🔎 Findings` tem header curto e estável (`### f{n} · {rótulo}`), alvo dos
-  wikilinks internos (`[[#f{n} · {rótulo}|f{n}]]`; âncora de Pandoc `{#fN}` não resolve no Obsidian,
-  ver "Âncoras internas" no template), e ABRE com o banner-imagem (já vem no corpo do
-  `FINAL_REPORT`). Todo `arquivo:linha` citado (no painel, nos findings, nas prioridades) vira
-  **permalink no `HEAD_SHA`** — nada de citação nua.
-- `## 📊 Painel de findings` é a **única** tabela de findings; preencher a contagem por badge (`counts`)
-  e a legenda colorida.
-- Quando a rodada abrir gate, preencher `## 🚦 Gates` com a `GateSpec` validada antes de perguntar e
+- Todo `arquivo:linha` citado (no painel, nos findings, nas prioridades) vira **permalink no
+  `HEAD_SHA`**.
+- Quando a rodada abrir gate, preencher os Gates com a `GateSpec` validada antes de perguntar e
   atualizar a mesma entrada após a escolha. Sem escolha, preservar `pendente` e não registrar ação.
-- `## 🎯 Veredito & prioridades` no topo, com cada prioridade linkando pro `#fN` e pro código.
-- Frontmatter do board: `pr_url`, `head_sha`, `counts` e `status` da rodada mais recente; a
-  `case_key` da PR; a linha desta sessão em `provenance.runs` com `review` em `verbs`. Com `run_id:` na
-  invocação, `run_id: "{run_id}"` na linha desta sessão em `provenance.runs`. Board novo grava o `provenance` pelo contrato do template
-  (`generator: "flux-review"`), com o checklist antes do Write; board existente não o reescreve.
+- Frontmatter do board: os campos do bloco "review" de `board-template.md`, com os valores desta
+  rodada, e a `case_key` da PR; a linha desta sessão em `provenance.runs` ganha `review` em `verbs` e,
+  com `run_id:` na invocação, `run_id: "{run_id}"`. Board novo grava o `provenance` pelo contrato do
+  template (`generator: "flux-review"`), com o checklist antes do Write; board existente não o reescreve.
 - Linha na Timeline do board, tipo `review`, com a contagem por badge e o link da seção.
 
 Gravar com Write (board novo) ou Edit (board existente). Sem `VAULT_ROOT` e sem `--save`: imprimir no
@@ -804,7 +797,7 @@ Use a Task tool com `subagent_type: <DOC_REVIEWER>`, passando:
 - `AGENT_REPORT`(s) quando houver (como evidência, não verdade cega)
 
 O subagent retorna `SUMARIO`, `COMENTARIOS` (cada um com **Trecho no doc** + **Comentário**, ancorado
-em `§seção "trecho verbatim"`), `CHECKLIST`, `VEREDITO`, `STATUS`, `PRIORIDADE`, `TLDR`, `RESUMO_EXEC`.
+em `§seção "trecho verbatim"`), `CHECKLIST`, `VEREDITO`, `STATUS`, `PRIORIDADE`, `RESUMO` e `RESUMO_EXEC` (que viram o `Resumo` e o `Resumo executivo` da rodada, nunca um heading `TL;DR`).
 Guardar como `FINAL_REPORT`. Se o output vier mal formatado, mostrar o erro e não gravar.
 
 **Instruções obrigatórias ao subagent (as três vêm das disciplinas de amarração e ações do template):**
@@ -828,7 +821,7 @@ Guardar como `FINAL_REPORT`. Se o output vier mal formatado, mostrar o erro e n�
 
 ### d5. Onde gravar
 
-Seção `## 🔎 Review · doc <título>` do board resolvido no d2, uma `### Rodada K` por execução. Sem
+Seção `## 🔎 Review · doc <título>` do board resolvido no d2, uma rodada por execução (heading no template). Sem
 board, nasce um no perfil review: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-review-doc-{slug}.md`,
 `type: doc-review`.
 

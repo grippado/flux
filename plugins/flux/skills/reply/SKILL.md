@@ -325,7 +325,7 @@ Resolver o board conforme `## Casos multi-superfície` (procurar antes de criar)
 
 Usar Write/Edit. Se `ANSWER` veio malformado, abortar sem gravar.
 
-**Escritor único no watch.** Com o watch ligado, o board é mantido por um **board-keeper** (subagente nomeado, criado junto com o board e retomado por `SendMessage` a cada tick com o delta) — contrato em `${FLUX_ROOT}/shared/fanout-discipline.md`. Assim o `board-template.md` e o `CLAUDE.md` do vault nunca entram no contexto principal, e a main nunca relê o board. Com `--once`, não criar keeper: é uma escrita só, a main grava direto.
+**Escritor único no watch.** Com o watch ligado, o board é mantido por um **board-keeper** (se a sessão já tem um keeper vivo neste board, retomá-lo por `SendMessage` em vez de criar outro; subagente nomeado, criado junto com o board e retomado por `SendMessage` a cada tick com o delta) — contrato em `${FLUX_ROOT}/shared/fanout-discipline.md`. Assim o `board-template.md` e o `CLAUDE.md` do vault nunca entram no contexto principal, e a main nunca relê o board. Com `--once`, não criar keeper: é uma escrita só, a main grava direto.
 
 ### 8. Resposta minimalista no chat
 
@@ -470,9 +470,9 @@ Parâmetros específicos deste comando:
 
 - **Path**: `<VAULT_ROOT>/0-inbox/`. Sem manifesto: imprimir o board no chat em vez de gravar.
 - **Nome**: `AAAA-MM-DD-HHMM-flux-reply-<slug-do-caso>.md`, com a data/hora da **criação** do board (não muda quando o caso migra). Slug em kebab-case ASCII (sem acento) descrevendo **o caso**, não a superfície: tema + ticket ou escola/produto. Ex.: `2026-07-30-1723-flux-reply-canal-institucional-read-only.md`. O infixo `flux-reply` nomeia o comando que gerou o board, distinguindo-o das atas legadas na listagem do 0-inbox; o slug não carrega o nome do canal, justamente porque o canal muda.
-- **Colisão** no mesmo dia com caso **diferente** → sufixo `-v2`. Mesmo caso → mesmo arquivo, sempre (ver `## Casos multi-superfície`).
+- **Colisão** de path com caso **diferente** → sufixo `-2`, `-3` (template). Mesmo caso → mesmo arquivo, sempre (ver `## Casos multi-superfície`).
 - **Painel**: lista **pendências** (pergunta em aberto / decisão travada / compromisso assumido), não superfícies. As superfícies vão no 🧭 Rastro do caso.
-- **`execution_status`**: `open` enquanto o caso roda; `done` quando resolve; `dropped` se morre sem desfecho.
+- **`execution_status`**: `active` enquanto o caso roda, `open` quando parado à espera de alguém; `done` quando resolve; `dropped` se morre sem desfecho.
 
 ### Regra Slack-safe (vale para os blocos de rascunho dentro do board)
 

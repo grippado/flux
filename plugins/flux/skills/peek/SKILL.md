@@ -137,7 +137,7 @@ look é o relance rápido; o formato completo (painel, permalinks, ação) é do
 relance entra como linha na Timeline do board (`verbo: peek`) e, com `--save`, o parecer vira a seção
 `## 👁️ peek · <alvo>` dele, em vez de arquivo próprio. O peek nunca **abre** board.
 
-**Sessão sem board, com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-flux-peek-{alvo-slug}.md`
+**Sessão sem board, com `--save <dir>`:** gravar o parecer em `<dir>/YYYY-MM-DD-HHMM-flux-peek-{alvo-slug}.md` (hora de um `date` real)
 além de imprimir no chat, com frontmatter só com o bloco `provenance` do template
 (`generator: "flux-peek"`, checklist antes do Write). Fora do vault, os campos de board não entram.
 

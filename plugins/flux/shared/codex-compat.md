@@ -130,8 +130,9 @@ não persistem sem vault; `issue` não cria no Linear sem integração; e sem sp
 holística é usada. Nenhuma dessas ausências autoriza inventar dados, endpoints ou agentes.
 
 **Identidade da sessão no board.** O Codex não expõe id de sessão que o flux possa gravar (o valor
-de `CODEX_THREAD_ID` é proibido, Passo 1a-harness do preflight). Fora de um lançador que exporte
-`FLUXD_RUN_ID`, `VIOLEET_RUN_ID` e `SESSION_ID` ficam `null`, o banner declara
+de `CODEX_THREAD_ID` é proibido, Passo 1a-harness do preflight). Sem o `FLUX_SESSION_ID` (que a CLI do
+flux exporta ao lançar a sessão) e sem um lançador declarado no manifesto (`launcher_run_env`),
+`LAUNCHER_RUN_ID` e `SESSION_ID` ficam `null`, o banner declara
 `sessao nao identificavel`, e a regra de um board por sessão depende do path que a sessão anunciou
 no chat (`board-template.md`, "Resolver o board", passo 1).
 
