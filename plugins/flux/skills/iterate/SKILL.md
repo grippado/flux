@@ -326,43 +326,24 @@ Com `mergeable` / `mergeStateStatus` coletados no passo 2:
 - **`MERGEABLE`** → nada a fazer; seguir para o passo 2c.
 - **`UNKNOWN`** → reconsultar (até 3 vezes, ~3s). Persistindo, medir localmente com `git merge-tree` e
   reportar que o GitHub não decidiu. **Nunca** seguir tratando como `MERGEABLE`.
-- **`CONFLICTING`** → acionar o gate:
-  1. **Reconhecer sem tocar no working tree**: registrar `BASE_SHA`, `PR_SHA`,
-     `rev-list --left-right --count` (extensão da divergência) e `CONFLICT_FILES` de
-     `merge-tree --write-tree --name-only`.
-  2. Antes de classificar o conflito e antes de triar threads ou sincronizar a PR, consultar os
-     specialists que cobrem esses arquivos pelo modo de assessoria de
-     `${FLUX_ROOT}/shared/review-agents.md`. Passar os dois SHAs, os paths conflitantes e o contexto
-     necessário para comparar os lados. Os specialists são leitores: classificam cada conflito e
-     propõem uma resolução, sem editar a worktree. Com `--solo`, pular esta consulta e usar o fallback
-     genérico.
-  3. Consolidar os pareceres com a classificação de `${FLUX_ROOT}/shared/merge-conflict-gate.md`.
-     Classificação semântica explícita significa bloqueio e escolha humana; os specialists podem
-     explicar alternativas, mas não escolher entre intenções. Sem specialist aplicável, em caso de
-     falha, incerteza, propostas incompatíveis ou proposta insegura, o executor único usa o fallback
-     genérico; se ele continuar sem uma resolução mecânica segura, manter o bloqueio. `--no-rebase` ou
-     PR de terceiro (`author.login` diferente da conta autenticada) também impede a escrita e leva ao
-     modo degradado. As demais causas de degradado (rebase abortado, gate vermelho, lease recusado,
-     worktree retida) estão na seção 6 do shared.
-  4. Para conflito mecânico, um único executor recebe todos os pareceres e aplica a síntese na
-     worktree dedicada, roda os quality gates e confirma que `BASE_SHA` foi incorporado, que não há
-     paths em conflito e que as verificações passaram. Sem specialists aplicáveis, quando falharem ou
-     quando as propostas não forem seguras, esse executor usa o fallback genérico atual do gate. Não
-     iniciar writers concorrentes. O prompt leva o `retainedResolutionSha` do estado, para a
-     conferência do descarte condicionado (seção 4, item 2, e seção 5 do shared).
-  5. **Publicar conforme a seção 5 do shared**, só se nenhum gate do item 4 voltou vermelho (`n/a`
-     não segura). Gate vermelho, resolução semanticamente bloqueada ou falha na verificação de base e
-     conflitos ⇒ não declarar resolução; seguir o modo degradado descrito abaixo. Depois do push,
-     registrar o relato conforme a seção 5.
-  6. Só após as verificações aprovadas e o push bem-sucedido retomar a triagem de CI, a oferta de
-     réplicas, a resolução de threads e a sincronização da PR.
+- **`CONFLICTING`** → acionar `${FLUX_ROOT}/shared/merge-conflict-gate.md` antes de triar o CI.
+  Passar ao gate `BASE`, `BRANCH`, `BASE_SHA`, `PR_SHA`, `CONFLICT_FILES`, autoria da PR, as flags
+  `--dry`, `--solo` e `--no-rebase`, e `conflictAttemptedAtBaseSha` + `retainedResolutionSha`; o shared
+  define a descoberta de specialists, a classificação, a resolução, as verificações e a publicação.
+  Para este elo, só retomar a triagem de CI e o fluxo normal depois que o gate confirmar a resolução
+  publicada. Se retornar `analise-obsoleta`, repetir a detecção e a consulta dos specialists com os
+  SHAs atuais.
+
+  Se a tentativa de resolução usar o executor genérico por falta de orientação aplicável dos
+  specialists, reemitir o banner completo com `fallback generico no conflito (<causa>)` acrescentado a
+  `degradacoes:`; preservar o restante do banner e os dados das lentes disponíveis. Isso cobre
+  `--solo`, ausência/falha de specialists e propostas que não orientem uma resolução segura. Registrar
+  também o resultado na Timeline conforme o shared. O banner inicial já emitido não pode ser alterado.
 - **`BEHIND`** (sem conflito) → só atualizar se a proteção da base exigir branch atualizada. Não é
   conflito e não justifica force-push.
 
-**Modo degradado (o gate não resolveu; causas na seção 6 do shared, inclusive gate vermelho):** não abortar o comando. Suspender o que depende de base
-integrada (aplicar correção, commitar, pushar, triar/corrigir CI, reconciliar título e descrição) e
-seguir com o que não depende (verificar alegações, responder, reagir, resolver threads). Reportar sem
-eufemismo o que ficou de pé. Tabela completa na seção 6 do shared.
+**Modo degradado:** seguir a partição de ações da seção 6 do shared. O iterate só retoma as etapas
+permitidas por aquele contrato e registra o bloqueio no board.
 
 **Em `--dry`:** apenas **reportar** o estado de integração, como se faz com o CI. Não resolver nada.
 

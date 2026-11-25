@@ -144,11 +144,17 @@ código e edita arquivo (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). O exec
    Se a worktree não está igual ou atrás de `origin/$BRANCH` (à frente ou divergida) ou se
    `git -C <worktree> status --porcelain` não está vazio, antes do pull aplica o descarte
    condicionado da seção 5; nunca reset incondicional. Worktree limpa e só atrás faz o pull normal.
-3. Executa a estratégia escolhida. **Se o processo se mostrar maior que o previsto** (conflito em
+3. Antes de iniciar merge/rebase ou editar qualquer arquivo conflitante, atualiza as refs com
+   `git fetch origin "$BASE" "$BRANCH" -q` e confirma que `origin/$BASE == BASE_SHA` e
+   `origin/$BRANCH == PR_SHA`, os SHAs que os specialists analisaram. Se qualquer um mudou, não aplica
+   a síntese antiga: devolve `analise-obsoleta` sem editar a worktree, para o consumidor repetir a
+   detecção e a consulta dos specialists com os SHAs novos. O push continua protegido contra avanço
+   concorrente pelas regras da seção 5.
+4. Executa a estratégia escolhida. **Se o processo se mostrar maior que o previsto** (conflito em
    arquivo que o `merge-tree` não previu, conflito semântico que a classificação não pegou, conflito
    repetido commit após commit): **`git rebase --abort` / `git merge --abort`** e devolver como
    bloqueio. Abortar é resultado legítimo, não falha do executor.
-4. Roda o quality gate real do repo depois de resolver, e reporta o resultado de cada gate como ele
+5. Roda o quality gate real do repo depois de resolver, e reporta o resultado de cada gate como ele
    veio. Gate não executável localmente é `n/a` com o motivo, nunca "verde". Devolve a worktree
    limpa (`status --porcelain` vazio): o que um gate escrever em arquivo (lint com `--fix`, por
    exemplo) entra no commit da resolução ou é descartado, e vai no relato de qualquer forma.
@@ -158,12 +164,13 @@ código e edita arquivo (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). O exec
    ou algum gate aplicável falhar, devolve o bloqueio e não declara a branch atualizada. Depois dessas
    verificações, o iterate publica a resolução conforme a seção 5; só após o push bem-sucedido retoma a
    triagem de CI, a oferta de réplicas, a resolução de threads e a sincronização da PR.
-5. **Para sem pushar.** O push é do elo, nas condições da seção 5.
+6. **Para sem pushar.** O push é do elo, nas condições da seção 5.
 
 Contrato de retorno enxuto (< 40 linhas, sem diff colado): specialists invocados (ou nenhum/falha),
 classificação final, worktree, estratégia, ok/abortado, commits reaplicados, **por arquivo o que foi
 decidido e por quê**, resultado dos quality gates e das verificações de base/conflitos, SHA local,
-bloqueios.
+bloqueios. Para `analise-obsoleta`, devolver os SHAs remotos atuais e confirmar que nenhum arquivo foi
+editado; o consumidor recomeça a detecção com esses SHAs.
 
 ## 5. Push: `--force-with-lease`, autorizado pelo pedido
 
