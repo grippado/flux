@@ -39,7 +39,11 @@ exatamente o que ele não olhava.
 ## Quando aplicar
 
 - **Sempre** que o fluxo puder escrever na branch: `flux:iterate` (1ª passada **e** todo tick do
-  watch, porque a base anda enquanto o watch dorme), `flux:land` por PR do lote.
+  watch, porque a base anda enquanto o watch dorme), `flux:land` por PR do lote. Pilha de PRs
+  defasada, com ou sem conflito, é outro protocolo: `${FLUX_ROOT}/shared/stack-propagation.md`.
+  Quando o iterate de uma PR filha de aresta defasada leva `--no-rebase` (e a base dela fica com a
+  propagação) e quando roda este gate normal: seção 7 do `stack-propagation.md`, "Iterate de PR
+  filha: quando leva `--no-rebase`".
 - **Nunca** em fluxo read-only: `flux:peek`, `flux:review`, `flux:iterate --dry`. Nesses, o estado de
   integração é **reportado** (é informação de primeira ordem sobre a PR) e nada é resolvido.
 
@@ -89,7 +93,10 @@ devolve. Classificar pelos **arquivos em conflito** e pela natureza da sobreposi
     versão **mais alta**, e nunca se regride o que já está na base;
   - arquivos de append cronológico (`CHANGELOG.md`, changelog de docs) → **preservar as duas
     contribuições** na ordem que o arquivo já usa, sem descartar entrada de ninguém;
-  - imports/barrel files, blocos adicionados em pontas opostas do mesmo arquivo.
+  - imports/barrel files, blocos adicionados em pontas opostas do mesmo arquivo;
+  - doc de instrução (`CLAUDE.md`, `AGENTS.md`) em que os dois lados **só acrescentaram** parágrafos
+    no mesmo ponto, sem editar nem apagar linha existente → **preservar os dois**, o da base primeiro.
+    Bastou um lado editar uma linha que o outro também tocou, é semântico.
 - **Semântico** — duas mudanças de intenção sobre a mesma lógica: mesma função, mesma condição, mesmo
   teste, migração de schema, contrato de API. **Nunca resolver sozinho**, nem em `--auto`, nem no
   watch. Registrar bloqueio e devolver ao usuário com os arquivos e o que cada lado fez.
@@ -113,9 +120,21 @@ Escolher **`merge origin/$BASE`** (e não rebase) quando qualquer uma valer:
 - **A branch tem commits de terceiros** (`git log --format='%ae' origin/$BASE..origin/$BRANCH | sort -u`
   com mais de um autor). Force-push em branch coautorada derruba o trabalho de quem não está na sala.
 - **A branch é base de outra PR** (alguém empilhou em cima dela).
+- **A branch é filha de uma pilha cuja propagação está bloqueada ou desligada** (bloqueio de
+  pré-condição ou `--no-restack`, ver `${FLUX_ROOT}/shared/stack-propagation.md`, seção 7). O pai pode
+  ter sido reescrito, e rebasear sobre ele sem o limite certo reaplica os commits antigos do pai, que é
+  o caso que aquele shared proíbe. Merge da base integra sem reescrever.
 
 Em qualquer um desses casos, rebase é escolha errada mesmo que o repo prefira histórico linear: a
 linearidade se resolve no squash do merge, o trabalho perdido não se resolve.
+
+**Exceção: propagação em pilha.** Quando quem reescreve é o protocolo de
+`${FLUX_ROOT}/shared/stack-propagation.md`, a primeira e a terceira condições acima **não** forçam
+merge: a pilha é reescrita inteira na mesma rodada, então nenhuma PR de cima fica órfã, e o custo das
+threads virarem `isOutdated` é aceito. A segunda condição continua valendo
+sem exceção: branch de terceiro ou coautorada bloqueia a propagação da pilha inteira. E a convenção
+declarada do repo (passo 1 acima) vence a exceção: repo que declara merge não é rebaseado, e a
+propagação fica em `hold` com o motivo (`bloqueado:convencao-merge`).
 
 ## 4. Resolução (em subagente, na worktree, sem push)
 
@@ -136,7 +155,8 @@ código e edita arquivo (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). O exec
    veio. Gate não executável localmente é `n/a` com o motivo, nunca "verde". Devolve a worktree
    limpa (`status --porcelain` vazio): o que um gate escrever em arquivo (lint com `--fix`, por
    exemplo) entra no commit da resolução ou é descartado, e vai no relato de qualquer forma.
-5. **Para sem pushar.** O push é do elo, nas condições da seção 5.
+5. **Para sem pushar.** O push é do elo, nas condições da seção 5. Exceção: na propagação em pilha o
+   push em cadeia é do executor (`${FLUX_ROOT}/shared/stack-propagation.md`, seção 6).
 
 Contrato de retorno enxuto (< 40 linhas, sem diff colado): worktree, estratégia, ok/abortado, commits
 reaplicados, **por arquivo o que foi decidido e por quê**, resultado dos gates, SHA local, bloqueios.

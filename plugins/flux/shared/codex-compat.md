@@ -167,6 +167,13 @@ diferença é o que importa aqui:
 
 - **`flux:land`** roda o `iterate` por PR dentro de subagente, e sem esse despacho não há entrega
   multi-PR: a fase **aborta**, e com ela o verbo. É o único **totalmente** indisponível no Codex.
+  A propagação em pilha (fase 4a), que roda antes, também depende de despacho: no Codex a detecção
+  de pilha defasada só **reporta** (`pilha defasada`, PR em `hold`, token `pilha so reportada`) e
+  nada é reescrito, então tudo o que roda antes do abort continua sendo leitura
+  (`${FLUX_ROOT}/shared/stack-propagation.md`, "Quando aplicar"). O executor da propagação não usa
+  `FLUX_CMD` (é um subagente, não um irmão invocado), então amarrar a propagação ao `UNAVAILABLE` é
+  escolha conservadora: no Codex, sem o iterate da fase 4, ninguém fecharia a entrega que ela
+  reescrevesse.
 - **`flux:map`** despacha o `equip` por repo na fase de conserto, que é a segunda metade do verbo. Sem
   `FLUX_CMD` ele **degrada**: o levantamento, o delta, a integridade e o índice saem inteiros, e as
   remediações são impressas para o usuário rodar à mão. Continua sendo um verbo útil, com uma metade a

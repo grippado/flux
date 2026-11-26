@@ -389,6 +389,7 @@ flux/
     ├── issue-template.md          formato da issue do flux:issue
     ├── board-template.md          o board: um por sessão, um por caso, N runs
     ├── worktree-discipline.md     todo fluxo que escreve opera em worktree dedicado
+    ├── stack-propagation.md       ajuste num slice levado à pilha de PRs inteira numa rodada, validando só o topo
     ├── write-destination.md       onde artefato gerado pode nascer: cascata + guardas de symlink/git/dotfiles
     ├── chain.md                  gramática de chains: verbo, artefato, legalidade, baton, falha no meio
     ├── scope-gate.md             medir o tamanho do pedido antes de gastar tempo com ele: sinais, faixas, corte proposto
