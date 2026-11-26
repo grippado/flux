@@ -182,7 +182,7 @@ git -C <WORKSPACE_ROOT>/<repo> worktree list   # inspecionar worktrees já exist
 
 A worktree dedicada à `headRefName` de cada PR **não precisa existir agora**: quando o delivery iterar a PR (fase 4), o `/flux:iterate` a resolve/cria via `${FLUX_ROOT}/shared/worktree-discipline.md`. O que trava é faltar o **checkout do repo** em si: se o repo não estiver clonado sob `WORKSPACE_ROOT`, registre a PR no board como `sem-checkout` e siga (o iterate dela fica bloqueado até o repo existir localmente). PRs já `MERGED` entram no board como contexto (não são acionáveis) — mas ENTRAM.
 
-**Re-descoberta a cada tick do watch (seção 6):** PRs de follow-up/hotfix podem aparecer DEPOIS da descoberta inicial, inclusive já mergeadas por outro contexto. Rode a descoberta primária de novo em todo tick; qualquer PR nova — mergeada ou não — entra no painel, gera linha `descoberta` na Timeline de Eventos Relevantes e é anunciada no chat.
+**Re-descoberta a cada tick do watch (seção 6):** PRs de follow-up/hotfix podem aparecer DEPOIS da descoberta inicial, inclusive já mergeadas por outro contexto. Rode a descoberta primária de novo em todo tick; qualquer PR nova — mergeada ou não — entra no painel, gera linha `descoberta` na Timeline e é anunciada no chat.
 
 Se nenhuma PR acionável, avise e termine.
 
@@ -253,9 +253,8 @@ artefato que um delivery normal, e o board não teria como registrar a diferenç
 
 O `--auto` pula confirmação (o subagente não tem canal com o usuário — sem ele o iterate trava);
 o `--once` garante que o watch é do delivery (consolidado), não N watches por PR; o
-`--parent-board` passa o caminho DESTE board de delivery para o iterate, que então (a) marca no
-board de iterate filho que ele nasceu de um delivery, com link reverso, e (b) permite fechar o
-cross-link. PRs em `hold` NÃO entram no iterate automático até serem liberadas (registre o motivo
+`--parent-board` passa o caminho DESTE board para o iterate, que então não escreve board e devolve
+o delta da PR para o escritor único deste. PRs em `hold` NÃO entram no iterate automático até serem liberadas (registre o motivo
 no board).
 
 **PRs de repos diferentes são despachadas em paralelo** (um Task por PR, todos na mesma mensagem).
@@ -266,7 +265,7 @@ literalmente este retorno, e nada além dele:
 
 ```
 - pr: <owner/repo#N>
-- iterateBoard: <path do board de iterate filho, ou n/d>
+- delta: <até 5 linhas de Timeline + resumo da rodada em até 10 linhas, com links; o escritor único grava>
 - headSha: <sha após o push, ou inalterado>
 - threads: <resolvidas>/<total>
 - issueComments: <respondidos>/<acionáveis>   # top-level, não vêm no reviewThreads
@@ -291,10 +290,7 @@ Proibido no retorno: diffs, conteúdo de arquivo, log de CI cru, transcrição d
 O contexto principal **não relê** os arquivos que o subagente tocou para conferir — confia no
 retorno; se precisar de verificação, despacha outro subagente.
 
-**Capturar o board filho:** o path vem no campo `iterateBoard` do retorno. Registre-o em
-`prs[].iterateBoard` no estado do delivery e reflita a linha correspondente na seção
-**🔗 Boards de iterate por PR** do board (e em `iterate_boards:` no frontmatter). Se a PR ainda
-não gerou board de iterate: `n/d`.
+**Gravar o delta do filho:** o iterate despachado com `--parent-board` não escreve board; ele devolve o delta da PR (até 5 linhas de Timeline e o resumo da rodada), que vira a seção `## 🔁 iterate · PR #N`. Quem grava é o escritor único deste board (o board-keeper com watch, a main com `--once`). Se a PR já tinha board de outro caso (achado por `case_keys`), linkar com wikilink em **🔗 Boards relacionados**; senão, `n/d`.
 
 > Herdam do iterate: verificação contra código real, formatação markdown das réplicas, convenção de commit por repo (atenção ao commitlint: alguns repos rejeitam emoji prefix), e o guardrail de thread humana `needs-discussion`.
 
@@ -325,21 +321,13 @@ A linha `cc @<time>` **só aparece quando o post vai para `#code-review`** — n
 
 **Descobrir canal do time e handle de cc:** inferir o squad a partir do time Linear da issue ou de memória salva. Não existe mapeamento confiável automatizado repo/squad → canal/handle; se não souber com confiança, **perguntar ao usuário** antes de postar — nunca adivinhar um nome de canal Slack.
 
-Após postar, registrar o canal usado e o link da mensagem no board (Timeline de Eventos Relevantes, tipo `review`). **Registro no estado:** cada PR em `prs[]` ganha os campos `wasDraft`, `reviewRequestedAt` e `reviewRequestedChannel` (para não perguntar de novo na mesma PR).
+Após postar, registrar o canal usado e o link da mensagem no board (Timeline, tipo `review`). **Registro no estado:** cada PR em `prs[]` ganha os campos `wasDraft`, `reviewRequestedAt` e `reviewRequestedChannel` (para não perguntar de novo na mesma PR).
 
 ### 5. Board no vault (nota viva)
 
-**Escritor único.** Com o watch ligado (default), o board é mantido por um **board-keeper** — subagente nomeado, criado junto com o board e retomado por `SendMessage` a cada tick com o delta. Ver a seção do board-keeper em `${FLUX_ROOT}/shared/fanout-discipline.md`: contrato do delta, retorno de uma linha, guardrails e fallback. O keeper é dono **só deste** board; os boards de iterate filhos continuam sendo escritos pelos próprios filhos (a main só registra o path que veio no retorno). Com `--once`, não criar keeper.
+**Escritor único.** Com o watch ligado (default), o board é mantido por um **board-keeper** — subagente nomeado, criado junto com o board e retomado por `SendMessage` a cada tick com o delta. Ver a seção do board-keeper em `${FLUX_ROOT}/shared/fanout-discipline.md`: contrato do delta, retorno de uma linha, guardrails e fallback. O keeper é dono **só deste** board, e é ele que grava o delta que cada iterate filho devolve (o filho, com `--parent-board`, não escreve board). Com `--once`, não criar keeper.
 
-Crie (ou assuma via `--board`) a nota em `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-land-<slug>.md` **logo após a descoberta (fase 2), não no fim**. Já na criação, escreva o painel de status (mesmo que várias colunas comecem vazias/`pending`) e **anuncie o caminho no chat**. Nunca duplique um board existente da mesma entrega: se já houver (ou `--board` apontar), atualize-o.
-
-Frontmatter: segue o template compartilhado (`type: flux-land`), com os campos `issues: [...]`, `repos: [...]`, `iterate_boards: [...]` (paths dos boards de iterate filhos, preenchidos conforme nascem), `context: <VAULT_CTX>` e `pending_organize: true`.
-
-**O formato do board é fonte única compartilhada:** siga o template em
-`${FLUX_ROOT}/shared/board-template.md`, **perfil multi-PR** (`type: flux-land` — canônico no schema do vault,
-painel com N linhas — uma por PR da entrega). Todas as seções (Frontmatter → H1+TLDR → 🎯 Próximo Movimento
-→ 📊 Painel → ⏰ Timeline Verbosa → 📅 Timeline de Eventos Relevantes → ✅ Ação/Continuidade), a legenda de
-ícones de STATUS do painel (🟣🟢🔒🔗🟡🔧 — nota: esta legenda é de STATUS de PR no board, não os badges de findings do review-legend.md), a regra de ouro do painel ("o painel é a única tabela de status de PR") e a disciplina de carimbo de data vivem lá e valem aqui sem repetição. Editar o formato = editar aquele arquivo.
+**Resolver o board** conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board", **logo após a descoberta (fase 2), não no fim**: o desta sessão; senão o da entrega, pela chave própria `land:<IDs das issues>` (os boards achados pelo `pr:` ou `ticket:` de cada PR são de outros casos e entram em 🔗 Boards relacionados); senão um novo em `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-land-<slug>.md`, **perfil multi-PR** (`type: flux-land`, `generator: "flux-land"`, painel com uma linha por PR). `--board <path>` pula a resolução e assume aquele board. Já na criação, escrever o painel e **anunciar o caminho no chat**. Frontmatter, seções, legendas e carimbo de data vivem no template, mais `issues: [...]` e `repos: [...]`.
 
 **Específico do delivery (além do que o template define):**
 
@@ -347,7 +335,7 @@ painel com N linhas — uma por PR da entrega). Todas as seções (Frontmatter �
 - **Issue comments contam, e o `reviewThreads` não os traz.** Rode SEMPRE, junto, `gh api repos/<owner>/<repo>/issues/<n>/comments`, descarte ecos de bot (CI, sincronização de ticket, reviewer automático sem achado) e conte os de terceiros ainda sem réplica. O painel reporta os dois universos, `threads <res>/<tot> · comments <resp>/<acion>`, nunca só as threads. Uma PR com `12/12` threads e um comentário humano intocado **não está assentada**, e chamá-la de assentada é erro de fato no board. Isto já aconteceu (PR #238 do `technical-refining`, comentário do revisor parado dois dias enquanto o painel dizia 12/12).
 - **Ao despachar o iterate de uma PR (fase 4), não diga ao subagente qual é o alvo da rodada.** Passe o estado observado como contexto, mas deixe a triagem com ele. Enunciar "as N threads abertas do bot são o alvo" faz o subagente parar exatamente ali e ignorar o que estiver fora daquela contagem — foi assim que o comentário do #238 passou batido.
 - **Abaixo do painel, em prosa** (não tabelas novas): ordem de merge, grafo de bloqueio (`#B ⟵ bloqueada por #A` + motivo), contagem por repo, métricas agregadas, análise de segurança de subida (por PR, veredito da fase 3 com evidência `arquivo:linha`) e go/no-go corrente (ou `🏁 DONE`).
-- **🔗 Boards de iterate por PR** (seção 7-bis do template): lista em prosa, um item por PR, linkando o board de iterate filho gerado pela fase 4. PR cujo iterate ainda não rodou: `n/d (iterate ainda não rodou nesta PR)`.
+- **🔗 Boards relacionados**: um item por PR que já tem board de outro caso, com o wikilink dele; as rodadas desta entrega ficam na seção de cada PR, neste board.
 - **Discrepância GitHub × board:** se uma PR `🔒 HITL` mergear sem o board ter registrado a validação humana, não apague o rastro — registre no veredito da linha e sinalize no Próximo Movimento como confirmação retroativa: o board não vê validações feitas fora do GitHub.
 
 ### 6. Watch consolidado (default; `--once` desliga)
@@ -364,8 +352,7 @@ painel com N linhas — uma por PR da entrega). Todas as seções (Frontmatter �
   "prs": [
     { "repo": "<ORG>/backoffice-bff", "number": 1054, "worktree": "...",
       "lastHeadSha": "", "lastCiConclusion": "null", "resolvedThreadIds": [], "iterateRounds": 0, "verdict": "safe-solo",
-      "wasDraft": true, "reviewRequestedAt": null, "reviewRequestedChannel": null,
-      "iterateBoard": null }
+      "wasDraft": true, "reviewRequestedAt": null, "reviewRequestedChannel": null }
   ],
   "order": ["#1054", "#8057", "#1157"],
   "quietTicks": 0,
@@ -375,7 +362,7 @@ painel com N linhas — uma por PR da entrega). Todas as seções (Frontmatter �
 ```
 
 Cada **tick**:
-1. **Re-descoberta** (seção 1, descoberta primária por conteúdo): rode de novo para cada ticket-id da entrega. Compare com `prs[]` do estado — qualquer PR nova (mergeada ou não) entra no painel, gera linha `descoberta` na Timeline de Eventos Relevantes e é anunciada no chat.
+1. **Re-descoberta** (seção 1, descoberta primária por conteúdo): rode de novo para cada ticket-id da entrega. Compare com `prs[]` do estado — qualquer PR nova (mergeada ou não) entra no painel, gera linha `descoberta` na Timeline e é anunciada no chat.
 2. Para cada PR (incluindo recém-descobertas): mini-tick (estado da PR, CI agregado via `gh pr checks`,
    delta de threads via GraphQL `reviewThreads` filtrando `resolvedThreadIds`, **e delta de issue comments**
    via `gh api repos/<owner>/<repo>/issues/<n>/comments` filtrando os já respondidos — o `reviewThreads`
@@ -391,11 +378,11 @@ Cada **tick**:
    go/no-go que diz "CI vermelho, causa desconhecida" quando a causa é consultável é um go/no-go
    pior do que precisa ser. Sem manifesto/token: degradação declarada por `quality-gate-api.md`,
    o go/no-go inclui o aviso e reporta CI vermelho com link do log.
-3. Se há delta de threads numa PR → despachar **um subagente** para rodar `${FLUX_CMD}iterate <url> --auto --once` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
+3. Se há delta de threads numa PR → despachar **um subagente** para rodar `${FLUX_CMD}iterate <url> --auto --once --parent-board "<path deste board>"` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
 3b. **Checar transição de draft** (compare `isDraft` atual com `wasDraft` salvo). Se alguma PR virou `ready for review` neste tick, dispare a pergunta do passo 4b (agrupando por ticket) antes de seguir. Atualize `wasDraft` para o valor atual de todas as PRs.
 4. Se algum head/base mudou → recomputar ordem/regressão afetada (fases 2–3) só do que mudou.
-5. Recomputar as métricas do painel e mandar o **delta do tick ao board-keeper** por `SendMessage` (contrato do delta em `fanout-discipline.md`); é ele que atualiza o **painel no topo do board** + próximo movimento + go/no-go. A main não relê o board nem o reescreve. **Rolar o carimbo de data em TODO tick** (mesmo tick sem mudança): frontmatter `updated:`, o TLDR/"Última atualização" e o timestamp no título do painel, todos para o horário local corrente. Atualizar o estado (`lastTickAt`).
-6. **Se este tick teve algo substantivo** (PR nova, PR mergeada, rodada fechada, conflito resolvido, mudança de CI relevante), acrescentar linha na **Timeline de Eventos Relevantes** + parágrafo correspondente na Timeline Verbosa. Um tick "quiet" (nada mudou) não gera linha na tabela de eventos.
+5. Recomputar as métricas do painel e mandar o **delta do tick ao board-keeper** por `SendMessage` (contrato do delta em `fanout-discipline.md`); é ele que atualiza o **painel no topo do board** + próximo movimento + go/no-go. A main não relê o board nem o reescreve. **Rolar o carimbo de data em TODO tick** (mesmo tick sem mudança): frontmatter `updated:` e o `**Agora:**` do TL;DR, com a mesma leitura de `date`. Atualizar o estado (`lastTickAt`).
+6. **Se este tick teve algo substantivo** (PR nova, PR mergeada, rodada fechada, conflito resolvido, mudança de CI relevante), acrescentar linha na **Timeline**, com o detalhe na seção da PR. Tick sem novidade não gera linha.
 7. Reagendar com `ScheduleWakeup` (mesmo input do comando), cadência pelo agregado:
    - Qualquer PR com **CI rodando** ou **rodada recém-fechada** → **270s**.
    - Todas verdes + zero threads (quiet) → **1200s**.

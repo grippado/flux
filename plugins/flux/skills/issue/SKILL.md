@@ -81,41 +81,24 @@ Se nenhum repo for identificável, perguntar ao usuário qual repo é o alvo (n�
 
 ## Step 1-bis — Resolver o board antes de criar (SEMPRE)
 
-**Sem `VAULT_ROOT`** (perfil genérico): não há onde procurar nem o que retomar — pular direto para o
-Step 1-ter, que trata a degradação.
+**Sem `VAULT_ROOT`:** pular para o Step 1-ter, que trata a degradação.
 
-Com `VAULT_ROOT` resolvido, procurar um board `type: flux-issue` cujo campo `source:` case com o
-`SOURCE`, nos **dois** lugares onde ele pode estar: `<VAULT_ROOT>/0-inbox/`, se ainda não foi triado, e
-`<VAULT_CTX_ROOT>/linear/`, se o `/organize` já o promoveu. Casou → é **este** o board, atualiza (mesmo
-estando na pasta promovida: atualizar nota que já existe é escrita legítima fora do inbox). Não casou →
-board novo no Step 1-ter.
+Resolver conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board": o board desta sessão
+(o `refine` ou o `probe` que rodaram antes nesta sessão já o abriram); senão o do caso, pela
+`case_key` `source:<SOURCE normalizado>`, nos dois lugares (`<VAULT_ROOT>/0-inbox/` e
+`<VAULT_CTX_ROOT>/`, onde o `/organize` pode já tê-lo promovido); senão um novo no Step 1-ter.
 
-> Procurar só no inbox é como não procurar: board de pedido antigo já foi promovido, sairia da busca, e
-> o mesmo pedido ganharia um segundo rascunho concorrente — exatamente o que o Step 1-bis existe para
-> impedir.
+A forma normalizada da chave está na tabela de `case_keys` do template. Casou parcialmente (mesmo repo
+e tema, slug diferente) ou mais de um candidato: **GATE** (`${FLUX_ROOT}/shared/hitl.md`) perguntando
+qual retomar, ou se é pedido novo. Nunca escolher por data.
 
-**Como casar, por tipo de fonte:**
+Retomando, **consultar a 🔬 Achados antes de reprospectar**: o que já foi verificado, inclusive o
+refutado, continua valendo.
 
-- **Permalink do Slack / URL de PR**: comparação **exata** da URL, descartando query string e o
-  `?thread_ts=` (o mesmo alvo copiado duas vezes pode trazer parâmetros diferentes).
-- **Texto livre**: o `source:` gravado é o texto cru; o match é pelo **slug normalizado** dos dois lados
-  (minúsculas, sem acento, pontuação virando hífen, kebab-case ASCII). Bateu o slug → é o mesmo pedido.
-- **Casou parcialmente** (mesmo repo e tema, slug diferente; ou mais de um candidato): **abrir um GATE**
-  (`${FLUX_ROOT}/shared/hitl.md`) perguntando qual board retomar, ou se é pedido novo. Nunca escolher por proximidade de data.
-
-**Nunca criar um segundo board para um pedido que já tem um.** O mesmo pedido rodado duas vezes tem que
-convergir num rascunho só; dois arquivos concorrentes da mesma issue é exatamente o problema que o board
-existe para evitar. Na dúvida entre dois candidatos, abrir um GATE (`${FLUX_ROOT}/shared/hitl.md`) em vez de chutar.
-Retomando um board existente, **consultar a 🔬 Achados de codebase antes de reprospectar**: o que já foi
-verificado (inclusive o que foi refutado) continua valendo e não precisa de subagente de novo.
-
-**Achar o board de origem (`ORIGIN_BOARD`).** Se o pedido veio de um caso do `/flux:reply`, o path do
-board de conversa vira `origin_board:` no frontmatter, fechando o cross-link que o board de conversa
-registra no forward. Quando o `/flux:issue` é chamado direto com um permalink do Slack, esse vínculo não
-chega pronto: procurar também em `<VAULT_ROOT>/0-inbox/` um board `type: thread` cujo
-`surfaces[].channel_id` (+ `thread_ts`, quando houver) case com o alvo — é o mesmo grep que o
-`/flux:reply` faz para reencontrar um caso. Achou → é o `ORIGIN_BOARD`, e a 🔬 Achados dele é dossiê
-pronto, que **não** precisa ser reprospectado. Não achou → sem `origin_board`, segue normal.
+**`ORIGIN_BOARD`.** Pedido vindo de um caso do `/flux:reply` em outra sessão: o board de conversa cuja
+`case_key` `slack:<channel_id>/<thread_ts>` casa com o alvo vira `origin_board:` (wikilink), e a
+🔬 Achados dele é dossiê pronto. Na mesma sessão do reply, o board já é o mesmo e não há origem a
+linkar.
 
 ## Step 1-ter — Abrir o board de exploração (antes do fan-out)
 
@@ -130,15 +113,14 @@ nenhum; **retomar** o que ele achou, se achou — seguindo o **perfil exploraç�
 > primeira e única notícia. Se um prospector travar ou voltar vazio, um board que nascesse depois não
 > teria rastro de onde parou. Board que nasce depois do trabalho é ata, não board.
 
-1. **Caminho:** o board resolvido no Step 1-bis; ou, sendo novo, `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md`.
-   Path já ocupado por um board de **outro** `source` (slugs diferentes que colidiram): sufixar `-2`,
-   `-3`. Nunca sobrescrever board de outro pedido.
-2. **Nasce com:** frontmatter (`execution_status: active`, `source`, `repos`, `linear_ids: []`,
-   `origin_board` quando houver), TLDR com o `REQUEST` em uma frase, 🎯 Próximo Movimento apontando para
-   a prospecção, e o painel com **uma linha `🔧 APURANDO` por repo** de `TARGET_REPOS` — as candidatas
-   ainda não existem, o que existe é a apuração. Linha na Timeline de Eventos, tipo `prospecção`.
-   **Retomando um board:** não recriar o cabeçalho; rolar o carimbo de data, abrir
-   `### Sessão de <data>` na Timeline Verbosa e reabrir as linhas de apuração que forem refeitas.
+1. **Caminho:** o board resolvido no Step 1-bis; ou, sendo novo,
+   `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-issue-<slug>.md` (`generator: "flux-issue"`).
+2. **Nasce com** o frontmatter do template (`provenance.runs`, `case_keys`, `execution_status: active`,
+   `source`, `repos`, `linear_ids: []`, `origin_board` quando houver), o TL;DR com o `REQUEST` em uma
+   frase, o 🎯 Próximo movimento apontando para a prospecção e o painel com **uma linha
+   `🔧 APURANDO` por repo** de `TARGET_REPOS`. Linha na Timeline, tipo `prospecção`. **Retomando:**
+   não recriar o cabeçalho; registrar esta run em `provenance.runs`, reescrever o TL;DR e reabrir as linhas de
+   apuração refeitas.
 3. **Sem `VAULT_ROOT`** (perfil genérico): não há board; tudo sai no chat, como antes. É capacidade que
    degrada, não requisito — declarar a perda no banner de perfil e seguir.
 4. **Escritor único:** o `/flux:issue` não tem watch, então **não existe board-keeper** — a main escreve
@@ -166,7 +148,7 @@ Guardar `FINDINGS` = os achados consolidados por repo, cada um com evidência li
 
 **Fan-in no board, conforme cada repo retorna** (não no fim de todos): gravar os achados **inteiros** na
 seção 🔬 Achados de codebase — inclusive os `refuta` e `sem-evidência`, que não vão para a issue mas são
-o que evita reprospectar a mesma hipótese no próximo run. Cada retorno vira linha na Timeline de Eventos
+o que evita reprospectar a mesma hipótese no próximo run. Cada retorno vira linha na Timeline
 (tipo `prospecção`).
 
 **As linhas de apuração dão lugar às candidatas.** A linha `🔧 APURANDO` de um repo é provisória: ela
@@ -237,7 +219,7 @@ não nascer errada entra como `🔒 BLOQUEIA`, com a pergunta explícita no 🎯
 ## Step 4 — Consolidar o board
 
 Escrever a seção **📝 Rascunho da issue** com a(s) issue(s) já formatadas (uma subseção por candidata) e
-rolar o carimbo de data (frontmatter `updated:`, TLDR, título do painel). Frontmatter, naming e ciclo de
+rolar o carimbo de data (frontmatter `updated:` e o TL;DR). Frontmatter, naming e ciclo de
 vida seguem o perfil exploração do `board-template.md` — não redefinir aqui.
 
 Sem `VAULT_ROOT` (perfil genérico): imprimir o rascunho no chat, sem board.
@@ -256,7 +238,7 @@ Só seguir pro Step 6 na opção 1.
 **Cada rodada deixa rastro no board**, e é isto que o board acrescenta a este gate:
 
 - **Opção 2:** a versão nova do corpo entra como `#### v<N+1>` na 📝 Rascunho da issue, com o motivo do
-  ajuste; a anterior fica colapsada, nunca sobrescrita. Linha na Timeline de Eventos (tipo `decisão`) e
+  ajuste; a anterior fica colapsada, nunca sobrescrita. Linha na Timeline (tipo `decisão`) e
   🎯 Próximo Movimento reescrito. Candidata que o usuário mandou tirar vira `⚪ DESCARTADA` com o motivo
   (tipo `candidata`), e a subseção dela permanece.
 - **Opção 3:** `execution_status: open` (o rascunho segue vivo, pode virar issue depois), candidatas
@@ -360,7 +342,7 @@ Tratar os vereditos assim:
 
 - **`CRIADA`** → `🟣 CRIADA` no painel, identificador linkado.
 - **`CRIADA COM DIVERGENCIA`** → também `🟣 CRIADA` (a issue existe), mas a divergência vira linha da
-  Timeline de Eventos e item do 🎯 Próximo Movimento. Não colapsar com `CRIADA`: a issue nasceu sem a
+  Timeline e item do 🎯 Próximo Movimento. Não colapsar com `CRIADA`: a issue nasceu sem a
   label ou sem o milestone que foi decidido no gate, e isso não se descobre sozinho depois.
 - **`FALHOU`** → candidata segue em `🟢 APROVADA`, com a causa no veredito. Corrigir e redespachar.
 - **`INDETERMINADO`** → **a main confere no tracker antes de qualquer coisa.** É o caso em que a
@@ -385,7 +367,7 @@ Verificar, por issue criada:
 - **relações de bloqueio** — existem, e no **sentido** certo (o sujeito é quem bloqueia);
 - **contagem** — o número de issues do lote bate com o número de candidatas aprovadas.
 
-Divergência não vira aviso solto: vira item do 🎯 Próximo Movimento e linha da Timeline de Eventos, e a
+Divergência não vira aviso solto: vira item do 🎯 Próximo Movimento e linha da Timeline, e a
 criação **não é declarada completa** até ser corrigida.
 
 > **Por que isto é obrigatório, com o número que o motivou.** Num lote real de 22 issues (2026-08-08),
@@ -399,9 +381,9 @@ criação **não é declarada completa** até ser corrigida.
 
 **Fechar o board** (é o passo que encerra o ciclo de vida da nota):
 
-- `linear_ids:` preenchido com os identificadores criados; cada candidata vai para `🟣 CRIADA` com o
+- `linear_ids:` preenchido com os identificadores criados, e `ticket:<ID>` de cada um acrescentado a `case_keys` (é por ela que o `build` da issue, em outra sessão, acha este board); cada candidata vai para `🟣 CRIADA` com o
   identificador **linkado** na coluna `Linear`, e a subseção dela na 📝 Rascunho da issue ganha o mesmo
-  link no cabeçalho. Linha na Timeline de Eventos, tipo `linear`.
+  link no cabeçalho. Linha na Timeline, tipo `linear`.
 - `execution_status: done` — é o campo de estado canônico do vault (ADR-014, `fields.execution_status`
   no `note-schema.json`), o mesmo que os boards de `/flux:reply`, `/flux:build` e `/flux:review` já
   usam. Aqui ele fecha exatamente no gatilho que o schema declara para o `issue-draft`:

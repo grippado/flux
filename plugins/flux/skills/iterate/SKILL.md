@@ -21,19 +21,11 @@ requires:
 
 # /flux:iterate
 
-Comando orquestrador para **fechar o loop** de uma rodada de review: lê threads abertas e threads resolvidas por terceiros/unknown, verifica cada alegação contra o código real, aplica o que é pertinente, responde/reage/resolve no GitHub, **olha o estado do CI** e tenta corrigir o que for atribuível ao próprio push, atualiza a PR com commit + push e **reconcilia título e descrição da PR** com o que a rodada decidiu. Por padrão, fica vivo monitorando CI e novas rodadas do bot até a PR assentar.
+Fecha o loop de uma rodada de review: verifica cada thread (aberta, ou resolvida por terceiro) contra o código real, aplica o que procede, responde, reage, resolve, trata o CI atribuível ao próprio push, commita, pusha e reconcilia título e descrição. Por padrão fica vivo vigiando CI e novas rodadas até a PR assentar.
 
-Toda escrita acontece num **git worktree dedicado à branch da PR**, nunca na árvore principal do repo (ver `${FLUX_ROOT}/shared/worktree-discipline.md`), e todo trabalho pesado — verificar alegação contra o código, aplicar correção, rodar quality gate — acontece em **subagente**, nunca no contexto principal (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). E o CI é tratado **desde a 1ª passada**, não só no watch: uma PR sem threads abertas mas com CI vermelho ainda é acionável.
+Três regras atravessam o verbo: o **gate de integração com a base vem primeiro** (passo 2b; PR que não funde não recebe escrita, e o CI verde dela é sinal falso); toda escrita acontece na **worktree da branch da PR** (`${FLUX_ROOT}/shared/worktree-discipline.md`); e todo trabalho pesado roda em **subagente** (`${FLUX_ROOT}/shared/fanout-discipline.md`). Uma PR sem threads mas conflitante, ou com CI vermelho, continua acionável.
 
-**Antes de tudo isso vem o gate de integração com a base** (passo 2b): PR que não funde com a base é PR sobre a qual não se escreve, e o CI verde dela é sinal falso. Uma PR sem threads e sem CI vermelho, mas conflitante, **é acionável**. Ver `${FLUX_ROOT}/shared/merge-conflict-gate.md`.
-
-É o irmão "ativo" da família:
-
-- `/flux:review` — gera o review formal (read-only, salva no vault).
-- `/flux:iterate --dry` — rascunha réplicas read-only (salva no vault, não posta).
-- `/flux:iterate` — **aplica + posta + resolve + commita + pusha + reconcilia título e descrição** (este, no modo padrão).
-
-Roda independente dos outros. Pensado para PRs com rodadas de bot reviewer, mas trata threads humanas também.
+Irmãos: `/flux:review` (review formal, read-only) e `/flux:iterate --dry` (rascunha réplicas, não posta). Trata threads de bot e de pessoas.
 
 **Legenda canônica de badges:** `${FLUX_ROOT}/shared/review-legend.md`
 **Contrato de agentes (descoberta + reconciliação):** `${FLUX_ROOT}/shared/review-agents.md`
@@ -49,13 +41,9 @@ Roda independente dos outros. Pensado para PRs com rodadas de bot reviewer, mas 
 
 ## Banner de perfil — gabarito (copiar VERBATIM)
 
-Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
-degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
-que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
-improvisado, com campos inventados e sem o `nivel`.
-
-Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
-em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+Todo output deste elo **abre** com o banner, copiado com as cercas, trocando só o que está entre
+chaves (regras e degradações: `${FLUX_ROOT}/shared/preflight.md`, Passo 5). O gabarito mora no corpo
+do elo de propósito: num shared, ele não chega ao contexto na hora de emitir.
 
 ````
 ```
@@ -127,7 +115,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 | `/flux:iterate 962 --dry` | Modo read-only: rascunha réplicas e salva no vault, **nunca** escreve no GitHub |
 | `/flux:iterate 962 --solo` | Pula os specialists; verificação de threads usa só `<HOLISTIC>` |
 | `/flux:iterate 962 --no-rebase` | **Desliga a resolução** do gate de conflito (alias `--skip-conflict-gate`): detecta e reporta o conflito, mas não toca no histórico da branch. Cai no modo degradado do passo 2b. |
-| `/flux:iterate 962 --parent-board <path>` | Marca como filho de um delivery-flow: registra proveniência + link reverso. Passado automaticamente pelo delivery-flow. |
+| `/flux:iterate 962 --parent-board <path>` | Não escreve board: devolve o delta ao board que o orquestrador (o `flux:land`, na mesma sessão) já resolveu. Passado automaticamente pelo land. |
 
 > **O watch é o default.** Depois da 1ª passada e do push, o comando fica vivo monitorando CI + novas rodadas do bot até a PR assentar (CI verde + nada novo) ou mergear. Use `--once` quando quiser só fechar a rodada atual e sair.
 
@@ -146,7 +134,7 @@ As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebas
 - Não resolver thread humana que esteja em `needs-discussion` (ver guardrail no passo 7).
 - Não retentar escrita em repo cross-org sem acesso — capturar o erro e reportar.
 - **Não editar título nem descrição de PR de terceiro.** A reconciliação do passo 8a só vale para PR cuja `author.login` é a conta autenticada; em PR de outra pessoa, a correção vira sugestão em comentário. Nunca reescrever texto alheio.
-- **Não commitar nem pushar em PR de terceiro sem pedido explícito + confirmação textual.** `IS_OWN_PR == false` é modo `no-push` por default, tanto no passo 6 (correções de threads) quanto no passo 2c (auto-fix de CI): só interação (responder/reagir/resolver); a correção de CI pode ser aplicada e validada localmente, mas fica sem commit/push. Sair disso exige a opção "pedir permissão pra escrever" e a confirmação textual do passo 6 — nunca inferido de contexto, nunca default mesmo com `--auto`.
+- **Não commitar nem pushar em PR de terceiro** sem a concessão do passo 6 (guarda de autoria, passo 2).
 - **Não mexer no prefixo de ticket do título** (`[ENG-1234]`, `[PROD-000]`). É chave de rastreabilidade para Linear e CI; trocar ou remover quebra automação em silêncio.
 - **Não renomear título que só ficou genérico.** Renomeia-se apenas título que nomeia desenho refutado. A barra do título é mais alta que a da descrição, porque ele vira mensagem de squash commit e circula em notificação.
 - **Não regerar a descrição da PR do zero.** Editar sempre sobre o body atual, cirurgicamente. Body regenerado apaga contexto humano (links de PRs irmãs, checklist marcada pelo revisor) de forma silenciosa e irreversível pela UI.
@@ -188,9 +176,7 @@ done
 
 **Worktree resolvida agora, não na hora de escrever.** O `pwd` **não** precisa estar na branch da PR: a worktree dedicada à `headRefName` é resolvida (achada ou criada) via `${FLUX_ROOT}/shared/worktree-discipline.md` **nesta etapa**, incluindo o provisionamento dos arquivos de ambiente descrito naquele protocolo, e é nela que o comando passa a operar. Não fazer `git checkout` na árvore principal para trocar de branch.
 
-Ela é criada cedo por dois motivos que se somam. O primeiro é que a worktree não serve só para o elo escrever: ela é **onde o usuário vai olhar o resultado** da rodada, e um pedido de "quero ver isso rodando" no meio do run não deveria disparar clone de árvore e provisionamento de env do zero. O segundo é que as próprias lentes ficam melhores com ela: verificar uma alegação contra o código **da branch** é mais direto num checkout da branch do que via `git show <sha>:<path>` na árvore principal.
-
-O custo é real e assumido: uma PR sem nada acionável ganha uma worktree que ninguém usou. É barato (a worktree compartilha o object store) e reversível (`git worktree remove`), e perde para o custo de não ter a árvore quando ela é necessária. Fluxos read-only (`--dry`) seguem **sem** criar worktree, porque ali não há nem escrita nem push, e o modo existe justamente para não tocar o disco do usuário.
+Ela nasce cedo porque é também onde o usuário vai olhar o resultado, e porque verificar alegação na branch é mais direto com o checkout dela. `--dry` não cria worktree.
 
 Se `DRY == true`, ir direto para o **Modo `--dry`** após a coleta de metadados + threads (passo 2).
 
@@ -203,7 +189,19 @@ gh pr view $PR_NUMBER --repo $REPO_FULL \
 
 `mergeable` e `mergeStateStatus` **não são opcionais nesta coleta**: eles alimentam o gate de integração do passo 2b, que roda antes da triagem de CI.
 
-**`IS_OWN_PR` — o guard de autoria.** `IS_OWN_PR = (author.login == ME)`, onde `ME` é a conta autenticada (`gh api user -q .login`). **Deliberadamente mais restrito que o `IS_OWN_PR` do `${FLUX_CMD}review`** (que também conta assignee): aqui ele guarda commit, push e force-push, não só postar comentário, e ser assignee não implica consentimento pra escrever no histórico da branch de outra pessoa. Governa cinco coisas: força-push (passo 2b), reconciliação de título/descrição (passo 8a), **quais opções o GATE do passo 6 oferece e se o passo 8 (commit/push) pode rodar**, **se o executor do passo 4 pode commitar/pushar em `--auto`**, e **se o auto-fix de CI do passo 2c pode commitar/pushar** a correção que aplicou. `IS_OWN_PR == false` não distingue colega de time com push habilitado de desconhecido: é binário, por `author.login`, sem exceção para coautoria ou bypass de branch protection.
+**Guarda de autoria.** `IS_OWN_PR = (author.login == ME)`, com `ME` = `gh api user -q .login`. É mais
+restrito que o do `${FLUX_CMD}review` (assignee não conta) porque aqui guarda escrita no histórico. É
+binário, sem exceção para coautoria ou bypass de proteção. Com `IS_OWN_PR == false`:
+
+- **Nunca**, nem com concessão: force-push (resolução de conflito do 2b), edição de título ou descrição
+  e carimbo de atribuição (8a, que vira sugestão em comentário).
+- **Modo `no-push` por default**: só interação (responder, reagir, resolver). Correção de thread ou de
+  CI pode ser aplicada e validada na worktree, mas não é commitada nem pushada.
+- **A concessão do passo 6** (`writeGrantedForThirdParty`) libera só commit e push (o auto-fix do 2c, o
+  executor do 4 e o passo 8). Nunca é inferida e nunca vem do `--auto`.
+
+Um caminho que chegue a escrever sem a guarda é bug: abortar, registrar o bloqueio no board e reportar,
+nunca escrever "por garantia".
 
 Buscar **todas** as threads via GraphQL (a REST não expõe `isResolved`). Buscar resolvidas também é essencial: elas formam o **corpus de referência** para o cross-reference do passo 3.
 
@@ -239,8 +237,6 @@ minúsculas com `ME`:
 - **Corpus de referência** (`isResolved == true` e `resolvedBy.login == ME`) — guardar `url`, `path:line`, `author.login` e um resumo do ponto + veredito. Estas threads continuam servindo apenas ao cross-reference do passo 3a; não entram na fila de verificação.
 
 **Régua da verificação pendente:** a lente classifica cada comentário como (a) correção já presente e ainda válida, (b) finding que persiste ou regrediu, ou (c) sem finding, alegação que não procede ou que ficou obsoleta. No caso (a), manter a thread fechada e registrar a verificação; não reaplicar a correção. No caso (b), incluir o finding no plano normal de correção com evidência `arquivo:linha`. No caso (c), manter a thread fechada e registrar que não há finding ou por que a alegação não procede/não se aplica mais. Resolver por terceiro ou desconhecido nunca é evidência suficiente, por si só, de que o ponto foi conferido.
-
-**Threads abertas mantêm a semântica atual.** A autoria do resolver não muda seu tratamento: threads abertas seguem a partição e o fluxo existentes; a fila nova cobre apenas threads já resolvidas por outra conta ou sem resolver identificável.
 
 Para cada thread com `pageInfo.hasNextPage == true`, guardar o `endCursor` e consultar o node da própria thread com esse cursor:
 
@@ -279,7 +275,7 @@ Eles não têm reply nativo (responder = novo issue comment) nem resolução; re
 - **Acionáveis** — de terceiros, com conteúdo substantivo. Entram no mesmo conjunto de trabalho das threads abertas: verificar contra o código real, responder, reagir. Não há resolve, então "fechado" aqui significa **respondido**.
 - **Ignoráveis** — bot de CI/Linear/reviewer automático que só ecoa estado (ex.: "rodou uma revisão automática e não encontrou pontos"), sincronização de ticket, e comentários do próprio autor sem réplica de terceiros.
 
-**Um issue comment humano NUNCA é ignorado por não ser thread.** Se houver issue comment de terceiro ainda sem réplica sua posterior a ele, a PR **é acionável** mesmo com `reviewThreads` 100% resolvidas. Esse caso já aconteceu e passou batido (PR #238 do `technical-refining`: 12/12 threads fechadas, com um comentário substantivo de revisor humano intocado por dois dias).
+**Um issue comment humano NUNCA é ignorado por não ser thread.** Se houver issue comment de terceiro ainda sem réplica sua posterior a ele, a PR **é acionável** mesmo com `reviewThreads` 100% resolvidas.
 
 **Contagem reportada:** ao informar progresso (chat, board, retorno para um orquestrador), conte os dois universos e diga qual é qual, no formato `threads <res>/<tot> · issue comments <respondidos>/<acionáveis>`. Nunca reporte só o número de `reviewThreads` como se fosse o total de pendências da PR.
 
@@ -303,17 +299,17 @@ Registrar no chat o motivo do prosseguimento (ex.: `sem threads abertas e CI ver
 
 ### 2a. Board no vault (nota viva)
 
-Havendo trabalho acionável (threads abertas, **verificação pendente de thread resolvida por terceiro/unknown**, **PR conflitante com a base** ou CI vermelho), **crie o board deste iterate** antes de seguir para a verificação, e **anuncie o caminho no chat** (o board existe desde o começo, não só no fim; a partir daqui, cada passo relevante e cada tick do watch atualiza o board).
+Havendo trabalho acionável (threads abertas, **verificação pendente de thread resolvida por terceiro/unknown**, **PR conflitante com a base** ou CI vermelho), **resolva o board** (abaixo) antes de seguir para a verificação, e **anuncie o caminho no chat** (o board existe desde o começo, não só no fim; a partir daqui, cada passo relevante e cada tick do watch atualiza o board).
 
-**O formato é fonte única compartilhada:** siga `${FLUX_ROOT}/shared/board-template.md`, **perfil single-PR** (`type: flux-iterate` — canônico no schema do vault, painel com **1 linha** — a PR deste run). Todas as seções (Frontmatter → H1+TLDR → 🎯 Próximo Movimento → 📊 Painel → ⏰ Timeline Verbosa → 📅 Timeline de Eventos Relevantes → ✅ Ação/Continuidade), a legenda de ícones, a regra do painel e a disciplina de carimbo de data vivem lá.
+**Resolver o board** conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board": o desta sessão; senão o do caso (`case_keys`: `pr:<owner>/<repo>#<n>`, que acha também o board do build que abriu a PR e o do review dela); senão um novo, **perfil single-PR** (`type: flux-iterate`, `generator: "flux-iterate"`). Formato, frontmatter (com a linha desta sessão em `provenance.runs`), painel e carimbo de data vivem lá. Esta rodada entra na seção `## 🔁 iterate · PR #N`, um H3 por rodada.
 
-- **Caminho (determinístico):** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md`. Se `VAULT_ROOT` não estiver definido (perfil genérico), registrar só no chat. Se já existir um board deste iterate (retomada de watch), **atualizá-lo**, nunca duplicar.
-- **Proveniência (`--parent-board`):** se `PARENT_BOARD` não estiver vazio, este iterate nasceu de um delivery-flow. Gravar `parent_board: "<PARENT_BOARD>"` no frontmatter e, logo após o TLDR, a linha `> Executado a partir de um delivery-flow: [board da entrega](<PARENT_BOARD>)`. Sem a flag (iterate avulso), o board não tem bloco de proveniência.
+- **Caminho do board novo:** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md`. Sem `VAULT_ROOT`, só no chat.
+- **`--parent-board <path>`:** o orquestrador (o `flux:land`) roda na mesma sessão e já resolveu o board dela; `PARENT_BOARD` **é** esse board. Não criar nem escrever board: o escritor único é o do orquestrador. Devolver no retorno o delta desta PR, dentro do limite de retorno do land (até 5 linhas de Timeline e um resumo da rodada em até 10 linhas, com links), e quem grava é ele. Sem a flag, vale a resolução acima.
 - **Sem fabricação:** todo número do painel vem de fonte real — rodadas = `round` do estado; threads res/tot do GraphQL do passo 2; 👍/👎 filtrados pela conta do `gh`; CI do `gh pr checks`. Onde não houver fonte, `n/d`.
-- O board nasce **tanto no watch quanto no `--once`** (o delivery-flow chama o iterate com `--once`, e ainda assim precisa do board filho). Registrar o path no estado (passo do watch, campo `board`).
-- **Quem escreve depende do watch** (`${FLUX_ROOT}/shared/fanout-discipline.md`, seção do board-keeper): com o watch ligado, criar aqui o **board-keeper** (subagente nomeado, escritor único do board) e passar a mandar o delta de cada tick por `SendMessage` — assim o `CLAUDE.md` do vault e o template de board nunca entram no contexto principal, e a main nunca relê o board. Com `--once` (inclusive quando despachado por um delivery), **não criar keeper**: é uma escrita só, a main grava direto.
-- **Em `--dry`:** criar o board normalmente, mas sinalizar no TLDR que o run foi read-only.
-- Para cada thread resolvida por terceiro/unknown verificada, registrar na Timeline Verbosa o `resolvedBy`, o resultado (`correção presente e válida`, `finding persistente/regredido` ou `sem finding/alegação improcedente/obsoleta`), o SHA do head verificado e a evidência `arquivo:linha` quando houver. Indexar a verificação na Timeline de Eventos Relevantes como tipo `review`; não criar tabela paralela nem alterar a contagem real de threads do painel.
+- O board é resolvido **tanto no watch quanto no `--once`**, salvo com `--parent-board`, em que o iterate não escreve board. Registrar o path no estado (passo do watch, campo `board`).
+- **Quem escreve depende do watch** (`${FLUX_ROOT}/shared/fanout-discipline.md`, seção do board-keeper): com o watch ligado, retomar o keeper do board se a sessão já tiver um, ou criar o **board-keeper** (subagente nomeado, escritor único) e mandar o delta de cada tick por `SendMessage`; assim o template e o `CLAUDE.md` do vault não entram no contexto principal. Com `--once` avulso, não criar keeper: a main grava direto. Com `--parent-board`, quem grava é o orquestrador.
+- **Em `--dry`:** resolver o board normalmente e marcar `[dry-run]` no TL;DR.
+- Para cada thread resolvida por terceiro/unknown verificada, registrar na seção do iterate o `resolvedBy`, o resultado (`correção presente e válida`, `finding persistente/regredido` ou `sem finding/alegação improcedente/obsoleta`), o SHA do head verificado e a evidência `arquivo:linha` quando houver. Indexar a verificação na Timeline como tipo `review`; não criar tabela paralela nem alterar a contagem real de threads do painel.
 
 ### 2b. Gate de integração com a base — PRIMEIRO gate (1ª passada E cada tick do watch)
 
@@ -322,9 +318,8 @@ Havendo trabalho acionável (threads abertas, **verificação pendente de thread
 > resolução em subagente e o `--force-with-lease` autorizado pelo pedido. Este passo declara só o encaixe no
 > iterate.
 
-**Por que vem antes da triagem de CI:** numa PR `DIRTY` o GitHub não computa o merge commit, então o
-resultado do CI que você leria no passo 2c é sinal falso, e qualquer correção aplicada empilha em cima
-de uma base que já não funde. Triar CI antes de resolver o conflito é triar um número que vai mudar.
+Vem antes da triagem de CI porque, numa PR `DIRTY`, o GitHub não computa o merge commit: o CI dela é
+sinal falso.
 
 Com `mergeable` / `mergeStateStatus` coletados no passo 2:
 
@@ -391,7 +386,7 @@ Com o estado do CI coletado no passo 2:
       pendência humana com a evidência da API (`metricKey`, `actualValue`, `errorThreshold`).
     - Sem manifesto, sem token ou sem provider configurado: degradação declarada — o shared descreve
       o comportamento conservador e o texto do banner.
-  - **Atribuível ao próprio push e dentro do escopo** (typecheck/lint/teste que este fluxo mexeu quebrou, build da branch): despachar o **subagente executor** do passo 4 com a instrução de resolver a worktree via `${FLUX_ROOT}/shared/worktree-discipline.md`, tentar **uma** correção e rodar o quality gate local (passo 5). **Sujeito ao mesmo guard de autoria do passo 6**: com `IS_OWN_PR == true`, ou `IS_OWN_PR == false` com escrita já concedida (`writeGrantedForThirdParty == true`), passando o gate, commitar + pushar na branch da PR. Com `IS_OWN_PR == false` sem concessão, o executor aplica e valida a correção mas **não commita nem pusha**: registra a correção pronta como bloqueio no board e reporta no chat, pedindo a mesma confirmação textual do passo 6 antes de escrever — nunca commitar "porque era só o CI". A investigação do log e a correção rodam nele, não na main. **No máximo uma tentativa de auto-fix por SHA** — não entrar em loop de correção.
+  - **Atribuível ao próprio push e dentro do escopo** (typecheck, lint ou teste que este fluxo mexeu quebrou, build da branch): o **executor** do passo 4 investiga o log, tenta **uma** correção, roda o quality gate (passo 5) e, se o gate passar e a guarda de autoria permitir, commita e pusha. Em `no-push`, a correção pronta vira bloqueio no board e o chat pede a confirmação textual do passo 6 ("Pedido explícito de escrita"), mesmo quando não há thread no plano; nunca commitar "porque era só o CI". **No máximo uma tentativa por SHA.**
   - **Não atribuível** (falha de infra, flaky, teste não relacionado, mudança de base): **não** mexer no código. Registrar no board + reportar no chat com link do log, e (no watch) seguir monitorando.
 
 Emitir os eventos de CI no board/Slack conforme o hook do watch (`ci-vermelho`, `ci-corrigido-tentativa`, `ci-verde`).
@@ -467,12 +462,8 @@ board e no relatório. Ao final, liste `{arquivos alterados, resumo do diff, men
 
 ### 4. Aplicar as correções pertinentes · fase 2 — via subagente executor
 
-> **GUARDA DE MODO DEGRADADO (checar antes de despachar):** se o gate do passo 2b não resolveu o
-> conflito (`mergeable == CONFLICTING`), **PULE este passo inteiro**. Não despache executor, não edite
-> arquivo, não rode gate. Vá direto ao passo 7 (responder/reagir/resolver as threads, que não depende
-> de base integrada) e **pule os passos 8 e 8a**. Aplicar correção numa PR que não funde é exatamente
-> o que o gate existe para impedir. Ver a tabela do modo degradado na seção 6 de
-> `${FLUX_ROOT}/shared/merge-conflict-gate.md`.
+> **Modo degradado** (passo 2b não resolveu o conflito): pular este passo e os passos 8 e 8a; ir
+> direto ao 7.
 
 **A execução também é fan-out.** O contexto principal **não edita arquivo do repo**: despacha **um
 subagente executor** (`subagent_type: general-purpose`) que resolve a worktree, aplica as correções
@@ -489,17 +480,11 @@ Prompt do executor (auto-contido, ele não herda a conversa):
   o que mudar. Inclua findings persistentes/regredidos de threads já resolvidas por terceiros/unknown.
   Não reaplique correção já presente e válida. Threads que NÃO procedem não geram mudança de código.
 - **A regra de comentários, verbatim** (`${FLUX_ROOT}/shared/code-comment-discipline.md`, seção "Como
-  propagar aos subagentes"). Ela **precisa ir no prompt**: o executor não herda a conversa nem os
-  `CLAUDE.md` da sessão, e este elo é o mais propenso ao defeito, porque o contexto que chega até ele é
-  justamente a discussão da review, a evidência e o veredito — material que pede para virar comentário
-  e não deve. Um despacho sem essa linha terceiriza a violação e volta pronto para commitar.
+  propagar aos subagentes"): o executor não herda a conversa nem os `CLAUDE.md`, e o material que ele
+  recebe (a discussão da review) é justamente o que pede para virar comentário.
 - O quality gate do passo 5, para rodar antes de devolver.
-- Com `--auto` **e** (`IS_OWN_PR == true` **ou** `IS_OWN_PR == false` com `writeGrantedForThirdParty
-  == true`): o executor também **commita e pusha** (passo 8), num só despacho, e devolve o SHA. Sem
-  `--auto`, ele para depois do gate — o commit fica para depois do gate humano do passo 6. **Com
-  `IS_OWN_PR == false` sem concessão, mesmo em `--auto`, o executor para depois do quality gate e não
-  commita nem pusha** — o mesmo guard do passo 6/8, aplicado aqui, porque em `--auto` o passo 6 pode
-  nunca ser alcançado antes do commit acontecer.
+- Com `--auto` e a guarda de autoria permitindo, o executor também **commita e pusha** (passo 8) no
+  mesmo despacho e devolve o SHA. Sem `--auto`, ou em `no-push`, para depois do quality gate.
 
 Contrato de retorno (**< 40 linhas**, sem diff colado):
 
@@ -507,7 +492,7 @@ Contrato de retorno (**< 40 linhas**, sem diff colado):
 - worktree: <path>
 - arquivos: <lista de arquivos alterados>
 - porThread: <databaseId> → <o que foi aplicado, em uma linha>
-- gate: typecheck <ok|fail> · lint <ok|fail> · testes <ok|fail|n/a>
+- gate: typecheck <ok|fail|n/a: motivo> · lint <ok|fail|n/a: motivo> · testes <ok|fail|n/a: motivo>
 - falhas: <mensagens de erro resumidas, ou nenhuma>
 - commit: <sha, ou n/a>
 - bloqueios: <lista curta, ou nenhum>
@@ -518,18 +503,14 @@ ou reportar como bloqueio). **A main não abre os arquivos para conferir o que o
 
 ### 5. Quality gate (antes de oferecer o push)
 
-Rodado **dentro do executor do passo 4**, na worktree, nos arquivos tocados:
-
-```bash
-pnpm typecheck
-pnpm lint        # ou: npx biome check <arquivos>
-# testes unitários afetados:
-CI=true AUTH_TOKEN=test-token npx vitest run <arquivos de teste afetados>
-```
-
-Integração roda em Docker. Se o daemon estiver down (`docker info` falha), **não bloqueie** — registre no plano "integração não validada localmente (Docker down)" e avise o usuário. Seguir o Agent Workflow do `CLAUDE.md` do repo (self-reviewer) quando aplicável.
-
-> O Biome ignora os paths de teste de integração: rodar `biome check` num arquivo sob `tests/integration/` reporta "Checked 0 files" — isso é esperado, não é erro; registrar como n/a no plano.
+Rodado **dentro do executor do passo 4**, na worktree, nos arquivos tocados: os checks que o repo
+declara (`CLAUDE.md`, `Makefile`, `package.json` ou o equivalente da stack), na ordem typecheck, lint e
+testes afetados. Seguir o fluxo de agentes do `CLAUDE.md` do repo quando houver. Teste que depende de
+serviço indisponível localmente (Docker parado, por exemplo) **não bloqueia**: entra no plano como "não
+validado localmente", com o motivo, e o usuário é avisado. Check que o repo não declara, ou que não dá
+para rodar, volta `n/a` com o motivo e nunca `ok` (a régua de `${FLUX_ROOT}/shared/merge-conflict-gate.md`
+para gate não executável); repo sem nenhum check declarado é dito no plano e no relatório, para o push
+não parecer validado.
 
 ### 6. Confirmação interativa (pular se `--auto`, exceto em PR de terceiro sem escrita concedida)
 
@@ -566,25 +547,12 @@ default**. Ele se comporta como se só a opção de interação existisse:
 
 #### Pedido explícito de escrita em PR de terceiro (RN-02, RN-03)
 
-Escolhida a opção 2 (`IS_OWN_PR == false`), o comando **não libera commit/push ainda**: abre uma
-segunda pergunta, desta vez de confirmação textual (não outro single-select do `shared/hitl.md`) —
-peça pro usuário digitar explicitamente algo como `sim, escrever na PR de terceiro`. **Critério de
-aceitação:** conta qualquer resposta que expresse, em texto claro e explícito, consentimento pra
-escrever *nesta* PR de terceiro (variações da frase-exemplo servem; não precisa ser match exato).
-Resposta vaga, neutra, condicional, ou fora do contexto desse consentimento (ex.: mudar de assunto,
-"talvez", "deixa eu pensar") **não** conta como confirmação e cancela o pedido, voltando pro modo
-`no-push` (opção 1).
-
-Confirmado o texto, a escrita fica concedida **para esta rodada** e o fluxo segue como se a opção 1 de
-`IS_OWN_PR == true` tivesse sido escolhida (post + commit + push, passo 7 e passo 8 rodam normalmente).
-
-**Persistência no watch (RN-c):** a concessão vale pras próximas rodadas automáticas do **mesmo run**
-de watch, sem precisar ser re-afirmada a cada rodada — grave `writeGrantedForThirdParty: true` no
-estado persistente (ver "Estado persistente" no modo WATCH). Um novo `/flux:iterate` (nova invocação,
-novo estado) sempre nasce em `no-push`; a concessão não atravessa runs.
-
-Nunca inferir o pedido de contexto (ex.: o usuário mencionar "pode commitar" numa thread não conta).
-A confirmação textual é o único caminho.
+Escolhida a opção 2, o comando ainda não escreve: pede uma **confirmação textual** (não outro
+single-select), como `sim, escrever na PR de terceiro`. Vale qualquer texto que expresse consentimento
+claro para escrever *nesta* PR; resposta vaga, condicional ou fora do assunto cancela o pedido e volta
+ao `no-push`. Confirmado, o fluxo segue como a opção 1 de PR própria (post, commit e push; passos 7 e 8), e `writeGrantedForThirdParty: true`
+vai ao estado: a concessão vale para as rodadas seguintes do **mesmo** watch e nunca atravessa uma
+invocação nova. Nunca inferir o pedido de contexto (um "pode commitar" numa thread não conta).
 
 **Interação com o gate do passo 2b:**
 - Se o gate resolveu um conflito neste run, o push dele já foi decidido no passo 2b conforme a seção 5 do shared; esta pergunta não o reabre nem o embute na opção 1: mostra o relato como contexto e trata só das threads.
@@ -616,16 +584,9 @@ Top-level issue comments: responder = novo `gh api repos/$REPO_FULL/issues/$PR_N
 
 ### 8. Commit + push (somente opção 1, e só após o passo 7 completo) · fase 4
 
-> **GUARDA DE MODO DEGRADADO:** com `mergeable == CONFLICTING` não resolvido pelo passo 2b, **não
-> commite e não pushe** (nem rode o passo 8a, que pressupõe push). O passo 7 já fechou a conversa; o
-> código fica intocado e o bloqueio vai no relatório do passo 9. Não "aproveitar" o push para
-> atualizar a branch.
+> **Modo degradado** (passo 2b): não commitar, não pushar, não rodar o 8a.
 
-> **GUARDA DE AUTORIA (RN-01/RN-02):** com `IS_OWN_PR == false`, este passo só roda se a escrita foi
-> concedida no passo 6 (opção 2 + confirmação textual, desta rodada ou persistida do watch). Sem essa
-> concessão, o passo 6 já não teria levado até aqui — mas se algum caminho de código chegar neste
-> ponto sem `IS_OWN_PR == true` nem a concessão registrada, é bug: aborte o commit/push, registre o
-> bloqueio e reporte, nunca escreva "por garantia".
+> **Guarda de autoria** (passo 2): em `no-push`, este passo não roda.
 
 Confirme que TODAS as threads endereçadas foram respondidas e resolvidas antes de pushar.
 
@@ -656,56 +617,34 @@ git push origin <headRefName>
 
 ### 8a. Reconciliar título e descrição da PR · fase 4b
 
-> **Por que existe.** Título e descrição são o que o revisor humano lê primeiro e o que sobrevive no
-> histórico do repo. Quando uma rodada muda o desenho (proposta refutada, mecanismo trocado, escopo
-> cortado), os dois passam a **afirmar coisa que a própria PR já refutou** nas threads. Caso real que
-> originou este passo: a descrição anunciava `/implement-task update` como *a* proposta depois de a review
-> ter derrubado o verbo-fachada, uma tabela listava uma seção como "ausente" depois de a thread ter provado
-> que ela existe, e o título ainda dizia "proposta do verbo update" depois de o verbo ter sido descartado.
-> Thread resolvida com CI verde e título/descrição mentindo é entrega pela metade.
+Título e descrição são o que o revisor lê primeiro e o que fica no histórico; quando a rodada muda o
+desenho, eles passam a afirmar o que as threads já refutaram, e isso é entrega pela metade.
 
-Roda **depois do push** (título e descrição descrevem o estado que está no remoto, não o intermediário),
-em toda rodada que mudou algo que eles afirmam, e, para o carimbo de atribuição, em toda passada que
-pushou. **Nunca roda em `--dry`.** Título e descrição são
-reconciliados na **mesma passada**, porque descasá-los é pior que deixar os dois velhos: título novo com
-descrição velha faz o leitor duvidar de qual dos dois está certo.
+Roda **depois do push**, em toda rodada que mudou algo que título ou descrição afirmam, nunca em
+`--dry`, e sempre os dois na mesma passada.
 
-#### Guardrails (os três são bloqueantes)
+#### Guardrails (bloqueantes)
 
-1. **Só PR própria.** Comparar `author.login` da PR com a conta autenticada (`gh api user -q .login`). Se
-   for PR de terceiro, **nunca** editar a descrição: redigir a correção sugerida e postar como comentário,
-   registrando no board que a reconciliação virou sugestão. Editar o texto de outra pessoa não é escopo
-   deste comando.
-2. **Só afirmação refutada por evidência.** Mesmo rigor do passo 3: só mexe numa frase da descrição que
-   esteja contradita por (a) evidência no estado atual da branch, com `arquivo:linha`, ou (b) decisão
-   fechada numa thread desta rodada, com link da thread. **Proibido "melhorar" redação, reorganizar
-   seções ou reescrever o que apenas envelheceu de estilo.** Sem par de evidência, não é drift: é gosto,
-   e não se toca. Exceção única: o carimbo de atribuição (subseção abaixo), que não é afirmação da
-   descrição.
-3. **Nunca reescrever o body inteiro.** Sempre `gh pr view --json body` primeiro e editar **sobre** o
-   texto atual, cirurgicamente. Gerar descrição do zero apaga trabalho humano (contexto que o autor
-   escreveu à mão, links de PRs irmãs, checklist que o revisor marcou) e é a falha mais cara possível
-   aqui, porque é silenciosa e irreversível pela UI.
+1. **Só PR própria, sem exceção**: em PR de terceiro, **nunca** editar, nem com a concessão do passo 6;
+   a correção vira comentário de sugestão, registrado no board.
+2. **Só afirmação refutada por evidência**: contradita pelo estado atual da branch (`arquivo:linha`) ou
+   por decisão fechada numa thread desta rodada (link). Melhorar redação, reorganizar ou atualizar
+   estilo não é drift. A única exceção é o carimbo de atribuição, abaixo.
+3. **Nunca reescrever o body inteiro**: `gh pr view --json body` primeiro e edição cirúrgica sobre ele,
+   preservando o que é humano (contexto, links de PRs irmãs, checklist marcada).
 
 #### O título tem regra própria (mais restritiva que a descrição)
 
-O título circula muito mais que o corpo: entra em notificação de e-mail e Slack, no assunto da review
-request, na busca do GitHub, na lista de PRs, e vira a **mensagem do squash commit** que fica na `main`
-para sempre. Renomear no meio da review confunde quem procura pelo nome antigo. Então:
+O título circula mais que o corpo (notificação, busca, mensagem do squash commit), e renomear no meio da
+review confunde quem procura pelo nome antigo. Então:
 
-- **Renomear só quando o título nomeia o desenho refutado**, ou seja, quando ele é factualmente errado
-  agora. Título que apenas ficou genérico, ou que você escreveria melhor hoje, **não se toca**. A barra é
-  mais alta que a da descrição, não igual.
-- **Preservar a convenção do repo, não inventar formato.** Inferir o padrão dos títulos das PRs vizinhas
-  (`gh pr list --limit 20 --json number,title`) e manter exatamente: prefixo de ticket (`[ENG-1234]`,
-  `[AIPROD-000]`), tipo e escopo de Conventional Commit (`docs(shared):`), e convenções de escrita do repo
-  — incluindo **se o repo escreve título sem acento**, caso em que não se acentua o título novo mesmo com
-  a regra geral de PT-BR acentuado valendo para o corpo. O que muda é só o miolo que ficou errado.
-- **Nunca mexer no prefixo de ticket.** Ele é chave de rastreabilidade para o Linear e para o CI; trocar
-  ou remover quebra automação silenciosamente.
-- **Registrar o título antigo no bloco gerenciado** (linha do changelog daquela rodada), para que quem
-  procurar pelo nome anterior ainda ache o rastro dentro da PR.
-- Vale o mesmo guard de autoria: título de PR de terceiro **não** se renomeia, vira sugestão em comentário.
+- **Renomear só quando o título nomeia o desenho refutado.** Título só genérico, ou que hoje sairia
+  melhor, fica.
+- **Preservar a convenção do repo** (inferida de `gh pr list --limit 20 --json number,title`): prefixo
+  de ticket, tipo e escopo de Conventional Commit, e até a ausência de acento, quando o repo escreve
+  título sem acento.
+- **Nunca mexer no prefixo de ticket.**
+- **Registrar o título antigo** na linha da rodada no bloco gerenciado.
 
 ```bash
 gh pr edit $PR_NUMBER --repo $REPO_FULL --title '<titulo novo>'
@@ -713,13 +652,11 @@ gh pr edit $PR_NUMBER --repo $REPO_FULL --title '<titulo novo>'
 
 #### Duas zonas, tratadas de forma diferente
 
-- **Zona autoral** (a prosa da descrição): edição cirúrgica só nas afirmações refutadas. Preservar voz,
-  estrutura de seções, tabelas e o trailer `🤖 Generated with [Claude Code]` (que só muda pelo carimbo
-  abaixo). Quando a mudança inverte
-  uma decisão, **não apagar o desenho antigo em silêncio**: reescrever para o desenho vigente e registrar
-  a virada no bloco gerenciado (abaixo). Quem chega na PR depois precisa entender por que mudou.
-- **Bloco gerenciado** (append no fim, antes do trailer): tabela mantida pelo flow, delimitada por
-  marcadores HTML, segura de reescrever por inteiro a cada rodada.
+- **Zona autoral** (a prosa): edição cirúrgica só nas afirmações refutadas, preservando voz, seções,
+  tabelas e o trailer `🤖 Generated with`. Decisão invertida não some em silêncio: o texto passa ao
+  desenho vigente e a virada vai ao bloco gerenciado.
+- **Bloco gerenciado** (no fim, antes do trailer): tabela do flow entre marcadores, reescrita por
+  inteiro a cada rodada.
 
 ```markdown
 <!-- flux:iterate:changelog -->
@@ -747,16 +684,12 @@ diff -u "$SCRATCH/pr-$PR_NUMBER-body-before.md" "$SCRATCH/pr-$PR_NUMBER-body-aft
 gh pr edit $PR_NUMBER --repo $REPO_FULL --body-file "$SCRATCH/pr-$PR_NUMBER-body-after.md"
 ```
 
-Usar `--body-file`, nunca `--body` com string inline: markdown longo em argumento de shell é onde nascem
-os acidentes de escaping e de truncamento. Quando o título também mudou, publicar título e corpo **no mesmo
-`gh pr edit`** (ou em chamadas consecutivas, sem gate entre elas), para a PR nunca ficar num estado com um
-reconciliado e o outro não. Valem as **Convenções de texto** deste arquivo, incluindo a
-proibição de travessão quando `NO_EMDASH == true` (a descrição é publicação externa).
+Usar `--body-file`, nunca `--body` inline. Título e corpo saem no mesmo `gh pr edit` (ou em chamadas
+seguidas, sem gate entre elas). Valem as Convenções de texto, inclusive `NO_EMDASH`.
 
 Após publicar, gravar `bodySyncedAtSha` no estado (o SHA para o qual a descrição está reconciliada), e
 `titleSyncedAtSha` junto, e
-registrar no board: linha na Timeline de Eventos Relevantes com tipo `pr-body` e um parágrafo na Timeline
-Verbosa dizendo **qual afirmação** foi corrigida e **com que evidência** (não basta "descrição
+registrar no board: linha na Timeline com tipo `pr-body` e, na seção do iterate, um parágrafo dizendo **qual afirmação** foi corrigida e **com que evidência** (não basta "descrição
 atualizada"). Emitir o evento Slack `descricao-reconciliada` se o feed estiver configurado.
 
 #### Carimbo de atribuição
@@ -774,7 +707,7 @@ não existe, guardrails). Este passo não redefine nada disso: só diz **quando*
   garante que várias rodadas na mesma versão não repitam o par.
 - Quando a reconciliação da descrição também roda nesta passada, aplicar o carimbo no mesmo
   `-after.md` e publicar os dois num único `gh pr edit`.
-- Mesmo guard de autoria: PR de terceiro não recebe carimbo.
+- PR de terceiro nunca recebe carimbo, nem com a concessão do passo 6 (guarda de autoria, passo 2).
 
 #### Gate
 
@@ -794,7 +727,7 @@ não existe, guardrails). Este passo não redefine nada disso: só diz **quando*
 
 Tabela curta: por thread aberta ou finding persistente de thread reaberta `{path:line | veredito | sobreposição | 👍/👎}`, depois `{commit hash, range de push}`. Acrescentar um resumo das threads fechadas por terceiros/unknown verificadas, com `resolvedBy`, resultado, `headSha` conferido e evidência `arquivo:linha` quando houver; confirmar que as verificadas como corrigidas continuam fechadas e não receberam correção duplicada.
 
-**Dizer onde ficou a worktree e em que estado ela está** (path, e quantos envs foram provisionados do cofre, ou por que não foram). É a informação que o usuário precisa para abrir a branch e olhar o resultado com os próprios olhos, e omiti-la obriga a perguntar. Quando o cofre não tinha entrada para o repo, ou o manifesto não declara `env_vault`, dizer isso explicitamente em vez de deixar a worktree parecer pronta para subir. Sinalize threads humanas deixadas abertas (`needs-discussion`) e quais foram marcadas como `duplicate`/`related-but-distinct` (com link da irmã). Não repita os bodies completos das réplicas.
+**Dizer onde ficou a worktree e em que estado ela está** (path, e quantos envs foram provisionados do cofre, ou por que não foram). Quando o cofre não tinha entrada para o repo, ou o manifesto não declara `env_vault`, dizer isso explicitamente em vez de deixar a worktree parecer pronta para subir. Sinalize threads humanas deixadas abertas (`needs-discussion`) e quais foram marcadas como `duplicate`/`related-but-distinct` (com link da irmã). Não repita os bodies completos das réplicas.
 
 **Sempre reportar o estado de integração com a base**, mesmo quando ele estava limpo (é a informação que decide se a PR pode mergear). Quando este run foi despachado por um orquestrador (`--parent-board` presente, ou seja, rodando dentro do subagente de um `/flux:land`), o retorno inclui os campos estruturados `mergeable` e `conflito` do contrato da fase 4 do land, e não só a prosa: quem consome é máquina, e inferir conflito de texto livre é frágil no dado que decide o go/no-go. Inclui também os campos do relato definidos no contrato de retorno da fase 4 do `${FLUX_CMD}land`. Se o gate do passo 2b agiu, dizer os itens do relato da seção 5 do shared. Se o gate ficou em **modo degradado**, dizer explicitamente o que **não** foi feito: `conflito semântico em <arquivos> — respondi as threads, não apliquei correção nem pushei`. Nunca fechar o relatório dando a PR por pronta quando ela segue conflitante.
 
@@ -802,15 +735,12 @@ Quando o passo 8a mexeu em título ou descrição, dizer em uma linha **o que fo
 
 ### 9a. Aviso no canal de PR (GATE na passada interativa, automático em `--auto` e em todo tick do watch, nunca posta)
 
-Depois do passo 7 (e do 8, quando houve push), só quando **todas** valem: `IS_OWN_PR == true`; o run
-respondeu, reagiu ou resolveu thread de **pessoa** (bot e o próprio autor não contam) neste turno (tick de delta
-vazio não roda o 9a); fora de `--dry` e fora de run despachado por orquestrador (`--parent-board`, como o do
-`flux:land`, que roda em subagente e dispararia rascunhos em lote);
-`SLACK_DIR` declarado com algum canal que tenha o intent do grupo; `FLUX_CMD` utilizável; e
-capacidade de Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão). Sem qualquer uma,
-nenhuma pergunta e nenhuma linha extra, e a ausência é silenciosa por design (sem token de degradação, ver
-`${FLUX_ROOT}/shared/codex-compat.md`). As lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`) saem só no
-relatório do tick, também sem token. Não confundir com o Hook Slack, que é o feed de status.
+Depois do passo 7 (e do 8, quando houve push), só quando **todas** valem: PR própria; o turno
+respondeu, reagiu ou resolveu thread de **pessoa** (bot e o próprio autor não contam); fora de `--dry` e
+de run despachado por orquestrador (`--parent-board`); `SLACK_DIR` com canal que tenha o intent do grupo;
+`FLUX_CMD` utilizável; e Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão). Faltando qualquer uma, nada acontece, sem token de
+degradação; as lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`) saem só no relatório do
+tick. Não confundir com o Hook Slack (feed de status).
 
 Agrupar por revisor (o `author.login` da thread tratada, pessoas apenas):
 - **`iterate-enderecado`**: revisores cujas threads tratadas neste run ficaram **todas** respondidas, reagidas
@@ -819,14 +749,11 @@ Agrupar por revisor (o `author.login` da thread tratada, pessoas apenas):
   resposta deles (`needs-discussion`, ou defesa mantida aberta). `abertos` é a contagem dessas threads
   (a soma dos revisores do grupo), e o revisor com threads dos dois tipos entra só neste grupo.
 
-**Todo tick do watch roda este passo** (e o `--auto`), logo depois da rodada de threads do delta e do push, na
-mesma `--auto` em que as réplicas foram postadas. Sem usuário para responder, não há gate: o rascunho é a
-exceção que o watch já tem (privado, reversível, não notifica ninguém), e o aviso vai pelo `reply` na variante
-`--auto`, que imprime o preview no relatório do tick e salva o rascunho. Só se avisa revisor com thread tratada **neste turno**, e o
-campo `slackNotified` do estado do watch (`<login do revisor>` → `{grupo, abertos, round}`) impede avisar duas
-vezes o mesmo revisor no mesmo `round` (tick reexecutado, 1ª passada seguida de tick). Rascunho que o `reply` não pôde
-salvar (`draft-pendente`, porque já existe um rascunho anexado no canal, ou `sem-rascunho`) **não** grava
-`slackNotified`: o próximo tick tenta de novo, e o relatório do tick diz o motivo uma vez.
+**No `--auto` e em todo tick do watch**, sem gate: o aviso vai pelo `${FLUX_CMD}reply --auto`, que
+imprime o preview no relatório e salva o rascunho (privado, reversível, não notifica). Só se avisa
+revisor com thread tratada **neste turno**; `slackNotified` (`<login>` → `{grupo, abertos, round}`)
+impede avisar o mesmo revisor duas vezes no mesmo `round`. Rascunho não salvo (`draft-pendente`,
+`sem-rascunho`) não grava `slackNotified`: o próximo tick tenta de novo, e o relatório diz o motivo uma vez.
 
 Para cada grupo não vazio cujo intent exista num canal do diretório, na passada interativa, abrir **um GATE**
 (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado no fallback de
@@ -871,7 +798,7 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
 
 ### Fluxo em `--dry`
 
-1. Executar os passos 0-context, 1 (resolver target), 2 (coletar metadados + threads), e 2a (criar board com nota `[dry-run]` no TLDR).
+1. Executar os passos 0-context, 1 (resolver target), 2 (coletar metadados + threads), e 2a (resolver o board, com `[dry-run]` no TL;DR).
 2. Coletar o diff completo da PR: `gh pr diff $PR_NUMBER --repo $REPO_FULL`.
 3. **Pular apenas threads abertas triviais** conforme o passo 2. A regra de comentário do próprio autor sem réplica de terceiros continua valendo para threads abertas; toda thread já resolvida por terceiro/unknown entra na verificação pelo `resolvedBy`, sem filtro por tamanho ou conteúdo, mesmo que o primeiro comentário tenha sido escrito pelo autor da PR.
 4. Verificar threads abertas e resolvidas por terceiros/unknown pelo fan-out do passo 3, honrando `--solo`. Depois, delegar ao `<ANSWERER>` via Task tool (subagent_type: `<ANSWERER>`) para redigir apenas as réplicas necessárias, passando:
@@ -881,14 +808,11 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
    - Caminho do checkout local quando disponível
    - Instrução: produzir rascunhos classificados em `accepts-suggestion / defends-decision / needs-discussion / needs-code-change` + os comandos `gh api` prontos para cada thread que exige interação. Para resolvidas cuja correção está presente e válida ou cuja alegação é improcedente/obsoleta, não redigir réplica nem comando; a thread fica fechada e o resultado da verificação é registrado no artefato.
    - Se `ANSWERER` não estiver definido no perfil (genérico): usar `<HOLISTIC>` com instrução explícita de rascunhar réplicas seguindo o mesmo formato.
-5. Computar o **path do arquivo de saída**:
-   - Com `VAULT_ROOT`: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-{repo-slug}-PR{n}-v{N}-answers.md` — nota nova nasce no inbox, como todas as outras.
-     - `{N}` = número de runs de `--dry` neste dia para esta PR. Contar os arquivos de mesmo prefixo nos **dois** lugares onde eles podem estar: `<VAULT_ROOT>/0-inbox/` (ainda não triados) e `<VAULT_CTX_ROOT>/pr-reviews/` (já promovidos pelo `/organize`). Contar só o inbox reinicia o `v` depois de cada triagem e sobrescreve rascunho anterior.
-   - Sem `VAULT_ROOT` (perfil genérico): imprimir o resultado no chat em vez de salvar.
-6. **Salvar** o output do `<ANSWERER>` no arquivo calculado (Write tool), com frontmatter mínimo de roteamento (`type: pr-review`, `context: <VAULT_CTX>`, `repo: <repo-slug>`, `pr:`, `date:`, `pending_organize: true`) — sem esse sinal o `/organize` não sabe para qual contexto promover — e com o bloco `provenance` **completo**, as dez chaves do contrato de `${FLUX_ROOT}/shared/board-template.md`, seção "Bloco `provenance` (todos os perfis)", com `generator: "flux-iterate"` e verbo `iterate` no `stamp`, conferido pelo checklist daquela seção antes do Write: é nota escrita por uma sessão como qualquer outra, e ficar de fora quebraria a filtrabilidade que o campo existe para dar. **Nunca** escrever no GitHub.
+5. **Gravar os rascunhos no board da sessão**, não em arquivo próprio: subseção `### Rascunhos dry-run v{N} · <data>` dentro de `## 🔁 iterate · PR #N`, com `{N}` = rodadas de `--dry` já registradas nessa seção + 1. Sem `VAULT_ROOT`: imprimir no chat.
+6. **Nunca** escrever no GitHub.
 7. Anunciar no chat:
    ```
-   Rascunhos salvos em {caminho-completo}.
+   Rascunhos salvos no board {caminho-completo}, seção do iterate.
 
    {N} threads abertas: {X} accepts-suggestion, {Y} defends-decision, {Z} needs-discussion, {W} needs-code-change.
    {R} threads resolvidas por terceiros/unknown verificadas: {A} correção presente e válida, {B} finding persistente/regredido, {C} sem finding/alegação improcedente/obsoleta.
@@ -901,21 +825,17 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
 
 ## Modo WATCH (default; desligue com `--once`)
 
-> O watch é o comportamento **padrão**: o comando faz a 1ª passada normalmente e, após o push, **fica vivo** monitorando a PR (CI + novas rodadas do bot) até ela assentar ou mergear. Use `--once` (alias `--no-watch`) para rodar só uma passada e terminar após o push.
-
-### Quando o usuário pediu
-
-Cenário típico: o usuário fechou a 1ª rodada de threads e **vai sair**. Quer que o comando:
-1. Pegue automaticamente as **próximas rodadas** do bot reviewer (que costuma recomentar depois do push) e as feche sem intervenção.
-2. **Monitore o CI** da PR (GitHub Actions) e avise/aja quando quebrar.
-3. Não esqueça: mantenha a PR vigiada até assentar, **sem gastar um turno de LLM por tick ocioso**.
+O usuário fechou a 1ª rodada e vai sair: o watch pega as próximas rodadas do bot, vigia o CI e mantém
+a PR até assentar, **sem gastar turno de LLM em tick ocioso**.
 
 Quem espera é o **gate mecânico** (`${FLUX_ROOT}/scripts/iterate-watch-gate.sh`): um processo em
 background faz o poll da PR e só termina quando há algo a fazer ou quando o watch acabou. Onde o gate
 não puder ser usado, vale o watch agendado de sempre (um tick de LLM reagendado por `ScheduleWakeup`).
 A escolha entre os dois é o `WATCH_WAKE`, abaixo.
 
-As **rodadas subsequentes do watch rodam em `--auto`**: cada uma aplica + posta + resolve + commita + pusha sozinha (assume a opção 1 da confirmação), já que o usuário tipicamente saiu. **Em PR de terceiro, isso vale só se a escrita já foi concedida** (`writeGrantedForThirdParty == true` no estado, ver "Pedido explícito de escrita" no passo 6); sem concessão, cada rodada automática fica em `no-push` (interação, sem commit/push) até o usuário pedir escrita numa passada interativa. A 1ª passada mantém a confirmação interativa, a menos que `--auto`. A configuração de `--solo` persiste em todas as rodadas. Verificação contra o código real continua **obrigatória** em toda rodada, watch não relaxa o rigor anti-falso-positivo.
+As **rodadas do watch rodam em `--auto`** (opção 1 da confirmação), respeitando a guarda de autoria:
+em `no-push`, cada rodada só interage. `--solo` persiste. A verificação contra o código real continua
+obrigatória em toda rodada.
 
 ### `WATCH_WAKE`: quem acorda a sessão
 
@@ -943,12 +863,8 @@ sessão de fato expõe, nunca leitura de documentação de harness.
   rodada. Vale igual quando a queda para `agendado` acontece no meio do run.
 - **O wake não é aprovação.** A regra é a de "Modo watch" do `${FLUX_ROOT}/shared/hitl.md`.
 
-> **Onde isto foi medido (spike LAB-170, 2026-09-30, uma execução por cenário).** No Claude Code e no
-> Cursor o fim de um processo em background acordou a sessão (em 20s, com cerca de 10min de ociosidade
-> e, no primeiro, depois de compactação), com o shell em modo background; o aviso traz só o código de
-> saída. No Codex não acordou. Os nomes aparecem aqui como registro de medição, não como regra: o que
-> decide é a capacidade verificada na sessão, e toda linha da tabela tem caminho de ausência: `processo`
-> e `fila` caem em `agendado`, e `agendado` cai em watch indisponível, com a passada valendo como `--once`.
+O que decide é a capacidade verificada na sessão, nunca o nome do harness (medição de referência:
+LAB-170).
 
 ### Estado persistente (não esquecer entre wakes)
 
@@ -982,21 +898,52 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
   "gateLastPollAtSeen": null,
   "lastGateEvent": null,
   "board": "<VAULT_ROOT>/0-inbox/....md",
-  "parentBoard": null,
   "startedAt": "<UTC: YYYY-MM-DDTHH:MM:SSZ>",
   "lastTickAt": "<UTC: YYYY-MM-DDTHH:MM:SSZ>"
 }
 ```
 
-Os três campos do gate de integração: `lastMergeable` = último `mergeable` lido; `conflictAttemptedAtBaseSha` = SHA da **base** para o qual já se tentou uma resolução (a régua de "uma tentativa por SHA da base"); `retainedResolutionSha` = SHA local da resolução retida sem push (gate vermelho ou lease recusado), `null` quando não há, e é a âncora do descarte condicionado da seção 5 do shared; o push da resolução não tem campo de aprovação: o pedido de resolver o autoriza em todo tick (shared, seção 5). `writeGrantedForThirdParty` = em PR de terceiro (`IS_OWN_PR == false`), o usuário já confirmou por texto o pedido de escrita (passo 6) neste run — dispensa repetir a confirmação nas rodadas automáticas seguintes do mesmo watch, nunca entre runs diferentes. Em PR própria o campo fica `false` e não é lido. `resolvedThreadIds` = toda thread que este elo **já processou**, resolvida ou não: é a lista que o gate usa para decidir se uma thread aberta é novidade, então uma thread respondida e deixada aberta de propósito (`needs-discussion`) entra aqui também, senão o gate a devolve como `nova-rodada` a cada relançamento. `discussionThreadIds` = o subconjunto dessas que ficou **aberto de propósito**; o gate não lê este campo, ele serve ao tick (passo 3 de "Um tick") e ao relatório final. `lastCiConclusion` grava um de três literais, `success`, `failure` ou `pending` (ou `null` quando a PR não tem checks): são as strings que o gate compara, e qualquer outra grafia faz o `ci-vermelho` se repetir. `watchWake` = o valor resolvido em "`WATCH_WAKE`"; só muda no meio do run **para** `agendado`, nunca de volta. `answeredCommentIds` = todo issue comment de terceiro que este elo **já classificou**, respondido ou não: é a lista que o gate usa para decidir se um comentário é novidade, então o comentário ignorável (bot de CI, sincronização de ticket) entra aqui também, senão o gate o devolve como `nova-rodada` a cada relançamento; o nome do campo é o que o gate lê e não muda. `startedAt` e `lastTickAt` são gravados **em UTC com `Z`**, no formato exato de `date -u +%Y-%m-%dT%H:%M:%SZ`: o gate lê `startedAt` para o limite de ~6h e só entende esse formato; com offset local (`-03:00`) ou sem `Z` ele descarta o valor em silêncio e passa a contar o limite do primeiro poll dele. `gatePid`, `gateSignalExits`, `gateLastPollAtSeen` e `lastGateEvent` são a memória do loop do gate entre turnos (quem é o gate desta sessão, quantas vezes ele caiu por sinal sem progredir, qual foi a última saída acionável); o uso de cada um está em "O loop de watch", e o gate não lê nenhum deles. `quietTicks` só é contado aqui no fallback agendado: com o gate, a contagem é dele, no arquivo irmão `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
+O que cada campo guarda, e a regra de gravação que o gate depende:
 
-`verifiedResolvedThreads` guarda um snapshot por thread resolvida por terceiro/unknown já verificada: `threadId`, `headSha`, `resolvedBy` e `lastCommentId` (ID REST do comentário mais recente). O watch só reabre a verificação quando a thread ainda está resolvida por terceiro/unknown e algum desses valores muda, inclusive quando o `headRefOid` muda; assim não trata uma thread fechada como aberta nem repete a mesma análise em ticks quietos. Registrar o snapshot só depois da classificação. Se o estado sumir, reconstruir esta lista vazia e reverificar; nunca inferir que a thread foi verificada por estar fechada.
+- **`resolvedThreadIds`**: toda thread que este elo já processou, resolvida ou não. É o que o gate usa
+  para decidir novidade, então a deixada aberta de propósito entra aqui também.
+- **`discussionThreadIds`**: o subconjunto deixado aberto de propósito (`needs-discussion`); o gate não o
+  lê, o tick sim.
+- **`answeredCommentIds`**: todo issue comment de terceiro já classificado, respondido ou ignorável
+  (senão o gate o devolve como `nova-rodada` a cada relançamento). O nome não muda.
+- **`verifiedResolvedThreads`**: um snapshot (`threadId`, `headSha`, `resolvedBy`, `lastCommentId`) por
+  thread resolvida por terceiro já verificada, gravado só depois da classificação. A verificação só
+  reabre quando um desses valores muda. Estado perdido: lista vazia e reverificar.
+- **`lastCiConclusion`**: só `success`, `failure`, `pending` ou `null` (sem checks); outra grafia faz o
+  `ci-vermelho` se repetir.
+- **`lastMergeable`**: o último `mergeable` lido. **`conflictAttemptedAtBaseSha`**: SHA da base já
+  avaliado (uma tentativa por SHA de base). **`retainedResolutionSha`**: resolução local retida sem
+  push, âncora do descarte condicionado (shared, seção 5); `null` quando não há.
+- **`writeGrantedForThirdParty`**: concessão do passo 6, válida só neste run; em PR própria fica `false`.
+- **`bodySyncedAtSha` / `titleSyncedAtSha`**: SHA em que o 8a verificou, com ou sem edição.
+- **`watchWake`**: o valor de "`WATCH_WAKE`"; no meio do run só muda **para** `agendado`.
+- **`startedAt` / `lastTickAt`**: UTC com `Z`, exatamente `date -u +%Y-%m-%dT%H:%M:%SZ`; com offset local
+  ou sem `Z`, o gate descarta o valor em silêncio e passa a contar o limite de ~6h do primeiro poll dele.
+- **`gatePid`, `gateSignalExits`, `gateLastPollAtSeen`, `lastGateEvent`**: memória do loop do gate entre
+  turnos ("O loop de watch"); o gate não lê nenhum deles.
+- **`quietTicks`**: contado aqui só no fallback agendado; com o gate, a contagem é dele, em
+  `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
+- **`slackNotified`**: `{"<login>": {"grupo": "enderecado|aguardando", "abertos": N, "round": N, "recusado": false}}`,
+  gravado pelo 9a no rascunho salvo e no `Agora não` (`recusado: true`); falha em salvar não grava; nasce
+  `{}`.
 
-`slackNotified` = o último aviso de canal por revisor (passo 9a), no formato `{"<login>": {"grupo": "enderecado|aguardando", "abertos": N, "round": N, "recusado": false}}`. O passo 9a o escreve nos três desfechos: rascunho salvo (interativo ou `--auto`), e `Agora não` no gate interativo (`recusado: true`, para o tick não reavisar no mesmo `round`). Falha em salvar não grava. O gate não o lê. Na 1ª passada ele nasce `{}` e é preenchido pelo 9a. Arquivo reconstruído: `{}`, e o primeiro tick pode avisar de novo, o que o `reply` já contém com o rascunho anexado existente.
+**Na 1ª passada**, gravar o estado inicial com `round: 1`, o que a passada processou e classificou nas
+listas acima, o SHA pós-push, o CI do passo 2, `conflictAttemptedAtBaseSha` = `baseRefOid` se o 2b
+terminou em degradado (exceto lease recusado), `startedAt` = agora, `board`, `solo`, `noRebase` e os
+`*SyncedAtSha` do 8a (ou `null` se ele não rodou). Em cada tick, ler, atualizar e regravar.
 
-Na 1ª passada, gravar o estado inicial (round 1, `slackNotified` conforme o passo 9a, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, `verifiedResolvedThreads` = snapshot (`threadId`, `headSha`, `resolvedBy`, `lastCommentId`) de cada thread resolvida por terceiro/unknown que foi verificada, `answeredCommentIds` = os issue comments de terceiros que a 1ª passada classificou, respondidos e ignoráveis, SHA pós-push, `lastCiConclusion` = o CI coletado no passo 2, nos literais do passo 2 de "Um tick", `conflictAttemptedAtBaseSha` = o `baseRefOid` se o passo 2b terminou em modo degradado (exceto por lease recusado, seção 5 do shared), senão `null`, `retainedResolutionSha` = o SHA local da resolução retida pelo passo 2b, senão `null`, `startedAt` = agora, no formato UTC acima, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente resolvidas de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), `verifiedResolvedThreads` como lista vazia para revalidar resolvidas por terceiros/unknown, `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles (os ignoráveis voltam à lista no primeiro tick, que os reclassifica), e o `board` a partir do naming determinístico do passo 2a.
+**Estado perdido** (sessão reiniciada): `resolvedThreadIds` = threads resolvidas por `ME` mais as abertas
+cujo último comentário é seu (estas também em `discussionThreadIds`); `verifiedResolvedThreads` vazia;
+`answeredCommentIds` = comentários de terceiros com réplica sua posterior; `slackNotified` = `{}` (o
+primeiro tick pode avisar de novo, e o `reply` já contém isso pelo rascunho anexado); e o `board` pela resolução do
+passo 2a (`board-template.md`, "Resolver o board"), nunca pelo nome do arquivo.
 
-**Atualizar o board a cada tick:** tick é turno deste elo. Com o gate, só existe tick quando ele sai (o poll ocioso acontece fora da LLM e não toca o board); no fallback agendado, a cada wake. Todo tick rola o carimbo de data do board (frontmatter `updated:`, TLDR, título do painel) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline de Eventos Relevantes + parágrafo na Timeline Verbosa. Tick quiet só rola a data.
+**Atualizar o board a cada tick:** tick é turno deste elo. Com o gate, só existe tick quando ele sai (o poll ocioso acontece fora da LLM e não toca o board); no fallback agendado, a cada wake. Todo tick rola o carimbo de data do board (frontmatter `updated:` e o `**Agora:**` do TL;DR) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline e o detalhe na seção do iterate. Tick quiet só rola a data.
 
 ### O loop de watch (gate mecânico)
 
@@ -1160,16 +1107,27 @@ Um tick roda quando o gate sai com evento acionável ou, no fallback agendado, a
    - senão, qualquer `pending` → CI rodando, ainda não decidiu (`pending`).
    - senão (todos `pass` ou `skipping`) → **verde** (`success`).
    - nenhum check reportado → **sem checks** (`null`): para assentar vale como verde, e nunca é vermelho.
-3. **Threads novas.** Rode o GraphQL `reviewThreads` do passo 2, incluindo `resolvedBy` e o ID do último comentário (`comments(last: 1)`). Compute dois deltas sem misturar as semânticas: (a) threads abertas `isResolved == false` cujo `id` (PRRT) **não** está em `resolvedThreadIds`, com a regra atual de trivialidade; (b) threads resolvidas `isResolved == true`, com `resolvedBy.login != ME` ou ausente, cujo snapshot `{threadId, headSha, resolvedBy, lastCommentId}` difere de `verifiedResolvedThreads`. Se o delta (b) trouxer `isResolved == false`, a thread foi reaberta depois de uma verificação anterior: emitir essa mudança como item do delta (b), mas tratá-la como **thread aberta normal**, não como finding resolvido. Toda thread resolvida por terceiro/unknown entra, sem filtro de trivialidade ou de autor da PR. Threads resolvidas por `ME` continuam fora dos dois deltas e são apenas referência. Qualquer delta não vazio é uma **nova rodada**.
-   - **Reaberta externamente:** antes de montar o lote, remover o snapshot anterior e o ID das listas de já processadas; unir esse item às threads abertas por `threadId` e deduplicar caso também apareça em `delta.threads`. Seguir uma vez o fluxo normal de thread aberta. Ao persistir o tick, gravar seu estado final em `resolvedThreadIds`/`discussionThreadIds` conforme o resultado atual; não manter snapshot em `verifiedResolvedThreads` enquanto estiver aberta. Uma resolução posterior por terceiro volta a gerar snapshot pendente.
-   - **Threads em `discussionThreadIds`** ficam fora do delta por construção (estão em `resolvedThreadIds`). Reconsultar o último comentário de cada uma (`comments(last: 1) { nodes { author { login } } }`): se o autor não é a conta do `gh`, alguém respondeu depois da sua réplica; tirar o id das duas listas e tratar a thread como delta. O gate não acorda por réplica numa thread dessas (ele compara ids, não conta comentários): ela é vista no próximo tick que acontecer por outro motivo ou, não havendo outro, na conferência do código 11 (ramo `saida` de "O loop de watch"), e segue listada no relatório final.
-3b. **Issue comments novos.** Rode TAMBÉM `gh api repos/$REPO_FULL/issues/$PR_NUMBER/comments` (o `reviewThreads` não os retorna — ver passo 2). Compute o delta: comentários de terceiros com `id` **não** presente em `answeredCommentIds` do estado, aplicando a mesma partição acionável/ignorável do passo 2. Um issue comment acionável novo **conta como nova rodada**, exatamente como uma thread nova. Ao fim do tick, `answeredCommentIds` recebe o `id` de **todo** comentário do delta que o tick classificou: o acionável ao ser respondido, o ignorável ao ser classificado como tal, sem réplica. O gate acorda por qualquer comentário de terceiro cujo `id` não esteja nessa lista (ele só filtra autoria e o trivial); ignorável que fica de fora reacorda a sessão a cada poll, o tick não tem o que fazer, e o disjuntor derruba o watch para `agendado`.
+3. **Threads novas.** O GraphQL `reviewThreads` do passo 2, com `resolvedBy` e o último comentário
+   (`comments(last: 1)`). Dois deltas, sem misturar: (a) abertas cujo `id` não está em
+   `resolvedThreadIds`, com o filtro de trivialidade; (b) `isResolved == true` com `resolvedBy.login != ME`
+   ou ausente, cujo snapshot difere de `verifiedResolvedThreads`, sem filtro nenhum. Resolvidas por `ME` ficam fora dos
+   dois. Qualquer delta não vazio é **nova rodada**.
+   - **Reaberta externamente** (no delta b com `isResolved == false`): tirar o snapshot e o id das listas,
+     tratar como thread aberta normal (deduplicada por `threadId`) e gravar o estado final dela ao fim do
+     tick, sem snapshot enquanto estiver aberta.
+   - **`discussionThreadIds`**: reconsultar o último comentário de cada uma; autor diferente de `ME` ⇒
+     tirar das duas listas e tratar como delta. O gate não acorda por isso: a réplica é vista no próximo
+     tick ou na conferência do código 11.
+3b. **Issue comments novos** (`gh api repos/$REPO_FULL/issues/$PR_NUMBER/comments`): de terceiro, com `id`
+   fora de `answeredCommentIds`, pela partição do passo 2. Acionável novo é **nova rodada**. Ao fim do
+   tick, todo comentário classificado entra em `answeredCommentIds`, inclusive o ignorável; o que fica de
+   fora reacorda a sessão a cada poll até o disjuntor derrubar o watch para `agendado`.
 
 #### Decisão do tick (em ordem de prioridade)
 
 - **PR conflitante (`mergeable == CONFLICTING`) → tem precedência sobre tudo.** Aplicar o **gate de integração do passo 2b** (fonte única) antes de qualquer outra coisa deste tick, pelo mesmo motivo da 1ª passada: correção empilhada em base que não funde piora o conflito, e o CI do tick é inconfiável. Se a base andou desde a última tentativa (`conflictAttemptedAtBaseSha != baseRefOid` do passo 1), é tentativa nova; se é o mesmo SHA de base, **não retentar**. Resolvido → evento `conflito-resolvido`, atualizar `lastHeadSha` e `lastMergeable`, e seguir o tick normalmente. Não resolvido → evento `conflito-bloqueado`, **modo degradado**: fechar a conversa das threads do delta (responder/reagir/resolver) sem aplicar, commitar ou pushar, e não contar quiet tick. **Gravar `conflictAttemptedAtBaseSha = baseRefOid` em toda queda para o degradado**, com ou sem tentativa de resolução (qualquer causa da seção 6 do shared, inclusive gate vermelho), **exceto lease recusado**, que não grava porque não consome a tentativa daquele SHA de base (seção 5 do shared): o campo diz ao gate que este SHA de base já foi avaliado. Sem ele, o gate reemite `conflito-novo` a cada relançamento e nunca chega ao código 12.
 - **Nova rodada de threads (qualquer delta não vazio)** → executar os passos 3 a 8a em `--auto` **apenas sobre os deltas**: abertas seguem exatamente o fluxo atual; resolvidas por terceiros/unknown passam pela classificação do passo 2 e só findings persistentes/regredidos entram no plano normal de correção. Correção já presente não é reaplicada; se confirmada válida ou improcedente/obsoleta, manter a thread fechada e registrar a verificação. Ao terminar: `round += 1`; adicionar a `resolvedThreadIds` todas as threads do delta processadas (as abertas deixadas por `needs-discussion` também entram em `discussionThreadIds`); adicionar a `verifiedResolvedThreads` os snapshots das threads resolvidas por terceiros/unknown que foram classificadas; atualizar `lastHeadSha`, zerar `quietTicks`. Rodar o passo 9a em modo automático sobre os revisores do delta (aviso no canal, só rascunho). Emitir evento Slack `nova-rodada-fechada` (ver "Hook Slack").
-- **CI vermelho** (e sem delta de threads) → aplicar a **triagem de CI do passo 2c** (fonte única): coletar o porquê via log, identificar se é gate de qualidade externo e, nesse caso, consultar a API conforme `${FLUX_ROOT}/shared/quality-gate-api.md` antes de classificar; se a causa for atribuível ao próprio push e dentro do escopo, tentar **uma** correção na worktree da PR + quality gate + commit/push na mesma branch (evento `ci-corrigido-tentativa`); senão, não mexer no código, registrar e reportar (evento `ci-vermelho` com link do log e, para gate externo, com `metricKey`/`actualValue`/`errorThreshold` da API). No máximo **uma** tentativa de auto-fix por SHA — nunca em loop.
+- **CI vermelho** (e sem delta de threads) → **passo 2c**, que é a fonte única (evento `ci-corrigido-tentativa` ou `ci-vermelho`, com `metricKey`/`actualValue`/`errorThreshold` quando é gate externo).
 - **CI verde ou sem checks + sem delta de threads + PR integrando** → antes de contar quiet tick, checar **drift de título e descrição**: se `bodySyncedAtSha != lastHeadSha` ou `titleSyncedAtSha != lastHeadSha`, rodar o passo 8a sobre o SHA corrente (uma passada, com os três guardrails). É o que o evento `drift` do gate pede. **Ao fim do 8a, gravar `bodySyncedAtSha` e `titleSyncedAtSha` com o SHA corrente mesmo quando nada foi editado**: os campos registram "verificado neste SHA", não "editado neste SHA", e sem a gravação o gate reemite `drift` a cada relançamento e a PR nunca assenta. Depois, `quietTicks += 1` (só no fallback agendado; com o gate, o quiet tick é contado por ele). Emitir `ci-verde` apenas na **transição** (quando `lastCiConclusion != success`).
 - **CI pending + sem delta** → não fazer nada além de aguardar (não conta como quiet tick).
 
@@ -1229,11 +1187,6 @@ já entraram na verificação por descoberta, e o `equip` não os toca.
 
 ## Notas finais
 
-- **Integração com a base é o primeiro gate** (passo 2b, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`): PR que não funde com a base é PR sobre a qual não se escreve, e o CI verde dela é sinal falso. Conflito conta como trabalho acionável por si só, então uma PR com zero threads e CI verde **não** encerra a passada se estiver `CONFLICTING` (foi exatamente assim que a `arco-ai-plugins#252` passou batida). Resolução mecânica o flow faz; semântica é do usuário; o push da resolução segue a seção 5 do shared.
-- Verificação vem antes de tudo: nunca aceitar um comentário sem confirmar a alegação no código real. Vale igual dentro do modo WATCH e no `--dry`.
-- **Specialists por default**: a verificação enriquece com os specialists do repo seguindo `${FLUX_ROOT}/shared/review-agents.md`. Use `--solo` para pular e rodar só com `<HOLISTIC>`. Fallback gracioso quando não houver specialists no repo.
-- **Watch é o default**: após a 1ª passada e o push, fica vivo monitorando CI + novas rodadas do bot até a PR assentar/mergear (ver "Modo WATCH"). Quem espera é o gate mecânico, fora da LLM; onde ele não puder ser usado, o watch cai no agendado, com aviso. Use **`--once`** (alias `--no-watch`) para o comportamento de uma passada só.
-- **`--dry` nunca escreve no GitHub**: qualquer texto rascunhado fica no vault (ou no chat se não houver vault) e não é postado.
-- **Título e descrição são entregável, não enfeite** (passo 8a): thread resolvida com CI verde e descrição afirmando o desenho que a própria rodada refutou é entrega pela metade. A reconciliação roda em toda rodada que muda algo afirmado pela descrição, com os três guardrails (só PR própria · só afirmação refutada por evidência · nunca regerar do zero), e o watch não declara "assentou" com título ou descrição em drift. O título tem barra mais alta: só se renomeia quando nomeia o desenho refutado, preservando prefixo de ticket e a convenção de escrita do repo, com o nome antigo registrado no changelog.
+- `--dry` nunca escreve no GitHub: o rascunho fica no board (ou no chat, sem vault).
 - Se `gh` não estiver autenticado, pedir `gh auth login` e abortar.
 - Se o quality gate falhar (typecheck/lint/teste), **não** avançar para postar/pushar: reportar a falha e parar para o usuário decidir.

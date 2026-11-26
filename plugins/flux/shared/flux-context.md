@@ -190,6 +190,8 @@ com o reviewer de outro time sem que nada acuse o problema.
   "tracker_repo_map": { "Payments": "payments", "Platform": "api-gateway" },
   "linear_ops": "~/code/acme/plugins/core/shared/LINEAR-OPS.md",
   "linear_token_env": "LINEAR_API_KEY",
+  "launcher_run_env": "ACME_RUN_ID",
+  "launcher_run_key": "acme_run_id",
   "repos": ["api-gateway", "web-monorepo", "notifications", "payments", "..."],
   "exec_command": "workflow",
   "scope_escalation": "/sdd — hub de refinamento em ~/code/acme/technical-refining",
@@ -272,6 +274,12 @@ com o reviewer de outro time sem que nada acuse o problema.
 - `linear_ops` — path de um doc que descreve a **mecânica** de criação no Linear do time (cache de
   team/project, routing, labels). Consumido pelo `flux:issue` no Step 6. Opcional: sem ele, o
   `flux:issue` resolve team/project pelos MCP tools e confirma com o usuário antes de criar.
+- `launcher_run_env` e `launcher_run_key` — opcionais, sempre em par. Quando a sessão é aberta por um
+  lançador próprio que exporta o id da run para o shell, `launcher_run_env` é o **nome da variável**
+  e `launcher_run_key` é a chave com que esse id entra em cada linha de `provenance.runs` do board
+  (`board-template.md`). O valor só é gravado se casar com `^[A-Za-z0-9._-]{1,64}$`; a chave, com
+  `^[a-z][a-z0-9_]{0,39}$`. Sem o par, nenhum id de lançador é gravado. Ver o Passo 1a-run de
+  `${FLUX_ROOT}/shared/preflight.md`.
 - `linear_token_env` — **nome da variável** (não o valor) que guarda o token da API do Linear, usado
   pelo contrato de transporte `${FLUX_ROOT}/shared/api-first.md` (escrita no `flux:issue`, leitura no
   `flux:build` e no `flux:land`) para decidir entre a API GraphQL e o MCP. Default `LINEAR_API_KEY`.
@@ -475,6 +483,7 @@ Quando nenhum `flux-context.json` é encontrado, o comando cai no default univer
 - `mcp` = ausente; cada elo com integração externa descobre a capacidade na sessão e degrada
   declarando a perda quando não achar (o `flux:reply` sem canal Slack aborta; o modo doc do
   `flux:review`/`flux:peek` aborta só naquele alvo).
+- `launcher_run_env` / `launcher_run_key` = ausentes; nenhum id de lançador vai ao board.
 - `linear_token_env` = `LINEAR_API_KEY`; `secrets_file` = `~/.secrets`. Sem a variável no ambiente e
   sem a linha no arquivo, o gate de token ausente de `${FLUX_ROOT}/shared/api-first.md` (issue, build, land) abre, e o desfecho
   vai ao banner.
