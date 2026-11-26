@@ -57,12 +57,15 @@ por PR) é o que transforma uma operação de segundos numa de dezenas de minuto
 
 A pilha é a árvore formada pelas PRs da entrega cujo `baseRefName` é o `headRefName` de outra PR da
 entrega. A raiz de cada árvore tem como base a branch default do repo. A fonte é a descoberta do
-próprio elo, que lista PRs em **todos** os estados: um pai já mergeado continua no grafo, e é ele que
-denuncia o caso do squash abaixo.
+próprio elo, em qualquer caminho por onde a PR entrou (busca por ticket, cross-check por branch, PR
+passada por URL), sem depender de haver um ticket: o que importa é que toda PR da entrega traga
+estes campos, e que a listagem cubra **todos** os estados, porque um pai já mergeado continua no
+grafo, e é ele que denuncia o caso do squash abaixo. Por exemplo:
 
 ```bash
 gh pr list --repo "$REPO_FULL" --state all --search "$TICKET" \
   --json number,state,headRefName,baseRefName,headRefOid,isCrossRepository,author
+gh pr view "$PR_URL" --json number,state,headRefName,baseRefName,headRefOid,isCrossRepository,author
 ```
 
 Depois que o GitHub reaponta a base do filho de um pai mergeado, a aresta some da leitura atual. Por

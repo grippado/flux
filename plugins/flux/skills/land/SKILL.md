@@ -170,13 +170,20 @@ Para cada target:
 - **Cross-check secundário (branch-match, para o raro caso sem menção no título/corpo):**
 
   ```bash
-  gh pr list --repo <ORG>/$repo --state all --json number,url,title,headRefName \
+  gh pr list --repo <ORG>/$repo --state all \
+    --json number,url,title,state,isDraft,headRefName,baseRefName,mergeable,reviewDecision,author,isCrossRepository,headRefOid \
     --jq '.[] | select(.headRefName | test("(?i)<ticket-id>"))'
   ```
 
   Padrão `test` case-insensitive e SUBSTRING — cobre `claude/<ticket-id>-2`, `fix/<ticket-id>-...`, `<user>/<ticket-id>-...`, etc.
 
-- **URLs de PR** no input: usar direto (`{owner}/{repo}/pull/{n}`).
+- **URLs de PR** no input: usar direto (`{owner}/{repo}/pull/{n}`), lendo os mesmos campos da
+  descoberta primária, que a propagação em pilha usa para montar o grafo (seção 1 de
+  `${FLUX_ROOT}/shared/stack-propagation.md`):
+
+  ```bash
+  gh pr view <url> --json number,url,title,state,isDraft,headRefName,baseRefName,mergeable,reviewDecision,author,isCrossRepository,headRefOid
+  ```
 
 - **Issues-irmãs descobertas em runtime:** se o corpo de alguma PR encontrada mencionar outro ticket que não estava nos targets originais, **não absorva silenciosamente nem ignore** — pare e pergunte ao usuário se esse ticket entra no escopo desta entrega ou fica só como referência cruzada no board.
 
