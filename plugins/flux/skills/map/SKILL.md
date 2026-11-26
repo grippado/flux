@@ -204,7 +204,9 @@ Sem manifesto nenhum: perfil genérico, e o levantamento cobre os repos detectad
    repo, as três lentes: L1 (holístico resolvido), L2 (suite curada, pela cascata de
    `specialists_root`), L3 (o diretório de agents do repo e o filtro de intenção de review, ambos
    definidos no 1b do `${FLUX_ROOT}/shared/review-agents.md` — não reenunciar o path aqui).
-5. **Computar colisões** de `name:` entre tudo que foi levantado, e o `sha256` de cada conjunto.
+5. **Computar colisões** de `name:` entre tudo que foi levantado, e o `dir_sha256` de cada conjunto
+   pela receita do hash do conjunto (1b do `${FLUX_ROOT}/shared/review-agents.md`), sem reescrevê-la
+   aqui. Receita vazia na hora de gravar: ver o 1b do `${FLUX_ROOT}/shared/review-agents.md`.
 6. **Relatar** (formato abaixo).
 7. **Gate de escrita** e, aceito, gravar o índice conforme o contrato de destino.
 8. **Despacho dos consertos**, quando o usuário aceitar algum no gate (seção própria abaixo), e
@@ -231,7 +233,7 @@ O corpo tem três seções, e **a terceira é a razão de o verbo existir**:
 |---|---|
 | repo com `L2 ausente` | `${FLUX_CMD}equip <slug> --agents-only` |
 | repo com `L3` presente e inalcançável | o degrau aplicável da escada (`${FLUX_ROOT}/shared/review-agents.md`, 1b-bis) |
-| espelho L3 defasado (`synced_from_sha256` ≠ atual) | `${FLUX_CMD}equip <slug> --expose-l3` |
+| espelho L3 defasado (`synced_from_sha256` ≠ atual, recalculado pela receita do hash do conjunto, 1b do `${FLUX_ROOT}/shared/review-agents.md`) | `${FLUX_CMD}equip <slug> --expose-l3` |
 | colisão de `name:` entre suites | a remediação da terceira causa do 1a-bis (`${FLUX_ROOT}/shared/review-agents.md`) |
 | manifesto declarando repo sem checkout local | clonar, ou remover do `repos` — dizer as duas, não escolher |
 | agent sem `name:` no frontmatter | apontar o arquivo; por que ele não é invocável está no item 2 do 1a-bis |
@@ -342,7 +344,8 @@ relatório e a Integridade reemitida diz que ele "continua", sem distinguir **te
 
 1. Juntar os retornos e **atualizar o índice de uma vez só**: as entradas dos repos equipados, os
    `synced_from_sha256` dos espelhos novos, e o recálculo de `collisions` — que muda com espelho novo
-   e por isso **só pode ser computado depois de todos**, nunca por filho.
+   e por isso **só pode ser computado depois de todos**, nunca por filho. Receita vazia na hora de
+   gravar: ver o 1b do `${FLUX_ROOT}/shared/review-agents.md`.
 2. Escrever o `flux-agents.json`, uma vez, no destino já resolvido.
 3. **Arquivo existente devolvido em `recusado:`** ⇒ abrir aqui o gate por arquivo existente que o
    filho não podia abrir, com as saídas do `${FLUX_ROOT}/shared/write-destination.md`. Aceito, a
