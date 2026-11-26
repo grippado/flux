@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.55.4",
+    "tag": "v1.55.4",
+    "published_at": "2026-11-26T12:09:08Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.55.4",
+    "summary": {
+      "en": "Leaner build skill (19% smaller): the specialist decision record and rationale blocks condensed, same behavior.",
+      "pt": "Skill build mais enxuto (19% menor): o registro da decisão sobre specialists e as justificativas condensados, mesmo comportamento."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.55.3",
     "tag": "v1.55.3",
     "published_at": "2026-11-26T12:08:38Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "Leaner equip skill (23% smaller): rationale blocks folded into the rules they justify, with no behavior change.",
       "pt": "Skill equip mais enxuto (23% menor): blocos de justificativa viram frases junto das regras, sem mudar comportamento."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.55.2",
-    "tag": "v1.55.2",
-    "published_at": "2026-11-26T12:08:04Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.55.2",
-    "summary": {
-      "en": "Leaner review skill: one GateSpec table now owns each post-review option, with identical menus.",
-      "pt": "Skill review mais enxuto: uma tabela GateSpec passa a ser a fonte de cada opção pós-review, com menus idênticos."
     },
     "changelog_source": "tag_message"
   },
