@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.55.7",
+    "tag": "v1.55.7",
+    "published_at": "2026-11-26T18:58:03Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.55.7",
+    "summary": {
+      "en": "Gates never resolve by focus or timeout; Codex uses typed menus. Release also includes #110: specialists assess PR merge conflicts before iterate resumes.",
+      "pt": "Gate nunca é escolhido por foco ou tempo; no Codex, a resposta é digitada. A publicação inclui a #110: especialistas avaliam conflitos de merge antes de o iterate continuar."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.55.6",
     "tag": "v1.55.6",
     "published_at": "2026-11-26T17:49:28Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "Single recipe for the agent set hash in review-agents.md 1b, derived from the canonical find -L discovery, with a CI canary and a symlink test.",
       "pt": "Receita única do hash do conjunto de agents no 1b do review-agents.md, derivada da descoberta canônica find -L, com canário no CI e teste de symlink."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.55.5",
-    "tag": "v1.55.5",
-    "published_at": "2026-11-26T12:11:00Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.55.5",
-    "summary": {
-      "en": "Leaner refine skill (21% smaller), closing the LAB-437 slimming pass over the five largest skills.",
-      "pt": "Skill refine mais enxuto (21% menor), fechando a LAB-437 de enxugamento dos cinco maiores skills."
     },
     "changelog_source": "tag_message"
   },
