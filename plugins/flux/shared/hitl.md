@@ -113,6 +113,9 @@ aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse 
 - Use `AskUserQuestion` (Claude Code, Cursor) ou `request_user_input` (Codex) só quando esse
   round-trip estiver comprovado. A comprovação e as condições de queda de cada harness vivem em
   `${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário".
+- Se a `GateSpec` validada exceder o limite do renderer estruturado, ou a chamada for recusada,
+  renderizar a spec integral no menu numerado abaixo. Nunca truncar, remover, reordenar ou
+  reaproveitar uma opção.
 - O Codex acrescenta sozinho a opção "None of the above" com campo de notas ao menu de
   `request_user_input`. Não declará-la no menu: a saída inócua continua sendo a última opção
   declarada.
@@ -150,7 +153,7 @@ fato. Por isso a defesa é não fazer a chamada:
 
 | harness | linha | evidência |
 |---|---|---|
-| Codex (`HARNESS = codex`) | com auto-resolução | observada em 2026-11-25 (`${FLUX_ROOT}/shared/codex-compat.md`, "Auto-resolução por tempo") |
+| Codex (`HARNESS = codex`) | com auto-resolução | observada em 2026-11-25 (`${FLUX_ROOT}/shared/codex-compat.md`, "Auto-resolução no Codex (incidente de 2026-11-25)") |
 | qualquer sessão que exponha `request_user_input`, inclusive `HARNESS = unknown` | onde ela não pode ser descartada | é a mesma ferramenta do caso acima |
 | Claude Code e Cursor (`AskUserQuestion`) | sem auto-resolução constatada | nenhuma medição registrada até 2026-11-26; o `AskUserQuestion` espera a pessoa confirmar |
 
@@ -160,8 +163,8 @@ tempo.
 ## Menu numerado (fallback e auto-resolução)
 
 `AskUserQuestion` e `request_user_input` são tools do harness, não uma garantia da linguagem nem da interface. Quando a
-sessão não oferece o mecanismo, o round-trip não está comprovado ou o harness está na linha de
-auto-resolução, o gate **não desaparece** — muda de forma:
+sessão não oferece o mecanismo, o round-trip não está comprovado, o menu do gate não cabe na
+ferramenta ou o harness está na linha de auto-resolução, o gate **não desaparece** — muda de forma:
 
 1. Imprimir imediatamente a pergunta e todas as opções aplicáveis **numeradas** no chat, com os
    mesmos rótulos e descrições, mantendo a recomendada em primeiro e a saída inócua por último. Não
@@ -172,9 +175,7 @@ auto-resolução, o gate **não desaparece** — muda de forma:
    encerrar, gravar o sinal da seção "Execução headless" abaixo.
 3. Declarar no banner a degradação correspondente ao motivo do fallback, conforme o contrato do
    harness e a tabela de `${FLUX_ROOT}/shared/preflight.md`, Passo 5, que é a fonte única dos tokens
-   de gate e da exclusividade entre eles. Menu que não cabe na ferramenta e sessão headless seguem o
-   menu numerado sem token, pois esses casos são tratados como caminhos esperados pelo adaptador
-   (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
+   de gate e da exclusividade entre eles.
 
 > **A degradação é de forma, nunca de rigor.** Um gate que vira "escolhi a recomendada porque não
 > tinha como perguntar" é pior do que não ter gate nenhum: produz uma ação não autorizada com

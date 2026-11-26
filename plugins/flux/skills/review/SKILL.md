@@ -541,15 +541,12 @@ GitHub não deixa aprovar a própria PR); `do-nothing` termina.
 Header `Postar na PR?`, question `Quer postar algum subset dos comentários direto na PR #{number}?`.
 A ordem depende do `STATUS` do Step 7, lido como já impresso, sem reanalisar:
 
-- **Veredito aprovar** (`approved`, `approved-with-suggestions`, `approved-with-questions`; até 4
-  opções no `AskUserQuestion`, o limite dele): `post-priorities-praise` (recomendada), `post-all`,
-  `post-and-approve`, `do-not-post`. Com esse limite, a description de `post-all` acrescenta `Para só
-  prioridades, sem praise, use o campo livre "Other".` No menu numerado, que não tem limite de opções,
-  `post-priorities` entra depois de `post-all`, e a dica do campo livre não aparece. Em `approved-with-questions`, a ordem é a
-  mesma, e a description de `post-and-approve` acrescenta `Atenção: aprovar libera o merge com
-  perguntas ainda abertas.` Sem comentário acionável (exceção do Step 7): só `post-and-approve` (posta
-  o corpo e o placar, sem comentários inline, e aprova) e `do-not-post`, sem recomendada. Com
-  `reopen_candidates`, o segundo gate, depois deste.
+- **Veredito aprovar** (`approved`, `approved-with-suggestions`, `approved-with-questions`):
+  `post-priorities-praise` (recomendada), `post-all`, `post-priorities`, `post-and-approve`,
+  `do-not-post`. Em `approved-with-questions`, a description de `post-and-approve` acrescenta
+  `Atenção: aprovar libera o merge com perguntas ainda abertas.` Sem comentário acionável (exceção do
+  Step 7): só `post-and-approve` (posta o corpo e o placar, sem comentários inline, e aprova) e
+  `do-not-post`, sem recomendada. Com `reopen_candidates`, o segundo gate, depois deste.
 - **Demais vereditos** (`request-changes`, ausente ou não reconhecido) e o `post-inline` do 8a:
   `post-priorities-praise` (recomendada), `post-priorities`, `post-all`, `answer-reverified-threads`
   (só com `reopen_candidates`), `do-not-post`.

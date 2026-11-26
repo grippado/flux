@@ -524,7 +524,7 @@ Mostre no chat o plano resumido (vereditos + ações de threads abertas e resolv
   4. `Cancelar` — descrição: `Não posta nada. Os arquivos alterados ficam no working tree pra você inspecionar ou reverter.`
 
 > A opção recomendada é a primeira, com `(Recomendado)` no label. Com `--auto`, assuma a opção 1 sem perguntar.
-> O renderer dos dois menus deste passo e do GATE do 9a segue (`${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo").
+> O renderer dos dois menus deste passo e do GATE do 9a segue `${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo".
 > A opção 1 assumida pelo `--auto` vem de flag explícita (renúncia do usuário ou procuração do
 > `flux:land`) ou do gate da 1ª passada do watch, nunca de auto-resolução do harness.
 
