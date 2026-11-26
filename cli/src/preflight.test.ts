@@ -1,11 +1,12 @@
 import { describe, test, expect, beforeEach, afterEach } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, chmodSync } from "fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
   runPreflight,
   resolveKitRoots,
   resolveHolisticFromDisk,
+  resolveSlackPreflight,
   findKitsInRoot,
   classifyCapabilityHint,
   PREFLIGHT_SCHEMA_VERSION,
@@ -295,5 +296,102 @@ describe("runPreflight", () => {
     } finally {
       delete process.env["CLAUDE_PLUGIN_ROOT"];
     }
+  });
+});
+
+describe("slack no preflight", () => {
+  const examplePath = join(import.meta.dir, "..", "..", "examples", "slack-directory.example.json");
+
+  function run(manifest: Record<string, unknown> | null) {
+    const repo = makeRepo(manifest);
+    return runPreflight({ verb: "peek", cwd: repo });
+  }
+
+  function withRoot<T>(fn: () => Promise<T>): Promise<T> {
+    process.env["CLAUDE_PLUGIN_ROOT"] = makeFluxRoot(true);
+    return fn().finally(() => {
+      delete process.env["CLAUDE_PLUGIN_ROOT"];
+    });
+  }
+
+  test("undeclared sem slack_directory", () =>
+    withRoot(async () => {
+      const result = await run({ name: "perfil-teste" });
+      expect(result.slack).toEqual({ directory_status: "undeclared", channels_with_intent: [] });
+      expect(result.session_revalidation_required).toContain("slack_capability");
+    }));
+
+  test("undeclared sem manifesto", () =>
+    withRoot(async () => {
+      const result = await run(null);
+      expect(result.slack).toEqual({ directory_status: "undeclared", channels_with_intent: [] });
+    }));
+
+  test("absent quando o arquivo declarado nao existe", () =>
+    withRoot(async () => {
+      const result = await run({ name: "perfil-teste", slack_directory: "nao-existe.json" });
+      expect(result.slack).toEqual({ directory_status: "absent", channels_with_intent: [] });
+    }));
+
+  test("invalid com JSON quebrado", () =>
+    withRoot(async () => {
+      const repo = makeRepo({ name: "perfil-teste", slack_directory: "dir.json" });
+      writeFileSync(join(repo, ".claude", "dir.json"), "{ quebrado");
+      const result = await runPreflight({ verb: "peek", cwd: repo });
+      expect(result.slack).toEqual({ directory_status: "invalid", channels_with_intent: [] });
+    }));
+
+  test("invalid com version diferente de 1", () =>
+    withRoot(async () => {
+      const repo = makeRepo({ name: "perfil-teste", slack_directory: "dir.json" });
+      const fixture = JSON.parse(readFileSync(examplePath, "utf-8"));
+      fixture.version = 2;
+      writeFileSync(join(repo, ".claude", "dir.json"), JSON.stringify(fixture));
+      const result = await runPreflight({ verb: "peek", cwd: repo });
+      expect(result.slack).toEqual({ directory_status: "invalid", channels_with_intent: [] });
+    }));
+
+  test("ok lista so slugs de canais com intents", () =>
+    withRoot(async () => {
+      const repo = makeRepo({ name: "perfil-teste", slack_directory: "dir.json" });
+      writeFileSync(join(repo, ".claude", "dir.json"), readFileSync(examplePath, "utf-8"));
+      const result = await runPreflight({ verb: "peek", cwd: repo });
+      expect(result.slack.directory_status).toBe("ok");
+      const pr = result.slack.channels_with_intent.find((c) => c.channel === "pull-requests");
+      expect(pr?.intents).toContain("pedir-review");
+      expect(pr?.intents).toContain("iterate-aguardando");
+      expect(result.slack.channels_with_intent.map((c) => c.channel).sort()).toEqual([
+        "plataforma",
+        "pull-requests",
+      ]);
+    }));
+
+  test("saida serializada nao vaza ids, nomes ou conteudo do diretorio", () =>
+    withRoot(async () => {
+      const repo = makeRepo({ name: "perfil-teste", slack_directory: "dir.json" });
+      const raw = readFileSync(examplePath, "utf-8");
+      writeFileSync(join(repo, ".claude", "dir.json"), raw);
+      const result = await runPreflight({ verb: "peek", cwd: repo });
+      const out = JSON.stringify(result.slack);
+      const dir = JSON.parse(raw);
+      const leaks: string[] = [];
+      for (const section of ["people", "usergroups", "channels", "groups"]) {
+        for (const entry of Object.values(dir[section]) as Record<string, unknown>[]) {
+          for (const key of ["channel_id", "user_id", "usergroup_id", "name", "github", "purpose"]) {
+            if (typeof entry[key] === "string") leaks.push(entry[key] as string);
+          }
+          if (Array.isArray(entry["aliases"])) {
+            leaks.push(...(entry["aliases"] as string[]).filter((a) => !out.includes(`"${a}"`)));
+          }
+        }
+      }
+      for (const leak of leaks) expect(out).not.toContain(leak);
+      expect(out).not.toContain("template");
+      expect(out).not.toContain("Terminei a review");
+    }));
+
+  test("resolveSlackPreflight aceita caminho com ~/ e ignora canal sem intents", () => {
+    const manifestPath = join(tmp, "m.json");
+    expect(resolveSlackPreflight({ manifest: { slack_directory: "~/nao-existe-flux-xyz.json" }, manifestPath }).directory_status).toBe("absent");
   });
 });
