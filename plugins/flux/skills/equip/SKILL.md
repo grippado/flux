@@ -56,7 +56,8 @@ Três particularidades, também declaradas em "Campos que não são de todos os 
   camadas é o produto do diagnóstico.
 - **`motor:` entra**, com o vocabulário do `flux:build` (`nativo` / `exec_fallback` / `ausente`): aqui,
   o motor que existe ou vai passar a existir.
-- **`destino:` só existe aqui**, e sai `nao resolvido` até o gate de destino acontecer.
+- **`destino:` entra** (compartilhado com o `flux:map`), e sai `nao resolvido` até o gate de destino
+  acontecer.
 
 Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, verbatim, com
 `${FLUX_CMD}` já substituído (`/flux:equip` num harness, `/flux-equip` em outro).
@@ -184,8 +185,9 @@ Três leituras do inventário mudam o que o verbo faz:
    **O "onde" nem sempre existe ainda.** Quando a cascata de destino
    (`${FLUX_ROOT}/shared/write-destination.md`) não produz valor até o degrau 4 (o caso comum do perfil
    genérico), o plano imprime o default da família (`~/.claude/flux-specialists/<slug>/`) **marcado como
-   não confirmado**, dizendo que numa execução real ele seria a opção recomendada de um GATE. O motor tem
-   a linha equivalente (Step 3.2, ou `nao resolvido`). A linha `destino:` do banner segue
+   não confirmado**, dizendo na mesma linha que numa execução real ele seria a opção recomendada de um
+   GATE. O motor tem a linha equivalente (Step 3.2, ou `nao resolvido` quando nenhum diretório de
+   comandos existe). A linha `destino:` do banner segue
    `nao resolvido`.
 
 ---
@@ -257,7 +259,8 @@ costuma ser symlink para um repositório de dotfiles.
    do `review-agents.md` (passo 1a, que percorre a mesma cascata de destino, inclusive
    `write_destinations`, mais o degrau do kit no fim); o motor, pelo Step 2 do `flux:build` (nativo →
    `exec_fallback` do repo → `default` → autônomo). Destino fora disso é arquivo escrito e elo seguinte
-   oferecendo criar de novo. O Step 7.3 confere as duas.
+   oferecendo criar de novo. **Conferir essa coerência aqui, antes de escrever**, é parte do passo; o
+   Step 7.3 reafirma para as duas camadas depois da escrita.
 
 ---
 
@@ -319,7 +322,8 @@ degrau 0 no lugar quando ele for aplicável (condições no 1b-bis), porque lá 
 
 **Com `--from-map`, este Step não roda** (nem o `collisions`): há um `flux-agents.json` por raiz de
 agents, o `map` despacha vários `equip` em paralelo, e cada filho só enxerga a própria parte. Os fatos
-voltam no contrato de retorno, e a main do `map` reconcilia (um escritor por execução).
+voltam no contrato de retorno, e a main do `map` reconcilia (um escritor por execução). O resto do
+verbo roda igual, com o contrato de destino inteiro valendo.
 
 Invocado direto, sem `--from-map`: ao equipar um repo (Steps 4, 4b e 5), **atualizar a entrada dele**
 no `flux-agents.json` e recomputar `collisions`.
@@ -327,7 +331,7 @@ no `flux-agents.json` e recomputar `collisions`.
 ### Arquivo existente sob `--from-map`
 
 O arquivo pode ter nascido entre o gate da main e o despacho. Encontrando um, este processo **não
-escreve, não sobrescreve, não faz backup e não decide**: devolve o caminho em `recusado:` e segue. A
+escreve, não sobrescreve, não faz backup e não decide**: devolve o caminho em `recusado:` e segue para os demais arquivos. A
 main do `map` abre o gate que falta. A invariante "nenhum arquivo existente é sobrescrito em silêncio"
 é adiada para quem tem canal com o usuário, nunca relaxada: no instante do consentimento, o arquivo
 não existia.
@@ -424,11 +428,12 @@ mesmo instante, não no fim.
 ## Step 6 — Persistir no manifesto (gate próprio, e este é novo)
 
 **Com `--from-map`, este Step não escreve**: apura o que persistiria (inclusive o que veio de
-`manifest_fragment`, já filtrado pela tabela abaixo e marcado como vindo de kit) e devolve em
+`manifest_fragment`, filtrado aqui, no filho, pela tabela abaixo, e marcado como vindo de kit) e devolve em
 `manifesto_pendente:`. Quem grava é a main do `map`, com o gate: escrever no manifesto é categoria de
 gate **sempre**, subagente não abre gate, e há um `flux-context.json` por perfil.
 
-Este é o único verbo que altera o `flux-context.json`, e o arquivo costuma ser a configuração versionada
+Este é o único verbo cujo fluxo grava o `flux-context.json` (sob `--from-map`, quem grava é a main do
+`map`), e o arquivo costuma ser a configuração versionada
 que a pessoa carrega entre máquinas; por isso a escrita é **ação com gate explícito**, nunca efeito
 colateral de ter equipado.
 
