@@ -25,8 +25,8 @@ por PR) é o que transforma uma operação de segundos numa de dezenas de minuto
 ## Quando aplicar
 
 - **Gatilho explícito:** `${FLUX_CMD}land ... --restack`.
-- **Gatilho detectado:** em todo tick do watch do `flux:land`, uma aresta pai → filho da pilha
-  defasada (abaixo) dispara a propagação daquela pilha.
+- **Gatilho detectado:** no `flux:land`, a cada passada e a cada tick do watch, uma aresta pai → filho
+  da pilha defasada (abaixo) dispara a propagação daquela pilha.
 - **Uma tentativa por par de SHAs.** Se a propagação de uma aresta terminou sem publicá-la (bloqueio,
   abort, folha vermelha), o elo guarda os tips remotos de pai e filho de depois da
   rodada, e não redespacha aquela aresta enquanto os dois forem os mesmos. A reentrada pelo
@@ -131,9 +131,9 @@ Antes de reescrever qualquer coisa, guardar, para **cada** branch da pilha, dois
 (nunca curtos):
 
 - **`LEASE[$BRANCH]`**: o tip remoto atual da branch, `git rev-parse "origin/$BRANCH"`. É o lease do
-  push (passo 6).
+  push (seção 6).
 - **`STACKED[$FILHO]`**: o tip do pai **sobre o qual o filho foi empilhado**, que é o limite de baixo
-  do `--onto` (passo 4). Não é o tip atual do pai: quando o ajuste reescreveu o pai (`--amend`,
+  do `--onto` (seção 4). Não é o tip atual do pai: quando o ajuste reescreveu o pai (`--amend`,
   rebase, squash), o tip atual já não tem nada em comum com o que o filho carrega.
 
 `STACKED` se resolve nesta ordem, parando no primeiro candidato que existir **e** for ancestral do
@@ -178,7 +178,7 @@ git -C "$WORKTREE_FILHO" rebase --onto "$NOVO_PAI" "${STACKED[$FILHO]}" "$FILHO"
   propagação para ali. As branches de baixo, já reescritas localmente, ficam `retida`: o topo não foi
   reescrito nem validado, então nada passou pela validação da seção 5 e nada pode ser publicado (é a
   seção 5 que as segura, não a 6, que trata de lease recusado depois de validar). Depois de um abort,
-  nem o passo 5 nem o passo 6 rodam; as de cima não são tocadas.
+  nem a seção 5 nem a seção 6 rodam; as de cima não são tocadas.
 
 > **Por que não `git rebase --update-refs`.** Ele faria a cadeia inteira num comando, mas **pula em
 > silêncio** toda branch que esteja em checkout em outra worktree, e a disciplina de worktree da
@@ -209,7 +209,7 @@ então é onde a combinação é verificada.
 
 ## 6. Publicar, de baixo para cima
 
-Uma branch por vez, na ordem topológica, com o lease amarrado ao tip antigo registrado no passo 3:
+Uma branch por vez, na ordem topológica, com o lease amarrado ao tip antigo registrado na seção 3:
 
 ```bash
 git -C "$WORKTREE" push --force-with-lease="$BRANCH:${LEASE[$BRANCH]}" origin "$BRANCH"
@@ -235,8 +235,8 @@ todos os tips antes de reescrever o primeiro. Fora isso, rejeição e retenção
   `gh pr edit "$FILHO_PR" --repo "$REPO_FULL" --base "$DEFAULT"`. No pai mergeado por merge commit
   (seção 1) não há rebase nem push, e o reapontamento é a única escrita. Falha do `gh pr edit` não
   desfaz o push: vai no retorno como `base:falhou`, e o elo põe a PR em `hold`.
-- Reexecutar é seguro: a próxima rodada relê os tips (passo 3), e o que já foi publicado não está
-  mais defasado (passo 1).
+- Reexecutar é seguro: a próxima rodada relê os tips (seção 3), e o que já foi publicado não está
+  mais defasado (seção 1).
 - A autorização do push é a mesma da seção 5 do `merge-conflict-gate.md`: invocar o elo que
   propaga, sem a flag dele que desliga a propagação, **é** a autorização, sem gate humano por branch.
   O nome dessa flag é do elo (no `flux:land`, `--no-restack`); com ela, a defasagem é só reportada.
@@ -290,4 +290,4 @@ coautorada, ou o repo declara merge), sem force-push. O painel do elo registra o
 - Nunca publicar um topo vermelho, nem uma branch de cima antes da de baixo.
 - Nunca chamar de validada uma branch intermediária que não rodou gate.
 - Nunca reapontar um filho de pai mergeado sem o tip antigo do pai.
-- Nunca usar o tip atual do pai, nem o `merge-base` simples, como limite do `--onto` (passo 3).
+- Nunca usar o tip atual do pai, nem o `merge-base` simples, como limite do `--onto` (seção 3).

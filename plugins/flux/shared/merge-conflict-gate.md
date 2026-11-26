@@ -127,7 +127,7 @@ linearidade se resolve no squash do merge, o trabalho perdido não se resolve.
 **Exceção: propagação em pilha.** Quando quem reescreve é o protocolo de
 `${FLUX_ROOT}/shared/stack-propagation.md`, a primeira e a terceira condições acima **não** forçam
 merge: a pilha é reescrita inteira na mesma rodada, então nenhuma PR de cima fica órfã, e o custo das
-threads virarem `isOutdated` é aceito (decisão D2 da LAB-438). A segunda condição continua valendo
+threads virarem `isOutdated` é aceito (seção 2 do `stack-propagation.md`). A segunda condição continua valendo
 sem exceção: branch de terceiro ou coautorada bloqueia a propagação da pilha inteira. E a convenção
 declarada do repo (passo 1 acima) vence a exceção: repo que declara merge não é rebaseado, e a
 propagação fica em `hold` com o motivo (`bloqueado:convencao-merge`).
@@ -151,7 +151,8 @@ código e edita arquivo (ver `${FLUX_ROOT}/shared/fanout-discipline.md`). O exec
    veio. Gate não executável localmente é `n/a` com o motivo, nunca "verde". Devolve a worktree
    limpa (`status --porcelain` vazio): o que um gate escrever em arquivo (lint com `--fix`, por
    exemplo) entra no commit da resolução ou é descartado, e vai no relato de qualquer forma.
-5. **Para sem pushar.** O push é do elo, nas condições da seção 5.
+5. **Para sem pushar.** O push é do elo, nas condições da seção 5. Exceção: na propagação em pilha o
+   push em cadeia é do executor (`${FLUX_ROOT}/shared/stack-propagation.md`, seção 6).
 
 Contrato de retorno enxuto (< 40 linhas, sem diff colado): worktree, estratégia, ok/abortado, commits
 reaplicados, **por arquivo o que foi decidido e por quê**, resultado dos gates, SHA local, bloqueios.
