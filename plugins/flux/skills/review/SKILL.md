@@ -89,7 +89,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `SPECIALISTS_REPO` = `specialists_repo` (repo onde a suite versionada vive, para PR; opcional)
    - `WORKSPACE_ROOT` = `workspace_root` (raiz dos checkouts; sem o campo, o pai do `.claude/` ou `.cursor/` achado)
    - `LINEAR_ORG` = `linear_org` (org do Linear, para montar URLs de ticket; opcional)
-   - `SLACK_DIR` = `slack_directory` (diretório de alias do Slack, `${FLUX_ROOT}/shared/slack-directory.md`; só para o aviso no canal depois do Step 8b, opcional)
+   - `SLACK_DIR` = `slack_directory` (diretório de alias do Slack, `${FLUX_ROOT}/shared/slack-directory.md`; só para o aviso no canal do passo 8d, opcional; o estado vem do campo `slack.directory_status` da CLI ou da leitura do arquivo, nunca de memória)
 
 3. Se não encontrar (perfil genérico):
    - `HOLISTIC` = genérico da família pela cascata do preflight (Passo 3): `flux:pr-reviewer` →
@@ -137,7 +137,7 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 - Não rodar suite de testes, typecheck nem lint, exceto no modo "aplicar correções" do Step 8 (PR própria), onde a verificação dos arquivos tocados é obrigatória
 - Não fazer commit, push, nem modificar arquivos do repo sob review — EXCETO no modo "aplicar correções" do Step 8 (PR própria), e mesmo aí só após o usuário escolher essa opção
 - Não mergear (`gh pr merge`). Aprovar a PR só acontece pela opção explícita `Postar e aprovar` do Step 8b (PR de terceiros, veredito aprovar), escolhida pelo usuário no gate; em nenhum outro caminho
-- Não postar no Slack nem salvar rascunho aqui. O aviso no canal (Step 8b) é um GATE que só delega ao `${FLUX_CMD}reply` quando o usuário aceita, e o `reply` só rascunha.
+- Não postar no Slack nem salvar rascunho aqui. O aviso no canal (passo 8d) é um GATE que só delega ao `${FLUX_CMD}reply` quando o usuário aceita, e o `reply` só rascunha.
 - Não escrever em lugar nenhum exceto: o board no vault; e (opcionalmente) a review da PR via `gh api` no Step 8; e, no modo "aplicar correções", os arquivos de código + commit na branch da PR própria.
 
 Quando o Step 8 se aplica (Step 7 diz quando), a ação pós-review é um GATE no mesmo encerramento do review, com o menu completo, sem esperar que a pessoa peça as opções; o menu depende de a PR ser própria ou de terceiros, e nada age sem uma escolha positiva do usuário.
@@ -172,6 +172,7 @@ Nunca bloqueante: se o `run.sh` falhar, avisar numa linha no chat (`Registro do 
    - `kind`: `github-post` quando o menu foi o 8b (ou a opção `Postar comentários inline` do 8a); `commit-push` quando o 8a foi respondido com `Aplicar correções em commits semânticos` ou `Aplicar e dar push`.
    - `decision`: `approved` para qualquer opção que age (aplicar, postar, postar e aprovar); `dismissed` para `Não fazer nada`, `Não postar` ou cancelar o gate; `rejected` só quando o usuário recusa explicitamente pelo campo livre.
    - `via`: `askuser` quando o gate foi `AskUserQuestion`, `numbered-menu` quando virou lista numerada.
+   - O gate `review-slack-notice` do 8d é registrado com `kind` `slack-write`: `decision` `approved` para `draft-notice` e `dismissed` para `skip-notice` ou gate cancelado. `declared` sem gate (qualquer `nao-aplicavel`) não gera registro.
    - Um registro por pergunta feita: a segunda pergunta do 8b (threads reverificadas) é outro gate, também `github-post`. Sem Step 8 (nada acionável), não há gate para registrar.
 3. **Fim do elo:** se `MODEL` ou `EFFORT` tiverem valor conhecido pelas regras de fonte do harness
    (`MODEL` por afirmação explícita do system prompt; `EFFORT` por `CLAUDE_EFFORT` ou autorrelato
@@ -474,7 +475,7 @@ Veredito: {STATUS} — {1 frase do veredito}.
 
 **Não** repita o conteúdo do review no chat. O board é a fonte de verdade.
 
-Em seguida, vá direto para o Step 8 e apresente o GATE no mesmo encerramento do review, sem esperar input adicional do usuário. Se o review **não tem PR number** (branch local sem PR aberta) ou se o `FINAL_REPORT` não retornou nenhum comentário acionável (`request-change`, `breaking-change`, `question`, `suggestion`, `praise`), **pule o Step 8** — apenas terminar. Exceção: em PR de terceiros (`IS_OWN_PR` falso) com `STATUS` `approved`, `approved-with-suggestions` ou `approved-with-questions`, o 8b abre mesmo sem comentário acionável (a PR continua precisando de number).
+Em seguida, vá direto para o Step 8 e apresente o GATE no mesmo encerramento do review, sem esperar input adicional do usuário. Se o review **não tem PR number** (branch local sem PR aberta) ou se o `FINAL_REPORT` não retornou nenhum comentário acionável (`request-change`, `breaking-change`, `question`, `suggestion`, `praise`), **pule o Step 8** e termine com a linha `aviso-slack: nao-aplicavel (sem-postagem)`. Exceção: em PR de terceiros (`IS_OWN_PR` falso) com `STATUS` `approved`, `approved-with-suggestions` ou `approved-with-questions`, o 8b abre mesmo sem comentário acionável (a PR continua precisando de number).
 
 ### 8. Oferecer ação pós-review (aplicar ou publicar)
 
@@ -488,6 +489,8 @@ verdadeiras. Em especial, `Postar e aprovar` exige PR de terceiro e status que p
 as opções de aplicar, commitar e pushar exigem PR própria. Persistir a spec antes da pergunta e a
 escolha, ação e resultado depois, conforme o contrato compartilhado. Se o snapshot faltar ou entrar
 em conflito, parar com as opções seguras de esclarecer ou não agir.
+
+Todo caminho do Step 8 termina pelo **passo 8d** (aviso no canal) antes da resposta final: a postagem do 8b, o 8c, `do-nothing`, `do-not-post` e o gate cancelado. A resposta de postagem do 8b é parcial, e a final fecha sempre com a linha `aviso-slack:`.
 
 #### GateSpec do Step 8
 
@@ -534,7 +537,7 @@ gh pr edit $PR_NUMBER --repo $REPO_FULL --add-assignee "$ME"
 Header `Ação na PR?`, question `A PR #{number} é sua. O que fazer com as recomendações do review?`,
 opções `apply-commits` (recomendada), `apply-and-push`, `post-inline`, `do-nothing`. As duas primeiras
 levam ao **8c**; `post-inline` abre o menu "demais vereditos" do **8b**, com qualquer `STATUS` (o
-GitHub não deixa aprovar a própria PR); `do-nothing` termina.
+GitHub não deixa aprovar a própria PR); `do-nothing` segue para o 8d, que declara `sem-postagem`.
 
 #### 8b. PR de terceiros (`IS_OWN_PR == false`) — publicar inline
 
@@ -593,7 +596,7 @@ Regras para montar o payload (conforme `review-legend.md` — Banner do badge):
 - **Sem em-dashes** nos textos publicados quando `NO_EMDASH == true` (regra global — usar vírgula, dois-pontos, parênteses).
 - Se a PR está em repo cross-org sem acesso de escrita, capturar o erro do `gh api` e reportar ao usuário sem retentar.
 
-Após `gh api` retornar sucesso (com `html_url` da review), responder no chat **só** com:
+Após `gh api` retornar sucesso (com `html_url` da review), a resposta de postagem é esta, e a resposta final só sai depois do 8d, que acrescenta a linha `aviso-slack:`:
 
 ```
 Review postada: {html_url}
@@ -622,41 +625,9 @@ gh api -X POST repos/{owner}/{repo}/pulls/{number}/reviews -f event=APPROVE -f c
 
 Resposta no chat de `Postar e aprovar`, em vez da acima: a mesma, acrescida de `PR #{number} aprovada.` quando a aprovação deu certo, `Aprovação falhou: {erro}. A revisão continua postada; a PR não foi aprovada.` quando falhou, ou `A PR mudou desde a revisão; não aprovei. A revisão continua postada.` quando o head divergiu.
 
-Se o usuário escolher "Não postar" ou cancelar a question, apenas terminar (sem mensagem extra).
+Se o usuário escolher "Não postar" ou cancelar a question, nada é postado: seguir para o 8d, que fecha com `aviso-slack: nao-aplicavel (sem-postagem)`.
 
-**Aviso no canal de PR (nunca posta).** Depois de uma postagem que deu certo, com `SLACK_DIR` declarado,
-`FLUX_CMD` utilizável e capacidade de Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão), o
-desfecho escolhe o intent do canal:
-
-| desfecho | intent |
-|---|---|
-| `Postar e aprovar` com a aprovação feita, sem comentário inline além de `praise` | `review-aprovada` |
-| `Postar e aprovar` com a aprovação feita e ao menos um comentário inline que não seja `praise` | `review-aprovada-com-comentarios` |
-| postagem sem aprovar, **rodada 2 em diante**, com ao menos um comentário inline que não seja `praise` | `review-novos-pontos` |
-| postagem sem aprovar na 1ª rodada, ou rodada 2+ sem comentário além de `praise` (inclui aprovação que falhou ou com head divergente) | `review-comentada` |
-
-Rodada 2 em diante = há rodada anterior desta PR no vault (Passo 3b) **ou** review anterior da própria conta
-(`ME`) na PR, ambos lidos **antes** desta postagem (Step 3 e 3b), nunca depois: a review recém-postada não conta.
-Os dois sinais só contam rodadas, nunca mudam o conteúdo do review.
-
-Algum canal do diretório com o intent do desfecho: abrir **um GATE** (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`;
-renderer conforme `${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo"), single-select, "Avisar no canal de PR ({desfecho})?":
-- `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório. Com um canal só, é a
-  primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada.
-- `Agora não`.
-
-Aceitar roda `${FLUX_CMD}reply` com uma frase de `match` literal do intent do desfecho (a primeira da lista), o
-nome do canal (primeiro alias; sem `aliases`, o slug) e a URL completa da PR
-(`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`), tudo numa string entre aspas. O `reply` acha a mensagem do
-pedido no canal, rascunha a réplica na thread dela marcando quem pediu, **mostra o preview** e só então salva o
-rascunho. O review não lê o Slack, não posta e não salva rascunho. O veredito (`approved` ou `commented`) é
-conhecido pela sessão e alimenta o gate de status do `reply`.
-
-Canal sem o intent do desfecho, mas com `review-feita`: sem gate, e a resposta no chat ganha **uma linha**:
-`Para avisar no canal: ${FLUX_CMD}reply avisar review feita na PR #{number} em <alias do canal>` (com mais de
-um canal, listar o alias de cada um; com `FLUX_CMD` indisponível, omitir a linha). Sem diretório ou sem
-nenhum desses intents, nenhuma pergunta e nenhuma linha extra. A ausência é silenciosa por design e não gera
-token de degradação.
+Depois de uma postagem que deu certo, seguir para o **8d** antes de responder.
 
 Se o usuário escolher `Responder threads reverificadas` (ou `Sim` na segunda pergunta), seguir para
 **8b-bis**; é independente da postagem de uma review nova.
@@ -699,6 +670,58 @@ Regras:
 - **Atualizar a descrição da PR** quando a correção mudar materialmente o que a PR faz (ex.: removeu/alterou algo descrito no corpo): editar via `gh pr edit $PR_NUMBER --repo $REPO_FULL --body-file <arquivo>`. Sem em-dashes quando `NO_EMDASH == true` (texto externo).
 
 Resposta no chat ao final: tabela curta `{finding | aplicado/pulado | arquivos}`, depois `{commit(s) SHA, resultado da verificação, e range de push se houve}`. Sinalizar findings pulados (improcedentes/ambíguos) e o que precisa de decisão do usuário.
+
+#### 8d. Aviso no canal de PR (nunca posta)
+
+Roda em **todo** caminho que passou pelo Step 8, antes da resposta final: depois da postagem do 8b (com ou
+sem aprovação), e também quando o usuário escolheu `do-not-post` ou `do-nothing`, cancelou o gate ou o 8c
+aplicou correções. Elegibilidade e declaração têm fonte única em `${FLUX_ROOT}/shared/slack-directory.md`,
+seção "Aviso no canal de PR: elegibilidade e declaração"; a lista de motivos não se repete aqui.
+
+1. Resolver `directory_status` (campo `slack` do `flux preflight --json`, ou a leitura do manifesto e do
+   arquivo). Afirmar que o diretório não existe sem essa leitura é falha do elo.
+2. Aplicar a ordem de motivos do shared. Nada foi postado nesta execução (`do-not-post`, `do-nothing`,
+   falha na postagem, 8c): `sem-postagem`, sem gate.
+3. Elegível: o desfecho escolhe o intent do canal.
+
+| desfecho | intent |
+|---|---|
+| `Postar e aprovar` com a aprovação feita, sem comentário inline além de `praise` | `review-aprovada` |
+| `Postar e aprovar` com a aprovação feita e ao menos um comentário inline que não seja `praise` | `review-aprovada-com-comentarios` |
+| postagem sem aprovar, **rodada 2 em diante**, com ao menos um comentário inline que não seja `praise` | `review-novos-pontos` |
+| postagem sem aprovar na 1ª rodada, ou rodada 2+ sem comentário além de `praise` (inclui aprovação que falhou ou com head divergente) | `review-comentada` |
+
+Rodada 2 em diante = há rodada anterior desta PR no vault (Passo 3b) **ou** review anterior da própria
+conta (`ME`) na PR, ambos lidos **antes** da postagem (Step 3 e 3b), nunca depois: a review recém-postada
+não conta. Os dois sinais só contam rodadas, nunca mudam o conteúdo do review.
+
+4. Algum canal do diretório com o intent do desfecho: abrir o gate `review-slack-notice` (`GateSpec` de
+   `${FLUX_ROOT}/shared/hitl.md`; renderer conforme "Auto-resolução por tempo" do mesmo arquivo),
+   single-select, "Avisar no canal de PR ({desfecho})?". O `snapshot` é `{directory_status, intent,
+   canais_com_o_intent, rodada, desfecho}`.
+
+| id | label | description | effect | preconditions |
+|---|---|---|---|---|
+| `draft-notice` | Rascunhar aviso em `<nome do canal>` | Roda o `${FLUX_CMD}reply` com o intent do desfecho: acha o pedido de review no canal, rascunha a réplica na thread dele, mostra o preview e só então salva o rascunho. Nunca posta. | delega ao `reply`, que salva rascunho no Slack | canal com o intent do desfecho |
+| `skip-notice` | Agora não | Não avisa no canal. | encerra sem tocar no Slack | sempre |
+
+   Uma opção `draft-notice` por canal, na ordem do diretório. Com um canal só, ela leva `(Recomendado)`;
+   com mais de um, nenhuma é recomendada.
+5. Aceitar roda `${FLUX_CMD}reply` com uma frase de `match` literal do intent do desfecho (a primeira da
+   lista), o nome do canal (primeiro alias; sem `aliases`, o slug) e a URL completa da PR
+   (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`), tudo numa string entre aspas. O `reply` acha a
+   mensagem do pedido no canal, rascunha a réplica na thread dela marcando quem pediu, **mostra o preview**
+   e só então salva o rascunho. O review não lê o Slack, não posta e não salva rascunho. O veredito
+   (`approved` ou `commented`) é conhecido pela sessão e alimenta o gate de status do `reply`.
+6. Canal sem o intent do desfecho, mas com `review-feita`: sem gate, e a resposta ganha uma linha antes da
+   do `aviso-slack:`: `Para avisar no canal: ${FLUX_CMD}reply avisar review feita na PR #{number} em <alias do
+   canal>` (com mais de um canal, o alias de cada um; com `FLUX_CMD` indisponível, omitir a linha). O motivo
+   declarado é `sem-intent-no-canal`.
+
+A resposta final do review termina **sempre** com a linha de declaração do shared, uma por execução:
+`aviso-slack: oferecido ({intent})` quando o gate abriu (qualquer escolha) ou
+`aviso-slack: nao-aplicavel ({motivo})`. Com `run_id:` na invocação, registrar o gate do 8d (item 2 de
+"Registro do run").
 
 ## Pipeline `doc` (review de documento / RFC)
 
