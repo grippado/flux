@@ -61,7 +61,7 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:land` n
 | `/flux:land ... --solo` | Pula os specialists de regressão; roda só o holístico |
 | `/flux:land ... --board <path>` | Assume/atualiza uma nota-board existente em vez de criar nova |
 | `/flux:land ... --restack` | Propaga agora, pela pilha inteira, o que mudou num slice (fase 4a) e segue o fluxo normal; com `--once`, propaga, relata e sai |
-| `/flux:land ... --no-restack` | Desliga a propagação em pilha: a defasagem é detectada e reportada no painel, nenhuma branch é reescrita. Junto com `--restack`, vence `--no-restack` |
+| `/flux:land ... --no-restack` | Desliga a propagação em pilha: a defasagem é detectada e reportada no painel, a propagação não reescreve nenhuma branch, e o iterate da PR filha roda o gate normal (seção 7 do shared). Junto com `--restack`, vence `--no-restack` |
 
 > **Propagação em pilha é o default** (desliga com `--no-restack`): numa entrega empilhada, o land reescreve as branches de cima com `--force-with-lease` quando detecta um slice de baixo à frente delas, sem gate humano por branch (fase 4a). Invocar o land sem `--no-restack` é a autorização desse push.
 
@@ -341,6 +341,10 @@ PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo 
   - `bloqueada`: estado sem mudança. Entra em **`hold`** com o motivo.
   - `intocada` e ainda defasada (a propagação parou abaixo dela): entra em **`hold`**, sem `go`.
   - `base:falhou`: o push vale, mas a PR entra em **`hold`** até a base ser reapontada.
+  - Em toda PR da pilha, `restackBlockedBy` = o bloqueio de pré-condição do retorno (`terceiro`,
+    `coautorada`, `convencao-merge`, `tip-desconhecido` ou `filho-fora-da-entrega`, da lista
+    `bloqueios:`), ou `null` quando o retorno não traz nenhum deles. É o que decide o `--no-rebase` do
+    iterate da PR filha (seção 7 do shared).
 
   Se a pilha terminou com alguma aresta ainda defasada, gravar `restackAttemptedAt = {paiSha,
   filhoSha}` na PR filha de cada uma, com os tips remotos de **depois** da rodada (refetch). Lease
@@ -411,7 +415,7 @@ Após postar, registrar o canal usado e o link da mensagem no board (Timeline, t
   "prs": [
     { "repo": "<ORG>/backoffice-bff", "number": 1054, "worktree": "...",
       "lastHeadSha": "", "lastCiConclusion": "null", "resolvedThreadIds": [], "iterateRounds": 0, "verdict": "safe-solo",
-      "headRefName": "", "baseRefName": "main", "stackedOn": null, "retainedResolutionSha": null, "restackAttemptedAt": null,
+      "headRefName": "", "baseRefName": "main", "stackedOn": null, "retainedResolutionSha": null, "restackAttemptedAt": null, "restackBlockedBy": null,
       "wasDraft": true, "reviewRequestedAt": null, "reviewRequestedChannel": null }
   ],
   "order": ["#1054", "#8057", "#1157"],
@@ -448,9 +452,9 @@ Cada **tick**:
    mesma lógica do "uma tentativa por SHA da base" da seção 5 do `merge-conflict-gate.md`; um push
    em qualquer um dos dois lados muda o SHA e libera uma tentativa nova. Enquanto a pilha estiver
    parada pela guarda, o passo 3 volta a rodar para as PRs dela: o `hold` da propagação segura o
-   `go`, não o iterate. Todo iterate despachado para uma PR filha de aresta defasada, sob guarda ou
-   não, leva `--no-rebase`: o iterate fecha a conversa (seção 6 do gate) e não integra a base, que é
-   da propagação.
+   `go`, não o iterate. Se o iterate de uma PR filha de aresta defasada leva `--no-rebase` ou roda o
+   gate normal é a regra da seção 7 do shared ("Iterate de PR filha: quando leva `--no-rebase`"),
+   com o bloqueio lido de `restackBlockedBy` no estado e o motivo no painel.
 3. Se há delta de threads numa PR → despachar **um subagente** para rodar `${FLUX_CMD}iterate <url> --auto --once --parent-board "<path deste board>"` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
 3b. **Checar transição de draft** (compare `isDraft` atual com `wasDraft` salvo). Se alguma PR virou `ready for review` neste tick, dispare a pergunta do passo 4b (agrupando por ticket) antes de seguir. Atualize `wasDraft` para o valor atual de todas as PRs.
 4. Se algum head/base mudou → recomputar ordem/regressão afetada (fases 2–3) só do que mudou.
@@ -466,7 +470,7 @@ Cada **tick**:
 - Todas as PRs `MERGED`/`CLOSED`.
 - **Assentou**: todas merge-ready (CI verde + zero threads + **`mergeable == MERGEABLE`** + veredito `safe`/`needs-order` resolvido) por **2 ticks** (`quietTicks >= 2`) → emitir **go/no-go final** com a ordem e encerrar.
 
-> **Conflito com a base é `no-go` por PR, não detalhe de merge.** O `mergeable` já vem na descoberta (fase 1); uma PR `CONFLICTING` **não** é merge-ready, e o gate quem aplica é o `${FLUX_CMD}iterate` da fase 4 dentro do subagente daquela PR (passo 2b dele, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`). O land não resolve conflito por conta própria; a única outra mão que reescreve branch da entrega é o subagente de propagação da fase 4a, e só para pilha defasada. O `${FLUX_CMD}iterate` despachado aqui roda sem `--no-rebase` (exceção: PR filha de aresta defasada, que vai com `--no-rebase`, passo 2b), então a resolução mecânica sai publicada nas condições da seção 5 do shared, sem gate humano; o relato chega pelos campos `headShaAntes`/`headShaDepois`, `revListAntes`/`revListDepois`, `arquivosResolvidos` e `gates` do contrato da fase 4 e é gravado no board do land, que sempre existe (o Step 0 cai em `--board` ou cria o board no `pwd` quando não há `VAULT_ROOT`). O land lê esse retorno, marca a PR como `hold` no painel quando o gate ficou em modo degradado, e nunca emite `go` para PR conflitante. Numa entrega, isso é ainda mais crítico que numa PR só: a ordem de merge existe justamente porque mergear a #A muda a base da #B, então uma #B já conflitante tende a piorar a cada merge do lote.
+> **Conflito com a base é `no-go` por PR, não detalhe de merge.** O `mergeable` já vem na descoberta (fase 1); uma PR `CONFLICTING` **não** é merge-ready, e o gate quem aplica é o `${FLUX_CMD}iterate` da fase 4 dentro do subagente daquela PR (passo 2b dele, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`). O land não resolve conflito por conta própria; a única outra mão que reescreve branch da entrega é o subagente de propagação da fase 4a, e só para pilha defasada. O `${FLUX_CMD}iterate` despachado aqui roda sem `--no-rebase` (exceção: PR filha de aresta defasada, nas condições da seção 7 de `${FLUX_ROOT}/shared/stack-propagation.md`, "Iterate de PR filha: quando leva `--no-rebase`"), então a resolução mecânica sai publicada nas condições da seção 5 do shared, sem gate humano; o relato chega pelos campos `headShaAntes`/`headShaDepois`, `revListAntes`/`revListDepois`, `arquivosResolvidos` e `gates` do contrato da fase 4 e é gravado no board do land, que sempre existe (o Step 0 cai em `--board` ou cria o board no `pwd` quando não há `VAULT_ROOT`). O land lê esse retorno, marca a PR como `hold` no painel quando o gate ficou em modo degradado, e nunca emite `go` para PR conflitante. Numa entrega, isso é ainda mais crítico que numa PR só: a ordem de merge existe justamente porque mergear a #A muda a base da #B, então uma #B já conflitante tende a piorar a cada merge do lote.
 - Limite de segurança: `>~6h` sem assentar → encerrar avisando (provável discussão humana/CI cronicamente vermelho).
 - Usuário interrompe.
 

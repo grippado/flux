@@ -92,13 +92,24 @@ nada é escrito até as duas passarem.
 | branch coautorada (mais de um autor em `git log --format='%ae' "${STACKED[$FILHO]}..origin/$FILHO" \| sort -u`) | **bloqueia a pilha**: `bloqueado:coautorada` |
 | repo declara merge como convenção (passo 1 da seção 3 do gate) | **bloqueia a pilha**: `bloqueado:convencao-merge`, e o elo a põe em `hold` com o motivo |
 | PR aberta com base numa branch reescrita e fora da pilha (`gh pr list --repo "$REPO_FULL" --base "$BRANCH" --state open --json number`) | **bloqueia a pilha**: `bloqueado:filho-fora-da-entrega` |
-| worktree local atrás do remoto | **não bloqueia**: sincronizar com `--ff-only` antes do rebase (seção 4), nunca reescrever o estado velho |
-| worktree à frente do remoto, divergida ou suja | segue só se o descarte condicionado da seção 5 do `merge-conflict-gate.md` se aplica (`HEAD == retainedResolutionSha` **e** `status --porcelain` vazio), e o descarte roda na seção 4, antes do `--onto`. Qualquer outra situação: **bloqueia a pilha**, `bloqueado:worktree-retida` |
+| worktree local atrás do remoto | **não bloqueia**: sincronizar com `--ff-only` na sincronização abaixo, nunca reescrever o estado velho |
+| worktree à frente do remoto, divergida ou suja | segue só se o descarte condicionado da seção 5 do `merge-conflict-gate.md` se aplica (`HEAD == retainedResolutionSha` **e** `status --porcelain` vazio), e o descarte roda na sincronização abaixo, antes do `pull`. Qualquer outra situação: **bloqueia a pilha**, `bloqueado:worktree-retida` |
 | threads abertas ancoradas em linha | **não bloqueia** (exceção da seção 3 do gate: o custo das threads virarem `isOutdated` é aceito) |
 | a branch é base de outra PR | **não bloqueia**: é a definição de pilha |
 
 Uma pilha com um único bloqueio não é propagada em parte. Reescrever a metade de baixo e parar no
 meio deixa a pilha num estado que nenhum dos dois lados reconhece.
+
+**Sincronizar todas as worktrees antes da primeira reescrita.** Passada a tabela, e com os SHAs da
+seção 3 já registrados, cada branch da pilha que seria reescrita tem a worktree dela sincronizada com
+o remoto exatamente como no item 2 da seção 4 do `merge-conflict-gate.md`: primeiro o descarte
+condicionado, quando a tabela acima o liberou, depois `git -C "$WORKTREE" pull --ff-only`. Em
+seguida, `HEAD` de cada uma tem que ser igual a `LEASE[$BRANCH]`. A sincronização só descarta o que
+a tabela liberou e avança: nenhuma branch é reescrita aqui. Qualquer falha (pull recusado, `HEAD`
+diferente do lease) **bloqueia a pilha** como `bloqueado:sincronia`, antes de a primeira branch ser
+reescrita, e consome a tentativa (seção "Quando aplicar"). Sem isso, rebasear a branch local
+reescreve um estado velho, e o lease da seção 6, que vem de `origin/$BRANCH`, aceita o push que apaga
+os commits remotos.
 
 ## 3. Registrar os dois SHAs de cada aresta
 
@@ -137,12 +148,8 @@ costuma ser a única fonte, porque o ref remoto sumiu.
 Em ordem topológica (pai antes de filho), cada filho é reescrito **na worktree dele**, resolvida por
 `${FLUX_ROOT}/shared/worktree-discipline.md`.
 
-Antes do rebase, a worktree do filho é sincronizada com o remoto exatamente como no item 2 da seção 4
-do `merge-conflict-gate.md`: primeiro o descarte condicionado, quando a seção 2 deste shared o
-liberou, depois `git -C "$WORKTREE_FILHO" pull --ff-only`. Rebasear a branch local sem isso reescreve
-um estado velho, e o lease do passo 6, que vem de `origin/$FILHO`, aceita o push que apaga os
-commits remotos. Depois da sincronização, `HEAD` tem que ser igual a `LEASE[$FILHO]`; se não for, o
-filho fica `bloqueada` e a propagação para ali, como num abort.
+As worktrees já chegam aqui sincronizadas e conferidas contra o lease (seção 2, "Sincronizar todas
+as worktrees antes da primeira reescrita").
 
 ```bash
 git -C "$WORKTREE_FILHO" rebase --onto "$NOVO_PAI" "${STACKED[$FILHO]}" "$FILHO"
@@ -198,11 +205,17 @@ O lease leva o SHA explícito, mais estrito que o lease nu da seção 5 do gate,
 todos os tips antes de reescrever o primeiro. Fora isso, rejeição e retenção seguem a seção 5 do
 `merge-conflict-gate.md`, sem regra própria:
 
-- **Lease recusado** ou **outra rejeição** (a distinção e o motivo `abortado` são do gate): parar ali.
-  As de baixo já publicadas ficam (cada uma contém o ajuste e é consistente sozinha); a recusada e as
-  de cima ficam `retida`, com o tratamento de resolução retida do gate. Publicar de baixo para cima é
-  o que garante que o estado remoto é sempre um prefixo coerente da pilha, nunca um topo novo sobre
-  um meio velho.
+- **Lease recusado ou outra rejeição: parar ali.** As de baixo já publicadas ficam (cada uma contém o
+  ajuste e é consistente sozinha). Publicar de baixo para cima é o que garante que o estado remoto é
+  sempre um prefixo coerente da pilha, nunca um topo novo sobre um meio velho. O que acontece com a
+  recusada e com as de cima é a distinção do gate:
+  - **Lease recusado**: a recusada e as de cima ficam `retida`, com o tratamento de resolução retida
+    do gate (`retainedResolutionSha` por branch), e a tentativa **não** é consumida.
+  - **Outra rejeição** (branch protegida, hook do servidor, permissão): a recusada e as de cima ficam
+    `bloqueada` com o motivo `abortado`, e a tentativa é consumida, como no gate. A reescrita local
+    delas não vira resolução retida: a próxima tentativa encontra a worktree divergida, sem
+    `retainedResolutionSha` para conferir, e cai em `bloqueado:worktree-retida` até o humano
+    destravar pelas duas saídas da seção 5 do gate.
 - **Reapontar a base**, só depois do push bem-sucedido daquela branch, quando o pai dela está
   `MERGED` e o `baseRefName` ainda aponta para a branch do pai:
   `gh pr edit "$FILHO_PR" --repo "$REPO_FULL" --base "$DEFAULT"`. No pai mergeado por merge commit
@@ -234,12 +247,27 @@ Retorno (< 40 linhas, sem diff colado):
 - gatilho: <restack | defasada:<pai>-><filho> | mergeado:<pai>>
 - por branch, uma linha: <branch> · <publicada|retida|bloqueada|intocada> · <shaAntes>-><shaDepois> · stackedOn:<sha completo do NOVO_PAI, só em publicada | n/a> · base:<n/a|reapontada:<base>|falhou> · validacao:<ok|vermelho|nao-validada> · conflitos:<n/a|arquivo: decisão>
 - topo: <branch> · gates <por gate: ok|vermelho|n/a>
-- bloqueios: <lista curta com o motivo em grafia fixa (terceiro, coautorada, filho-fora-da-entrega, worktree-retida, tip-desconhecido, convencao-merge, lease-recusado, abortado, semantico), ou nenhum>
+- bloqueios: <lista curta com o motivo em grafia fixa (terceiro, coautorada, filho-fora-da-entrega, worktree-retida, tip-desconhecido, convencao-merge, sincronia, lease-recusado, abortado, semantico), ou nenhum>
 ```
 
 O relato substitui a pergunta, como no gate de conflito: SHA antes e depois, e a validação de cada
 branch, vão para o board pelo escritor único. Force-push em cadeia sem esse rastro é o que torna a
 autorização perigosa.
+
+**Iterate de PR filha: quando leva `--no-rebase`.** Fonte única desta regra; o
+`merge-conflict-gate.md` e o elo que propaga apontam para cá. O iterate de uma PR filha de aresta
+defasada leva `--no-rebase` **só quando a propagação é dona da aresta**, ou seja, quando as duas
+condições valem juntas:
+
+- a pilha não tem bloqueio de pré-condição: nenhum `terceiro`, `coautorada`, `convencao-merge`,
+  `tip-desconhecido` ou `filho-fora-da-entrega` no último retorno da propagação daquela pilha;
+- a propagação não foi desligada pela flag do elo (no `flux:land`, `--no-restack`).
+
+Aí o iterate fecha a conversa (seção 6 do gate) e não integra a base, que é da propagação. Nos outros
+casos ninguém mais vai integrar a base daquele filho, então o iterate roda **sem** `--no-rebase`: o
+gate normal decide, e a seção 3 dele escolhe `merge origin/$BASE` (a branch é base de outra PR, ou é
+coautorada, ou o repo declara merge), sem force-push. O painel do elo registra o motivo:
+`iterate com gate normal: <bloqueio | --no-restack>`.
 
 ## Segurança (resumo do que nunca se faz)
 

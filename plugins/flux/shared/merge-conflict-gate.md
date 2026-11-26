@@ -41,9 +41,9 @@ exatamente o que ele não olhava.
 - **Sempre** que o fluxo puder escrever na branch: `flux:iterate` (1ª passada **e** todo tick do
   watch, porque a base anda enquanto o watch dorme), `flux:land` por PR do lote. Pilha de PRs
   defasada, com ou sem conflito, é outro protocolo: `${FLUX_ROOT}/shared/stack-propagation.md`.
-  Filho de pilha é da propagação, não do iterate: o `flux:land` despacha o iterate de uma PR filha cuja
-  aresta está defasada com `--no-rebase`, mesmo quando ela está `CONFLICTING`, e quem integra a base
-  dela é a propagação.
+  Quando o iterate de uma PR filha de aresta defasada leva `--no-rebase` (e a base dela fica com a
+  propagação) e quando roda este gate normal: seção 7 do `stack-propagation.md`, "Iterate de PR
+  filha: quando leva `--no-rebase`".
 - **Nunca** em fluxo read-only: `flux:peek`, `flux:review`, `flux:iterate --dry`. Nesses, o estado de
   integração é **reportado** (é informação de primeira ordem sobre a PR) e nada é resolvido.
 
