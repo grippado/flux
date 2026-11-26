@@ -32,6 +32,11 @@ por PR) é o que transforma uma operação de segundos numa de dezenas de minuto
   rodada, e não redespacha aquela aresta enquanto os dois forem os mesmos, nem com o gatilho
   explícito repetido. É a regra "uma tentativa por SHA da base" da seção 5 do
   `merge-conflict-gate.md`, aplicada à aresta. No `flux:land`, o campo é `restackAttemptedAt`.
+- **Sem despacho possível**, porque o `FLUX_CMD` não é utilizável (`UNAVAILABLE`, o caso do Codex)
+  ou porque não há como despachar subagente: a defasagem é só **reportada** como `pilha defasada`, a
+  PR de cima entra em `hold` e nada é reescrito. Nunca propagar na main como consolo (seção 7). O elo
+  declara a perda no banner, em `degradacoes:`, com o token `pilha so reportada`
+  (`${FLUX_ROOT}/shared/preflight.md`, "Tokens canônicos de `degradacoes:`").
 - **Nunca** em fluxo read-only (`flux:peek`, `flux:review`, `--dry`): lá a defasagem é **reportada**,
   nada é reescrito.
 

@@ -312,6 +312,10 @@ PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo 
   aresta). É metadado barato, não leitura de código. `--restack` trata toda pilha da entrega como
   defasada, mesmo que o teste não acuse. `--no-restack` para aqui: a aresta defasada vai para o
   painel como `pilha defasada` e a PR de cima entra em `hold`.
+- **Sem despacho, só reportar.** Com `FLUX_CMD` `UNAVAILABLE` (o caso do Codex) ou sem como despachar
+  subagente, esta fase só reporta `pilha defasada` e põe a PR em `hold`; nada é reescrito, e a perda
+  vai em `degradacoes:` como `pilha so reportada` (seção "Quando aplicar" do shared). Assim, tudo o
+  que roda antes do abort da fase 4 continua sendo leitura.
 - **Manter o `stackedOn` de cada PR filha** no estado: em toda leitura em que a aresta passa no teste,
   gravar o tip atual do pai, e no retorno de cada branch publicada (abaixo). É o limite do `--onto`
   (seção 3 do shared), e é o único jeito de propagar um pai que foi reescrito ou mergeado por squash
@@ -437,7 +441,8 @@ Cada **tick**:
    aresta) → despachar o subagente de propagação daquela pilha (fase 4a) e **pular o passo 3** para as
    PRs dela neste tick. Um push num slice de baixo é o caso típico: o próximo tick já o propaga, sem
    esperar conflito nem thread. Com `--no-restack` (que vence `--restack` quando vêm juntas), nada é
-   despachado: só o painel e o `hold`. **Guarda de tentativa**: aresta cujo `restackAttemptedAt`
+   despachado: só o painel e o `hold`. O mesmo vale sem despacho possível (`FLUX_CMD` `UNAVAILABLE` ou
+   sem subagente): só reportar, como na fase 4a. **Guarda de tentativa**: aresta cujo `restackAttemptedAt`
    (`{paiSha, filhoSha}`) é igual aos tips remotos atuais de pai e filho não é redespachada, com a
    mesma lógica do "uma tentativa por SHA da base" da seção 5 do `merge-conflict-gate.md`; um push
    em qualquer um dos dois lados muda o SHA e libera uma tentativa nova. Enquanto a pilha estiver
