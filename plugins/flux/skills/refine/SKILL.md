@@ -55,7 +55,7 @@ carimbo: {harness} | flux:refine@{flux_version}
 `holistico:` **não entra** e `L1` sai `n/a`: este elo prospecta, não revisa. A linha `lentes` entra
 porque a qualidade do TRD depende de haver specialists no repo.
 
-**A linha `escopo` sai com o T0 e é reemitida com o T1**, e também com o T0 intermediário quando o
+**A linha `escopo` sai com o T0 e é reemitida com o T1, quando ele existir**, e também com o T0 intermediário quando o
 Caminho grill resolve o sinal duro (com os sinais já mostrando o resolvido): o número que vale é o
 apurado.
 
@@ -77,9 +77,9 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:refine`
 | `--no-prd` | Pula o PRD e produz só TRD + plano. Para pedido cujo "porquê" já está decidido e escrito. |
 | `--grill` | Só documenta a intenção: o Caminho grill (Step 2) roda sozinho sempre que o único motivo do 🔴 é "decisão de produto em aberto sem dono". Sem esse gatilho, é no-op **declarado em `degradacoes:`**. Sob `--dry`, o grill não roda, com ou sem a flag. |
 
-**Não existe flag que force um escopo 🔴 a ser refinado** (`scope-gate.md`, "Vermelho no `flux:refine`
+**Não existe flag que force um escopo 🔴 a ser refinado** (`${FLUX_ROOT}/shared/scope-gate.md`, "Vermelho no `flux:refine`
 não tem override"): a saída é cortar, e o corte vem proposto na recusa. O `--grill` não força nada:
-resolve o sinal duro antes de o gate medir de novo (`scope-gate.md`, "O Caminho grill do
+resolve o sinal duro antes de o gate medir de novo (`${FLUX_ROOT}/shared/scope-gate.md`, "O Caminho grill do
 `flux:refine`").
 
 ### Exemplos
@@ -168,7 +168,7 @@ vermelho (critério exato no bullet acima): uma escolha não tomada, e o pedido 
 
    **Havendo alternativas, buscar evidência real por cada uma.** Despachar **um** subagente `Explore`
    (prompt auto-contido com as alternativas e os repos do domínio citados no pedido): despacho único,
-   não o fan-out do Step 4, mas investigar código não é da main (`fanout-discipline.md`). Pedir: grep no(s)
+   não o fan-out do Step 4, mas investigar código não é da main (`${FLUX_ROOT}/shared/fanout-discipline.md`). Pedir: grep no(s)
    repo(s) do domínio por uma ferramenta ou padrão equivalente já existente, e checar doc relacionado
    quando houver (`shared/`, README, ADR referenciado). Dois rótulos possíveis por alternativa, e eles
    não são o mesmo fato:
@@ -347,7 +347,7 @@ sem board a prospecção **será refeita** — é a perda concreta de não ter v
 ### Por que aponta e não despacha
 
 Despachar um irmão exigiria resolver e verificar `${FLUX_CMD}` (Passo 1b do preflight), com o risco de
-abortar ou degradar onde o prefixo não é verificável (`codex-compat.md`); um elo que termina num
+abortar ou degradar onde o prefixo não é verificável (`${FLUX_ROOT}/shared/codex-compat.md`); um elo que termina num
 artefato a ler não paga esse preço, e **nenhum elo chama o próximo sozinho**. **Exceção única:** o
 encadeamento fatia-por-fatia, em que o elo se reinvoca a si mesmo, e por isso resolve e verifica
 `${FLUX_CMD}` antes (o mesmo custo que `flux:reply` e o fallback agendado do `flux:iterate` pagam).
@@ -393,7 +393,8 @@ Este 🔴 pode, num caso específico e estreito, encadear as fatias sozinho em v
 fatia 1. As três condições são **todas** necessárias:
 
 1. o `REQUEST` que chegou até aqui **passou pelo Caminho grill nesta mesma rodada** (marcado no item 4
-   dele); a marca não sobrevive entre execuções, então board retomado de execução anterior não conta;
+   dele); a marca vale só dentro da execução, e a decisão de grill de uma execução anterior, registrada
+   num board retomado, não conta (um grill que roda nesta execução sobre um board retomado conta);
 2. este 🔴 é o **T1** reavaliado depois do grill, nunca o T0 intermediário, nem quando ele sai 🔴 por um
    sinal novo do adendo (é estimado, e o T1 medido poderia desmentir o corte inteiro);
 3. o corte proposto tem **2 ou mais fatias**.
@@ -451,7 +452,8 @@ Faltando qualquer uma das três, segue o fechamento padrão acima. Dadas as trê
 - **Nenhuma afirmação sem âncora.** Todo ponto do TRD tem `arquivo:linha` e o veredito do achado que
   o sustenta. O que não foi apurado é declarado como não apurado.
 - **Uma rodada.** Este elo não itera sobre o próprio artefato: PRD, TRD e plano não se reabrem depois
-  de escritos (precisar de várias rodadas é sinal de escopo que o gate deveria ter pego). Não são
+  de escritos (precisar de várias rodadas é sinal de escopo que o gate deveria ter pego, e é assim que
+  se descobre que um limiar está errado). Não são
   segunda rodada: o Caminho grill remedindo o gate antes de qualquer artefato existir, nem o
   encadeamento fatia-por-fatia, que são **N execuções completas e independentes**, cada uma com seu
   PRD, TRD e plano do zero, numa seção nova do mesmo board.
