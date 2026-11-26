@@ -55,7 +55,8 @@ Se nenhum resolver, é `UNAVAILABLE`: abortar informando que a instalação da f
 localizada.
 
 > **A família não sabe em qual harness roda, e não deve saber.** Os candidatos nomeados acima são a
-> única menção a harness específico em todo o flux, com exceção da seção 1a-harness abaixo, que
+> única menção a harness específico em todo o flux, com exceção das seções 1a-harness e 1a-run abaixo
+> (esta lê o id de sessão que cada harness expõe), e a 1a-harness
 > resolve `HARNESS` pelos marcadores de execução ativos, `HARNESS_LABEL` a partir de `HARNESS`, e
 > `FLUX_VERSION` pelo manifesto; `MODEL` vem do autorrelato e `EFFORT` de `CLAUDE_EFFORT` ou do
 > autorrelato de fallback (mecanismo diferente, ver abaixo; os dois não vêm do candidato que
@@ -174,6 +175,27 @@ no Passo 5, abaixo).
 
 Os dois campos **não entram** na cascata de resolução de `FLUX_ROOT` nem afetam `HARNESS` ou
 `FLUX_CMD` — são metadado adicional do mesmo passo, não uma nova cascata.
+
+### 1a-run — `LAUNCHER_RUN_ID` e `SESSION_ID`
+
+Identificam **esta sessão** no board (`provenance.runs` e passo 1 de "Resolver o board" em
+`${FLUX_ROOT}/shared/board-template.md`). Lidos do ambiente do shell desta execução, sem inferir:
+
+- **`LAUNCHER_RUN_ID`**: só com `launcher_run_env` e `launcher_run_key` no manifesto
+  (`flux-context.md`). É o valor da variável que `launcher_run_env` nomeia, quando presente e casando
+  com `^[A-Za-z0-9._-]{1,64}$`, gravado literal sob a chave `launcher_run_key`. Sem o par no manifesto,
+  ou sem a variável, ou fora do formato: `null`, e a chave não é gravada.
+- **`SESSION_ID`**, nesta ordem: com `HARNESS = claude-code`, `CLAUDE_CODE_SESSION_ID` em formato UUID;
+  senão `FLUX_SESSION_ID`, que a CLI do flux exporta ao lançar a sessão em qualquer harness, quando
+  casar com `^[A-Za-z0-9._-]{1,64}$`; senão `null`. O valor de `CODEX_THREAD_ID` continua proibido
+  (Passo 1a-harness).
+
+Um dos dois `null` não gera token. Os **dois** `null` geram `sessao nao identificavel` no banner de
+todo elo que grava board: a sessão só é reconhecida pelo path do board que ela anunciou no chat, e uma
+compactação de contexto que o perca faz o verbo seguinte abrir um segundo board. Nesse caso a sessão
+também não reconhece a própria linha em `provenance.runs`: acrescenta uma linha nova na primeira
+escrita e, nas seguintes, só atualiza a última linha cujo `harness` e `machine` são os seus e cujo
+`started_at` é desta sessão; na dúvida, acrescenta outra, nunca reescreve a de outra run.
 
 ### 1b — `FLUX_CMD`
 
@@ -529,6 +551,8 @@ que o banner precisa ser.
 | `rastro de force-push so no chat` | o elo pode publicar resolução de conflito com `--force-with-lease` (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5) e roda sem board, então o relato do push sai só no resumo da rodada. Declarado no banner inicial, antes de qualquer push. `--dry` e `--no-rebase` não geram o token: não publicam resolução | o `flux:iterate` em perfil sem `VAULT_ROOT` e sem `--parent-board` |
 | `alias sem diretorio` | o pedido ao `flux:reply` não traz permalink do Slack e nomeia pessoa ou canal por nome ("com X", "no Y"), e o manifesto não declara `slack_directory` (ou o arquivo não abre, ou `version` não é a conhecida). Permalink informado **não** gera o token: não havia alias a resolver. Sai sem motivo adicional | o `flux:reply` (`${FLUX_ROOT}/shared/slack-directory.md`, "Degradação") |
 | `rastro de gate so no chat` | o `flux:reply` rodou o caminho rápido do diretório (sem board, sem Timeline) e apresentou GATE: o bloco da `GateSpec` e o resultado da escolha saem só no chat, como pede `${FLUX_ROOT}/shared/hitl.md`, "Registrar antes e depois". Sai sem motivo adicional | o `flux:reply`, no caminho rápido |
+| `sem vault` | o elo grava board, mas `VAULT_ROOT` não está resolvido: o board sai só no chat (ou em `--save <dir>`). Pode levar motivo entre parênteses, ex.: `sem vault (parecer nao persiste)` | todo elo que grava board (`${FLUX_ROOT}/shared/board-template.md`, "Resolver o board") |
+| `sessao nao identificavel` | `LAUNCHER_RUN_ID` e `SESSION_ID` são `null` (Passo 1a-run): a regra de um board por sessão depende do path anunciado no chat. Sai sem motivo adicional | todo elo que grava board |
 
 **Kit ausente ou não aplicável não é degradação e não vai ao banner.** É o caso comum, e declará-lo
 encheria de ruído o banner de toda máquina que não usa kit. Só os quatro estados de kit acima são

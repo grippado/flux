@@ -9,21 +9,10 @@ requires:
 
 # /flux:build
 
-O **elo de execução** da família `flux:`. Recebe uma task (ticket Linear ou descrição livre) e um repo, resolve **qual motor de execução aquele repo tem**, e despacha. É o passo que transforma issue em código + PR draft, fechando o ciclo entre `/flux:issue` (que cria a issue) e `/flux:review` → `/flux:iterate` → `/flux:land` (que levam a PR até o merge).
-
-Este comando **não implementa a task**. Ele resolve repo + motor, carrega contexto e delega. Toda a lógica de implementação (pattern-finder, testes, verificação local, padrão de PR) continua sendo do motor do repo — que é quem conhece o próprio terreno.
-
-Onde ele fica no ciclo:
-
-```
-/flux:issue    ideia, thread, PR  →  issue embasada
-/flux:build     issue              →  código + PR draft      ← este
-/flux:peek      relance read-only da PR
-/flux:review    review formal (holístico + specialists)
-/flux:iterate   threads → correções → push → CI verde
-/flux:land  N PRs → toposort → go/no-go
-/flux:reply     comunica o resultado
-```
+O **elo de execução** da família: recebe uma task (ticket ou descrição livre) e um repo, resolve qual
+motor de execução aquele repo tem, e despacha. Transforma issue em código e PR draft, entre o
+`/flux:issue` e o `review` → `iterate` → `land`. **Não implementa a task**: a lógica de implementação
+(testes, verificação local, padrão de PR) é do motor do repo, que conhece o próprio terreno.
 
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (escrever sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
@@ -39,14 +28,10 @@ Onde ele fica no ciclo:
 
 ## Banner de perfil — gabarito (copiar VERBATIM)
 
-Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
-degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
-que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
-improvisado, com campos inventados e sem o `nivel`.
-
-Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
-em `${FLUX_ROOT}/shared/preflight.md`, Passo 5; a linha `escopo` é definida em
-`${FLUX_ROOT}/shared/scope-gate.md`, seção "Como o veredito é declarado".
+Todo output deste elo **abre** com o banner, copiado com as cercas, trocando só o que está entre
+chaves (regras e degradações: `${FLUX_ROOT}/shared/preflight.md`, Passo 5; a linha `escopo`:
+`${FLUX_ROOT}/shared/scope-gate.md`, "Como o veredito é declarado"). O gabarito mora no corpo do elo de
+propósito: num shared, ele não chega ao contexto na hora de emitir.
 
 ````
 ```
@@ -59,19 +44,12 @@ carimbo: {harness} | flux:build@{flux_version}
 ```
 ````
 
-**A linha `escopo` sai uma vez só**, com o veredito do passe único do Step 2-quater, e não é
-reemitida — ao contrário do `flux:refine`, que tem T0 e T1 e corrige o número provisório. Aqui não há
-número provisório: o embasamento chega pronto no corpo da issue, então os dois insumos do gate
-chegam juntos (`${FLUX_ROOT}/shared/scope-gate.md`, "Dois tempos"). Com `--no-slice`, a linha continua
-saindo — o que a flag desliga é a **ação** do gate, nunca a medição, porque um despacho que ignora o
-tamanho sem nem tê-lo lido é o caso que este elo existe para não repetir. Rodando com `--no-slice`,
-acrescentar ` (dispensado por --no-slice)` ao fim da linha.
+**A linha `escopo` sai uma vez só**, com o veredito do passe único do Step 2-quater (os dois insumos
+do gate chegam juntos no corpo da issue; `scope-gate.md`, "Dois tempos"). Com `--no-slice` ela continua
+saindo, com ` (dispensado por --no-slice)` no fim: a flag desliga a ação do gate, nunca a medição.
 
-Este elo **não** resolve reviewer holístico — quem revisa é o motor do repo, depois, em outro
-elo. O campo `holistico:` **não entra no banner** e `L1` sai como `n/a`, porque anunciar uma lente
-holística que nunca foi resolvida é prometer cobertura inexistente; a linha `lentes` sai porque o build é
-frequentemente o primeiro elo a tocar um repo novo e é onde se descobre que ele está sem
-cobertura (ver `${FLUX_ROOT}/shared/preflight.md`, Passo 5).
+`holistico:` **não entra** e `L1` sai `n/a`: este elo não resolve reviewer. A linha `lentes` sai porque
+o build é muitas vezes o primeiro elo a tocar um repo, e é onde se descobre que ele está sem cobertura.
 
 Abortagem segue o gabarito do "Formato da mensagem de abortagem" do preflight, também verbatim, e o
 nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:build` num harness,
@@ -118,9 +96,8 @@ Flags próprias do `flux:build` (consumidas aqui, **não** repassadas):
 - **Não poste no Slack nem salve rascunho aqui.** A oferta de pedir review no canal (Step 4, item 7) só
   abre um gate e delega ao `flux:reply`, que rascunha.
 - Um repo por invocação. Para várias frentes, várias invocações (ou `/convocar` para mutirão).
-- **Não acione specialists.** Nem como briefing antes de implementar, nem como gate sobre o diff
-  antes da PR. O motivo está no Step 2-ter: o embasamento que eles produziriam já existe, escrito na
-  issue, e as suites declaram que não participam de autoria. Quem revisa é o `/flux:review`, depois.
+- **Não acione specialists**, nem como briefing antes de implementar, nem como gate sobre o diff antes
+  da PR (Step 2-ter). Quem revisa é o `/flux:review`, depois.
 
 ---
 
@@ -152,12 +129,10 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `WRITE_DESTINATIONS` = `write_destinations` (destinos já aprovados, com o `repos` de cada um;
      degrau 4 da cascata e degrau 3 da descoberta de L2, opcional)
 
-   > **Por que o build extrai a tripla de descoberta se não revisa nada.** Ele não usa as lentes para
-   > executar, mas o Passo 5 do `${FLUX_ROOT}/shared/preflight.md` **obriga** este elo a emitir a linha
-   > `lentes` com as três camadas, e o Step 4 decide entre `--agents-only` e `--engine-only` a partir do
-   > estado de L2. As duas coisas dependem do passo 1a do `${FLUX_ROOT}/shared/review-agents.md`, que lê
-   > `specialists_root`, `kits_root` e `write_destinations` **em cascata**. Extrair só um dos três faria
-   > o build declarar `L2 ausente` para um repo que tem suite, e oferecer criar de novo o que já existe.
+   A tripla de descoberta (`specialists_root`, `kits_root`, `write_destinations`) é extraída inteira
+   mesmo sem revisar nada: a linha `lentes` e a escolha entre `--agents-only` e `--engine-only` no
+   Step 4 dependem do passo 1a do `${FLUX_ROOT}/shared/review-agents.md`, que a lê em cascata; faltando uma, o build
+   declara `L2 ausente` para repo que tem suite.
 
 3. Se não encontrar (perfil genérico):
    - `WORKSPACE_ROOT` = o `cwd`
@@ -210,10 +185,6 @@ echo "e nenhum manifesto conhecido reivindica esse slug."
 
 Não improvise um repo próximo por similaridade de nome: pare e deixe o usuário escolher.
 
-> **Por que este passo existe.** Sem ele, `/flux:build <repo> …` invocado de fora do workspace aborta
-> com "repo não encontrado" para um repo que existe, está declarado num manifesto e tem checkout
-> local. O usuário passou o alvo explicitamente; dizer que não o achou é o pior erro possível aqui.
-
 ---
 
 ## Step 2 — Descobrir o motor de execução
@@ -251,10 +222,8 @@ Confirme que o comando resolvido está disponível na sessão:
 ENGINE="fallback"
 ```
 
-> **`exec_fallback` não tem valor default, e isso é deliberado.** Um comando de implementação que
-> venha de um plugin específico é conhecimento **do time que o instalou**, não da família. Assumir um
-> default faria o `flux:build` tentar invocar, na máquina de quem clonou, um comando de um
-> marketplace ao qual essa pessoa talvez nem tenha acesso. Quem tem um, declara.
+`exec_fallback` **não tem default**: o comando de implementação de um time não é conhecimento da
+família. Quem tem um, declara.
 
 **C) Modo autônomo** (nem motor nativo, nem `exec_fallback` declarado):
 
@@ -289,11 +258,8 @@ certo em vez do que a sessão MCP calhou de autenticar. Seguir `${FLUX_ROOT}/sha
 canal `linear`, sem degrau de canário (leitura é idempotente); descida para MCP vai a `degradacoes:` como
 `transporte mcp (linear: <motivo>)`.
 
-Uma issue nascida do `/flux:issue` já teve os specialists do repo rodando sobre ela, na prospecção
-(`${FLUX_ROOT}/skills/issue/SKILL.md`, Step 2). O que está escrito ali sob "Embasamento no código"
-**é** o parecer dos specialists daquele repo, persistido no tracker no momento em que eles tinham
-terreno para trabalhar. Repassar isso ao implementador custa zero chamada de agente e é a diferença
-entre ele descobrir o território e ele já chegar com o mapa.
+Uma issue nascida do `/flux:issue` já teve os specialists do repo rodando na prospecção: o
+"Embasamento no código" **é** o parecer deles, e repassá-lo custa zero chamada de agente.
 
 Duas ressalvas de honestidade sobre esse embasamento, que devem ir junto no prompt do motor:
 
@@ -303,71 +269,38 @@ Duas ressalvas de honestidade sobre esse embasamento, que devem ir junto no prom
 - **Uma issue escrita à mão não tem esse embasamento**, e isso não é degradação: é só uma issue de
   outra origem. Não invente a seção, não rode specialists para produzi-la.
 
-### Por que este elo não aciona specialists
-
-Foi avaliado em 2026-08-09, com dois desenhos concorrentes especificados e descartados. O registro
-existe para não se refazer a discussão:
-
-- **Briefing de entrada** (specialist informa invariantes antes de o motor escrever) duplica o que a
-  issue já carrega, e esbarra num contrato das próprias suites: uma suite de specialists típica
-  declara que pedido de autoria "não é desta suite, esta suite revisa, não escreve". Além disso, os
-  specialists individuais são formados pelo diff (a regra de atribuição deles é o escopo
-  `DIFF_FILES`), então sem diff eles devolvem aprovação vazia.
-- **Gate de saída** (specialist revisa o diff antes de a PR nascer) otimiza para o caso que menos
-  precisa de ajuda. Se o gate acha algo, paga-se gate + correção + gate e **ainda** o `/flux:review`
-  depois, que é quem roda o holístico. Só se paga quando passa limpo de primeira, que é exatamente
-  quando o ciclo que ele queria encurtar já seria barato. E no modo autônomo, sem suite no repo, o
-  gate seria o mesmo modelo relendo o diff que acabou de escrever: confirmação circular, não segunda
-  lente.
-
-A regra que ficou: **o build carrega o parecer que já existe; quem produz parecer novo é o
-`/flux:review`, sobre o diff, depois.**
+**Por que este elo não aciona specialists.** Como briefing de entrada, duplicariam o que a issue já
+carrega, e as suites declaram que não autoram (sem diff, devolvem aprovação vazia). Como gate de
+saída, só compensariam quando o diff passa limpo de primeira, e no modo autônomo seriam o mesmo modelo
+relendo o que escreveu. O build carrega o parecer que já existe; quem produz parecer novo é o
+`/flux:review`, sobre o diff.
 
 ---
 
-## Step 2-bis — Criar o board de execução (antes de despachar)
+## Step 2-bis — Resolver o board, antes de despachar
 
-Com `VAULT_ROOT` resolvido, criar o board **antes** de disparar o motor, seguindo o **perfil execução**
-de `${FLUX_ROOT}/shared/board-template.md` (`type: flux-build`).
+Com `VAULT_ROOT` resolvido, resolver o board **antes** de disparar o motor, conforme
+`${FLUX_ROOT}/shared/board-template.md`, "Resolver o board": o desta sessão, se já houver; senão o do
+caso (`case_keys`: `ticket:<ID>`, e `pr:...` quando a task continua uma PR); senão um novo, **perfil
+execução** (`type: flux-build`, `generator: "flux-build"`). O board nasce antes porque o motor roda em
+worktree por muitos minutos: board que nasce depois do trabalho é ata.
 
-> **Por que antes.** O motor roda em worktree, longe da main, por muitos minutos. Se o board nascesse
-> no fim, o intervalo inteiro seria cego e um motor que trava não deixaria rastro nenhum. Board que
-> nasce depois do trabalho é ata, não board.
-
-1. **Path:** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-build-<repo-slug>-<slug-do-ticket>.md`.
-   **Anunciar o path no chat** na criação, como fazem os outros elos.
-2. **Frontmatter:** herda o bloco comum aos cinco perfis do `board-template.md` inteiro (`title`,
-   `date`, `updated`, `type: flux-build`, `context`, `pending_organize: true`, `tags: [board, build,
-   orchestration]` e `provenance`), mais os campos específicos do perfil execução: `repo`, `ticket`,
-   `engine`, `engine_kind` (`nativo`/`fallback`), `worktree`, `branch`, `pr: null`, `scope`,
-   `iterate_board: null`. Montar o frontmatter olhando a seção **Frontmatter** do `board-template.md`
-   diretamente, nunca só esta lista resumida — ela existe para nomear a diferença, não para
-   substituir o gabarito completo.
-   O bloco `provenance` segue o contrato da seção **Bloco `provenance` (todos os perfis)** do
-   `board-template.md`, com `generator: "flux-build"` e verbo `build` no `stamp`, e passa pelo
-   checklist daquela seção antes do Write.
-   > **`provenance.generator` não é opcional.** Sem ele, o board fica de fora de qualquer indexação de
-   > sessão do dia que dependa desse campo (ex.: o painel "sessões de hoje" de um vault Obsidian que
-   > filtra por `generator?.startsWith("flux-")`) — o arquivo continua listado no inbox geral, mas some
-   > da lista que mais importa para quem acompanha o build em andamento. Achado em produção: um board de
-   > `flux:build` nasceu só com `machine`/`invocation` em `provenance`, sem `generator` nem
-   > `captured_at`, e não apareceu nas sessões do dia até a correção manual.
-3. **Painel:** uma linha por etapa do motor, todas nascendo `⏳ pendente`:
-   `contexto lido · plano · implementação · checks · PR`. Um motor nativo com etapas próprias
-   sobrescreve essa lista pelas dele, quando as declarar no retorno.
-4. **Sem `VAULT_ROOT`** (perfil genérico): não gravar arquivo. Imprimir o painel no chat a cada
-   atualização e declarar a perda no banner de perfil. O board é uma capacidade que degrada, não um
-   requisito que trava.
+1. **Anunciar o path no chat** na criação ou na retomada.
+2. **Frontmatter** pelo template, inclusive a linha desta sessão em `provenance.runs` e o `provenance` com o checklist,
+   mais os campos do perfil: `repo`, `ticket`, `engine`, `engine_kind`, `worktree`, `branch`,
+   `pr: null`, `scope`.
+3. **Painel** com uma linha por etapa do motor, todas `⏳ pendente`:
+   `contexto lido · plano · implementação · checks · PR`. Motor nativo que declara etapas próprias
+   substitui a lista.
+4. **Sem `VAULT_ROOT`:** sem arquivo; painel no chat a cada atualização e a perda declarada no banner.
 5. **Com `--dry`:** não criar board. O `--dry` não despacha, então não há execução para observar.
 
 ---
 
 ## Step 2-quater — Gate de escopo (medir antes de despachar)
 
-Aplicar `${FLUX_ROOT}/shared/scope-gate.md`, tempo **passe único**. Os sinais duros e moles, os
-limiares, a contagem termo a termo e as três faixas estão **lá**, e não são redefinidos aqui: este elo
-declara apenas o que é dele, que é o que fazer com a faixa. Redefinir um limiar neste arquivo é
-garantir que ele divirja do `flux:refine`, que lê o mesmo contrato.
+Aplicar `${FLUX_ROOT}/shared/scope-gate.md`, tempo **passe único**. Sinais, limiares, contagem e faixas
+estão lá, não aqui; este elo declara só o que fazer com a faixa.
 
 **Os insumos já estão em contexto, e nenhum deles custa uma chamada de agente:**
 
@@ -377,27 +310,12 @@ garantir que ele divirja do `flux:refine`, que lê o mesmo contrato.
 - o **motor resolvido no Step 2** — `autonomo` é sinal mole, e é o único sinal do contrato que existe
   **só neste elo**: sem os gates do repo, errar grande custa mais.
 
-> **Nenhum agente é chamado para medir.** É a invariante 1 do contrato, e aqui ela é mais que uma
-> preferência: medir por fan-out violaria a proibição do Step 2-ter ("Por que este elo não aciona
-> specialists"). O gate lê texto que já está na tela.
+**Nenhum agente é chamado para medir** (invariante 1 do contrato, e a proibição do Step 2-ter). **Passe
+único**, não T0 e T1 como no `flux:refine`, porque o embasamento chega pronto.
 
-> **Por que passe único, e não T0 e T1 como no `flux:refine`.** Este elo **recebe** o embasamento
-> pronto no corpo da issue; ele não o produz. Os dois insumos do gate chegam juntos, não há intervalo
-> entre eles, e um "T0" aqui seria a mesma leitura feita duas vezes. A justificativa é do contrato
-> (`${FLUX_ROOT}/shared/scope-gate.md`, "Dois tempos"), que também explica por que a lista de sinais é
-> a mesma nos dois casos.
-
-### Por que aqui, depois do board e antes do despacho
-
-O gate precisa de duas coisas para existir: o embasamento (Step 2-ter), que é o insumo, e um lugar
-onde a decisão fique registrada. O board nasce no Step 2-bis, e a invariante 3 do contrato exige que
-**toda decisão do gate deixe rastro** — inclusive a dispensa, porque é dela que se aprende que um
-limiar está errado. Rodar o gate antes do board obrigaria a gravar o veredito retroativamente, ou a
-perdê-lo inteiro quando o usuário escolhesse a saída inócua, que é justamente o caso em que o rastro
-mais importa.
-
-E o board é barato: ele nasce vazio, antes de qualquer minuto de motor. O que o gate barra é o
-**despacho** (Step 3), não a anotação.
+O gate roda **depois do board e antes do despacho**: toda decisão dele precisa de rastro (invariante 3),
+inclusive a dispensa e a saída inócua, e o board nasce vazio no Step 2-bis, antes de qualquer minuto de
+motor. O que o gate barra é o despacho (Step 3), não a anotação.
 
 ### O que cada faixa faz
 
@@ -407,10 +325,8 @@ E o board é barato: ele nasce vazio, antes de qualquer minuto de motor. O que o
 | 🟡 **cabe raso** | abre o gate oferecendo fatiar, **com o corte proposto** |
 | 🔴 **não cabe** | abre o gate com o corte proposto e a **fatia 1 recomendada** |
 
-> **O gate abre no 🟡 também, com 1 sinal mole.** A LAB-65 pedia disparo só com 2 sinais, mas o
-> contrato é a fonte única e ele dá ao 🟡 uma ação própria neste elo — e a assimetria de custo é a
-> mesma: barrar de graça custa uma pergunta, despachar grande custa a execução inteira. O que muda
-> entre 🟡 e 🔴 não é abrir ou não, é qual opção chega recomendada e quão nomeado é o corte.
+O gate abre também no 🟡 (barrar custa uma pergunta; despachar grande custa a execução inteira). Entre 🟡
+e 🔴, o que muda é a recomendação e quão nomeado é o corte.
 
 ### O menu (single-select, `${FLUX_ROOT}/shared/hitl.md`)
 
@@ -420,11 +336,6 @@ contrato de vertical slice do `${FLUX_ROOT}/shared/issue-template.md`, seção *
 slices)**: independentemente entregável, atravessa as camadas necessárias, **1 repo**. Camada não é
 fatia: "o backend disto" e "o frontend disto" são **uma** fatia quando uma não serve sem a outra.
 Uma proposta que não diz o que a primeira fatia entrega sozinha não é proposta, é uma lista.
-
-> **Por que o build referencia esse contrato explicitamente.** A regra "um repo por invocação" deste
-> elo sempre foi consistente com o `issue-template.md`, mas por **convenção implícita**: nada aqui
-> apontava para lá. Um gate que corta trabalho sem dizer o que é uma fatia inventaria uma definição
-> concorrente na terceira invocação.
 
 Uma única question, opções nesta ordem:
 
@@ -445,11 +356,9 @@ despacha resolve o gate primeiro e passa a decisão já tomada.
 
 ### `--no-slice` e `--dry`
 
-- **`--no-slice`** mede, declara e **não abre o gate**: despacha inteiro. É a única forma de renunciar
-  a este gate, e é do usuário, nunca do elo. O `flux:refine` não tem equivalente, e a assimetria está
-  explicada no contrato ("Vermelho no `flux:refine` não tem override"): lá, forçar produz um documento
-  raso com cara de completo, que circula como spec; aqui, produz uma execução que falha visivelmente,
-  em worktree, sem enganar ninguém depois. Não reescrever esse raciocínio, apontá-lo.
+- **`--no-slice`** mede, declara e **não abre o gate**: despacha inteiro. É a única renúncia, e é do
+  usuário, nunca do elo (o `flux:refine` não tem equivalente: `scope-gate.md`, "Vermelho no
+  `flux:refine` não tem override").
 - **`--dry`** não abre o gate tampouco, por outro motivo: ele não despacha, então não há o que barrar.
   O veredito e o corte proposto entram no plano impresso no Step 3.
 
@@ -457,13 +366,12 @@ despacha resolve o gate primeiro e passa a decisão já tomada.
 
 Com board (sem `--dry`), sempre:
 
-1. **o veredito** — faixa e sinais lidos — como linha da Timeline de Eventos, tipo `escopo`, e
+1. **o veredito** — faixa e sinais lidos — como linha da Timeline, tipo `escopo`, e
    `scope:` no frontmatter;
 2. **a escolha do usuário** — como linha tipo `decisão`, dizendo qual opção e, se fatiou, o que ficou
    de fora **por nome**;
 3. **a dispensa** — tanto a da opção 2 quanto a de `--no-slice` — como linha tipo `escopo`, com os
-   sinais que o gate tinha apurado. Dispensar é legítimo; dispensar sem rastro não é, porque é
-   exatamente o que impede corrigir os limiares com evidência em vez de opinião.
+   sinais que o gate tinha apurado. Dispensar é legítimo; dispensar sem rastro não é.
 
 ---
 
@@ -472,11 +380,6 @@ Com board (sem `--dry`), sempre:
 1. Antes de disparar, informe ao usuário em **uma linha** (duas se houver ressalva):
 
 > Despachando para `<repo>` via motor **nativo** (`/<EXEC_COMMAND>`): `<task>`. O motor do repo assume daqui.
-
-O banner de perfil (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) declara, além do motor escolhido,
-**quais camadas de specialists existem para este repo** (L2 local e L3 do repo). Elas não participam
-da execução, mas o build é frequentemente o primeiro elo a tocar um repo novo, e é aqui que você
-descobre que ele está sem cobertura. A oferta de criar vem no Step 4, depois do trabalho.
 
 ou, no fallback:
 
@@ -503,8 +406,6 @@ ou, no fallback:
      (verde/total), etapa em que parou se falhou, bloqueios}`. O prompt carrega o **path do board**
      para o subagente citá-lo no retorno, mas **quem escreve o board é a main**, nunca o subagente
      (escritor único, ver `${FLUX_ROOT}/shared/fanout-discipline.md`).
-     Rodar aqui carregaria `CLAUDE.md` + `.claude/rules/**` do repo + a skill do motor
-     permanentemente na main, por nada — o dispatcher não participa da execução mesmo.
    - **Repo mode** (`cwd` **já é** o `REPO_PATH`) → o motor roda inline: o repo já é o único root
      da sessão, e é isso que a Regra 1 do orçamento de contexto permite.
 
@@ -577,61 +478,44 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
      recusada ou não confirmada): o item 3 só carimba se `IS_OWN_PR` estiver verificado, os itens 4 a
      6 seguem, o bloqueio entra na Timeline do board e no handoff, `execution_status` não vai para
      `done`, e o handoff aponta `${FLUX_CMD}iterate <pr>` com o bloqueio nomeado.
-3. **Conciliar a atribuição da PR.** Se o motor abriu PR, aplicar `flux:build@<FLUX_VERSION>` e
-   conciliar uma entrada legada `Gerado por: <par-do-motor>` na linha canônica
-   `🤖 Generated with ...`, seguindo `${FLUX_ROOT}/shared/pr-attribution.md`, no mesmo ciclo de
-   publicação do item 2. Quem aplica é a main, depois do retorno do motor, e não o motor: o body é
-   criado pelo motor do repo (nativo,
-   `exec_fallback` ou autônomo), e nenhum deles é obrigado a conhecer esta regra. O algoritmo usa
-   `HARNESS_LABEL` do preflight, portanto funciona da mesma forma para Claude Code, Cursor, Codex, OpenCode e
-   um harness não verificável (`AI agent`), sem inferir produto pelo motor. Se a forma for ambígua,
-   preservar o body e não compactar. Motor sem PR (`pr: null`) → nada a conciliar. `PR_NUMBER` e
-   `REPO_FULL` são parseados da URL de PR devolvida pelo motor (`github.com/<owner>/<repo>/pull/<n>`);
-   `SCRATCH` é o diretório temporário da sessão (mesmo conceito do `flux:iterate`); `IS_OWN_PR` é o
-   resultado da única comparação `author.login == ME` feita no item 2 com o guard do contrato
-   `${FLUX_ROOT}/shared/pr-attribution.md` — normalmente verdadeiro, pois o motor abriu a PR com a
-   conta autenticada. Reutilize esse valor, sem consultar `gh api user` de novo. Se for falso, não
-   carimbar.
+3. **Conciliar a atribuição da PR.** Se o motor abriu PR, a main (depois do retorno, não o motor)
+   aplica `flux:build@<FLUX_VERSION>` e concilia uma entrada legada `Gerado por: <par-do-motor>` na
+   linha `🤖 Generated with ...`, pelo algoritmo de `${FLUX_ROOT}/shared/pr-attribution.md`, com o
+   `HARNESS_LABEL` do preflight (o mesmo para Claude Code, Cursor, Codex, OpenCode ou `AI agent`), no mesmo ciclo
+   de publicação do item 2. Forma ambígua → preservar o body. `pr: null` → nada a conciliar.
+   `PR_NUMBER` e `REPO_FULL` vêm da URL devolvida pelo motor; `SCRATCH` é o diretório temporário da
+   sessão; `IS_OWN_PR` é o do item 2, reutilizado sem novo `gh api user`. Falso → não carimbar.
 4. **Atualizar o board com o resultado**: etapas em `✅`/`❌`, `pr:` preenchido (ou `null` se o motor
    não chegou a abrir), `esforço` = `arquivos tocados · checks (verde/total)`, e o
    `🎯 Próximo Movimento` apontando o elo seguinte.
-5. **Board de build morre no handoff.** Ele cobre uma execução, não um processo: `execution_status`
-   vai para `done` quando a PR nasce sem bloqueio do item 2, e o board do `${FLUX_CMD}iterate`
-   assume dali. Gravar `iterate_board:` quando o iterate rodar, e o board do iterate aponta de volta em `parent_board:`.
+5. **O board continua sendo o do caso.** Quando a PR nasce, gravar `pr:` e acrescentar
+   `pr:<owner>/<repo>#<n>` em `case_keys`. O `${FLUX_CMD}review` e o `${FLUX_CMD}iterate` dessa PR,
+   nesta sessão ou em outra, escrevem neste mesmo board. `execution_status` segue `active` até o caso
+   fechar.
 6. **Motor falhou?** O board fica com `pr: null` e a etapa que quebrou em `❌`. Isso é resultado
    válido e é o que torna a falha investigável depois. Não apagar o board.
 7. **Oferecer o pedido de review no canal de PR.** Só quando o motor abriu PR, a auditoria do item 2
    passou sem bloqueio, o `SLACK_DIR` está declarado com algum canal que tenha o intent `pedir-review`
    (`${FLUX_ROOT}/shared/slack-directory.md`, seção "Direção do canal e intents rápidos") **e** há
    capacidade de Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão, como o
-   "Validar ambiente" do `${FLUX_CMD}reply`). Sem qualquer uma dessas condições, nenhuma pergunta e
-   nenhuma linha extra. A ausência é silenciosa por design: a oferta é oportunista, o build não a
-   prometeu, e por isso não gera token em `degradacoes:` (o `alias sem diretorio` é do reply e só vale
-   quando o pedido trazia alias). Atendidas as condições, abrir **um GATE**
-   (`${FLUX_ROOT}/shared/hitl.md`, `AskUserQuestion` no Claude Code), single-select, depois dos itens 3 a 6
-   e antes do handoff:
+   "Validar ambiente" do `${FLUX_CMD}reply`). Sem qualquer uma, nenhuma pergunta, nenhuma linha extra e
+   nenhum token em `degradacoes:` (a oferta é oportunista). Atendidas, abrir **um GATE**
+   (`${FLUX_ROOT}/shared/hitl.md`), single-select, depois dos itens 3 a 6 e antes do handoff:
 
    - `Pedir review em <nome do canal>`, uma opção por canal na ordem do diretório. Com um canal só, a
      opção é a primeira e leva `(Recomendado)` no rótulo; com mais de um, nenhuma opção é recomendada,
      porque o build não sabe qual canal o usuário quer.
    - `Agora não`.
 
-   Aceitar roda o `${FLUX_CMD}reply` com **uma frase de `match` literal** do intent `pedir-review` do
-   canal escolhido (a primeira da lista, tirada do próprio diretório), o **nome do canal** (o primeiro alias; sem `aliases`, o slug) e a **URL
-   completa** da PR (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`, já parseada no item 3), por
-   exemplo `${FLUX_CMD}reply "<match> <nome do canal> <url>"`, sempre entre aspas, para um verbo
-   do reply dentro do `match` não ser lido como verbo do comando. O reply só casa intent por frase de `match` e só
-   resolve o canal por alias ou permalink, então o pedido leva os dois (a URL da PR não participa do casamento, regra do passo 1 de
-   "Resolução" no diretório); a frase vem do diretório, o que
-   garante o casamento, e a URL dispensa checkout e repo resolvível. Se mesmo assim o reply não casar o
-   intent e seguir o pipeline normal, o build avisa o usuário disso em vez de
-   afirmar que só rascunha. No caminho rápido o reply monta o rascunho do `template` com a PR
-   resolvida, passa pela varredura de escrita e pelo gate de salvar do próprio reply, e **só
-   rascunha**. Este elo não lê o Slack, não posta e não salva rascunho por conta própria, e recusar
-   não registra nada. A PR nasce como draft: o usuário decide salvar ou não o rascunho no gate do
-   reply. Sem round-trip estruturado comprovado, o gate segue o fallback numerado do `hitl.md`.
-   **Aqui e não antes**: quem pediu um build quer a PR primeiro, e uma pergunta sobre canal antes dela
-   existir não tem o que citar.
+   Aceitar roda, por exemplo, `${FLUX_CMD}reply "<match> <nome do canal> <url>"`, **sempre entre aspas**
+   (um verbo do reply dentro do `match` não pode ser lido como verbo do comando), com uma frase
+   de `match` literal do intent `pedir-review` daquele canal (a primeira da lista do diretório), o nome
+   do canal (primeiro alias; sem `aliases`, o slug) e a URL completa da PR
+   (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`). A frase vem do diretório para garantir o
+   casamento; se o reply mesmo assim seguir o pipeline normal, avisar o usuário em vez de afirmar que
+   só rascunha. O reply rascunha pelo `template` e passa pelo próprio gate de salvar; este elo não lê o
+   Slack, não posta nem salva rascunho, e recusar não registra nada. Sem round-trip estruturado, o
+   fallback numerado do `hitl.md`. Aqui e não antes: a pergunta precisa da PR para citar.
 
 Ao final, o resultado é o do motor (tipicamente PR draft + CI monitorado). Feche apontando o próximo elo, escolhendo **um**:
 
@@ -639,14 +523,11 @@ Ao final, o resultado é o do motor (tipicamente PR draft + CI monitorado). Fech
 - PR já com threads/CI vermelho → `${FLUX_CMD}iterate <pr>`.
 - Task era uma frente de entrega multi-PR → `${FLUX_CMD}land <issue>`.
 
-**Fatiou no Step 2-quater?** O handoff carrega, além do elo seguinte, as fatias que ficaram — nomeadas,
-na ordem proposta, com o que cada uma entrega. Elas viram issue pelo `${FLUX_CMD}issue`, ou entram
-direto numa nova invocação deste elo; **este comando não cria issue**. Uma fatia que só existe no
-histórico do chat é uma fatia perdida, e o corte vira o mesmo despacho parcial acidental que o gate
-existe para evitar.
+**Fatiou no Step 2-quater?** O handoff carrega também as fatias que ficaram, nomeadas, na ordem
+proposta, com o que cada uma entrega (viram issue pelo `${FLUX_CMD}issue`, ou nova invocação deste
+elo; **este comando não cria issue**). Fatia que só existe no chat é fatia perdida.
 
-Montar com o `FLUX_CMD` resolvido no preflight, **nunca** com `/flux:` literal — o usuário vai digitar
-o que estiver escrito aqui.
+Montar com o `FLUX_CMD` resolvido no preflight, **nunca** com `/flux:` literal.
 
 Não rode o próximo elo automaticamente: informe e devolva o volante ao usuário. A única exceção é o
 `${FLUX_CMD}reply` que o usuário aceitou no gate do item 7.

@@ -216,7 +216,7 @@ escopo: 🔴 nao cabe (3 repos · migração sem rollback · 2 contratos entre t
 Elo que **não** roda o gate simplesmente não emite a linha. Nenhum banner leva `escopo: n/a`: campo
 vazio anunciando capacidade inexistente é ruído, e o preflight já trata ausência dessa forma.
 
-No board, a faixa e os sinais entram como **linha da Timeline de Eventos**, tipo `escopo`
+No board, a faixa e os sinais entram como **linha da Timeline**, tipo `escopo`
 (`${FLUX_ROOT}/shared/board-template.md`), e o corte proposto — aceito ou recusado — como `decisão`.
 
 ## Este gate erra, e onde ele erra

@@ -753,13 +753,14 @@ note_has_run_id() {
         { sub(/\r$/, "") }
         NR == 1 { if ($0 != "---") exit 1; next }
         $0 == "---" { exit (hit ? 0 : 1) }
-        /^run_id:/ {
+        /^[ \t]*(- )?run_id:/ {
             v = $0
-            sub(/^run_id:[ \t]*/, "", v)
+            sub(/^[ \t]*(- )?run_id:[ \t]*/, "", v)
             sub(/[ \t]+#.*$/, "", v)
             sub(/[ \t]+$/, "", v)
             if (v == id || v == "\"" id "\"" || v == "\047" id "\047") hit = 1
         }
+        $0 ~ ("[{,][ \t]*run_id:[ \t]*[\"\047]?" id "[\"\047]?[ \t]*[,}]") { hit = 1 }
         END { if (!hit) exit 1 }
     ' "$1" 2> /dev/null
 }

@@ -261,7 +261,8 @@ que se ganha:
 
 - **Watch ligado** → criar o keeper na fase em que o board nasce, antes do primeiro tick.
 - **`--once` / passada única** → **não criar**. É uma escrita só; a main grava direto e o keeper
-  seria overhead puro. (Inclui todo `/flux:iterate --auto --once` despachado por um delivery.)
+  seria overhead puro. O `/flux:iterate --auto --once --parent-board` despachado por um delivery não
+  escreve board nenhum: devolve o delta ao escritor do delivery.
 - **`flux:build`** → **não criar**. O board de execução tem exatamente duas escritas (nascimento
   antes do despacho, fechamento no retorno do motor) e nenhum tick intermediário: a main grava
   direto. O que continua valendo com força total é o **escritor único**: o subagente que roda o
@@ -270,10 +271,13 @@ que se ganha:
 
 ### Quem é dono de quê
 
-O keeper é dono **apenas do board do elo que o criou**. Num delivery, os boards de iterate filhos
-continuam sendo escritos pelo próprio filho — ele tem o detalhe e morre com ele. O keeper do
-delivery só **registra o path** do board filho que veio no retorno. Serializar N filhos por um
-escritor único não compra nada e cria gargalo.
+**Um board, um keeper.** Como a sessão grava num board só (`board-template.md`, "As duas regras"),
+o segundo elo com watch na mesma sessão **retoma o keeper que já existe** por `SendMessage`, em vez de
+criar outro; dois keepers no mesmo arquivo seriam dois escritores. Pelo mesmo motivo, um elo **sem**
+watch (issue, refine, probe, review, peek, build, `--once`) que cai num board com keeper vivo nesta
+sessão **manda o delta ao keeper** em vez de escrever direto. Num delivery, o iterate filho
+despachado com `--parent-board` não escreve board: devolve o delta da PR no retorno, e o keeper do
+delivery grava.
 
 ### Contrato do tick
 
@@ -284,7 +288,7 @@ produz board que diverge da realidade em silêncio, e o board é a memória dur�
 - tick: <horário local>
 - mudou: <sim|não (tick quiet)>
 - porPR|estado: <as métricas do painel: threads res/tot, CI, isDraft, SHA, veredito>
-- eventos: <o que é digno de Timeline de Eventos Relevantes, ou nenhum>
+- eventos: <o que é digno de linha na Timeline, ou nenhum>
 - proximoMovimento: <uma linha>
 ```
 
