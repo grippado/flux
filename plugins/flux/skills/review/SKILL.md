@@ -20,7 +20,7 @@ requires:
 
 # /flux:review
 
-Skill orquestradora de review **formal**, despachada por verbo. Resolve o contexto de execução dinamicamente, delega a análise ao reviewer holístico do perfil (+ specialists do repo, reconciliados), e persiste o resultado num arquivo markdown padronizado no vault Obsidian.
+Review **formal** de PR ou doc: o reviewer holístico do perfil e os specialists do repo, reconciliados, com o resultado gravado como rodada no board da sessão.
 
 **Legenda canônica de badges:** `${FLUX_ROOT}/shared/review-legend.md`
 **Corpo da review postada no GitHub:** `${FLUX_ROOT}/shared/review-body-template.md`
@@ -32,13 +32,9 @@ Skill orquestradora de review **formal**, despachada por verbo. Resolve o contex
 
 ## Banner de perfil — gabarito (copiar VERBATIM)
 
-Todo output deste elo **abre** com o banner. Ele não é decoração: é o que impede uma execução
-degradada de se passar por uma completa. O gabarito mora aqui, no corpo do elo, porque um gabarito
-que só existe num shared não chega ao contexto na hora de emitir — e o que sai é um banner
-improvisado, com campos inventados e sem o `nivel`.
-
-Copiar com as cercas, trocando só o que está entre chaves. Regras dos campos e casos de degradação
-em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+Todo output deste elo **abre** com o banner, copiado com as cercas, trocando só o que está entre
+chaves (regras e degradações: `${FLUX_ROOT}/shared/preflight.md`, Passo 5). O gabarito mora no corpo
+do elo de propósito: num shared, ele não chega ao contexto na hora de emitir.
 
 ````
 ```
@@ -101,10 +97,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
    - `DOC_REVIEWER` = o mesmo agente resolvido acima, em modo doc
    - `MCP_DOCS` = descoberto na sessão; ambíguo ou ausente → o modo doc degrada e declara
 
-   > **Nunca hardcodar `pr-reviewer` aqui.** O nome com que o genérico fica registrado depende de
-   > como a família foi instalada, e num harness que não prefixa por `:` a forma sem prefixo pode
-   > simplesmente não existir. Resolver por cascata é o que faz o perfil genérico funcionar em
-   > qualquer instalação.
+   > Nunca hardcodar `pr-reviewer`: o nome registrado depende da instalação.
    - `VAULT_ROOT` = não persiste por default; aceita `--save <dir>` para gravar
    - `VAULT_CTX` = `generic`
    - `VAULT_CTX_ROOT` = nenhum (sem vault não há rodada anterior para procurar)
@@ -141,13 +134,13 @@ Depois de resolver o verbo, saltar para o pipeline correspondente:
 
 **Out of scope (NUNCA faça sem confirmação explícita):**
 
-- Não rodar `pnpm test` / `pnpm typecheck` / `pnpm lint` / qualquer suite de testes — EXCETO no modo "aplicar correções" do Step 8 (PR própria), onde rodar a verificação dos arquivos tocados é obrigatório
+- Não rodar suite de testes, typecheck nem lint, exceto no modo "aplicar correções" do Step 8 (PR própria), onde a verificação dos arquivos tocados é obrigatória
 - Não fazer commit, push, nem modificar arquivos do repo sob review — EXCETO no modo "aplicar correções" do Step 8 (PR própria), e mesmo aí só após o usuário escolher essa opção
 - Não mergear (`gh pr merge`). Aprovar a PR só acontece pela opção explícita `Postar e aprovar` do Step 8b (PR de terceiros, veredito aprovar), escolhida pelo usuário no gate; em nenhum outro caminho
 - Não postar no Slack nem salvar rascunho aqui. O aviso no canal (Step 8b) é um GATE que só delega ao `${FLUX_CMD}reply` quando o usuário aceita, e o `reply` só rascunha.
-- Não escrever em lugar nenhum exceto: o arquivo final no vault; e (opcionalmente) a review da PR via `gh api` no Step 8; e, no modo "aplicar correções", os arquivos de código + commit na branch da PR própria.
+- Não escrever em lugar nenhum exceto: o board no vault; e (opcionalmente) a review da PR via `gh api` no Step 8; e, no modo "aplicar correções", os arquivos de código + commit na branch da PR própria.
 
-**Sobre o Step 8:** após gravar o arquivo no vault (Step 6), o Step 8 oferece, via GATE (`${FLUX_ROOT}/shared/hitl.md`), a ação pós-review. Quando o Step 8 se aplica, apresente a pergunta e o menu completo no mesmo encerramento do review, sem esperar que a pessoa peça as opções. No Codex, siga o fallback numerado de `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`; mantenha o gate no contexto principal e aguarde uma escolha explícita. O menu MUDA conforme a PR seja **de terceiros** (postar comentários inline) ou **do próprio usuário** (aplicar as correções recomendadas em commits semânticos). Em PR de terceiros, quando o Passo 4b encontrou threads próprias reverificadas, o menu do Step 8b ganha uma opção extra (8b-bis) para responder + reagir + resolver essas threads. A opção `Postar e aprovar` do Step 8b é o único caminho que aprova a PR, só aparece em PR de terceiros com veredito aprovar, e só roda quando o usuário a escolhe. Nunca agir sem o usuário escolher uma opção positiva.
+Quando o Step 8 se aplica (Step 7 diz quando), a ação pós-review é um GATE no mesmo encerramento do review, com o menu completo, sem esperar que a pessoa peça as opções; o menu depende de a PR ser própria ou de terceiros, e nada age sem uma escolha positiva do usuário.
 
 ## Inputs aceitos
 
@@ -340,14 +333,14 @@ Para comentários com body truncado (> 200 chars), buscar o body completo via RE
 gh api repos/$REPO_FULL/pulls/comments/<databaseId> -q '.body'
 ```
 
-**Top-level PR comments — COLETA OBRIGATÓRIA.** O `reviewThreads` acima **não retorna** comentários top-level de PR (os sem `path:line`), e revisor humano frequentemente deixa o argumento mais denso justamente ali, por não caber numa linha do diff. Rode sempre, na mesma passada:
+**Top-level PR comments — COLETA OBRIGATÓRIA.** O `reviewThreads` acima **não retorna** comentários top-level (os sem `path:line`). Rode sempre, na mesma passada:
 
 ```bash
 gh api repos/$REPO_FULL/issues/$PR_NUMBER/comments \
   --jq '.[] | {id, author: .user.login, createdAt: .created_at, body}'
 ```
 
-Descarte os ecos de bot (CI, sincronização de ticket, reviewer automático que só informa que não achou nada) e trate o restante como parte do material de review, no mesmo pé das threads. Um review que ignora esses comentários reporta cobertura que não teve.
+Descarte os ecos de bot (CI, sincronização de ticket, reviewer automático sem achado) e trate o restante como material de review, no mesmo pé das threads.
 
 Guardar como `PR_THREADS` (dois conjuntos: `open` + `resolved`), com a lista `comments` inteira de
 cada thread (não só o primeiro). Se a query GraphQL falhar (rate limit, permissão), continuar com
@@ -380,25 +373,18 @@ apontou. Pular quando `PR_THREADS == null` (a query do 3b falhou) ou quando não
 
 **1. Selecionar `SELF_THREADS`.** Filtrar `PR_THREADS.open` pelas duas condições, ambas necessárias:
 
-- o `author.login` do **primeiro comentário** da thread é a conta autenticada (`ME`, calculado no
-  passo 3) — é assim que uma thread aberta por `<HOLISTIC>` aparece no GitHub, já que o Passo 8b posta
-  sempre sob a conta autenticada. Times que publiquem o holístico sob um login de bot próprio estendem
-  este critério comparando também contra esse login, quando o perfil o declarar;
-- há, na lista `comments` da thread, pelo menos um comentário do **autor da PR** (`author.login ==`
-  autor da PR, do passo 3) com `createdAt` **posterior** ao `createdAt` do último comentário de `ME`
-  na mesma thread. É a "réplica desde a última postagem do reviewer" que o critério de aceite pede:
-  sem ela, a thread está simplesmente aguardando o autor, não pronta pra reverificação.
+- o `author.login` do **primeiro comentário** é `ME` (o 8b posta sob a conta autenticada; um login de
+  bot próprio declarado no perfil também conta);
+- a thread tem comentário do **autor da PR** com `createdAt` **posterior** ao último comentário de
+  `ME` (sem essa réplica, a thread só aguarda o autor).
 
 Threads que não passam nas duas condições seguem no fluxo normal (podem ainda virar contexto para o
 Passo 3b do cross-reference, mas não entram neste passo). `SELF_THREADS` vazio → pular o resto deste
 passo, seguir para o Passo 5.
 
-**2. Verificar cada `SELF_THREADS` contra o HEAD atual.** Mesmo mecanismo de fan-out do
-`${FLUX_ROOT}/shared/review-agents.md` já usado no Passo 4 — **não duplicar a lógica de descoberta
-nem de reconciliação, referenciar**. A diferença é só o que se pede a cada lente: em vez de achar
-findings novos, verificar se a alegação original da thread **ainda procede** contra o código atual
-(mesmo princípio do Passo 3 do `${FLUX_ROOT}/skills/iterate/SKILL.md` — "verificar a alegação
-contra o código real", aqui aplicado a threads antigas em vez de comentários novos):
+**2. Verificar cada `SELF_THREADS` contra o HEAD atual**, pelo mesmo fan-out do Passo 4
+(`${FLUX_ROOT}/shared/review-agents.md`). Muda só o pedido: verificar se a alegação original **ainda
+procede** no código atual, em vez de achar findings novos:
 
 - **2a — Holístico:** Task com `subagent_type: <HOLISTIC>`, passando o lote inteiro de `SELF_THREADS`
   (incluindo `thread_id`, comentário original + réplica do autor da PR + `databaseId` + `url`) junto
@@ -507,26 +493,33 @@ em conflito, parar com as opções seguras de esclarecer ou não agir.
 
 O `id` deste gate é `review-post-action`. O snapshot é `{me, pr_author, pr_assignees,
 is_own_pr, is_assigned_pr, status, actionable_findings, reopen_candidates}`, com a origem de cada
-fato preservada. O renderer recebe somente as opções elegíveis desta tabela, na ordem indicada:
+fato preservada. O renderer recebe somente as opções elegíveis, na ordem do ramo (8a ou 8b), com o
+`label` e a `description` desta tabela; o `effect` é o que se persiste e o que a description tem que
+representar (`${FLUX_ROOT}/shared/hitl.md`).
 
-| id | label | effect | preconditions |
-|---|---|---|---|
-| `apply-commits` | Aplicar correções em commits semânticos | aplica correções e commita localmente, sem push | `is_own_pr`, há finding acionável |
-| `apply-and-push` | Aplicar e dar push | aplica correções, verifica e publica na branch da PR | `is_own_pr`, há finding acionável |
-| `post-inline` | Postar comentários inline | publica o subset escolhido como review `COMMENT`, sem aprovar | há comentário acionável |
-| `post-and-approve` | Postar e aprovar | publica prioridades e praise, confere o HEAD e aprova em chamada separada | `!is_own_pr`, `status` permite aprovação |
-| `post-priorities-praise` | Prioridades + praise | publica prioridades e praise como `COMMENT`, sem aprovar | há comentário acionável |
-| `post-priorities` | Só prioridades | publica só prioridades como `COMMENT`, sem aprovar | há comentário acionável |
-| `post-all` | Tudo | publica todos os comentários permitidos como `COMMENT`, sem aprovar | há comentário acionável |
-| `answer-reverified-threads` | Responder threads reverificadas | responde, reage e resolve somente threads que procedem | `reopen_candidates` não vazio |
-| `do-nothing` | Não fazer nada | encerra sem alterar working tree ou GitHub | sempre |
-| `do-not-post` | Não postar | encerra sem publicar no GitHub | sempre |
+| id | label | description | effect | preconditions |
+|---|---|---|---|---|
+| `apply-commits` | Aplicar correções em commits semânticos | Aplica os request-change + breaking-change + suggestion acionáveis no working tree, roda a verificação dos arquivos tocados, e commita semanticamente. Não posta nada. Sem push automático. | aplica correções e commita localmente, sem push | `is_own_pr`, há finding acionável |
+| `apply-and-push` | Aplicar e dar push | Igual acima, e ao final dá push na branch da PR. | aplica correções, verifica e publica na branch da PR | `is_own_pr`, há finding acionável |
+| `post-inline` | Postar comentários inline | Em vez de aplicar, posta o review na PR (mesmo menu de PR de terceiros, sem a opção de aprovar). Útil pra registrar sem mexer no código agora. | publica o subset escolhido como review `COMMENT`, sem aprovar | há comentário acionável |
+| `post-and-approve` | Postar e aprovar | Posta a revisão (prioridades + praise inline, event COMMENT) e, só depois de a postagem dar certo e o commit revisado continuar sendo o head da PR, aprova em chamada separada, sem corpo. Aprovar é decisão sua: só acontece se você escolher esta opção. | publica prioridades e praise, confere o HEAD e aprova em chamada separada | `!is_own_pr`, `status` permite aprovação |
+| `post-priorities-praise` | Prioridades + praise | Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline, sem aprovar a PR. Padrão histórico do usuário. | publica prioridades e praise como `COMMENT`, sem aprovar | há comentário acionável |
+| `post-priorities` | Só prioridades | Posta request-change + breaking-change + itens da lista PRIORIDADE inline. Sem praise. | publica só prioridades como `COMMENT`, sem aprovar | há comentário acionável |
+| `post-all` | Tudo | Posta todos os comentários do review (request-change, breaking-change, question, suggestion, praise) inline. note nunca vai. | publica todos os comentários permitidos como `COMMENT`, sem aprovar | há comentário acionável |
+| `answer-reverified-threads` | Responder threads reverificadas | Para cada thread própria reaberta com réplica pendente (Passo 4b): posta réplica + reação 👍/👎 + resolve via GraphQL a que procedeu; mantém aberta, com a justificativa, a que não procedeu. Independente de postar review nova. | responde, reage e resolve somente threads que procedem | `reopen_candidates` não vazio |
+| `do-nothing` | Não fazer nada | Review fica só no board. Você decide depois. | encerra sem alterar working tree ou GitHub | sempre |
+| `do-not-post` | Não postar | Review fica só no board. Eu reviso antes de decidir. | encerra sem publicar no GitHub | sempre |
 
-`apply-commits`, `post-and-approve`, `post-priorities-praise` e `post-priorities` são recomendadas
-somente no ramo em que ocupam a primeira posição elegível; a recomendação nunca é inferida pelo
-renderer. O segundo gate, quando há threads reverificadas, usa `id: review-reverified-threads` e
-as opções `answer-reverified-threads` e `keep-reverified-threads`, ambas com os efeitos já descritos
-no Step 8b-bis.
+A recomendada leva `(Recomendado)` no label e nunca é inferida pelo renderer: é a primeira do ramo,
+com a única exceção de `approved-with-questions`, abaixo. A ordem do menu nunca muda por causa dela.
+
+**Segundo gate** (`id: review-reverified-threads`), só no ramo aprovar e com `reopen_candidates` não
+vazio, depois do primeiro: "Responder também as threads reverificadas?"
+
+| id | label | description | effect | preconditions |
+|---|---|---|---|---|
+| `answer-reverified-threads` | Sim (Recomendado) | Executa o 8b-bis para cada thread reverificada: posta a réplica e a reação definidas pelo veredito do Passo 4b; resolve as que procedem e mantém abertas, com a justificativa, as que procedem parcialmente ou não procedem. É independente da publicação de uma review nova e não aprova a PR. | responde, reage e resolve somente threads que procedem | `reopen_candidates` não vazio |
+| `keep-reverified-threads` | Não | Não posta réplicas, não reage e não altera o estado das threads reverificadas nesta rodada. | encerra sem tocar nas threads reverificadas | sempre |
 
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 
@@ -536,53 +529,30 @@ Postar comentário pra si mesmo não agrega; o valor é aplicar a correção. An
 gh pr edit $PR_NUMBER --repo $REPO_FULL --add-assignee "$ME"
 ```
 
-Renderizar a `GateSpec` com as opções `apply-commits`, `apply-and-push`, `post-inline` e
-`do-nothing`:
-
-- **Header:** `Ação na PR?`
-- **Question:** `A PR #{number} é sua. O que fazer com as recomendações do review?`
-- **Options (nessa ordem):**
-  1. `Aplicar correções em commits semânticos (Recomendado)` — descrição: `Aplica os request-change + breaking-change + suggestion acionáveis no working tree, roda a verificação dos arquivos tocados, e commita semanticamente. Não posta nada. Sem push automático.`
-  2. `Aplicar e dar push` — descrição: `Igual acima, e ao final dá push na branch da PR.`
-  3. `Postar comentários inline` — descrição: `Em vez de aplicar, posta o review na PR (mesmo menu de PR de terceiros, sem a opção de aprovar). Útil pra registrar sem mexer no código agora.`
-  4. `Não fazer nada` — descrição: `Review fica só no vault. Você decide depois.`
-
-Se escolher 1 ou 2 → ir para **8c**. Se escolher 3 → usar a postagem de **8b**. Se 4 → terminar.
+Header `Ação na PR?`, question `A PR #{number} é sua. O que fazer com as recomendações do review?`,
+opções `apply-commits` (recomendada), `apply-and-push`, `post-inline`, `do-nothing`. As duas primeiras
+levam ao **8c**; `post-inline` abre o menu "demais vereditos" do **8b**, com qualquer `STATUS` (o
+GitHub não deixa aprovar a própria PR); `do-nothing` termina.
 
 #### 8b. PR de terceiros (`IS_OWN_PR == false`) — publicar inline
 
-Renderizar a `GateSpec` (single-select, protocolo em `${FLUX_ROOT}/shared/hitl.md`):
+Header `Postar na PR?`, question `Quer postar algum subset dos comentários direto na PR #{number}?`.
+A ordem depende do `STATUS` do Step 7, lido como já impresso, sem reanalisar:
 
-- **Header:** `Postar na PR?`
-- **Question:** `Quer postar algum subset dos comentários direto na PR #{number}?`
-- **Options (nessa ordem):** depende do `STATUS` do Step 7, lido como já impresso, sem reanalisar o relatório.
+- **Veredito aprovar** (`approved`, `approved-with-suggestions`, `approved-with-questions`; até 4
+  opções, o limite do `AskUserQuestion`): `post-and-approve` (recomendada), `post-priorities-praise`,
+  `post-all`, `do-not-post`. Neste ramo, a description de `post-all` acrescenta `Para só prioridades,
+  sem praise, use o campo livre "Other".` Em `approved-with-questions`, a ordem é a mesma, mas
+  `post-and-approve` perde o `(Recomendado)`, que passa à segunda opção, `post-priorities-praise`, e a
+  description de `post-and-approve` acrescenta `Atenção: aprovar libera o merge com perguntas ainda
+  abertas.` Sem comentário acionável (exceção do Step 7): só `post-and-approve` (recomendada; posta o
+  corpo e o placar, sem comentários inline, e aprova) e `do-not-post`. Com `reopen_candidates`, o
+  segundo gate, depois deste.
+- **Demais vereditos** (`request-changes`, ausente ou não reconhecido) e o `post-inline` do 8a:
+  `post-priorities-praise` (recomendada), `post-priorities`, `post-all`, `answer-reverified-threads`
+  (só com `reopen_candidates`), `do-not-post`.
 
-**Veredito aprovar** (`approved`, `approved-with-suggestions` ou `approved-with-questions`; só PR de terceiros). O menu tem no máximo 4 opções, o limite do `AskUserQuestion`:
-
-  1. `Postar e aprovar (Recomendado)` — descrição: `Posta a revisão (prioridades + praise inline, event COMMENT) e, só depois de a postagem dar certo e o commit revisado continuar sendo o head da PR, aprova em chamada separada, sem corpo. Aprovar é decisão sua: só acontece se você escolher esta opção.`
-  2. `Prioridades + praise` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline, sem aprovar a PR. Padrão histórico do usuário.`
-  3. `Tudo` — descrição: `Posta todos os comentários do review (request-change, breaking-change, question, suggestion, praise) inline. note nunca vai. Para só prioridades, sem praise, use o campo livre "Other".`
-  4. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
-
-- Em `approved-with-questions`, a opção 1 perde a marca `(Recomendado)` e a recomendada passa a ser `Prioridades + praise (Recomendado)`; a descrição da opção 1 acrescenta: `Atenção: aprovar libera o merge com perguntas ainda abertas.`
-- Sem comentário acionável (exceção do Step 7), o menu tem só `Postar e aprovar (Recomendado)` (posta o corpo e o placar, sem comentários inline, e aprova) e `Não postar`.
-- Com `REOPEN_CANDIDATES` não vazio, depois da primeira pergunta fazer uma **segunda** pergunta, `Responder também as threads reverificadas?`, com estas opções:
-  1. `Sim (Recomendado)` — descrição: `Executa o 8b-bis para cada thread reverificada: posta a réplica e a reação definidas pelo veredito do Passo 4b; resolve as que procedem e mantém abertas, com a justificativa, as que procedem parcialmente ou não procedem. É independente da publicação de uma review nova e não aprova a PR.`
-  2. `Não` — descrição: `Não posta réplicas, não reage e não altera o estado das threads reverificadas nesta rodada.`
-
-**Demais vereditos** (`request-changes`, `STATUS` ausente ou não reconhecido) e **PR própria** (inclusive quando o 8a reutiliza este menu pela opção `Postar comentários inline`, porque o GitHub não permite aprovar a própria PR): o menu é o de sempre, sem opção de aprovar.
-
-  1. `Prioridades + praise (Recomendado)` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE + todos os praise inline. Padrão histórico do usuário.`
-  2. `Só prioridades` — descrição: `Posta request-change + breaking-change + itens da lista PRIORIDADE inline. Sem praise.`
-  3. `Tudo` — descrição: `Posta todos os comentários do review (request-change, breaking-change, question, suggestion, praise) inline. note nunca vai.`
-  4. **(só quando `REOPEN_CANDIDATES` não está vazio)** `Responder threads reverificadas` — descrição: `Para cada thread própria reaberta com réplica pendente (Passo 4b): posta réplica + reação 👍/👎 + resolve via GraphQL a que procedeu; mantém aberta, com a justificativa, a que não procedeu. Independente de postar review nova.`
-  5. `Não postar` — descrição: `Review fica só no vault. Eu reviso antes de decidir.`
-
-> A opção marcada `(Recomendado)` é sempre a primeira do menu, exceto em `approved-with-questions`, onde é `Prioridades + praise`, segunda.
-> A apresentação e a coleta das escolhas seguem os contratos em `${FLUX_ROOT}/shared/hitl.md` e `${FLUX_ROOT}/shared/codex-compat.md`. Neste Step, o segundo GATE só aparece no ramo de aprovação quando `REOPEN_CANDIDATES` não está vazio; sem candidatos, não há essa pergunta.
-> Para rascunhar réplicas às threads abertas da PR, use `${FLUX_CMD}iterate <pr> --dry` (montar com o
-> `FLUX_CMD` do preflight, não com `/flux:` literal).
-> `Responder threads reverificadas` só existe quando o Passo 4b produziu `REOPEN_CANDIDATES`; sem reverificação nesta rodada, não há essa opção nem a segunda pergunta.
+> Para rascunhar réplicas às threads abertas da PR, use `${FLUX_CMD}iterate <pr> --dry`.
 
 Se o usuário escolher uma opção de postar (`Postar e aprovar`, `Prioridades + praise`, `Só prioridades` ou `Tudo`), montar a review e postar via `gh api`:
 
@@ -687,9 +657,8 @@ um canal, listar o alias de cada um; com `FLUX_CMD` indisponível, omitir a linh
 nenhum desses intents, nenhuma pergunta e nenhuma linha extra. A ausência é silenciosa por design e não gera
 token de degradação.
 
-Se o usuário escolher `Responder threads reverificadas` (ou responder `Sim` à segunda pergunta), seguir para **8b-bis** abaixo —
-nada impede escolher isso numa rodada seguinte depois de já ter postado com `Postar e aprovar`, `Prioridades + praise`, `Só prioridades` ou `Tudo` noutra, já que são
-ações independentes sobre coisas diferentes (review nova vs. threads antigas).
+Se o usuário escolher `Responder threads reverificadas` (ou `Sim` na segunda pergunta), seguir para
+**8b-bis**; é independente da postagem de uma review nova.
 
 #### 8b-bis. Fechar as threads reverificadas do Passo 4b
 
@@ -765,9 +734,8 @@ não deixar claro, confirmar com:
 ${MCP_DOCS}__get_file_permissions  { fileId: docId }
 ```
 
-Co-autoria conta como própria: se o usuário é um dos autores, `IS_OWN_DOC = true`. Na dúvida
-irredutível, tratar como `true` (o custo de gerar respostas que ele não vai usar é baixo; o de omitir
-é ele descobrir as threads na mão).
+Co-autoria conta como própria. Na dúvida irredutível, `IS_OWN_DOC = true` (respostas a mais custam
+menos que respostas a menos).
 
 **Guardar `OPEN_THREADS`** = os `commentThreads` com `status: OPEN`, cada um com `{n, autor, texto
 verbatim, trecho ancorado, commentId}`. O trecho ancorado sai dos marcadores
@@ -863,10 +831,9 @@ Não repetir o conteúdo do review no chat. O arquivo é a fonte de verdade.
 
 ### d8. Ação pós-review (doc)
 
-Documentos não aceitam comentário inline via API neste fluxo. Após gravar, oferecer via
-GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select. **O menu muda conforme `IS_OWN_DOC`**, porque em doc próprio o
-artefato já traz as ações e as réplicas prontas na seção `⚡ Ações no documento` — gerar um bloco
-separado para colar seria redundante.
+Documentos não aceitam comentário inline via API neste fluxo. Após gravar, oferecer via GATE
+(`${FLUX_ROOT}/shared/hitl.md`), single-select, com o menu conforme `IS_OWN_DOC` (em doc próprio as
+ações e réplicas já estão na rodada).
 
 #### d8a. Doc próprio (`IS_OWN_DOC == true`)
 
@@ -888,7 +855,7 @@ separado para colar seria redundante.
   1. `Gerar bloco "comentários para colar no Doc" (Recomendado)` — anexa ao final do arquivo do
      vault um bloco com os `request-change` + `breaking-change` + `question` + `praise` formatados
      para colar manualmente no Google Doc (cada um com o trecho a marcar). Não posta nada.
-  2. `Não fazer nada` — review fica só no vault.
+  2. `Não fazer nada` — review fica só no board.
 
 Em seguida (independente da escolha), seguir para a etapa **Bootstrap de repo-owner** se algum repo
 referenciado não tiver suite no ambiente.
@@ -900,18 +867,14 @@ Acionada em **qualquer verbo**, depois de gravar o artefato, quando **L2 está a
 Contrato completo (quando oferecer, como a oferta é redigida, o que a suite contém):
 `${FLUX_ROOT}/shared/bootstrap-specialists.md`. **Não duplicar a lógica aqui.**
 
-**Aceitar a oferta dispara `${FLUX_CMD}equip <repo> --agents-only`**, que é quem de fato gera: os
-gates de destino de escrita e de manifesto vivem lá, num verbo só, em vez de espalhados por quatro
-elos. O review oferece e sai da frente.
-
-Ponto que o review não pode esquecer: a suite gerada é **L2, fora do repositório**. Se o repo já tem
-agents de review próprios, eles são L3, já entraram na review por descoberta, e o `equip` não os
-toca.
+**Aceitar dispara `${FLUX_CMD}equip <repo> --agents-only`**, que gera e tem os gates de escrita; o
+review só oferece. A suite gerada é **L2, fora do repositório**; agents de review do próprio repo são
+L3, já entraram por descoberta, e o `equip` não os toca.
 
 ## Notas finais
 
+- Sem em-dashes (—) em qualquer texto que o usuário possa colar ou postar (review, commit, issue, bloco para o Doc) quando `NO_EMDASH == true`
 - Sempre PT-BR com acentuação correta no conteúdo do review (frontmatter pode ficar em inglês onde já era padrão: `type`, `status`)
-- Sem em-dashes (—) em qualquer texto que o usuário possa colar/postar quando `NO_EMDASH == true`
 - Se o subagent retornar erro ou output mal formatado, mostre o erro e **não** grave arquivo parcial
 - Se faltar `gh` autenticado (pipelines `pr` e Bootstrap), peça ao usuário pra rodar `gh auth login` e aborte
 - Se o Drive MCP não estiver disponível/autenticado (pipeline `doc`), avise e aborte sem gravar parcial
