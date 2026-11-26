@@ -516,10 +516,10 @@ com a única exceção de `approved-with-questions`, abaixo. A ordem do menu nun
 **Segundo gate** (`id: review-reverified-threads`), só no ramo aprovar e com `reopen_candidates` não
 vazio, depois do primeiro: "Responder também as threads reverificadas?"
 
-| id | label | description | effect |
-|---|---|---|---|
-| `answer-reverified-threads` | Sim (Recomendado) | Executa o 8b-bis para cada thread reverificada: posta a réplica e a reação definidas pelo veredito do Passo 4b; resolve as que procedem e mantém abertas, com a justificativa, as que procedem parcialmente ou não procedem. É independente da publicação de uma review nova e não aprova a PR. | responde, reage e resolve somente threads que procedem |
-| `keep-reverified-threads` | Não | Não posta réplicas, não reage e não altera o estado das threads reverificadas nesta rodada. | encerra sem tocar nas threads reverificadas |
+| id | label | description | effect | preconditions |
+|---|---|---|---|---|
+| `answer-reverified-threads` | Sim (Recomendado) | Executa o 8b-bis para cada thread reverificada: posta a réplica e a reação definidas pelo veredito do Passo 4b; resolve as que procedem e mantém abertas, com a justificativa, as que procedem parcialmente ou não procedem. É independente da publicação de uma review nova e não aprova a PR. | responde, reage e resolve somente threads que procedem | `reopen_candidates` não vazio |
+| `keep-reverified-threads` | Não | Não posta réplicas, não reage e não altera o estado das threads reverificadas nesta rodada. | encerra sem tocar nas threads reverificadas | sempre |
 
 #### 8a. PR do próprio usuário (`IS_OWN_PR == true`)
 
