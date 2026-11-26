@@ -127,7 +127,7 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 | `/flux:iterate 962 --dry` | Modo read-only: rascunha réplicas e salva no vault, **nunca** escreve no GitHub |
 | `/flux:iterate 962 --solo` | Pula os specialists; verificação de threads usa só `<HOLISTIC>` |
 | `/flux:iterate 962 --no-rebase` | **Desliga a resolução** do gate de conflito (alias `--skip-conflict-gate`): detecta e reporta o conflito, mas não toca no histórico da branch. Cai no modo degradado do passo 2b. |
-| `/flux:iterate 962 --parent-board <path>` | Marca como filho de um delivery-flow: registra proveniência + link reverso. Passado automaticamente pelo delivery-flow. |
+| `/flux:iterate 962 --parent-board <path>` | Não escreve board: devolve o delta ao board que o orquestrador (o `flux:land`, na mesma sessão) já resolveu. Passado automaticamente pelo land. |
 
 > **O watch é o default.** Depois da 1ª passada e do push, o comando fica vivo monitorando CI + novas rodadas do bot até a PR assentar (CI verde + nada novo) ou mergear. Use `--once` quando quiser só fechar a rodada atual e sair.
 
@@ -303,17 +303,17 @@ Registrar no chat o motivo do prosseguimento (ex.: `sem threads abertas e CI ver
 
 ### 2a. Board no vault (nota viva)
 
-Havendo trabalho acionável (threads abertas, **verificação pendente de thread resolvida por terceiro/unknown**, **PR conflitante com a base** ou CI vermelho), **crie o board deste iterate** antes de seguir para a verificação, e **anuncie o caminho no chat** (o board existe desde o começo, não só no fim; a partir daqui, cada passo relevante e cada tick do watch atualiza o board).
+Havendo trabalho acionável (threads abertas, **verificação pendente de thread resolvida por terceiro/unknown**, **PR conflitante com a base** ou CI vermelho), **resolva o board** (abaixo) antes de seguir para a verificação, e **anuncie o caminho no chat** (o board existe desde o começo, não só no fim; a partir daqui, cada passo relevante e cada tick do watch atualiza o board).
 
-**O formato é fonte única compartilhada:** siga `${FLUX_ROOT}/shared/board-template.md`, **perfil single-PR** (`type: flux-iterate` — canônico no schema do vault, painel com **1 linha** — a PR deste run). Todas as seções (Frontmatter → H1+TLDR → 🎯 Próximo Movimento → 📊 Painel → ⏰ Timeline Verbosa → 📅 Timeline de Eventos Relevantes → ✅ Ação/Continuidade), a legenda de ícones, a regra do painel e a disciplina de carimbo de data vivem lá.
+**Resolver o board** conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board": o desta sessão; senão o do caso (`case_keys`: `pr:<owner>/<repo>#<n>`, que acha também o board do build que abriu a PR e o do review dela); senão um novo, **perfil single-PR** (`type: flux-iterate`, `generator: "flux-iterate"`). Formato, frontmatter (com a linha desta sessão em `provenance.runs`), painel e carimbo de data vivem lá. Esta rodada entra na seção `## 🔁 iterate · PR #N`, um H3 por rodada.
 
-- **Caminho (determinístico):** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md`. Se `VAULT_ROOT` não estiver definido (perfil genérico), registrar só no chat. Se já existir um board deste iterate (retomada de watch), **atualizá-lo**, nunca duplicar.
-- **Proveniência (`--parent-board`):** se `PARENT_BOARD` não estiver vazio, este iterate nasceu de um delivery-flow. Gravar `parent_board: "<PARENT_BOARD>"` no frontmatter e, logo após o TLDR, a linha `> Executado a partir de um delivery-flow: [board da entrega](<PARENT_BOARD>)`. Sem a flag (iterate avulso), o board não tem bloco de proveniência.
+- **Caminho do board novo:** `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-iterate-pr<N>-<repo-slug>.md`. Sem `VAULT_ROOT`, só no chat.
+- **`--parent-board <path>`:** o orquestrador (o `flux:land`) roda na mesma sessão e já resolveu o board dela; `PARENT_BOARD` **é** esse board. Não criar nem escrever board: o escritor único é o do orquestrador. Devolver no retorno o delta desta PR, dentro do limite de retorno do land (até 5 linhas de Timeline e um resumo da rodada em até 10 linhas, com links), e quem grava é ele. Sem a flag, vale a resolução acima.
 - **Sem fabricação:** todo número do painel vem de fonte real — rodadas = `round` do estado; threads res/tot do GraphQL do passo 2; 👍/👎 filtrados pela conta do `gh`; CI do `gh pr checks`. Onde não houver fonte, `n/d`.
-- O board nasce **tanto no watch quanto no `--once`** (o delivery-flow chama o iterate com `--once`, e ainda assim precisa do board filho). Registrar o path no estado (passo do watch, campo `board`).
-- **Quem escreve depende do watch** (`${FLUX_ROOT}/shared/fanout-discipline.md`, seção do board-keeper): com o watch ligado, criar aqui o **board-keeper** (subagente nomeado, escritor único do board) e passar a mandar o delta de cada tick por `SendMessage` — assim o `CLAUDE.md` do vault e o template de board nunca entram no contexto principal, e a main nunca relê o board. Com `--once` (inclusive quando despachado por um delivery), **não criar keeper**: é uma escrita só, a main grava direto.
-- **Em `--dry`:** criar o board normalmente, mas sinalizar no TLDR que o run foi read-only.
-- Para cada thread resolvida por terceiro/unknown verificada, registrar na Timeline Verbosa o `resolvedBy`, o resultado (`correção presente e válida`, `finding persistente/regredido` ou `sem finding/alegação improcedente/obsoleta`), o SHA do head verificado e a evidência `arquivo:linha` quando houver. Indexar a verificação na Timeline de Eventos Relevantes como tipo `review`; não criar tabela paralela nem alterar a contagem real de threads do painel.
+- O board é resolvido **tanto no watch quanto no `--once`**, salvo com `--parent-board`, em que o iterate não escreve board. Registrar o path no estado (passo do watch, campo `board`).
+- **Quem escreve depende do watch** (`${FLUX_ROOT}/shared/fanout-discipline.md`, seção do board-keeper): com o watch ligado, retomar o keeper do board se a sessão já tiver um, ou criar o **board-keeper** (subagente nomeado, escritor único) e mandar o delta de cada tick por `SendMessage`; assim o template e o `CLAUDE.md` do vault não entram no contexto principal. Com `--once` avulso, não criar keeper: a main grava direto. Com `--parent-board`, quem grava é o orquestrador.
+- **Em `--dry`:** resolver o board normalmente e marcar `[dry-run]` no TL;DR.
+- Para cada thread resolvida por terceiro/unknown verificada, registrar na seção do iterate o `resolvedBy`, o resultado (`correção presente e válida`, `finding persistente/regredido` ou `sem finding/alegação improcedente/obsoleta`), o SHA do head verificado e a evidência `arquivo:linha` quando houver. Indexar a verificação na Timeline como tipo `review`; não criar tabela paralela nem alterar a contagem real de threads do painel.
 
 ### 2b. Gate de integração com a base — PRIMEIRO gate (1ª passada E cada tick do watch)
 
@@ -755,8 +755,7 @@ proibição de travessão quando `NO_EMDASH == true` (a descrição é publicaç
 
 Após publicar, gravar `bodySyncedAtSha` no estado (o SHA para o qual a descrição está reconciliada), e
 `titleSyncedAtSha` junto, e
-registrar no board: linha na Timeline de Eventos Relevantes com tipo `pr-body` e um parágrafo na Timeline
-Verbosa dizendo **qual afirmação** foi corrigida e **com que evidência** (não basta "descrição
+registrar no board: linha na Timeline com tipo `pr-body` e, na seção do iterate, um parágrafo dizendo **qual afirmação** foi corrigida e **com que evidência** (não basta "descrição
 atualizada"). Emitir o evento Slack `descricao-reconciliada` se o feed estiver configurado.
 
 #### Carimbo de atribuição
@@ -871,7 +870,7 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
 
 ### Fluxo em `--dry`
 
-1. Executar os passos 0-context, 1 (resolver target), 2 (coletar metadados + threads), e 2a (criar board com nota `[dry-run]` no TLDR).
+1. Executar os passos 0-context, 1 (resolver target), 2 (coletar metadados + threads), e 2a (resolver o board, com `[dry-run]` no TL;DR).
 2. Coletar o diff completo da PR: `gh pr diff $PR_NUMBER --repo $REPO_FULL`.
 3. **Pular apenas threads abertas triviais** conforme o passo 2. A regra de comentário do próprio autor sem réplica de terceiros continua valendo para threads abertas; toda thread já resolvida por terceiro/unknown entra na verificação pelo `resolvedBy`, sem filtro por tamanho ou conteúdo, mesmo que o primeiro comentário tenha sido escrito pelo autor da PR.
 4. Verificar threads abertas e resolvidas por terceiros/unknown pelo fan-out do passo 3, honrando `--solo`. Depois, delegar ao `<ANSWERER>` via Task tool (subagent_type: `<ANSWERER>`) para redigir apenas as réplicas necessárias, passando:
@@ -881,14 +880,11 @@ Quando `--dry` estiver presente, o comando opera em modo **estritamente read-onl
    - Caminho do checkout local quando disponível
    - Instrução: produzir rascunhos classificados em `accepts-suggestion / defends-decision / needs-discussion / needs-code-change` + os comandos `gh api` prontos para cada thread que exige interação. Para resolvidas cuja correção está presente e válida ou cuja alegação é improcedente/obsoleta, não redigir réplica nem comando; a thread fica fechada e o resultado da verificação é registrado no artefato.
    - Se `ANSWERER` não estiver definido no perfil (genérico): usar `<HOLISTIC>` com instrução explícita de rascunhar réplicas seguindo o mesmo formato.
-5. Computar o **path do arquivo de saída**:
-   - Com `VAULT_ROOT`: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-{repo-slug}-PR{n}-v{N}-answers.md` — nota nova nasce no inbox, como todas as outras.
-     - `{N}` = número de runs de `--dry` neste dia para esta PR. Contar os arquivos de mesmo prefixo nos **dois** lugares onde eles podem estar: `<VAULT_ROOT>/0-inbox/` (ainda não triados) e `<VAULT_CTX_ROOT>/pr-reviews/` (já promovidos pelo `/organize`). Contar só o inbox reinicia o `v` depois de cada triagem e sobrescreve rascunho anterior.
-   - Sem `VAULT_ROOT` (perfil genérico): imprimir o resultado no chat em vez de salvar.
-6. **Salvar** o output do `<ANSWERER>` no arquivo calculado (Write tool), com frontmatter mínimo de roteamento (`type: pr-review`, `context: <VAULT_CTX>`, `repo: <repo-slug>`, `pr:`, `date:`, `pending_organize: true`) — sem esse sinal o `/organize` não sabe para qual contexto promover — e com o bloco `provenance` **completo**, as dez chaves do contrato de `${FLUX_ROOT}/shared/board-template.md`, seção "Bloco `provenance` (todos os perfis)", com `generator: "flux-iterate"` e verbo `iterate` no `stamp`, conferido pelo checklist daquela seção antes do Write: é nota escrita por uma sessão como qualquer outra, e ficar de fora quebraria a filtrabilidade que o campo existe para dar. **Nunca** escrever no GitHub.
+5. **Gravar os rascunhos no board da sessão**, não em arquivo próprio: subseção `### Rascunhos dry-run v{N} · <data>` dentro de `## 🔁 iterate · PR #N`, com `{N}` = rodadas de `--dry` já registradas nessa seção + 1. Sem `VAULT_ROOT`: imprimir no chat.
+6. **Nunca** escrever no GitHub.
 7. Anunciar no chat:
    ```
-   Rascunhos salvos em {caminho-completo}.
+   Rascunhos salvos no board {caminho-completo}, seção do iterate.
 
    {N} threads abertas: {X} accepts-suggestion, {Y} defends-decision, {Z} needs-discussion, {W} needs-code-change.
    {R} threads resolvidas por terceiros/unknown verificadas: {A} correção presente e válida, {B} finding persistente/regredido, {C} sem finding/alegação improcedente/obsoleta.
@@ -982,7 +978,6 @@ Mantenha um arquivo de estado por PR para sobreviver à espera do gate, aos `Sch
   "gateLastPollAtSeen": null,
   "lastGateEvent": null,
   "board": "<VAULT_ROOT>/0-inbox/....md",
-  "parentBoard": null,
   "startedAt": "<UTC: YYYY-MM-DDTHH:MM:SSZ>",
   "lastTickAt": "<UTC: YYYY-MM-DDTHH:MM:SSZ>"
 }
@@ -994,9 +989,9 @@ Os três campos do gate de integração: `lastMergeable` = último `mergeable` l
 
 `slackNotified` = o último aviso de canal por revisor (passo 9a), no formato `{"<login>": {"grupo": "enderecado|aguardando", "abertos": N, "round": N, "recusado": false}}`. O passo 9a o escreve nos três desfechos: rascunho salvo (interativo ou `--auto`), e `Agora não` no gate interativo (`recusado: true`, para o tick não reavisar no mesmo `round`). Falha em salvar não grava. O gate não o lê. Na 1ª passada ele nasce `{}` e é preenchido pelo 9a. Arquivo reconstruído: `{}`, e o primeiro tick pode avisar de novo, o que o `reply` já contém com o rascunho anexado existente.
 
-Na 1ª passada, gravar o estado inicial (round 1, `slackNotified` conforme o passo 9a, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, `verifiedResolvedThreads` = snapshot (`threadId`, `headSha`, `resolvedBy`, `lastCommentId`) de cada thread resolvida por terceiro/unknown que foi verificada, `answeredCommentIds` = os issue comments de terceiros que a 1ª passada classificou, respondidos e ignoráveis, SHA pós-push, `lastCiConclusion` = o CI coletado no passo 2, nos literais do passo 2 de "Um tick", `conflictAttemptedAtBaseSha` = o `baseRefOid` se o passo 2b terminou em modo degradado (exceto por lease recusado, seção 5 do shared), senão `null`, `retainedResolutionSha` = o SHA local da resolução retida pelo passo 2b, senão `null`, `startedAt` = agora, no formato UTC acima, `board` = path criado no passo 2a, `parentBoard` = `PARENT_BOARD` se veio de um delivery-flow, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente resolvidas de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), `verifiedResolvedThreads` como lista vazia para revalidar resolvidas por terceiros/unknown, `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles (os ignoráveis voltam à lista no primeiro tick, que os reclassifica), e o `board` a partir do naming determinístico do passo 2a.
+Na 1ª passada, gravar o estado inicial (round 1, `slackNotified` conforme o passo 9a, threads que você processou em `resolvedThreadIds`, com as deixadas abertas de propósito também em `discussionThreadIds`, `verifiedResolvedThreads` = snapshot (`threadId`, `headSha`, `resolvedBy`, `lastCommentId`) de cada thread resolvida por terceiro/unknown que foi verificada, `answeredCommentIds` = os issue comments de terceiros que a 1ª passada classificou, respondidos e ignoráveis, SHA pós-push, `lastCiConclusion` = o CI coletado no passo 2, nos literais do passo 2 de "Um tick", `conflictAttemptedAtBaseSha` = o `baseRefOid` se o passo 2b terminou em modo degradado (exceto por lease recusado, seção 5 do shared), senão `null`, `retainedResolutionSha` = o SHA local da resolução retida pelo passo 2b, senão `null`, `startedAt` = agora, no formato UTC acima, `board` = path resolvido no passo 2a, `solo` = valor da flag, `noRebase` = valor da flag, `bodySyncedAtSha` / `titleSyncedAtSha` = SHA em que o passo 8a verificou descrição e título, **com ou sem edição**, ou `null` só se o 8a não rodou, `writeGrantedForThirdParty` = `true` se a 1ª passada já concedeu escrita numa PR de terceiro, senão `false`). Em cada tick, ler, atualizar e regravar. Se o arquivo sumir (ex.: sessão reiniciada), reconstruir o `resolvedThreadIds` a partir das threads atualmente resolvidas de sua autoria mais as abertas cujo último comentário é seu (estas vão também para `discussionThreadIds`), `verifiedResolvedThreads` como lista vazia para revalidar resolvidas por terceiros/unknown, `answeredCommentIds` a partir dos issue comments de terceiros que já têm réplica sua posterior a eles (os ignoráveis voltam à lista no primeiro tick, que os reclassifica), e o `board` refazendo a resolução do passo 2a (`board-template.md`, "Resolver o board"), nunca pelo nome do arquivo: o board da PR pode ter nascido no build ou no review, com outro nome.
 
-**Atualizar o board a cada tick:** tick é turno deste elo. Com o gate, só existe tick quando ele sai (o poll ocioso acontece fora da LLM e não toca o board); no fallback agendado, a cada wake. Todo tick rola o carimbo de data do board (frontmatter `updated:`, TLDR, título do painel) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline de Eventos Relevantes + parágrafo na Timeline Verbosa. Tick quiet só rola a data.
+**Atualizar o board a cada tick:** tick é turno deste elo. Com o gate, só existe tick quando ele sai (o poll ocioso acontece fora da LLM e não toca o board); no fallback agendado, a cada wake. Todo tick rola o carimbo de data do board (frontmatter `updated:` e o `**Agora:**` do TL;DR) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline e o detalhe na seção do iterate. Tick quiet só rola a data.
 
 ### O loop de watch (gate mecânico)
 

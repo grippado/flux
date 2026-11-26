@@ -59,7 +59,7 @@ inserida logo após a principal. Todas terminam em `## Prompt para IA`.
 - **Resumo executivo:** blockquote de 1-2 frases dizendo **o que muda e para quem**, na língua de
   produto. Sem nome de arquivo, sem nome de símbolo, sem sigla não expandida, sem link. É a única
   seção escrita para quem **não** vai ler o resto da issue: alguém de produto tem que fechar a issue
-  depois dela e saber do que se trata. Mesmo formato do TLDR dos boards
+  depois dela e saber do que se trata. Mesmo espírito do `## TL;DR` dos boards
   ([`board-template.md`](board-template.md)), para não inventar estilo novo.
 - **Motivação / Problema / Objetivo:** 1 parágrafo não-técnico com o valor de produto/usuário (ou o
   sintoma, no bug). **Não repetir o resumo executivo:** o resumo diz *o que muda*, esta seção diz *por

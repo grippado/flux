@@ -30,6 +30,7 @@ function makeFluxRoot(withShared = true): string {
     mkdirSync(join(root, "shared"), { recursive: true });
     writeFileSync(join(root, "shared", "review-legend.md"), "# legenda");
     writeFileSync(join(root, "shared", "review-artifact-template.md"), "# template");
+    writeFileSync(join(root, "shared", "board-template.md"), "# board");
     writeFileSync(join(root, "shared", "flux-context.md"), "# contexto");
     writeFileSync(join(root, "shared", "review-body-template.md"), "# corpo");
   }

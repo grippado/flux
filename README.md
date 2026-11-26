@@ -325,6 +325,8 @@ ponto para transformar um caso em comunicação embasada, não apenas depois do 
 | [`flux:equip`](plugins/flux/skills/equip/SKILL.md) | repo | motor de execução (L0) + suite de specialists local (L2) + L3 exposta | sim, **fora do repo alvo**, pelo contrato de destino; manifesto só sob gate |
 | [`flux:map`](plugins/flux/skills/map/SKILL.md) | nada (a máquina) | inventário das lentes, delta desde a última execução, relatório de integridade | o índice `flux-agents.json`; os consertos **despacha ao `equip`**, nunca escreve por conta |
 
+**Um board por sessão, um board por caso.** Tudo o que uma sessão faz, de qualquer verbo e das skills de fora do flux que rodarem junto, entra numa nota só no vault; e o caso (a PR, o ticket, a thread) volta ao mesmo board nas sessões seguintes, em qualquer harness. O `provenance` do board lista as sessões em `runs`, uma linha por sessão, com id de sessão, harness, máquina e, quando o manifesto declara um lançador, o id da run dele, e o corpo abre com um `## TL;DR` que diz o que está sendo feito agora. Contrato em [`board-template.md`](plugins/flux/shared/board-template.md).
+
 `flux:equip` e `flux:map` são os dois verbos **fora do ciclo**: nenhum trata de uma entrega. Os
 demais elos consomem coisas que não produzem — o motor que o `flux:build` despacha e os specialists
 que `review`/`iterate`/`land` reconciliam —, e é o `equip` que as cria quando faltam. Por isso
@@ -381,11 +383,11 @@ flux/
     ├── agents-index.md            mapa das lentes na máquina (o que existe e onde, nunca o que rodou)
     ├── review-agents.md           descoberta + reconciliação de specialists
     ├── review-legend.md           badges canônicos dos findings
-    ├── review-artifact-template.md formato do artefato de review no vault
+    ├── review-artifact-template.md conteúdo da seção de review do board
     ├── review-body-template.md    formato do corpo da review postada no GitHub
     ├── pr-attribution.md          carimbo flux:<verbo>@<versão> na linha de atribuição da PR
     ├── issue-template.md          formato da issue do flux:issue
-    ├── board-template.md          formato do board vivo (execução / iterate / delivery / conversa)
+    ├── board-template.md          o board: um por sessão, um por caso, N runs
     ├── worktree-discipline.md     todo fluxo que escreve opera em worktree dedicado
     ├── write-destination.md       onde artefato gerado pode nascer: cascata + guardas de symlink/git/dotfiles
     ├── chain.md                  gramática de chains: verbo, artefato, legalidade, baton, falha no meio

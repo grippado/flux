@@ -6,6 +6,7 @@ requires:
   hard:
     - file: shared/review-legend.md
     - file: shared/review-artifact-template.md
+    - file: shared/board-template.md
     - file: shared/flux-context.md
     - bin: git
     - agent: ${HOLISTIC}
@@ -286,20 +287,21 @@ toda citação — montar e guardar:
 
 **Rodadas anteriores da mesma PR (vault):**
 
-Procurar nos **dois** lugares onde uma review pode estar: no `0-inbox/`, se ainda não foi triada, e no
-eixo por tipo do contexto, se o `/organize` já a promoveu.
+Resolver o board no Passo 0 conforme `${FLUX_ROOT}/shared/board-template.md`, "Resolver o board",
+com a `case_key` `pr:<owner>/<repo>#<n>` (ou `doc:<file_id>` no perfil doc): o board desta sessão;
+senão o do caso, no inbox ou já promovido (o do build que abriu a PR, o do iterate dela, ou o de uma
+review anterior). A rodada anterior é a última `### Rodada` da seção `## 🔎 Review · PR #N` desse
+board.
+
+Review legada em nota própria também conta, para não perder histórico:
 
 ```bash
 ls <VAULT_ROOT>/0-inbox/ <VAULT_CTX_ROOT>/pr-reviews/ 2>/dev/null \
-  | grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9]{4})?-{repo-slug}-PR{number}(-v[0-9]+)?\.md$" \
-  | sort
+  | grep -E "^[0-9]{4}-[0-9]{2}-[0-9]{2}(-[0-9]{4})?-{repo-slug}-PR{number}(-v[0-9]+)?\.md$" | sort
 ```
 
-> Só o `0-inbox/` não basta: a review da semana passada já foi promovida e sumiria da busca, e a rodada
-> nova nasceria como se fosse a primeira. Sem `VAULT_CTX_ROOT` (vault sem separação por contexto), fica
-> só o `0-inbox/`.
-
-Se houver arquivo(s), ler o mais recente e extrair apenas a seção `## Comentários de Review` + frontmatter (`status`, `date`). Guardar como `PREV_REVIEW_COMMENTS`. Se não houver, `PREV_REVIEW_COMMENTS = null`.
+Da rodada mais recente (seção do board, ou nota legada), extrair só os comentários de review e o
+`status`, como `PREV_REVIEW_COMMENTS`. Nenhuma: `PREV_REVIEW_COMMENTS = null`.
 
 **Threads já postadas na PR (abertas e resolvidas):**
 
@@ -424,7 +426,7 @@ que corrigiu, linka `https://github.com/{owner}/{repo}/commit/{sha}`. Guardar a 
 como `REOPEN_CANDIDATES` = `[{thread_id, databaseId, url, veredito, commit_url|null, justificativa|null,
 autor_pr}]`, consumida pelo Step 8b.
 
-**4. Recapitulação.** Logo após `## 📊 Painel de findings` (Passo 6), acrescentar a lista (não uma
+**4. Recapitulação.** No começo da rodada (Passo 6), logo após a contagem por badge, acrescentar a lista (não uma
 tabela nova — a regra de ouro do painel permanece valendo) `## 🔁 Threads reverificadas`, um item por
 `REOPEN_CANDIDATES`:
 
@@ -440,87 +442,51 @@ tabela nova — a regra de ouro do painel permanece valendo) `## 🔁 Threads re
 `SELF_THREADS` vazio → omitir a seção inteira (não escrever "nenhuma", ela só existe quando há o que
 recapitular).
 
-### 5. Computar nome do arquivo
+### 5. Onde gravar
 
-Convenção:
-
-- **Com PR number:** `YYYY-MM-DD-HHMM-{repo-slug}-PR{number}.md`
-  - Exemplo: `2026-04-30-1435-backoffice-bff-PR790.md`
-- **Sem PR (branch local):** `YYYY-MM-DD-HHMM-{repo-slug}-{branch-slug}.md`
-  - Exemplo: `2026-04-30-1435-backoffice-bff-cma-2400-feature-x.md`
-  - branch-slug = nome da branch em kebab-case, sem prefixos como `feat/`, `fix/`
-- `HHMM` = hora **local** da criação do artefato (mesma regra do perfil doc). É o que mantém a
-  listagem do `0-inbox/` em ordem cronológica real — todo perfil da família grava com `HHMM`, e a
-  review não é exceção. A busca de rodada anterior (passo 3b) ignora o `HHMM` de propósito, então
-  artefatos legados sem hora continuam sendo encontrados.
-
-Path completo: `<VAULT_ROOT>/0-inbox/{filename}`
-
-> **A review nasce no inbox, como toda nota nova.** O contexto voltou a ser pasta: o eixo por tipo do
-> vault vive **dentro** de cada contexto (`<VAULT_CTX_ROOT>/pr-reviews/`), e não na raiz. Mas escolher a
-> pasta na hora da captura é justamente a decisão que este elo não tem como tomar bem, então ele não a
-> toma: grava no `0-inbox/` e deixa o `/organize` promover.
->
-> O frontmatter não é mais o lugar onde o contexto mora **em vez** da pasta; é o **sinal de roteamento**
-> que diz ao `/organize` para qual contexto promover. Por isso `context: <VAULT_CTX>` continua obrigatório,
-> agora acompanhado de `repo:` (slug puro) e `pending_organize: true`. Review sem esses campos chega no
-> inbox sem endereço e vira triagem manual. O repo segue embutido no nome do arquivo
-> (`{repo-slug}-PR{number}`), que é o que faz a busca de rodada anterior funcionar dos dois lados.
-
-**Re-runs no mesmo dia:**
-
-- Se já existe artefato da mesma PR no mesmo dia (em qualquer dos dois lugares varridos no passo 3b,
-  com ou sem `HHMM`), sufixar com `-v2`, `-v3`, etc. — o `HHMM` é o da nova rodada.
-  - `2026-04-30-1612-backoffice-bff-PR790-v2.md`
+A review **não tem nota própria**: é a seção `## 🔎 Review · PR #N` do board resolvido no 3b, com um
+rodada por execução, sem apagar as anteriores (heading e níveis no `review-artifact-template.md`). Sem board resolvido,
+nasce um, **perfil review** do template: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-review-pr<N>-<repo-slug>.md`
+(sem PR: `flux-review-<repo-slug>-<branch-slug>.md`, com a `case_key` `branch:<owner>/<repo>@<branch>`), `type: pr-review`, com `repo`, `pr_number`,
+`context`, `pending_organize: true` e `case_keys` no frontmatter: é o sinal com que o `/organize`
+roteia a nota.
 
 ### 6. Renderizar template e gravar
 
-Montar o artefato seguindo o **perfil PR** de `${FLUX_ROOT}/shared/review-artifact-template.md`
-— fonte única do formato (frontmatter, linha de metadados, e as seções 🎯 Veredito & prioridades →
-📊 Painel de findings → 🚦 Gates (quando houver gate) → 🔁 Threads reverificadas (quando houver `REOPEN_CANDIDATES`) → 🔎 Findings →
-📎 Escopo → ✅ Ação → 🔗 Cobertura), com a **disciplina de links**, as **regras de escrita** e a
-**regra de ouro do painel**. Tradução de STATUS e cálculo de `size_*` também vivem lá.
+Montar a rodada seguindo o **perfil PR** de `${FLUX_ROOT}/shared/review-artifact-template.md`,
+que é o dono do heading da rodada, dos níveis de heading, do painel de findings (que vai para o
+`## 📊 Painel` do board), do header de finding por rodada, da disciplina de links, das regras de
+escrita, da tradução de STATUS e do cálculo de `size_*`. Nada disso é redefinido aqui.
 
 Preencher com os dados coletados (`PR_URL`, `COMMIT_URL`, `TICKET_URL`, `HEAD_SHA`, `IS_OWN_PR`, tabela
 de arquivos, threads/reviews anteriores) + o `FINAL_REPORT` (SUMARIO, COMENTARIOS, CHECKLIST, VEREDITO,
 STATUS, PRIORIDADE) + `REOPEN_CANDIDATES` do Passo 4b (findings de reverificação, já incorporados ao
-`FINAL_REPORT` pelo Passo 4b-3, mais a seção recapitulativa do 4b-4). Ao montar:
+`FINAL_REPORT` pelo Passo 4b-3, mais a recapitulação do 4b-4). Além do template:
 
-- Cada finding em `## 🔎 Findings` tem header curto e estável (`### f{n} · {rótulo}`), alvo dos
-  wikilinks internos (`[[#f{n} · {rótulo}|f{n}]]`; âncora de Pandoc `{#fN}` não resolve no Obsidian,
-  ver "Âncoras internas" no template), e ABRE com o banner-imagem (já vem no corpo do
-  `FINAL_REPORT`). Todo `arquivo:linha` citado (no painel, nos findings, nas prioridades) vira
-  **permalink no `HEAD_SHA`** — nada de citação nua.
-- `## 📊 Painel de findings` é a **única** tabela de findings; preencher a contagem por badge (`counts`)
-  e a legenda colorida.
-- Quando a rodada abrir gate, preencher `## 🚦 Gates` com a `GateSpec` validada antes de perguntar e
+- Todo `arquivo:linha` citado (no painel, nos findings, nas prioridades) vira **permalink no
+  `HEAD_SHA`**.
+- Quando a rodada abrir gate, preencher os Gates com a `GateSpec` validada antes de perguntar e
   atualizar a mesma entrada após a escolha. Sem escolha, preservar `pendente` e não registrar ação.
-- `## 🎯 Veredito & prioridades` no topo, com cada prioridade linkando pro `#fN` e pro código.
-- Frontmatter enriquecido: `pr_url`, `ticket_url`, `head_sha`, `counts` e `status` (vocabulário novo).
-  `reverified_threads` entra só quando o Passo 4b rodou (com o tamanho de `REOPEN_CANDIDATES`);
-  sem Passo 4b, omitir o campo. Com `run_id:` na invocação, o frontmatter ganha `run_id: "{run_id}"`
-  (topo do frontmatter, fora de `provenance`); sem run, omitir o campo.
-- Preencher `provenance` conforme o contrato de `${FLUX_ROOT}/shared/board-template.md`, seção
-  "Bloco `provenance` (todos os perfis)", com os valores do Passo 0 (`HARNESS`, `FLUX_VERSION`,
-  `MODEL`, `EFFORT`), `generator: "flux-review"` e verbo `review` no `stamp`; rodar o checklist
-  daquela seção antes do Write. No rodapé, seguir a composição do
-  `review-artifact-template.md`: usar somente campos conhecidos e não imprimir placeholders `unknown`.
+- Frontmatter do board: os campos do bloco "review" de `board-template.md`, com os valores desta
+  rodada, e a `case_key` da PR; a linha desta sessão em `provenance.runs` ganha `review` em `verbs` e,
+  com `run_id:` na invocação, `run_id: "{run_id}"`. Board novo grava o `provenance` pelo contrato do
+  template (`generator: "flux-review"`), com o checklist antes do Write; board existente não o reescreve.
+- Linha na Timeline do board, tipo `review`, com a contagem por badge e o link da seção.
 
-Gravar com a Write tool no caminho calculado (Step 5). Quando `VAULT_ROOT` não estiver definido (perfil
-genérico sem `--save`): imprimir o artefato no chat em vez de gravar; com `--save <dir>`, gravar em
-`<dir>/{filename}`. Com `run_id:` na invocação, registrar o output (item 1 de "Registro do run").
+Gravar com Write (board novo) ou Edit (board existente). Sem `VAULT_ROOT` e sem `--save`: imprimir no
+chat; com `--save <dir>`, gravar o board em `<dir>/` (`board-template.md`, "Resolver o board"). Com `run_id:` na invocação, registrar o output (item 1 de "Registro do run").
 
 ### 7. Resposta no chat
 
 Depois de gravar com sucesso, responda com:
 
 ```
-Review salvo em {caminho-completo-do-arquivo}.
+Review gravada no board {caminho-completo}, seção 🔎 Review · PR #{n}.
 
 Veredito: {STATUS} — {1 frase do veredito}.
 ```
 
-**Não** repita o conteúdo do review no chat. **Não** faça resumo expandido. O arquivo é a fonte de verdade.
+**Não** repita o conteúdo do review no chat. O board é a fonte de verdade.
 
 Em seguida, vá direto para o Step 8 e apresente o GATE no mesmo encerramento do review, sem esperar input adicional do usuário. Se o review **não tem PR number** (branch local sem PR aberta) ou se o `FINAL_REPORT` não retornou nenhum comentário acionável (`request-change`, `breaking-change`, `question`, `suggestion`, `praise`), **pule o Step 8** — apenas terminar. Exceção: em PR de terceiros (`IS_OWN_PR` falso) com `STATUS` `approved`, `approved-with-suggestions` ou `approved-with-questions`, o 8b abre mesmo sem comentário acionável (a PR continua precisando de number).
 
@@ -810,13 +776,9 @@ thread. Threads `RESOLVED` viram contexto (não repetir o ponto), não entram em
 
 ### d2. Rodadas anteriores (vault)
 
-```bash
-ls <VAULT_ROOT>/0-inbox/ | grep -E "flux-review-doc.*\.md$" | sort
-```
-
-Se houver review anterior do mesmo doc (mesmo `source_url` no frontmatter), ler a seção
-`## Comentários de Review` e guardar como `PREV_REVIEW_COMMENTS` (instrução ao subagent: não repetir
-findings já cobertos). Senão, `null`.
+Mesma resolução do 3b com a `case_key` `doc:<file_id>`; nota legada `flux-review-doc-*` com o mesmo
+`source_url` também conta. Da rodada mais recente, os comentários de review viram
+`PREV_REVIEW_COMMENTS` (o subagente não repete o que já foi coberto). Nenhuma: `null`.
 
 ### d3. Detectar repos referenciados + checkouts locais
 
@@ -835,7 +797,7 @@ Use a Task tool com `subagent_type: <DOC_REVIEWER>`, passando:
 - `AGENT_REPORT`(s) quando houver (como evidência, não verdade cega)
 
 O subagent retorna `SUMARIO`, `COMENTARIOS` (cada um com **Trecho no doc** + **Comentário**, ancorado
-em `§seção "trecho verbatim"`), `CHECKLIST`, `VEREDITO`, `STATUS`, `PRIORIDADE`, `TLDR`, `RESUMO_EXEC`.
+em `§seção "trecho verbatim"`), `CHECKLIST`, `VEREDITO`, `STATUS`, `PRIORIDADE`, `RESUMO` e `RESUMO_EXEC` (que viram o `Resumo` e o `Resumo executivo` da rodada, nunca um heading `TL;DR`).
 Guardar como `FINAL_REPORT`. Se o output vier mal formatado, mostrar o erro e não gravar.
 
 **Instruções obrigatórias ao subagent (as três vêm das disciplinas de amarração e ações do template):**
@@ -857,12 +819,11 @@ Guardar como `FINAL_REPORT`. Se o output vier mal formatado, mostrar o erro e n�
    sem `RESPONDER`, ou `Inserir` em forma de instrução são output mal formatado: rejeitar e pedir de
    novo. Se `IS_OWN_DOC == false`, não gerar `ACOES`.
 
-### d5. Computar nome do arquivo
+### d5. Onde gravar
 
-- Slug do doc = título em kebab-case (sem stopwords longas).
-- Filename: `YYYY-MM-DD-HHMM-flux-review-doc-{slug}.md` (HHMM da hora local).
-- Re-runs no mesmo doc/dia: sufixar `-v2`, `-v3`.
-- Path: `<VAULT_ROOT>/0-inbox/{filename}`.
+Seção `## 🔎 Review · doc <título>` do board resolvido no d2, uma rodada por execução (heading no template). Sem
+board, nasce um no perfil review: `<VAULT_ROOT>/0-inbox/YYYY-MM-DD-HHMM-flux-review-doc-{slug}.md`,
+`type: doc-review`.
 
 ### d6. Renderizar template e gravar
 
@@ -875,11 +836,10 @@ adaptada a documento:
   a seção "Amarração de trechos" do template exige (header, campo `Trecho no doc:`, coluna `local` do
   painel). Sem `head_sha`/permalink de código; quando o doc afirmar algo sobre um repo, linkar o
   permalink no branch default do repo citado.
-- Frontmatter: `type: doc-review`, `source_url` (no lugar de `pr_url`/`head_sha`), `execution_status: open`,
-  `own_doc`, `counts`, `actions: {N}` (quando `IS_OWN_DOC == true`), `status` (vocabulário novo),
-  `parent: "[[_index]]"`.
-- `## 📎 Escopo` vira "Repos referenciados" (lista linkada). Manter `## TL;DR` e `## Resumo Executivo`
-  ao final (seções próprias do doc-review).
+- Frontmatter do board: `source_url`, `own_doc`, `counts`, `actions: {N}` (quando
+  `IS_OWN_DOC == true`) e `status` da rodada mais recente, mais `case_keys` e a linha desta sessão em `provenance.runs`.
+- `📎 Escopo` vira "Repos referenciados" (lista linkada). `Resumo` e `Resumo executivo` ao final da
+  rodada, conforme o perfil doc do template (sem heading `TL;DR`).
 - **Quando `IS_OWN_DOC == true`: gravar `## ⚡ Ações no documento`** logo após o painel e antes de
   `## 🔎 Findings`, preenchida com o `ACOES` retornado pelo subagent (seção d4). É obrigatória, não
   opt-in. Se `OPEN_THREADS` estiver vazio e não houver ação de edição, a seção entra com a linha
@@ -889,12 +849,12 @@ adaptada a documento:
 - Quando `IS_OWN_DOC == false`: sem seção `⚡ Ações no documento`. Sugestões ficam em prosa nos findings.
 - Disciplina de links, regra de ouro do painel, regras de escrita e tradução de STATUS: todas no template.
 
-Gravar com a Write tool no path calculado (Step d5).
+Gravar com Write (board novo) ou Edit (board existente), no board do Step d5.
 
 ### d7. Resposta no chat
 
 ```
-Review do doc salvo em {caminho-completo}.
+Review do doc gravada no board {caminho-completo}.
 
 Veredito: {STATUS} — {1 frase do veredito}.
 ```
