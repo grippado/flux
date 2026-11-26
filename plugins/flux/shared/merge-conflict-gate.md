@@ -127,7 +127,7 @@ linearidade se resolve no squash do merge, o trabalho perdido não se resolve.
 **Exceção: propagação em pilha.** Quando quem reescreve é o protocolo de
 `${FLUX_ROOT}/shared/stack-propagation.md`, a primeira e a terceira condições acima **não** forçam
 merge: a pilha é reescrita inteira na mesma rodada, então nenhuma PR de cima fica órfã, e o custo das
-threads virarem `isOutdated` é aceito (seção 2 do `stack-propagation.md`). A segunda condição continua valendo
+threads virarem `isOutdated` é aceito. A segunda condição continua valendo
 sem exceção: branch de terceiro ou coautorada bloqueia a propagação da pilha inteira. E a convenção
 declarada do repo (passo 1 acima) vence a exceção: repo que declara merge não é rebaseado, e a
 propagação fica em `hold` com o motivo (`bloqueado:convencao-merge`).

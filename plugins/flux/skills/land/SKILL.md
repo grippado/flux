@@ -268,8 +268,8 @@ O `--auto` pula confirmação (o subagente não tem canal com o usuário — sem
 o `--once` garante que o watch é do delivery (consolidado), não N watches por PR; o
 `--parent-board` passa o caminho DESTE board para o iterate, que então não escreve board e devolve
 o delta da PR para o escritor único deste. PRs em `hold` NÃO entram no iterate automático até serem liberadas (registre o motivo
-no board). **Exceção: o `hold` da propagação em pilha** (fase 4a: `bloqueada`, `intocada` e
-`base:falhou`) segura o `go`, não o iterate, e a PR segue elegível. A PR `retida` não segue, nem a
+no board). **Exceção: o `hold` da propagação em pilha** (fase 4a: `bloqueada`, `intocada`,
+`base:falhou` e a `pilha defasada` do `--no-restack`) segura o `go`, não o iterate, e a PR segue elegível. A PR `retida` não segue, nem a
 `bloqueada:abortado` com reescrita local: ficam com o iterate suspenso (fase 4a, "Iterate suspenso").
 
 Numa PR filha de aresta defasada, o `--no-rebase` deste comando segue a regra da seção 7 de
@@ -337,7 +337,8 @@ PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo 
   `lastInvocationId` no estado no início de toda passada, com a fonte que o shared define, e, quando
   a passada traz `--restack` e o `lastInvocationId` atual é diferente do `invocationId` gravado na
   guarda, zerar `restackAttemptedAt` das PRs daquela pilha antes de detectar. Reentrada pelo
-  `ScheduleWakeup` na mesma sessão tem o mesmo id e não zera.
+  `ScheduleWakeup` na mesma sessão tem o mesmo id e não zera; o limite do fallback por timestamp
+  está no shared.
 - **Despachar um subagente por pilha**, não por PR. O prompt carrega a pilha em ordem, o `stackedOn`
   de cada PR filha, o `retainedResolutionSha` de cada branch quando houver, o quality gate do repo e o
   contrato de retorno da seção 7 do shared, literal. Durante a propagação, o land é a fonte do
@@ -352,7 +353,10 @@ PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo 
   `HEAD` retido, divergido do remoto, e a próxima propagação cairia em `worktree-retida`. Ela fica
   fora do passo 3 do tick até a propagação publicá-la ou até a retenção ser descartada pelo descarte
   condicionado da seção 5 do `merge-conflict-gate.md`, e o painel a mostra como
-  `retida (iterate suspenso)`. O mesmo vale para a PR com `abortedRewriteSha` (abaixo), que aparece
+  `retida (iterate suspenso)`. O sinal de saída é observável a cada tick: a suspensão vale enquanto o
+  `HEAD` da worktree dela (`git -C <worktree> rev-parse HEAD`) for o `retainedResolutionSha`; quando
+  deixa de ser (descarte pela propagação, descarte ou publicação à mão), o land zera o campo e a PR
+  volta a ser elegível. O mesmo vale para a PR com `abortedRewriteSha` (abaixo), que aparece
   como `bloqueada:abortado (iterate suspenso)` enquanto o `HEAD` da worktree dela
   (`git -C <worktree> rev-parse HEAD`) for esse SHA: a reescrita local não publicada é a mesma
   armadilha, sem `retainedResolutionSha` para o descarte.
@@ -475,13 +479,13 @@ Cada **tick**:
    aresta) → despachar o subagente de propagação daquela pilha (fase 4a) e **pular o passo 3** para as
    PRs dela neste tick. Um push num slice de baixo é o caso típico: o próximo tick já o propaga, sem
    esperar conflito nem thread. Com `--no-restack` (que vence `--restack` quando vêm juntas), nada é
-   despachado: só o painel e o `hold`. O mesmo vale sem despacho possível (`FLUX_CMD` `UNAVAILABLE` ou
+   despachado: só o painel e o `hold`, que segura o `go` e não o iterate (fase 4). O mesmo vale sem despacho possível (`FLUX_CMD` `UNAVAILABLE` ou
    sem subagente): só reportar, como na fase 4a. **Guarda de tentativa**: aresta guardada por
    `restackAttemptedAt` não é redespachada (seção "Quando aplicar" do shared; como zerar, fase 4a). Enquanto a pilha estiver
    parada pela guarda, o passo 3 volta a rodar para as PRs dela: o `hold` da propagação segura o
    `go`, não o iterate. **Menos a PR `retida`**, que fica fora do passo 3 com o iterate suspenso
    (`retida (iterate suspenso)` no painel) até a propagação publicar ou a retenção ser descartada
-   pela seção 5 do gate, e a PR com `abortedRewriteSha` nas mesmas condições (fase 4a, "Iterate
+   pela seção 5 do gate (sinal: o `HEAD` da worktree deixa de ser o `retainedResolutionSha`), e a PR com `abortedRewriteSha` nas mesmas condições (fase 4a, "Iterate
    suspenso"). Se o iterate de uma PR filha de aresta defasada leva `--no-rebase` ou roda o
    gate normal é a regra da seção 7 do shared ("Iterate de PR filha: quando leva `--no-rebase`"),
    com o bloqueio lido de `restackBlockedBy` no estado e o motivo no painel.

@@ -31,7 +31,7 @@ por PR) é o que transforma uma operação de segundos numa de dezenas de minuto
   abort, folha vermelha), o elo guarda os tips remotos de pai e filho de depois da
   rodada, e não redespacha aquela aresta enquanto os dois forem os mesmos. A reentrada pelo
   `ScheduleWakeup` do watch, que repete o mesmo input (inclusive o gatilho explícito), não libera
-  nada. É a regra "uma tentativa por SHA da base" da seção 5 do
+  nada quando o id da invocação a distingue (abaixo). É a regra "uma tentativa por SHA da base" da seção 5 do
   `merge-conflict-gate.md`, aplicada à aresta, mas a chave é o par `{paiSha, filhoSha}`, não o SHA
   da base. Lease recusado **não** consome a
   tentativa, como no gate: quem andou foi a branch, e a próxima rodada tenta de novo depois do
@@ -40,7 +40,10 @@ por PR) é o que transforma uma operação de segundos numa de dezenas de minuto
   invocação que a gravou, e o gatilho explícito só zera a guarda da pilha quando a invocação atual é
   diferente dessa. O id é o `lastInvocationId` do estado do elo, gravado no início de cada passada, e
   vem da mesma fonte que o preflight usa para o run (`${FLUX_ROOT}/shared/preflight.md`, Passo
-  1a-run): `LAUNCHER_RUN_ID`, senão `SESSION_ID`; sem os dois, o timestamp da invocação. É o caminho
+  1a-run): `LAUNCHER_RUN_ID`, senão `SESSION_ID`; sem os dois, o timestamp da invocação. Nesse
+  último caso a reentrada pelo `ScheduleWakeup` também cunha um id novo e não se distingue de uma
+  invocação nova: o `--restack` repetido pelo watch zera a guarda a cada tick, e o elo declara isso no
+  painel. É o caminho
   para pedir nova tentativa depois de um destravamento manual que não muda tip remoto (limpar
   `worktree-retida`, publicar à mão), sem empurrar commit artificial. Como o id é o da sessão,
   repetir o gatilho explícito na mesma sessão não zera a guarda: o destrave pede uma invocação de
@@ -279,8 +282,8 @@ condições valem juntas:
 
 Aí o iterate fecha a conversa (seção 6 do gate) e não integra a base, que é da propagação. Nos outros
 casos ninguém mais vai integrar a base daquele filho, então o iterate roda **sem** `--no-rebase`: o
-gate normal decide, e a seção 3 dele escolhe `merge origin/$BASE` (a branch é base de outra PR, ou é
-coautorada, ou o repo declara merge), sem force-push. O painel do elo registra o motivo:
+gate normal decide a estratégia pela seção 3 dele (merge quando a branch é base de outra PR, é
+coautorada ou o repo declara merge; senão o default dele). O painel do elo registra o motivo:
 `iterate com gate normal: <bloqueio | --no-restack>`.
 
 ## Segurança (resumo do que nunca se faz)
