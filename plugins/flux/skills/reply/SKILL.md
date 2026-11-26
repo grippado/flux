@@ -362,7 +362,7 @@ citação estava tentando provar.
 
 Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva (a variante `--auto` do caminho rápido é a única exceção).
 
-Os menus deste passo que salvam rascunho ou reagem no Slack, nos dois caminhos e no segundo GATE de status, são gates de escrita: no Codex, menu numerado com resposta digitada, nunca opção em foco (`${FLUX_ROOT}/shared/hitl.md`, "Gate de escrita e auto-resolução"). O menu de `JULGAMENTO = nada` também é, porque `Forçar rascunho de resposta` leva a uma escrita. A variante `--auto` é procuração do `flux:iterate`, não auto-resolução do harness.
+O renderer dos menus deste passo, nos dois caminhos e no segundo GATE de status, segue (`${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo"). A variante `--auto` é a exceção declarada em `${FLUX_ROOT}/shared/hitl.md`, "Modo watch", não auto-resolução do harness.
 
 **Preview antes de gravar (vale para as opções 1 e 2, nos dois caminhos, e para as que herdam o fluxo de responder, como `Rascunhar resposta mesmo assim` e `Forçar rascunho de resposta`).** Antes de abrir o GATE, imprimir no
 chat o que será gravado, num bloco: o destino (`#canal` ou DM com a pessoa, e `réplica na thread de <autor>,
@@ -405,8 +405,8 @@ dela, não de subagente:
 *Antes do menu*, imprimir o **preview** definido no passo 9 (destino, réplica na thread quando houver, texto
 final e a assinatura da opção 2); ele é o snapshot da `GateSpec`, sem repetir o texto.
 
-*O menu é um GATE* (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado
-no fallback), single-select, recomendada na posição 1, saída inócua por último. "Rascunho do intent `{slug}`
+*O menu é um GATE* (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; renderer conforme `${FLUX_ROOT}/shared/hitl.md`,
+"Auto-resolução por tempo"), single-select, recomendada na posição 1, saída inócua por último. "Rascunho do intent `{slug}`
 pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
 1. `💬 Salvar como rascunho no Slack (Recomendado)` — `slack_send_message_draft(channel_id, texto, thread_ts=THREAD_TS)`, com `THREAD_TS` vazio quando não há réplica. **Nunca** `slack_send_message`: "postar" aqui é salvar o rascunho no canal, e enviar é do usuário no Slack.
 2. `Salvar rascunho assinado` — igual à 1, com a assinatura da `## Assinatura do rascunho` no fim.
