@@ -337,8 +337,8 @@ PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo 
   `lastInvocationId` no estado no início de toda passada, com a fonte que o shared define, e, quando
   a passada traz `--restack` e o `lastInvocationId` atual é diferente do `invocationId` gravado na
   guarda, zerar `restackAttemptedAt` das PRs daquela pilha antes de detectar. Reentrada pelo
-  `ScheduleWakeup` na mesma sessão tem o mesmo id e não zera; o limite do fallback por timestamp
-  está no shared.
+  `ScheduleWakeup` na mesma sessão tem o mesmo id e não zera; sem id nenhum, o `--restack` não zera a
+  guarda (shared, "Quando aplicar").
 - **Despachar um subagente por pilha**, não por PR. O prompt carrega a pilha em ordem, o `stackedOn`
   de cada PR filha, o `retainedResolutionSha` de cada branch quando houver, o quality gate do repo e o
   contrato de retorno da seção 7 do shared, literal. Durante a propagação, o land é a fonte do

@@ -40,10 +40,10 @@ por PR) é o que transforma uma operação de segundos numa de dezenas de minuto
   invocação que a gravou, e o gatilho explícito só zera a guarda da pilha quando a invocação atual é
   diferente dessa. O id é o `lastInvocationId` do estado do elo, gravado no início de cada passada, e
   vem da mesma fonte que o preflight usa para o run (`${FLUX_ROOT}/shared/preflight.md`, Passo
-  1a-run): `LAUNCHER_RUN_ID`, senão `SESSION_ID`; sem os dois, o timestamp da invocação. Nesse
-  último caso a reentrada pelo `ScheduleWakeup` também cunha um id novo e não se distingue de uma
-  invocação nova: o `--restack` repetido pelo watch zera a guarda a cada tick, e o elo declara isso no
-  painel. É o caminho
+  1a-run): `LAUNCHER_RUN_ID`, senão `SESSION_ID`. Sem nenhum dos dois, não há id: a guarda **não é
+  zerada** pelo gatilho explícito, porque a reentrada pelo `ScheduleWakeup` não se distinguiria de uma
+  invocação nova e o `--restack` repetido pelo watch repropagaria a pilha a cada tick. Nesse caso só
+  um tip remoto novo libera a aresta, e o painel diz isso. Com id, zerar é o caminho
   para pedir nova tentativa depois de um destravamento manual que não muda tip remoto (limpar
   `worktree-retida`, publicar à mão), sem empurrar commit artificial. Como o id é o da sessão,
   repetir o gatilho explícito na mesma sessão não zera a guarda: o destrave pede uma invocação de
@@ -282,8 +282,9 @@ condições valem juntas:
 
 Aí o iterate fecha a conversa (seção 6 do gate) e não integra a base, que é da propagação. Nos outros
 casos ninguém mais vai integrar a base daquele filho, então o iterate roda **sem** `--no-rebase`: o
-gate normal decide a estratégia pela seção 3 dele (merge quando a branch é base de outra PR, é
-coautorada ou o repo declara merge; senão o default dele). O painel do elo registra o motivo:
+gate normal integra por **merge** da base, pela condição de filho de pilha bloqueada da seção 3 dele:
+o pai pode ter sido reescrito, e rebasear sem o limite da seção 3 deste shared reaplicaria os
+commits antigos do pai. O painel do elo registra o motivo:
 `iterate com gate normal: <bloqueio | --no-restack>`.
 
 ## Segurança (resumo do que nunca se faz)

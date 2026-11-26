@@ -120,6 +120,10 @@ Escolher **`merge origin/$BASE`** (e não rebase) quando qualquer uma valer:
 - **A branch tem commits de terceiros** (`git log --format='%ae' origin/$BASE..origin/$BRANCH | sort -u`
   com mais de um autor). Force-push em branch coautorada derruba o trabalho de quem não está na sala.
 - **A branch é base de outra PR** (alguém empilhou em cima dela).
+- **A branch é filha de uma pilha cuja propagação está bloqueada ou desligada** (bloqueio de
+  pré-condição ou `--no-restack`, ver `${FLUX_ROOT}/shared/stack-propagation.md`, seção 7). O pai pode
+  ter sido reescrito, e rebasear sobre ele sem o limite certo reaplica os commits antigos do pai, que é
+  o caso que aquele shared proíbe. Merge da base integra sem reescrever.
 
 Em qualquer um desses casos, rebase é escolha errada mesmo que o repo prefira histórico linear: a
 linearidade se resolve no squash do merge, o trabalho perdido não se resolve.
