@@ -233,7 +233,7 @@ Veredito por PR (usar badges de `${FLUX_ROOT}/shared/review-legend.md` para find
 
 ### 4. Iterate consolidado (manter merge-ready) — SEMPRE via subagente
 
-Para cada PR acionável (não `hold`, com checkout local), rode uma passada do iterate por tick.
+Para cada PR acionável (não `hold`, salvo o `hold` da propagação em pilha, abaixo; com checkout local), rode uma passada do iterate por tick.
 
 **REGRA DURA — o iterate NUNCA roda inline no contexto principal do delivery.** Cada PR é
 despachada para um **subagente próprio** (Task tool, `subagent_type: general-purpose`). Isto é
@@ -261,7 +261,12 @@ O `--auto` pula confirmação (o subagente não tem canal com o usuário — sem
 o `--once` garante que o watch é do delivery (consolidado), não N watches por PR; o
 `--parent-board` passa o caminho DESTE board para o iterate, que então não escreve board e devolve
 o delta da PR para o escritor único deste. PRs em `hold` NÃO entram no iterate automático até serem liberadas (registre o motivo
-no board).
+no board). **Exceção: o `hold` da propagação em pilha** (fase 4a: `bloqueada`, `intocada` e
+`base:falhou`) segura o `go`, não o iterate, e a PR segue elegível. A PR `retida` não segue, nem a
+`bloqueada:abortado` com reescrita local: ficam com o iterate suspenso (fase 4a, "Iterate suspenso").
+
+Numa PR filha de aresta defasada, o `--no-rebase` deste comando segue a regra da seção 7 de
+`${FLUX_ROOT}/shared/stack-propagation.md` ("Iterate de PR filha: quando leva `--no-rebase`").
 
 **PRs de repos diferentes são despachadas em paralelo** (um Task por PR, todos na mesma mensagem).
 PRs do **mesmo repo** vão em série, uma por tick, para não colidirem na mesma worktree.
@@ -330,15 +335,28 @@ PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo 
   quem o atualiza a partir do retorno.
 - **Pilhas de repos diferentes vão em paralelo**, num único bloco. No tick em que uma pilha propaga,
   nenhuma PR dela recebe iterate: o subagente da propagação é o único escritor daquelas worktrees.
-  Iterate das PRs da pilha volta no tick seguinte, sobre a pilha já propagada.
+  Iterate das PRs da pilha volta no tick seguinte, sobre a pilha já propagada, menos nas de iterate
+  suspenso (abaixo).
+- **Iterate suspenso.** PR `retida` pela propagação (com `retainedResolutionSha` gravado por esta
+  fase) **não** recebe iterate que escreva: o executor commitaria a correção da thread em cima do
+  `HEAD` retido, divergido do remoto, e a próxima propagação cairia em `worktree-retida`. Ela fica
+  fora do passo 3 do tick até a propagação publicá-la ou até a retenção ser descartada pelo descarte
+  condicionado da seção 5 do `merge-conflict-gate.md`, e o painel a mostra como
+  `retida (iterate suspenso)`. O mesmo vale para a PR com `abortedRewriteSha` (abaixo), que aparece
+  como `bloqueada:abortado (iterate suspenso)` enquanto o `HEAD` da worktree dela
+  (`git -C <worktree> rev-parse HEAD`) for esse SHA: a reescrita local não publicada é a mesma
+  armadilha, sem `retainedResolutionSha` para o descarte.
 - **Gravar o retorno**: cada branch atualiza sua linha do painel (`publicada`, `retida`,
   `bloqueada` ou `intocada`, mais a validação: `nao-validada` aparece por nome, nunca some), e o
   estado da PR muda conforme o resultado:
   - `publicada`: `lastHeadSha = shaDepois`, `retainedResolutionSha = null`, `stackedOn` = o
-    `stackedOn` do retorno (SHA do `NOVO_PAI` usado no rebase) e `restackAttemptedAt = null`.
+    `stackedOn` do retorno (SHA do `NOVO_PAI` usado no rebase), `restackAttemptedAt = null` e
+    `abortedRewriteSha = null`.
   - `retida`: `retainedResolutionSha = shaDepois` (SHA local, não publicado); `lastHeadSha` e
-    `stackedOn` ficam como estavam. Entra em **`hold`**.
-  - `bloqueada`: estado sem mudança. Entra em **`hold`** com o motivo.
+    `stackedOn` ficam como estavam. Entra em **`hold`**, com o iterate suspenso.
+  - `bloqueada`: estado sem mudança. Entra em **`hold`** com o motivo. Com o motivo `abortado` e
+    `shaDepois` diferente de `shaAntes` (outra rejeição de push, seção 6 do shared), grava
+    `abortedRewriteSha = shaDepois` e o iterate fica suspenso.
   - `intocada` e ainda defasada (a propagação parou abaixo dela): entra em **`hold`**, sem `go`.
   - `base:falhou`: o push vale, mas a PR entra em **`hold`** até a base ser reapontada.
   - Em toda PR da pilha, `restackBlockedBy` = o bloqueio de pré-condição do retorno (`terceiro`,
@@ -415,7 +433,7 @@ Após postar, registrar o canal usado e o link da mensagem no board (Timeline, t
   "prs": [
     { "repo": "<ORG>/backoffice-bff", "number": 1054, "worktree": "...",
       "lastHeadSha": "", "lastCiConclusion": "null", "resolvedThreadIds": [], "iterateRounds": 0, "verdict": "safe-solo",
-      "headRefName": "", "baseRefName": "main", "stackedOn": null, "retainedResolutionSha": null, "restackAttemptedAt": null, "restackBlockedBy": null,
+      "headRefName": "", "baseRefName": "main", "stackedOn": null, "retainedResolutionSha": null, "restackAttemptedAt": null, "restackBlockedBy": null, "abortedRewriteSha": null,
       "wasDraft": true, "reviewRequestedAt": null, "reviewRequestedChannel": null }
   ],
   "order": ["#1054", "#8057", "#1157"],
@@ -452,10 +470,13 @@ Cada **tick**:
    mesma lógica do "uma tentativa por SHA da base" da seção 5 do `merge-conflict-gate.md`; um push
    em qualquer um dos dois lados muda o SHA e libera uma tentativa nova. Enquanto a pilha estiver
    parada pela guarda, o passo 3 volta a rodar para as PRs dela: o `hold` da propagação segura o
-   `go`, não o iterate. Se o iterate de uma PR filha de aresta defasada leva `--no-rebase` ou roda o
+   `go`, não o iterate. **Menos a PR `retida`**, que fica fora do passo 3 com o iterate suspenso
+   (`retida (iterate suspenso)` no painel) até a propagação publicar ou a retenção ser descartada
+   pela seção 5 do gate, e a PR com `abortedRewriteSha` nas mesmas condições (fase 4a, "Iterate
+   suspenso"). Se o iterate de uma PR filha de aresta defasada leva `--no-rebase` ou roda o
    gate normal é a regra da seção 7 do shared ("Iterate de PR filha: quando leva `--no-rebase`"),
    com o bloqueio lido de `restackBlockedBy` no estado e o motivo no painel.
-3. Se há delta de threads numa PR → despachar **um subagente** para rodar `${FLUX_CMD}iterate <url> --auto --once --parent-board "<path deste board>"` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
+3. Se há delta de threads numa PR (fora das de iterate suspenso, passo 2b) → despachar **um subagente** para rodar `${FLUX_CMD}iterate <url> --auto --once --parent-board "<path deste board>"` só nela (fase 4: nunca inline, mesmo no watch, porque o tick é onde o custo se acumula tick após tick; numa PR filha de aresta defasada, o `--no-rebase` segue a seção 7 de `${FLUX_ROOT}/shared/stack-propagation.md`); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
 3b. **Checar transição de draft** (compare `isDraft` atual com `wasDraft` salvo). Se alguma PR virou `ready for review` neste tick, dispare a pergunta do passo 4b (agrupando por ticket) antes de seguir. Atualize `wasDraft` para o valor atual de todas as PRs.
 4. Se algum head/base mudou → recomputar ordem/regressão afetada (fases 2–3) só do que mudou.
 5. Recomputar as métricas do painel e mandar o **delta do tick ao board-keeper** por `SendMessage` (contrato do delta em `fanout-discipline.md`); é ele que atualiza o **painel no topo do board** + próximo movimento + go/no-go. A main não relê o board nem o reescreve. **Rolar o carimbo de data em TODO tick** (mesmo tick sem mudança): frontmatter `updated:` e o `**Agora:**` do TL;DR, com a mesma leitura de `date`. Atualizar o estado (`lastTickAt`).
