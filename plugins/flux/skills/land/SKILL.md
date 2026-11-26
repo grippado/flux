@@ -24,7 +24,7 @@ Não confundir com os comandos que **planejam e criam** PRs a partir de tasks: e
 **Gate de integração com a base (conflito bloqueia merge-ready):** `${FLUX_ROOT}/shared/merge-conflict-gate.md`
 **Propagação em pilha (ajuste num slice levado aos de cima, numa rodada):** `${FLUX_ROOT}/shared/stack-propagation.md`
 **Diagnóstico de quality gates externos via API (consultar antes de reportar go/no-go com CI vermelho):** `${FLUX_ROOT}/shared/quality-gate-api.md`
-**Disciplina de fan-out (OBRIGATÓRIA — uma PR = um subagente; nada pesado na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`
+**Disciplina de fan-out (OBRIGATÓRIA: uma PR = um subagente no iterate, uma pilha = um subagente na propagação; nada pesado na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Orçamento de contexto (OBRIGATÓRIO — delivery é multi-repo, é o comando que mais sofre):** `${FLUX_ROOT}/shared/context-budget.md`
 
 ## Banner de perfil — gabarito (copiar VERBATIM)
@@ -76,7 +76,7 @@ As flags podem aparecer em qualquer posição e combinadas.
 3. **Abrir o board** no vault — anunciar o caminho no chat desde o início; atualizar a cada passo relevante (não acumular updates para o final).
 4. **Montar** o grafo de ordem + locks de merge → refletir no painel.
 5. **Validar** regressão de subida de cada PR (contra o código real de `main`) → refletir no painel.
-5b. **Propagar** cada pilha defasada (ou todas, com `--restack`) **despachando um subagente por pilha** (fase 4a), antes de iterar as PRs dela.
+5a. **Propagar** cada pilha defasada (ou todas, com `--restack`) **despachando um subagente por pilha** (fase 4a), antes de iterar as PRs dela.
 6. **Iterar** cada PR acionável **despachando um subagente por PR** (que roda `/flux:iterate --auto --once` lá dentro) para deixá-la merge-ready → atualizar a linha dela no painel com o retorno curto de cada subagente.
 7. **Pedido de review no Slack** (gatilho: PR sai de draft) → perguntar ao usuário onde postar e registrar no board.
 8. **Consolidar** o go/no-go no board.
@@ -346,8 +346,8 @@ PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo 
   filhoSha}` na PR filha de cada uma, com os tips remotos de **depois** da rodada (refetch). Com os
   de antes, uma publicação parcial mudaria o pai e dispararia mais uma rodada idêntica. O evento
   entra na Timeline com o tipo `conflito` quando houve conflito resolvido, senão `push`.
-- **Go/no-go**: uma branch `nao-validada` pode receber `go` (decisão D1 da LAB-438: só o topo é
-  validado), mas o go/no-go diz por nome quais branches subiram sem gate próprio. Com o topo `n/a`,
+- **Go/no-go**: uma branch `nao-validada` pode receber `go` (seção 5 de `${FLUX_ROOT}/shared/stack-propagation.md`:
+  só o topo é validado), mas o go/no-go diz por nome quais branches subiram sem gate próprio. Com o topo `n/a`,
   diz também, por nome, que aquela pilha subiu sem nenhuma validação executada. Com várias folhas,
   uma folha vermelha segura só o trecho que ela valida sozinha (seção 5 do shared): o ramo irmão
   verde pode receber `go`.

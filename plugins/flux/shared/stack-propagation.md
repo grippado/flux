@@ -88,10 +88,11 @@ nada é escrito até as duas passarem.
 |---|---|
 | PR de terceiro (`author.login != ME`) ou `isCrossRepository` | **bloqueia a pilha**: `bloqueado:terceiro` |
 | branch coautorada (mais de um autor em `git log --format='%ae' "${STACKED[$FILHO]}..origin/$FILHO" \| sort -u`) | **bloqueia a pilha**: `bloqueado:coautorada` |
+| repo declara merge como convenção (passo 1 da seção 3 do gate) | **bloqueia a pilha**: `bloqueado:convencao-merge`, e o elo a põe em `hold` com o motivo |
 | PR aberta com base numa branch reescrita e fora da pilha (`gh pr list --repo "$REPO_FULL" --base "$BRANCH" --state open --json number`) | **bloqueia a pilha**: `bloqueado:filho-fora-da-entrega` |
 | worktree local atrás do remoto | **não bloqueia**: sincronizar com `--ff-only` antes do rebase (seção 4), nunca reescrever o estado velho |
 | worktree à frente do remoto, divergida ou suja | segue só se o descarte condicionado da seção 5 do `merge-conflict-gate.md` se aplica (`HEAD == retainedResolutionSha` **e** `status --porcelain` vazio), e o descarte roda na seção 4, antes do `--onto`. Qualquer outra situação: **bloqueia a pilha**, `bloqueado:worktree-retida` |
-| threads abertas ancoradas em linha | **não bloqueia** (decisão D2 da LAB-438, ver seção 3 do gate) |
+| threads abertas ancoradas em linha | **não bloqueia** (exceção da seção 3 do gate: o custo das threads virarem `isOutdated` é aceito) |
 | a branch é base de outra PR | **não bloqueia**: é a definição de pilha |
 
 Uma pilha com um único bloqueio não é propagada em parte. Reescrever a metade de baixo e parar no
@@ -151,8 +152,10 @@ git -C "$WORKTREE_FILHO" rebase --onto "$NOVO_PAI" "${STACKED[$FILHO]}" "$FILHO"
   (`git rev-parse "$NOVO_PAI"`, no momento do rebase) vai no retorno como `stackedOn` (seção 7).
 - Conflito durante o rebase: classificar pela seção 2 do `merge-conflict-gate.md`. Mecânico, resolver
   e `rebase --continue`. Semântico ou maior que o previsto: `rebase --abort` **naquela** branch, e a
-  propagação para ali. As branches de baixo, já reescritas, seguem para o passo 5 como `retida` (não
-  são publicadas sozinhas, ver seção 6); as de cima não são tocadas.
+  propagação para ali. As branches de baixo, já reescritas localmente, ficam `retida`: o topo não foi
+  reescrito nem validado, então nada passou pela validação da seção 5 e nada pode ser publicado (é a
+  seção 5 que as segura, não a 6, que trata de lease recusado depois de validar). Depois de um abort,
+  nem o passo 5 nem o passo 6 rodam; as de cima não são tocadas.
 
 > **Por que não `git rebase --update-refs`.** Ele faria a cadeia inteira num comando, mas **pula em
 > silêncio** toda branch que esteja em checkout em outra worktree, e a disciplina de worktree da
@@ -163,7 +166,7 @@ git -C "$WORKTREE_FILHO" rebase --onto "$NOVO_PAI" "${STACKED[$FILHO]}" "$FILHO"
 
 ## 5. Validar só o topo
 
-Decisão D1 da LAB-438. O quality gate real do repo (o mesmo da seção 4 do `merge-conflict-gate.md`)
+O quality gate real do repo (o mesmo da seção 4 do `merge-conflict-gate.md`)
 roda **uma vez por folha** da árvore, na worktree da folha. O topo contém todos os slices abaixo dele,
 então é onde a combinação é verificada.
 
@@ -229,7 +232,7 @@ Retorno (< 40 linhas, sem diff colado):
 - gatilho: <restack | defasada:<pai>-><filho> | squash:<pai>>
 - por branch, uma linha: <branch> · <publicada|retida|bloqueada|intocada> · <shaAntes>-><shaDepois> · stackedOn:<sha completo do NOVO_PAI, só em publicada | n/a> · base:<n/a|reapontada:<base>|falhou> · validacao:<ok|vermelho|nao-validada> · conflitos:<n/a|arquivo: decisão>
 - topo: <branch> · gates <por gate: ok|vermelho|n/a>
-- bloqueios: <lista curta com o motivo em grafia fixa (terceiro, coautorada, filho-fora-da-entrega, worktree-retida, tip-desconhecido, abortado, semantico), ou nenhum>
+- bloqueios: <lista curta com o motivo em grafia fixa (terceiro, coautorada, filho-fora-da-entrega, worktree-retida, tip-desconhecido, convencao-merge, abortado, semantico), ou nenhum>
 ```
 
 O relato substitui a pergunta, como no gate de conflito: SHA antes e depois, e a validação de cada
@@ -238,7 +241,7 @@ autorização perigosa.
 
 ## Segurança (resumo do que nunca se faz)
 
-- Nunca reescrever parte de uma pilha que tem uma branch bloqueada (seção 2).
+- Nunca publicar parte de uma pilha que tem uma branch bloqueada (seção 2).
 - Nunca `--force` sem lease, nunca lease com SHA curto, nunca push em `main` nem na branch default.
 - Nunca publicar um topo vermelho, nem uma branch de cima antes da de baixo.
 - Nunca chamar de validada uma branch intermediária que não rodou gate.
