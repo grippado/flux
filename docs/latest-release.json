@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.55.0",
+    "tag": "v1.55.0",
+    "published_at": "2026-11-26T00:25:40Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.55.0",
+    "summary": {
+      "en": "One board per session and per case, with per-session runs in provenance, a TL;DR heading and a single timeline.",
+      "pt": "Um board por sessão e por caso, com as runs no provenance, TL;DR em heading e uma timeline só."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.54.3",
     "tag": "v1.54.3",
     "published_at": "2026-11-23T18:57:50Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "iterate, land and reply now walk up the tree through .claude/ and .cursor/ like the shared contract; new CI canary guards it.",
       "pt": "iterate, land e reply sobem a árvore por .claude/ e .cursor/ como o contrato do shared; um canário novo no CI segura a regressão."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.54.2",
-    "tag": "v1.54.2",
-    "published_at": "2026-11-23T18:57:22Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.54.2",
-    "summary": {
-      "en": "Single token recipe for secrets_file strips quotes and optional export, plus 401 diagnosis and a one-time warning on exposed tokens.",
-      "pt": "Receita única de token no secrets_file tira aspas e export opcional, com diagnóstico de 401 e aviso único para token exposto."
     },
     "changelog_source": "tag_message"
   },
