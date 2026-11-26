@@ -1,6 +1,6 @@
 ---
 name: iterate
-description: "Orquestrador `flux:iterate` — fecha o loop de UMA PR (checa se ela ainda funde com a base e resolve conflito mecânico, verifica threads contra o código real, aplica correções, responde, reage 👍/👎, resolve, commita, pusha, vigia CI + bot). `--dry` rascunha réplicas read-only e salva no vault. Global, resolve contexto via `flux-context.md`."
+description: "Orquestrador `flux:iterate` — fecha o loop de UMA PR (checa se ela ainda funde com a base, consulta specialists nos arquivos conflitantes e orienta a resolução mecânica, verifica threads contra o código real, aplica correções, responde, reage 👍/👎, resolve, commita, pusha, vigia CI + bot). `--dry` rascunha réplicas read-only e salva no vault. Global, resolve contexto via `flux-context.md`."
 user-invocable: true
 requires:
   hard:
@@ -113,13 +113,13 @@ Seguir o protocolo descrito em `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 | `/flux:iterate 962 --auto` | Pula a confirmação interativa da 1ª passada e executa o fluxo completo direto |
 | `/flux:iterate 962 --once` | **Desliga o watch** (alias `--no-watch`): roda só uma passada e termina após o push |
 | `/flux:iterate 962 --dry` | Modo read-only: rascunha réplicas e salva no vault, **nunca** escreve no GitHub |
-| `/flux:iterate 962 --solo` | Pula os specialists; verificação de threads usa só `<HOLISTIC>` |
+| `/flux:iterate 962 --solo` | Pula specialists na verificação de threads e na consulta de conflito; usa `<HOLISTIC>` para as threads e o fallback genérico do gate para conflitos |
 | `/flux:iterate 962 --no-rebase` | **Desliga a resolução** do gate de conflito (alias `--skip-conflict-gate`): detecta e reporta o conflito, mas não toca no histórico da branch. Cai no modo degradado do passo 2b. |
 | `/flux:iterate 962 --parent-board <path>` | Não escreve board: devolve o delta ao board que o orquestrador (o `flux:land`, na mesma sessão) já resolveu. Passado automaticamente pelo land. |
 
 > **O watch é o default.** Depois da 1ª passada e do push, o comando fica vivo monitorando CI + novas rodadas do bot até a PR assentar (CI verde + nada novo) ou mergear. Use `--once` quando quiser só fechar a rodada atual e sair.
 
-As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebase` (alias `--skip-conflict-gate`) e `--parent-board <path>` podem aparecer em qualquer posição dos argumentos e combinadas entre si. As **rodadas subsequentes do watch rodam em `--auto`** (aplicam + postam + resolvem + commitam + pusham sozinhas). `--once` desliga o watch. `--solo` pula os specialists em todas as rodadas. `--no-rebase` persiste em todas as rodadas.
+As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebase` (alias `--skip-conflict-gate`) e `--parent-board <path>` podem aparecer em qualquer posição dos argumentos e combinadas entre si. As **rodadas subsequentes do watch rodam em `--auto`** (aplicam + postam + resolvem + commitam + pusham sozinhas). `--once` desliga o watch. `--solo` pula os specialists de review em todas as rodadas, inclusive na consulta de conflito. `--no-rebase` persiste em todas as rodadas.
 
 > **Resolver conflito já vem autorizado.** Invocar o iterate sem `--no-rebase` autoriza o push da resolução mecânica nas condições de `${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5. O `--auto` continua dispensando só a confirmação do plano de threads (passo 6).
 
@@ -326,32 +326,29 @@ Com `mergeable` / `mergeStateStatus` coletados no passo 2:
 - **`MERGEABLE`** → nada a fazer; seguir para o passo 2c.
 - **`UNKNOWN`** → reconsultar (até 3 vezes, ~3s). Persistindo, medir localmente com `git merge-tree` e
   reportar que o GitHub não decidiu. **Nunca** seguir tratando como `MERGEABLE`.
-- **`CONFLICTING`** → acionar o gate:
-  1. **Reconhecer sem tocar no working tree**: `rev-list --left-right --count` (extensão da divergência)
-     e `merge-tree --write-tree --name-only` (arquivos em conflito).
-  2. **Classificar** mecânico vs semântico pela régua do shared. `--no-rebase`, PR de terceiro
-     (`author.login != ` conta autenticada) ou classificação semântica ⇒ **não resolver**: ir ao modo
-     degradado (abaixo). As demais causas de degradado (rebase abortado, gate vermelho, lease
-     recusado, worktree retida) estão na seção 6 do shared.
-  3. **Resolver via subagente executor** (o mesmo do passo 4, mesma disciplina de worktree e de
-     fan-out), que aplica a estratégia, roda o quality gate do repo e **para sem pushar**. O prompt
-     leva o `retainedResolutionSha` do estado, para a conferência do descarte condicionado (seção 4,
-     item 2, e seção 5 do shared).
-  4. **Publicar conforme a seção 5 do shared**, só se nenhum gate do item 3 voltou vermelho (`n/a`
-     não segura). Gate vermelho ⇒ não pushar: é bloqueio e o elo vai ao modo degradado. Depois do
-     push, registrar o relato conforme a seção 5.
+- **`CONFLICTING`** → acionar `${FLUX_ROOT}/shared/merge-conflict-gate.md` antes de triar o CI.
+  Passar ao gate `BASE`, `BRANCH`, `BASE_SHA`, `PR_SHA`, `CONFLICT_FILES`, autoria da PR, as flags
+  `--dry`, `--solo` e `--no-rebase`, e `conflictAttemptedAtBaseSha` + `retainedResolutionSha`; o shared
+  define a descoberta de specialists, a classificação, a resolução, as verificações e a publicação.
+  Para este elo, só retomar a triagem de CI e o fluxo normal depois que o gate confirmar a resolução
+  publicada. Se retornar `analise-obsoleta`, repetir a detecção e a consulta dos specialists com os
+  SHAs atuais.
+
+  Se a tentativa de resolução usar o executor genérico por falta de orientação aplicável dos
+  specialists, reemitir o banner completo com `fallback generico no conflito (<causa>)` acrescentado a
+  `degradacoes:`; preservar o restante do banner e os dados das lentes disponíveis. Isso cobre
+  `--solo`, ausência/falha de specialists e propostas que não orientem uma resolução segura. Registrar
+  também o resultado na Timeline conforme o shared. O banner inicial já emitido não pode ser alterado.
 - **`BEHIND`** (sem conflito) → só atualizar se a proteção da base exigir branch atualizada. Não é
   conflito e não justifica force-push.
 
-**Modo degradado (o gate não resolveu; causas na seção 6 do shared, inclusive gate vermelho):** não abortar o comando. Suspender o que depende de base
-integrada (aplicar correção, commitar, pushar, triar/corrigir CI, reconciliar título e descrição) e
-seguir com o que não depende (verificar alegações, responder, reagir, resolver threads). Reportar sem
-eufemismo o que ficou de pé. Tabela completa na seção 6 do shared.
+**Modo degradado:** seguir a partição de ações da seção 6 do shared. O iterate só retoma as etapas
+permitidas por aquele contrato e registra o bloqueio no board.
 
 **Em `--dry`:** apenas **reportar** o estado de integração, como se faz com o CI. Não resolver nada.
 
-Conflito detectado **conta como trabalho acionável** para o passo 2a (a PR tem board). Emitir os
-eventos `conflito-detectado`, `conflito-resolvido` ou `conflito-bloqueado` no board e no hook Slack.
+Conflito detectado **conta como trabalho acionável** para o passo 2a (a PR tem board). Os eventos e
+o registro da tentativa no board seguem a seção 7 de `${FLUX_ROOT}/shared/merge-conflict-gate.md`.
 
 ### 2c. Triagem de CI (1ª passada E cada tick do watch)
 

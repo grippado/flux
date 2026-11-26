@@ -15,6 +15,11 @@
 > que se pede a cada lente (veredito sobre um ponto antigo, não achado sobre o diff inteiro); não muda
 > como se descobre quem responde nem como as respostas se reconciliam. Um consumidor novo pede o
 > mesmo dos dois jeitos: descoberta e reconciliação vivem aqui, o resto é específico de quem despacha.
+>
+> O gate de integração com a base usa a mesma descoberta para uma terceira pergunta: quais specialists
+> podem orientar os conflitos de arquivos específicos. Esse modo não roda L1 nem a reconciliação de
+> findings; ele mantém a mecânica de descoberta e invocabilidade aqui, e deixa classificação e aplicação
+> ao contrato `merge-conflict-gate.md`.
 
 ## Princípio
 
@@ -470,6 +475,33 @@ mecanismo de endereçar a instrução.
 `${FLUX_ROOT}/shared/fanout-discipline.md`). Esperar todas antes de reconciliar. Uma lente que falha
 não derruba as outras: reconciliar o que voltou e registrar a falha **no rodapé de cobertura** do
 Passo 4, que é onde ela cabe. O banner de abertura já foi impresso quando esta falha acontece.
+
+### Modo de assessoria de conflito
+
+O consumidor declara `purpose: merge-conflict` e passa `BASE_SHA`, `PR_SHA`, `CONFLICT_FILES` e o
+contexto necessário para comparar os dois lados (incluindo os trechos relevantes e a saída de
+`merge-tree`). Este modo usa os mesmos passos 1 e 1a–1c para descobrir, validar a invocabilidade e
+selecionar L2/L3; não roda L1, não usa a reconciliação do passo 3 e não substitui a classificação do
+`${FLUX_ROOT}/shared/merge-conflict-gate.md`.
+
+Filtrar os specialists pela lista de arquivos: o escopo declarado pelo agent ou pela suite precisa
+cobrir pelo menos um dos arquivos ou domínios afetados. O orquestrador L2 recebe essa lista e escolhe
+somente os subordinados aplicáveis; em L3, invocar somente os agents read-only cujo escopo cobre um
+arquivo afetado, seguindo o filtro e o desempate do passo 1b. Escopo que não possa ser relacionado aos
+arquivos não conta como cobertura. Se nenhum specialist for aplicável ou invocável, devolver esse
+estado ao consumidor para o fallback definido pelo gate.
+
+Specialists e orquestradores ficam em modo somente leitura: não editam, não iniciam merge/rebase, não
+comitam nem fazem push. Cada um devolve, para os arquivos que cobriu, `classificação
+mecânico|semântico`, proposta por arquivo, justificativa sobre como preservar as duas intenções e
+validações necessárias. Dúvida deve ser classificada como semântica. Num conflito semântico, podem
+explicar alternativas, mas não escolhem por uma delas. Respostas incompatíveis ou incertas não
+autorizam aplicação automática.
+
+O consumidor espera todas as respostas e as entrega ao contrato
+`${FLUX_ROOT}/shared/merge-conflict-gate.md`, que define a classificação final e a resolução,
+incluindo executor, fallback e bloqueio. Este shared limita-se à descoberta/invocabilidade dos
+specialists e ao formato de seus pareceres read-only.
 
 ## Passo 3 — Reconciliar (substitui o benchmark)
 
