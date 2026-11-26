@@ -1,5 +1,16 @@
 {
   "latest": {
+    "version": "1.55.2",
+    "tag": "v1.55.2",
+    "published_at": "2026-11-26T12:08:04Z",
+    "html_url": "https://github.com/grippado/flux/releases/tag/v1.55.2",
+    "summary": {
+      "en": "Leaner review skill: one GateSpec table now owns each post-review option, with identical menus.",
+      "pt": "Skill review mais enxuto: uma tabela GateSpec passa a ser a fonte de cada opção pós-review, com menus idênticos."
+    },
+    "changelog_source": "tag_message"
+  },
+  "previous": {
     "version": "1.55.1",
     "tag": "v1.55.1",
     "published_at": "2026-11-26T12:06:47Z",
@@ -7,17 +18,6 @@
     "summary": {
       "en": "Leaner iterate skill (15% smaller) with the authorship guard defined once and a stack-neutral quality gate.",
       "pt": "Skill iterate mais enxuto (15% menor), com a guarda de autoria definida uma vez e um quality gate neutro de stack."
-    },
-    "changelog_source": "tag_message"
-  },
-  "previous": {
-    "version": "1.55.0",
-    "tag": "v1.55.0",
-    "published_at": "2026-11-26T00:25:40Z",
-    "html_url": "https://github.com/grippado/flux/releases/tag/v1.55.0",
-    "summary": {
-      "en": "One board per session and per case, with per-session runs in provenance, a TL;DR heading and a single timeline.",
-      "pt": "Um board por sessão e por caso, com as runs no provenance, TL;DR em heading e uma timeline só."
     },
     "changelog_source": "tag_message"
   },
