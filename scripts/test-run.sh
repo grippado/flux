@@ -628,13 +628,21 @@ mkdir -p "$HC"
 cp -RL "$HR/." "$HC/"
 t_eq "mesma árvore sob outro path absoluto dá o mesmo hash" "$H2" "$(agents_hash "$HC")"
 t_eq "receita roda igual em sh" "$H2" "$(agents_hash "$HR" sh)"
-HP="$(cd "$WORK" && CDPATH="$WORK" AGENTS_DIR=hash-raiz "$BASH_ABS" -c ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\"")"
-t_eq "CDPATH exportado com AGENTS_DIR relativo dá o mesmo hash" "$H2" "$HP"
-HT="$(HOME="$WORK" AGENTS_DIR=\~/hash-raiz "$BASH_ABS" -c ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\"")"
-t_eq "AGENTS_DIR com ~ é expandido e dá o mesmo hash" "$H2" "$HT"
+cdpath_hash() {
+    (cd "$WORK" && CDPATH="$WORK" AGENTS_DIR=hash-raiz "$1" -c ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\"")
+}
+tilde_hash() {
+    HOME="$WORK" AGENTS_DIR=\~/hash-raiz "$1" -c ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\""
+}
+HASH_SHELLS="$BASH_ABS sh"
 if command -v zsh > /dev/null 2>&1; then
     t_eq "receita roda igual em zsh" "$H2" "$(agents_hash "$HR" zsh)"
+    HASH_SHELLS="$HASH_SHELLS zsh"
 fi
+for hs in $HASH_SHELLS; do
+    t_eq "CDPATH exportado com AGENTS_DIR relativo dá o mesmo hash ($hs)" "$H2" "$(cdpath_hash "$hs")"
+    t_eq "AGENTS_DIR com ~ é expandido e dá o mesmo hash ($hs)" "$H2" "$(tilde_hash "$hs")"
+done
 HE="$(AGENTS_DIR="$WORK/hash-nao-existe" "$BASH_ABS" -ec ". \"$HASH_RECIPE\"; printf '%s' \"\$AGENTS_SHA256\"")"
 t_eq "raiz inexistente dá hash vazio, sem erro sob set -e" ":0" "$HE:$?"
 HU="$WORK/hash-ilegivel"
@@ -692,8 +700,9 @@ t_eq "map sem o ponteiro falha" "1" "$(ah_run)"
 t_has "map aponta o arquivo" "map/SKILL.md:0" "$AH_DIR/out.txt"
 
 ah_tree equip
-ah_strip skills/equip/SKILL.md 'calculado pela receita do hash do conjunto'
+ah_strip skills/equip/SKILL.md 'synced_from_sha256`), calculado'
 t_eq "equip sem o ponteiro falha" "1" "$(ah_run)"
+t_has "Proveniência aponta o equip" "equip/SKILL.md:0: esperava 1 parágrafo(s) com synced_from_sha256" "$AH_DIR/out.txt"
 
 ah_tree map-stale
 ah_strip skills/map/SKILL.md 'espelho L3 defasado'
