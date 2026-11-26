@@ -42,7 +42,8 @@ Irmãos: `/flux:review` (review formal, read-only) e `/flux:iterate --dry` (rasc
 ## Banner de perfil — gabarito (copiar VERBATIM)
 
 Todo output deste elo **abre** com o banner, copiado com as cercas, trocando só o que está entre
-chaves (regras e degradações: `${FLUX_ROOT}/shared/preflight.md`, Passo 5).
+chaves (regras e degradações: `${FLUX_ROOT}/shared/preflight.md`, Passo 5). O gabarito mora no corpo
+do elo de propósito: num shared, ele não chega ao contexto na hora de emitir.
 
 ````
 ```
@@ -190,12 +191,17 @@ gh pr view $PR_NUMBER --repo $REPO_FULL \
 
 **Guarda de autoria.** `IS_OWN_PR = (author.login == ME)`, com `ME` = `gh api user -q .login`. É mais
 restrito que o do `${FLUX_CMD}review` (assignee não conta) porque aqui guarda escrita no histórico. É
-binário, sem exceção para coautoria ou bypass de proteção. Com `IS_OWN_PR == false`, o modo é
-**`no-push`**: só interação (responder, reagir, resolver); correção de thread ou de CI pode ser aplicada e
-validada na worktree, mas não é commitada nem pushada, e título e descrição viram sugestão em comentário.
-Sair do `no-push` exige a concessão do passo 6 (`writeGrantedForThirdParty`), nunca inferida e nunca
-dada pelo `--auto`. A guarda vale para o force-push do 2b, o auto-fix do 2c, o executor do 4, o
-commit do 8 e o 8a; um caminho que chegue a escrever sem ela é bug: abortar e reportar.
+binário, sem exceção para coautoria ou bypass de proteção. Com `IS_OWN_PR == false`:
+
+- **Nunca**, nem com concessão: force-push (resolução de conflito do 2b), edição de título ou descrição
+  e carimbo de atribuição (8a, que vira sugestão em comentário).
+- **Modo `no-push` por default**: só interação (responder, reagir, resolver). Correção de thread ou de
+  CI pode ser aplicada e validada na worktree, mas não é commitada nem pushada.
+- **A concessão do passo 6** (`writeGrantedForThirdParty`) libera só commit e push (o auto-fix do 2c, o
+  executor do 4 e o passo 8). Nunca é inferida e nunca vem do `--auto`.
+
+Um caminho que chegue a escrever sem a guarda é bug: abortar, registrar o bloqueio no board e reportar,
+nunca escrever "por garantia".
 
 Buscar **todas** as threads via GraphQL (a REST não expõe `isResolved`). Buscar resolvidas também é essencial: elas formam o **corpus de referência** para o cross-reference do passo 3.
 
@@ -380,7 +386,7 @@ Com o estado do CI coletado no passo 2:
       pendência humana com a evidência da API (`metricKey`, `actualValue`, `errorThreshold`).
     - Sem manifesto, sem token ou sem provider configurado: degradação declarada — o shared descreve
       o comportamento conservador e o texto do banner.
-  - **Atribuível ao próprio push e dentro do escopo** (typecheck, lint ou teste que este fluxo mexeu quebrou, build da branch): o **executor** do passo 4 investiga o log, tenta **uma** correção, roda o quality gate (passo 5) e, se a guarda de autoria permitir, commita e pusha; em `no-push`, a correção pronta vira bloqueio no board, à espera da concessão do passo 6. **No máximo uma tentativa por SHA.**
+  - **Atribuível ao próprio push e dentro do escopo** (typecheck, lint ou teste que este fluxo mexeu quebrou, build da branch): o **executor** do passo 4 investiga o log, tenta **uma** correção, roda o quality gate (passo 5) e, se o gate passar e a guarda de autoria permitir, commita e pusha. Em `no-push`, a correção pronta vira bloqueio no board e o chat pede a confirmação textual do passo 6 ("Pedido explícito de escrita"), mesmo quando não há thread no plano; nunca commitar "porque era só o CI". **No máximo uma tentativa por SHA.**
   - **Não atribuível** (falha de infra, flaky, teste não relacionado, mudança de base): **não** mexer no código. Registrar no board + reportar no chat com link do log, e (no watch) seguir monitorando.
 
 Emitir os eventos de CI no board/Slack conforme o hook do watch (`ci-vermelho`, `ci-corrigido-tentativa`, `ci-verde`).
@@ -486,7 +492,7 @@ Contrato de retorno (**< 40 linhas**, sem diff colado):
 - worktree: <path>
 - arquivos: <lista de arquivos alterados>
 - porThread: <databaseId> → <o que foi aplicado, em uma linha>
-- gate: typecheck <ok|fail> · lint <ok|fail> · testes <ok|fail|n/a>
+- gate: typecheck <ok|fail|n/a: motivo> · lint <ok|fail|n/a: motivo> · testes <ok|fail|n/a: motivo>
 - falhas: <mensagens de erro resumidas, ou nenhuma>
 - commit: <sha, ou n/a>
 - bloqueios: <lista curta, ou nenhum>
@@ -501,7 +507,10 @@ Rodado **dentro do executor do passo 4**, na worktree, nos arquivos tocados: os 
 declara (`CLAUDE.md`, `Makefile`, `package.json` ou o equivalente da stack), na ordem typecheck, lint e
 testes afetados. Seguir o fluxo de agentes do `CLAUDE.md` do repo quando houver. Teste que depende de
 serviço indisponível localmente (Docker parado, por exemplo) **não bloqueia**: entra no plano como "não
-validado localmente", com o motivo, e o usuário é avisado.
+validado localmente", com o motivo, e o usuário é avisado. Check que o repo não declara, ou que não dá
+para rodar, volta `n/a` com o motivo e nunca `ok` (a régua de `${FLUX_ROOT}/shared/merge-conflict-gate.md`
+para gate não executável); repo sem nenhum check declarado é dito no plano e no relatório, para o push
+não parecer validado.
 
 ### 6. Confirmação interativa (pular se `--auto`, exceto em PR de terceiro sem escrita concedida)
 
@@ -541,7 +550,7 @@ default**. Ele se comporta como se só a opção de interação existisse:
 Escolhida a opção 2, o comando ainda não escreve: pede uma **confirmação textual** (não outro
 single-select), como `sim, escrever na PR de terceiro`. Vale qualquer texto que expresse consentimento
 claro para escrever *nesta* PR; resposta vaga, condicional ou fora do assunto cancela o pedido e volta
-ao `no-push`. Confirmado, o fluxo segue como a opção 1 de PR própria, e `writeGrantedForThirdParty: true`
+ao `no-push`. Confirmado, o fluxo segue como a opção 1 de PR própria (post, commit e push; passos 7 e 8), e `writeGrantedForThirdParty: true`
 vai ao estado: a concessão vale para as rodadas seguintes do **mesmo** watch e nunca atravessa uma
 invocação nova. Nunca inferir o pedido de contexto (um "pode commitar" numa thread não conta).
 
@@ -616,8 +625,8 @@ Roda **depois do push**, em toda rodada que mudou algo que título ou descriçã
 
 #### Guardrails (bloqueantes)
 
-1. **Só PR própria** (guarda de autoria): em PR de terceiro, a correção vira comentário de sugestão,
-   registrado no board.
+1. **Só PR própria, sem exceção**: em PR de terceiro, **nunca** editar, nem com a concessão do passo 6;
+   a correção vira comentário de sugestão, registrado no board.
 2. **Só afirmação refutada por evidência**: contradita pelo estado atual da branch (`arquivo:linha`) ou
    por decisão fechada numa thread desta rodada (link). Melhorar redação, reorganizar ou atualizar
    estilo não é drift. A única exceção é o carimbo de atribuição, abaixo.
@@ -698,7 +707,7 @@ não existe, guardrails). Este passo não redefine nada disso: só diz **quando*
   garante que várias rodadas na mesma versão não repitam o par.
 - Quando a reconciliação da descrição também roda nesta passada, aplicar o carimbo no mesmo
   `-after.md` e publicar os dois num único `gh pr edit`.
-- Mesmo guard de autoria: PR de terceiro não recebe carimbo.
+- PR de terceiro nunca recebe carimbo, nem com a concessão do passo 6 (guarda de autoria, passo 2).
 
 #### Gate
 
@@ -729,7 +738,7 @@ Quando o passo 8a mexeu em título ou descrição, dizer em uma linha **o que fo
 Depois do passo 7 (e do 8, quando houve push), só quando **todas** valem: PR própria; o turno
 respondeu, reagiu ou resolveu thread de **pessoa** (bot e o próprio autor não contam); fora de `--dry` e
 de run despachado por orquestrador (`--parent-board`); `SLACK_DIR` com canal que tenha o intent do grupo;
-`FLUX_CMD` utilizável; e Slack disponível na sessão. Faltando qualquer uma, nada acontece, sem token de
+`FLUX_CMD` utilizável; e Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão). Faltando qualquer uma, nada acontece, sem token de
 degradação; as lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`) saem só no relatório do
 tick. Não confundir com o Hook Slack (feed de status).
 
@@ -744,7 +753,7 @@ Agrupar por revisor (o `author.login` da thread tratada, pessoas apenas):
 imprime o preview no relatório e salva o rascunho (privado, reversível, não notifica). Só se avisa
 revisor com thread tratada **neste turno**; `slackNotified` (`<login>` → `{grupo, abertos, round}`)
 impede avisar o mesmo revisor duas vezes no mesmo `round`. Rascunho não salvo (`draft-pendente`,
-`sem-rascunho`) não grava `slackNotified`, e o próximo tick tenta de novo.
+`sem-rascunho`) não grava `slackNotified`: o próximo tick tenta de novo, e o relatório diz o motivo uma vez.
 
 Para cada grupo não vazio cujo intent exista num canal do diretório, na passada interativa, abrir **um GATE**
 (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado no fallback de
@@ -914,7 +923,7 @@ O que cada campo guarda, e a regra de gravação que o gate depende:
 - **`bodySyncedAtSha` / `titleSyncedAtSha`**: SHA em que o 8a verificou, com ou sem edição.
 - **`watchWake`**: o valor de "`WATCH_WAKE`"; no meio do run só muda **para** `agendado`.
 - **`startedAt` / `lastTickAt`**: UTC com `Z`, exatamente `date -u +%Y-%m-%dT%H:%M:%SZ`; com offset local
-  o gate descarta o valor em silêncio e perde o limite de ~6h.
+  ou sem `Z`, o gate descarta o valor em silêncio e passa a contar o limite de ~6h do primeiro poll dele.
 - **`gatePid`, `gateSignalExits`, `gateLastPollAtSeen`, `lastGateEvent`**: memória do loop do gate entre
   turnos ("O loop de watch"); o gate não lê nenhum deles.
 - **`quietTicks`**: contado aqui só no fallback agendado; com o gate, a contagem é dele, em
@@ -930,7 +939,8 @@ terminou em degradado (exceto lease recusado), `startedAt` = agora, `board`, `so
 
 **Estado perdido** (sessão reiniciada): `resolvedThreadIds` = threads resolvidas por `ME` mais as abertas
 cujo último comentário é seu (estas também em `discussionThreadIds`); `verifiedResolvedThreads` vazia;
-`answeredCommentIds` = comentários de terceiros com réplica sua posterior; e o `board` pela resolução do
+`answeredCommentIds` = comentários de terceiros com réplica sua posterior; `slackNotified` = `{}` (o
+primeiro tick pode avisar de novo, e o `reply` já contém isso pelo rascunho anexado); e o `board` pela resolução do
 passo 2a (`board-template.md`, "Resolver o board"), nunca pelo nome do arquivo.
 
 **Atualizar o board a cada tick:** tick é turno deste elo. Com o gate, só existe tick quando ele sai (o poll ocioso acontece fora da LLM e não toca o board); no fallback agendado, a cada wake. Todo tick rola o carimbo de data do board (frontmatter `updated:` e o `**Agora:**` do TL;DR) e recomputa o painel single-PR (status da PR, CI real do `gh pr checks`, threads res/tot, rodadas, 👍/👎 do flow). Tick com novidade substantiva (rodada fechada, push, CI mudou, PR mergeou) também ganha linha na Timeline e o detalhe na seção do iterate. Tick quiet só rola a data.
@@ -1099,8 +1109,8 @@ Um tick roda quando o gate sai com evento acionável ou, no fallback agendado, a
    - nenhum check reportado → **sem checks** (`null`): para assentar vale como verde, e nunca é vermelho.
 3. **Threads novas.** O GraphQL `reviewThreads` do passo 2, com `resolvedBy` e o último comentário
    (`comments(last: 1)`). Dois deltas, sem misturar: (a) abertas cujo `id` não está em
-   `resolvedThreadIds`, com o filtro de trivialidade; (b) resolvidas por terceiro ou sem resolver cujo
-   snapshot difere de `verifiedResolvedThreads`, sem filtro nenhum. Resolvidas por `ME` ficam fora dos
+   `resolvedThreadIds`, com o filtro de trivialidade; (b) `isResolved == true` com `resolvedBy.login != ME`
+   ou ausente, cujo snapshot difere de `verifiedResolvedThreads`, sem filtro nenhum. Resolvidas por `ME` ficam fora dos
    dois. Qualquer delta não vazio é **nova rodada**.
    - **Reaberta externamente** (no delta b com `isResolved == false`): tirar o snapshot e o id das listas,
      tratar como thread aberta normal (deduplicada por `threadId`) e gravar o estado final dela ao fim do
