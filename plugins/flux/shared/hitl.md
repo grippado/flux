@@ -71,9 +71,9 @@ do seu domínio; não copia regras de renderer, recomendação, saída segura ou
 
 | ação | onde aparece |
 |------|--------------|
-| postar comentário, review ou reação no GitHub | `flux:review` (8b), `flux:iterate` |
+| postar comentário, review, aprovação, reação ou resolver thread no GitHub | `flux:review` (8b), `flux:iterate` |
 | criar ou editar issue no tracker | `flux:issue` |
-| salvar rascunho ou reagir no Slack | `flux:reply` |
+| salvar rascunho, postar ou reagir no Slack | `flux:reply`, `flux:land` |
 | commitar, pushar ou alterar o working tree | `flux:review` (8c), `flux:iterate` |
 | abrir PR (mesmo draft) | `flux:build`, `flux:equip` (PR da suite) |
 | escrever artefato gerado fora do repo alvo e fora do vault | `flux:equip`, via `${FLUX_ROOT}/shared/write-destination.md` |
@@ -116,12 +116,12 @@ aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse 
 - O Codex acrescenta sozinho a opção "None of the above" com campo de notas ao menu de
   `request_user_input`. Não declará-la no menu: a saída inócua continua sendo a última opção
   declarada.
-- Sem round-trip comprovado, use o fallback numerado abaixo, mesmo que a ferramenta esteja
+- Sem round-trip comprovado, use o menu numerado abaixo, mesmo que a ferramenta esteja
   disponível ou tenha aceitado a solicitação.
-- Round-trip comprovado não basta para gate de escrita em harness com auto-resolução: ver "Gate de
-  escrita e auto-resolução", abaixo.
+- Round-trip comprovado não basta em harness com auto-resolução: ver "Auto-resolução por tempo",
+  abaixo.
 
-- A opção **recomendada é a primeira**, e leva `(Recomendado)` no label.
+- A opção **recomendada**, quando houver, **é a primeira**, e leva `(Recomendado)` no label.
 - O renderer usa integralmente `question`, `label` e `description` da spec. O usuário decide pelo
   efeito, não pelo nome.
 - A última opção é a saída inócua da spec (`Não fazer nada`, `Não postar`). Um gate sem porta de
@@ -131,37 +131,37 @@ aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse 
   posição, imediatamente antes da saída inócua. Num menu de duas opções ela é a primeira, e o menu
   fica sem recomendada.
 
-### Gate de escrita e auto-resolução
-
-**Gate de escrita** é o gate em que ao menos uma opção elegível executa uma ação da tabela "Ações
-que exigem GATE" com `kind` diferente de `ambiguous-target`: postar, aprovar, reagir, resolver
-thread, commitar, pushar, salvar rascunho ou enviar no Slack, criar issue, abrir PR, escrever fora do
-repo ou no manifesto. A saída inócua, imprimir no chat e escrever no vault não são escrita.
+### Auto-resolução por tempo
 
 **Auto-resolução** é o renderer responder sozinho depois de um prazo, sem gesto da pessoa. A resposta
 que ela produz pode trazer a opção em foco como se fosse escolha, e não há como distinguir depois do
 fato. Por isso a defesa é não fazer a chamada:
 
-- **Harness com auto-resolução, ou onde ela não pode ser descartada:** gate de escrita **não usa a
-  pergunta estruturada**. Vai direto ao menu numerado da seção seguinte, que exige resposta digitada
-  (número ou rótulo). Sem foco, nenhuma opção é escolhida pelo tempo, e a recomendada continua em
-  primeiro sem risco. Declarar no banner o token `gate de escrita digitado`
-  (`${FLUX_ROOT}/shared/preflight.md`, Passo 5). Quais harnesses estão nesta linha, e por quê, vive no
-  adaptador de cada um (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
-- **Gate sem opção de escrita**, no mesmo harness: pode usar a pergunta estruturada. Resposta que o
-  harness marca como auto-resolvida não é escolha: tratar como resposta vazia.
-- **Harness sem auto-resolução conhecida** (o `AskUserQuestion` espera a pessoa confirmar): a ordem
-  de sempre vale, e a opção em foco só é escolhida por gesto explícito. Constatada auto-resolução
-  num harness, ele passa para a primeira linha, registrado no adaptador.
+- **Harness com auto-resolução, ou onde ela não pode ser descartada:** **nenhum GATE usa a pergunta
+  estruturada**, tenha ou não opção de escrita. Todo gate vai direto ao menu numerado da seção
+  seguinte, que exige resposta digitada (número ou rótulo). Sem foco, nenhuma opção é escolhida pelo
+  tempo, e a recomendada continua em primeiro sem risco. Gate que chegou a ser renderizado pela
+  pergunta estruturada por engano não autoriza nada, venha a resposta de onde vier: reapresentar o
+  mesmo gate no menu numerado e esperar a resposta digitada. O token do banner está em
+  `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+- **Harness sem auto-resolução constatada:** a ordem de sempre vale, e a opção em foco só é escolhida
+  por gesto explícito. Constatada auto-resolução num harness, ele passa para a primeira linha, com a
+  evidência registrada na tabela abaixo.
 
-Resultado, em qualquer harness: nenhuma opção de escrita é escolhida sem gesto humano, nem pelo foco
-nem pelo tempo.
+| harness | linha | evidência |
+|---|---|---|
+| Codex (`HARNESS = codex`) | com auto-resolução | observada em 2026-11-25 (`${FLUX_ROOT}/shared/codex-compat.md`, "Auto-resolução por tempo") |
+| qualquer sessão que exponha `request_user_input`, inclusive `HARNESS = unknown` | onde ela não pode ser descartada | é a mesma ferramenta do caso acima |
+| Claude Code e Cursor (`AskUserQuestion`) | sem auto-resolução constatada | nenhuma medição registrada até 2026-11-26; o `AskUserQuestion` espera a pessoa confirmar |
 
-## Fallback quando o round-trip não está comprovado
+Resultado, em qualquer harness: nenhuma opção é escolhida sem gesto humano, nem pelo foco nem pelo
+tempo.
+
+## Menu numerado (fallback e auto-resolução)
 
 `AskUserQuestion` e `request_user_input` são tools do harness, não uma garantia da linguagem nem da interface. Quando a
-sessão não oferece o mecanismo ou o round-trip não está comprovado, o gate **não desaparece** — muda
-de forma:
+sessão não oferece o mecanismo, o round-trip não está comprovado ou o harness está na linha de
+auto-resolução, o gate **não desaparece** — muda de forma:
 
 1. Imprimir imediatamente a pergunta e todas as opções aplicáveis **numeradas** no chat, com os
    mesmos rótulos e descrições, mantendo a recomendada em primeiro e a saída inócua por último. Não
@@ -171,12 +171,10 @@ de forma:
    retorno sem escolha como consentimento. Numa execução headless não há quem responda: antes de
    encerrar, gravar o sinal da seção "Execução headless" abaixo.
 3. Declarar no banner a degradação correspondente ao motivo do fallback, conforme o contrato do
-   harness e a tabela de `${FLUX_ROOT}/shared/preflight.md`, Passo 5. No Codex, ferramenta estruturada
-   ausente, aceita sem escolha ou vazia nas três tentativas gera `pergunta estruturada ausente`; menu que não cabe
-   na ferramenta e sessão headless seguem o fallback numerado sem esse token, pois esses casos são
-   tratados como caminhos esperados pelo adaptador (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
-   Gate de escrita que veio para o numerado por auto-resolução gera `gate de escrita digitado`, e não
-   `pergunta estruturada ausente`: a ferramenta existia e não foi usada de propósito.
+   harness e a tabela de `${FLUX_ROOT}/shared/preflight.md`, Passo 5, que é a fonte única dos tokens
+   de gate e da exclusividade entre eles. Menu que não cabe na ferramenta e sessão headless seguem o
+   menu numerado sem token, pois esses casos são tratados como caminhos esperados pelo adaptador
+   (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
 
 > **A degradação é de forma, nunca de rigor.** Um gate que vira "escolhi a recomendada porque não
 > tinha como perguntar" é pior do que não ter gate nenhum: produz uma ação não autorizada com
@@ -191,10 +189,10 @@ nunca no JSON de `flux preflight`; ver `${FLUX_ROOT}/shared/step0-cli.md`). O la
 execução, exit code `10`, o que ela faz com o arquivo) está descrito em `cli/README.md`, seção "Gate
 pendente em execução headless", e não se repete aqui.
 
-**Gatilho exato.** O fallback numerado foi usado porque não havia round-trip estruturado comprovado
-**e** o bloco traz `gate_signal: <caminho>`. Nesse ponto, e só nesse, gravar o sinal no caminho
+**Gatilho exato.** O menu numerado foi usado, por qualquer motivo (inclusive auto-resolução do
+harness), **e** o bloco traz `gate_signal: <caminho>`. Nesse ponto, e só nesse, gravar o sinal no caminho
 **antes** de encerrar. A skill não tem como verificar se a sessão é headless: o critério é mecânico
-(o fallback foi usado), e o passo seguinte cobre o caso de a resposta chegar depois.
+(o menu numerado foi usado), e o passo seguinte cobre o caso de a resposta chegar depois.
 
 - **Uma gravação, atômica:** escrever num arquivo temporário no mesmo diretório e renomear para o
   caminho do sinal. Nunca gravar parcial.
@@ -232,9 +230,9 @@ pendente em execução headless", e não se repete aqui.
 
 | ação da tabela | `kind` |
 |---|---|
-| postar comentário, review ou reação no GitHub | `github-post` |
+| postar comentário, review, aprovação, reação ou resolver thread no GitHub | `github-post` |
 | criar ou editar issue no tracker | `issue-write` |
-| salvar rascunho ou reagir no Slack | `slack-write` |
+| salvar rascunho, postar ou reagir no Slack | `slack-write` |
 | commitar, pushar ou alterar o working tree | `commit-push` |
 | abrir PR (mesmo draft) | `pr-open` |
 | escrever artefato fora do repo alvo e fora do vault | `write-outside` |

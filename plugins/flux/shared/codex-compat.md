@@ -48,13 +48,13 @@ No Codex, a pergunta estruturada é a ferramenta nativa `request_user_input`. El
 feature `default_mode_request_user_input` está ligada (`under development` e desligada por padrão no
 Codex; ligar é configuração da máquina, não do flux).
 
-Quando `request_user_input` estiver disponível na sessão, a main renderiza a `GateSpec` validada de
-`hitl.md` para todo GATE **sem opção de escrita**, com uma question single-select por gate, e espera
-a escolha retornar à mesma sessão antes de agir. **Gate de escrita não usa `request_user_input`**: vai
-direto ao menu numerado com resposta digitada, pelo motivo de "Auto-resolução por tempo", abaixo. O
-gate continua na main: não delegar a um subagente. O round-trip está comprovado para o Codex 0.161.0
-com a feature ligada, mas uma resposta com opção escolhida não prova, sozinha, que houve gesto
-humano: ela pode ter vindo da auto-resolução.
+**Enquanto o Codex estiver na linha de auto-resolução** (`hitl.md`, "Auto-resolução por tempo"),
+**nenhum GATE usa `request_user_input`**, tenha ou não opção de escrita: todo gate vai direto ao menu
+numerado com resposta digitada, pelo motivo de "Auto-resolução por tempo", abaixo. O gate continua na
+main: não delegar a um subagente. O resto desta seção (round-trip, respostas vazias, quedas) descreve
+o uso da ferramenta e só volta a valer quando uma medição tirar o Codex dessa linha: aí a main
+renderiza a `GateSpec` validada de `hitl.md`, com uma question single-select por gate, e espera a
+escolha retornar à mesma sessão antes de agir.
 
 Rótulos, descrições, ordem, recomendação e saída inócua vêm literalmente da spec. O Codex pode
 acrescentar uma opção automática de campo livre, mas ela não é opção do Flux e não é registrada como
@@ -69,8 +69,8 @@ registrado em "Auto-resolução por tempo". Não foi apurado o comportamento em 
 Cai no fallback numerado de [`hitl.md`](hitl.md), com as opções e descrições completas e espera de
 escolha explícita no chat, quando qualquer destas condições valer:
 
-- o gate é de escrita (`hitl.md`, "Gate de escrita e auto-resolução"), mesmo com a ferramenta
-  disponível;
+- o harness está na linha de auto-resolução (`hitl.md`, "Auto-resolução por tempo"), mesmo com a
+  ferramenta disponível: vale para todo gate;
 - a ferramenta não está disponível na sessão (feature desligada ou versão anterior à 0.161.0);
 - a chamada é aceita sem devolver escolha nenhuma (por exemplo, `{"accepted":true}` da variante
   assíncrona): isso não comprova round-trip, e o gate cai no numerado na hora;
@@ -79,16 +79,16 @@ escolha explícita no chat, quando qualquer destas condições valer:
 - a sessão é headless (o bloco de preflight traz `gate_signal:`): vale o sinal `flux-gate/1` de
   `hitl.md`, "Execução headless".
 
-**Resposta vazia não é recusa.** A chamada espera a pessoa por um limite fixo (cerca de 120 segundos
-no Codex 0.161.0, sem chave de configuração conhecida; acompanhamento em
+**Resposta vazia não é recusa.** No Codex 0.161.0 com a feature ligada, a chamada espera a pessoa por
+um limite fixo (cerca de 120 segundos, sem chave de configuração conhecida; com auto-resolução, ver
+"Auto-resolução por tempo"; acompanhamento em
 [openai/codex#37472](https://github.com/openai/codex/issues/37472)) e devolve `{"answers":{}}` quando ele expira. Isso
 só diz que a pessoa ainda não respondeu: repetir a mesma pergunta estruturada, sem alterar texto nem
 opções, até três vezes, e só então cair no numerado. Nenhuma ação acontece sem escolha explícita, em
 nenhuma das tentativas.
 
-Quando cair no numerado porque a pergunta estruturada está ausente, foi aceita sem escolha ou voltou
-vazia nas três tentativas, declarar `pergunta estruturada ausente` em `degradacoes:`
-(`${FLUX_ROOT}/shared/preflight.md`, Passo 5).
+O token de cada queda, e a exclusividade entre `pergunta estruturada ausente` e `gate digitado`,
+vivem só no `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
 
 #### Auto-resolução por tempo
 
@@ -99,22 +99,18 @@ pergunta devolve ao expirar também não. O contrato trata o pior caso como o re
 devolve a opção em foco como se fosse a escolha da pessoa, e a resposta não carrega marca que a
 distinga de um gesto humano.
 
-Consequências, todas aplicando `hitl.md`, "Gate de escrita e auto-resolução":
+Consequências, todas aplicando `hitl.md`, "Auto-resolução por tempo":
 
 - **O Codex é harness com auto-resolução** até que uma medição mostre o contrário na sessão. A skill
   não enxerga o rodapé nem o prazo, então não tenta detectá-lo: a regra vale para todo
-  `HARNESS = codex`.
-- **Gate de escrita:** menu numerado no chat, com a `GateSpec` inteira, e espera de resposta digitada
-  (número ou rótulo). `request_user_input` não é chamado, então não há foco nem prazo. Declarar
-  `gate de escrita digitado` em `degradacoes:` quando `request_user_input` estava disponível e ao
-  menos um gate de escrita foi apresentado assim. Com a ferramenta ausente, vale só `pergunta
-  estruturada ausente`, como antes: nunca os dois tokens pelo mesmo motivo.
-- **Gate sem opção de escrita:** pode seguir por `request_user_input`. Resposta que o Codex marque
-  como auto-resolvida é tratada como resposta vazia, com as mesmas três tentativas de "Resposta vazia
-  não é recusa".
-- **Resposta vinda da auto-resolução nunca vale como escolha**, em gate nenhum. Se um gate de
-  escrita chegou a ser renderizado por `request_user_input` por engano, a resposta não autoriza
-  nada, venha de onde vier: reapresentar o mesmo gate no menu numerado e esperar a resposta digitada.
+  `HARNESS = codex` e para qualquer sessão que exponha `request_user_input`, inclusive
+  `HARNESS = unknown`.
+- **Todo gate**, com ou sem opção de escrita: menu numerado no chat, com a `GateSpec` inteira, e
+  espera de resposta digitada (número ou rótulo). `request_user_input` não é chamado, então não há
+  foco nem prazo. O token do banner está em `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+- **Resposta vinda da auto-resolução nunca vale como escolha**, em gate nenhum. Se um gate chegou a
+  ser renderizado por `request_user_input` por engano, a resposta não autoriza nada, venha de onde
+  vier: reapresentar o mesmo gate no menu numerado e esperar a resposta digitada.
 
 ### Adaptador de instruções de agente
 

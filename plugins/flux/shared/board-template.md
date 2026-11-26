@@ -85,8 +85,9 @@ natural o que nasce de algo que o board já produziu: a PR que o build abriu, a 
 criou, o ticket que o refine fatiou. Pedido sem alvo identificável (pergunta solta, ajuste no
 próprio board) não dispara gate.
 
-O gate segue `${FLUX_ROOT}/shared/hitl.md` nos dois harnesses (`AskUserQuestion` no Claude Code,
-`request_user_input` no Codex, texto numerado onde não houver ferramenta de pergunta), com estas
+O gate segue `${FLUX_ROOT}/shared/hitl.md` nos dois harnesses (`AskUserQuestion` no Claude Code; menu
+numerado com resposta digitada onde o harness auto-resolve a pergunta estruturada ou não oferece
+ferramenta, `${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo"), com estas
 opções, nesta ordem:
 
 1. **Abrir em sessão nova (Recomendado).** Entregar um **mini-handoff** num bloco copiável
