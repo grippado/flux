@@ -156,6 +156,13 @@ Achou → seguir para o passo 1a-bis. Não achou → **ausente**.
 > `codex-compat.md`; L2 e L3 sem arquivo continuam `ausente` pelo passo 1a; arquivo presente e
 > ilegível (permissão, não-regular) é `inalcancavel`. Em nenhum dos dois casos a lente é coberta
 > por um genérico sem as instruções.
+>
+> **Exceção OpenCode:** a mesma exceção vale no OpenCode, pelo mesmo motivo: ele não registra os
+> agents de `.claude/agents/`, `.cursor/agents/` nem das raízes do manifesto. Quando o nome da lente
+> não está na lista de agents da sessão, o arquivo é a fonte de instruções do subagente `general`,
+> com as mesmas validações acima; os agents da família, registrados como `flux-<nome>`, seguem a
+> resolução por nome ([`opencode-compat.md`](opencode-compat.md), "Adaptador de instruções de
+> agente").
 
 **Achar o arquivo não basta, e tratar como se bastasse é a falha silenciosa mais cara deste
 contrato.** O que se resolve no passo 1a é um **caminho**; o que a Task tool aceita é um **nome
@@ -229,9 +236,10 @@ exatamente isso.
 **Não improvisar com `general-purpose` carregando o corpo do specialist como prompt.** É tentador e
 parece equivalente, mas não é: o resultado deixa de ser comparável com o de uma execução normal, e o
 banner passaria a mentir de um jeito mais difícil de detectar. Registrar a degradação e seguir com o
-que existe. A única exceção é o adaptador Codex documentado acima: ali a delegação nativa genérica
-é o mecanismo oficial, recebe um **path validado** e lê o arquivo integralmente; não é um fallback
-silencioso nem uma cópia parcial de instruções.
+que existe. A única exceção é o adaptador Codex documentado acima, estendido ao OpenCode para as
+lentes que ele não registra: ali a delegação genérica é o mecanismo oficial, recebe um **path
+validado** e lê o arquivo integralmente; não é um fallback silencioso nem uma cópia parcial de
+instruções.
 
 **O que fazer com a informação, no fechamento do elo:** um `inalcançável` é acionável e um `ausente`
 não é. Ausente pede `${FLUX_CMD}equip --agents-only` (criar a suite). Inalcançável **não pede criar
@@ -454,7 +462,8 @@ Com `--solo`, pular este passo inteiro e o 2b, independentemente do que exista.
 No Codex, substituir cada `Task com subagent_type` abaixo por um subagente nativo genérico com a
 fonte de instruções validada no Passo 1/`preflight` e aplicar o contrato de
 `codex-compat.md`. Os despachos, paralelismo, inputs e campos de cobertura são idênticos; só muda o
-mecanismo de endereçar a instrução.
+mecanismo de endereçar a instrução. No OpenCode, a `Task` é a tool `subagent`, e a mesma substituição
+vale para a lente cujo nome não está registrado na sessão (`opencode-compat.md`).
 
 - **2a — L1, holístico.** Task com `subagent_type: <HOLISTIC>` passando os inputs base do comando
   (diff, commits, metadados, checkout, revisões anteriores, threads). Guardar como `HOLISTIC_REPORT`.

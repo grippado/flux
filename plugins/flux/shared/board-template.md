@@ -221,7 +221,7 @@ provenance:
 | `generator` | o verbo que abriu, do enum abaixo | não |
 | `captured_at` | `date "+%Y-%m-%d %H:%M %z"`, literal | não |
 | `session_sources` | paths absolutos de `.jsonl` candidatos, ou `[]` | não (`[]` é a ausência) |
-| `harness` | `HARNESS` do preflight: `claude-code` \| `cursor` \| `codex` \| `unknown` | sim |
+| `harness` | `HARNESS` do preflight: `claude-code` \| `cursor` \| `codex` \| `opencode` \| `unknown` | sim |
 | `flux_version` | `FLUX_VERSION` do preflight | sim |
 | `model` | `MODEL` do preflight | sim |
 | `effort` | `EFFORT` do preflight | sim |
@@ -266,7 +266,7 @@ nunca reavalia. Sessão sem id (os dois `null`) segue a regra de linha do Passo 
 1. As onze chaves presentes, nenhuma a mais dentro de `provenance` (`case_keys` e os campos de perfil
    ficam no topo).
 2. `generator` no enum, e é o verbo que abriu.
-3. `harness` em `claude-code | cursor | codex | unknown`.
+3. `harness` em `claude-code | cursor | codex | opencode | unknown`.
 4. `unknown` como valor inteiro só nas chaves que o admitem.
 5. `captured_at` e `started_at` casam com `YYYY-MM-DD HH:MM ±HHMM` e vieram de um `date`.
 6. `session_sources` é lista de paths absolutos `.jsonl`, ou `[]`.

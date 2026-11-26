@@ -11,6 +11,11 @@
 > adaptadores Claude/Cursor dizem `Task tool`, o Codex usa sua delegação nativa de subagentes;
 > nenhum nome de ferramenta é simulado.
 
+> **OpenCode:** carregar [`opencode-compat.md`](opencode-compat.md) junto deste contrato. Onde os
+> adaptadores Claude/Cursor dizem `Task tool`, o OpenCode usa a tool `subagent`; onde dizem
+> `AskUserQuestion`, a tool `question` só vale nas condições de "Perguntas ao usuário" daquele
+> arquivo. Nenhum nome de ferramenta é simulado.
+
 > **Este passo roda depois da âncora.** O parse do alvo e a resolução do manifesto vêm antes, porque
 > o agente holístico que o Passo 3 verifica vem do perfil. Ver `${FLUX_ROOT}/shared/flux-context.md`,
 > seção "Ordem obrigatória". Verificar o holístico antes de saber o perfil valida o agente errado.
@@ -34,8 +39,17 @@ ordem, parando no primeiro que existir:
 5. O diretório dois níveis acima do arquivo do verbo em execução (de `skills/<verbo>/SKILL.md`
    sobe para a raiz da instalação). Se o arquivo foi carregado por symlink, resolver o alvo real
    antes de subir (`readlink -f`) — é o caminho da instalação local do Cursor, que é um symlink
-   para o checkout.
-6. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável.
+   para o checkout, e o do OpenCode ([`opencode-compat.md`](opencode-compat.md), "Recursos").
+6. `${FLUX_HOME}` — raiz declarada no ambiente, quando o instalador exporta a variável. Só conta
+   se o diretório tiver `shared/`; um `FLUX_HOME` sem ele é ignorado (a CLI avisa em `warnings[]`).
+7. **Só na CLI** (`flux preflight`), numa sessão OpenCode (`OPENCODE_SESSION_ID` presente e
+   `CODEX_THREAD_ID` ausente): o campo `source` do manifesto de instalação do OpenCode
+   (`${FLUX_OPENCODE_DIR:-~/.config/opencode}/.flux-install.json`), quando é caminho absoluto com
+   `shared/`. Sai com `flux_root_source: "opencode-install-manifest"`. Vem depois de `FLUX_HOME` e
+   antes da heurística da CLI (`heuristica-cli`), que escolhe o cache de plugin de maior versão da
+   máquina. Manifesto legível com `source` que não vale gera aviso em `warnings[]` com o remédio
+   (rodar `scripts/install-opencode.sh` de novo); o formato do manifesto está em
+   [`opencode-compat.md`](opencode-compat.md), "Manifesto de instalação".
 
 Se nenhum resolver, é `UNAVAILABLE`: abortar informando que a instalação da família não foi
 localizada.
@@ -65,12 +79,20 @@ incluam o contexto de execução verificável.
 
 **`HARNESS`** — avaliar os marcadores de execução no ambiente do shell desta execução:
 
-1. Se `CODEX_THREAD_ID` estiver presente e não vazio, `HARNESS` é `codex`. O Codex injeta esse
+1. Se `CODEX_THREAD_ID` estiver presente e não vazio, e `OPENCODE_SESSION_ID` não, `HARNESS` é `codex`. O Codex injeta esse
    identificador nas execuções de ferramentas de shell; ele identifica a sessão ativa mesmo quando
    a CLI encontrou `FLUX_ROOT` por uma heurística que escolheu o cache de outro harness. Este é o marcador mais
-   específico e vence qualquer outro marcador presente. Usar somente a presença, nunca gravar o
+   específico e vence os marcadores da tabela; o único conflito que ele não resolve sozinho é com
+   `OPENCODE_SESSION_ID`, no passo 2. Usar somente a presença, nunca gravar o
    valor do identificador. Isso não muda a resolução de `FLUX_ROOT`.
-2. Sem `CODEX_THREAD_ID`, aplicar a tabela aos marcadores presentes. A presença de `CLAUDECODE`
+2. Se `OPENCODE_SESSION_ID` estiver presente e não vazio, e `CODEX_THREAD_ID` não, `HARNESS` é
+   `opencode`. O OpenCode injeta esse identificador no ambiente da tool de shell, e ele vence os
+   marcadores da tabela pelo mesmo motivo do anterior: identifica a sessão ativa, enquanto
+   `CLAUDECODE` ou uma variável de raiz de plugin podem ter sido herdados do terminal que abriu o
+   OpenCode. Só a presença conta, nunca o valor. Com `CODEX_THREAD_ID` e `OPENCODE_SESSION_ID`
+   presentes ao mesmo tempo, nenhum dos dois resolve sozinho: `HARNESS = unknown`, porque um deles
+   foi herdado e não há sinal verificável de qual.
+3. Sem nenhum dos dois, aplicar a tabela aos marcadores presentes. A presença de `CLAUDECODE`
    basta; `CLAUDE_CODE_ENTRYPOINT` e as variáveis de raiz de plugin precisam estar não vazias.
 
 | marcador de execução | `HARNESS` |
@@ -79,17 +101,20 @@ incluam o contexto de execução verificável.
 | `${CLAUDE_PLUGIN_ROOT}` não vazio | `claude-code` |
 | `${CURSOR_PLUGIN_ROOT}` não vazio | `cursor` |
 | `${CODEX_PLUGIN_ROOT}` não vazio | `codex` |
+| `OPENCODE` igual a `1` | `opencode` |
+| `AI_AGENT` igual a `opencode` | `opencode` |
 
 Se os marcadores presentes apontarem para um único harness, usar esse valor. Se apontarem para
 harnesses diferentes e nenhum marcador de maior precedência resolver o conflito, `HARNESS = unknown`.
 `CLAUDECODE` e `CLAUDE_CODE_ENTRYPOINT` são suficientes para reconhecer o Claude Code; não é
 necessário depender de `${CLAUDE_PLUGIN_ROOT}`. O Cursor continua `unknown` quando nenhum marcador
-verificável do Cursor está presente.
+verificável do Cursor está presente. `AGENT=1`, que o OpenCode também injeta, não identifica produto
+nenhum e não entra na tabela.
 
 O candidato 4 da resolução de `FLUX_ROOT` (marcador `.codex-plugin/plugin.json`) sozinho não
 identifica o harness com confiança: toda instalação da família inclui os três manifests
 (`.claude-plugin/`, `.cursor-plugin/`, `.codex-plugin/`), portanto a presença do arquivo não confirma
-Codex. Os candidatos 4, 5 e 6 não identificam um harness; sem os marcadores acima, `HARNESS` é
+Codex. Os candidatos 4 a 7 não identificam um harness; sem os marcadores acima, `HARNESS` é
 `unknown`.
 
 **`HARNESS_LABEL`** — nome legível do harness para uso em texto público (corpo de PR, rodapé de
@@ -100,6 +125,7 @@ atribuição):
 | `claude-code` | `Claude Code` |
 | `cursor` | `Cursor` |
 | `codex` | `Codex` |
+| `opencode` | `OpenCode` |
 | `unknown` | `AI agent` |
 
 Com `HARNESS = unknown`, o label é `AI agent`: nomear produto não verificado num texto público seria
@@ -190,6 +216,26 @@ expõe**, nesta ordem, parando na primeira que existir:
 1. `/flux:` — plugin com namespace por `:` (Claude Code).
 2. `/flux-` — plugin com namespace achatado por hífen.
 3. `/` — skills registradas sem namespace de plugin.
+
+**Só conta como forma um command invocável que a sessão lista.** A forma existe quando a sessão
+lista um command com aquele nome, isto é, um nome que ela aceita digitado depois de `/`. Um ID de
+skill que só existe para ser carregado por tool nunca conta, mesmo quando tem o mesmo formato de uma
+das formas acima, e um nome que a sessão não lista não conta por dedução. Uma skill conta como
+command para esta regra só quando o nome dela aparece na lista de commands (slash commands) que a
+sessão expõe, e não apenas na lista de skills: é o caso das skills de plugin do Claude Code e do
+Cursor, que aparecem ali como slash commands listados, e por isso `/flux:` e `/flux-` continuam
+resolvendo nesses harnesses como antes. Na dúvida, não conta: sem nenhuma forma valendo, `FLUX_CMD` fica
+`UNAVAILABLE`. A regra não depende de
+`HARNESS`: vale igual com `HARNESS = unknown`, com marcadores em conflito ou com variáveis que
+mudaram de nome.
+
+**O caso do OpenCode.** É o exemplo que motiva a regra. A lista de skills do OpenCode mostra os IDs
+`flux-<verbo>`, que têm o formato de `/flux-` sem que exista command com esse nome, e por isso não
+contam. Os commands que o instalador registra são `/flux/<verbo>`, forma que não está na lista acima
+porque o despacho de um irmão por eles não foi comprovado. Com nenhuma forma valendo, `FLUX_CMD` fica
+`UNAVAILABLE`, como no Codex. A forma `/flux/<verbo>` só aparece em texto impresso para o usuário
+digitar, nas condições de [`opencode-compat.md`](opencode-compat.md), "Elos que despacham irmãos no
+OpenCode".
 
 Vale aqui o mesmo rigor do Passo 3: **resolver não é verificar**. Escrever `/flux:iterate` num
 prompt de subagente sem confirmar que essa forma existe produz a pior falha possível — o subagente
@@ -371,6 +417,14 @@ Tipos de requisito:
 > agente registrado. Declarar essa tentativa como degradação e só anunciar/invocar a fonte que foi
 > realmente lida pelo subagente nativo. As regras abaixo, sobre `subagent_type`, continuam para
 > Claude Code e Cursor.
+>
+> **Exceção OpenCode.** A mesma exceção vale no OpenCode, pelo mesmo motivo: ele não registra os
+> agents que moram em `.claude/agents/`, `.cursor/agents/` e nas raízes do manifesto. O genérico da
+> família é registrado como `flux-pr-reviewer` e segue as regras de `subagent_type` abaixo; um
+> `holistic_reviewer` ou override cujo nome não esteja na lista de agents da sessão segue o
+> adaptador do Codex, com o subagente `general` no papel do subagente nativo. No último degrau de
+> L1, o genérico continua sendo o `flux-pr-reviewer` por nome, não o arquivo lido pelo `general`
+> ([`opencode-compat.md`](opencode-compat.md), "Adaptador de instruções de agente").
 
 Este passo existe porque a falha mais perigosa da família é resolver um nome de agente e invocá-lo
 sem checar se ele existe. Quando isso acontece, ou a invocação falha no meio do trabalho, ou o
@@ -485,13 +539,13 @@ que o banner precisa ser.
 | `kit ambiguo` | N kits, **já filtrados por `provides`** (a contagem é sempre depois do filtro), casaram com o mesmo repo, **e o degrau que ia escolher entre eles foi de fato alcançado** — ambiguidade só é acionável para quem ia escolher, e a cascata de L2 para no primeiro degrau que existir. Sai com a lista dos candidatos (`${FLUX_ROOT}/shared/kit-format.md`) | o elo que **consome** `KIT_ROOTS`: hoje, só o degrau 4 da cascata de L2 (`${FLUX_ROOT}/shared/review-agents.md`), na leitura. **Na escrita: não implementado** (LAB-71) |
 | `kit invalido` | há `flux-kit.json` e ele não vale pela seção "Kit inválido" de `${FLUX_ROOT}/shared/kit-format.md`, que é a fonte única do que invalida — sai com o path e o motivo | o sub-passo **1a-kit** (`${FLUX_ROOT}/shared/review-agents.md`), que roda mesmo quando a cascata de L2 não chega ao degrau do kit. **Na escrita: não implementado** (LAB-71) |
 | `kit nao avaliado` | o casamento daquele kit **dependeria** de `files`/`any_of` — ele não declara `repos`, ou declara e não casou por ele — e não há checkout local para testar. Nunca "casa por arquivo": o que não pôde ser testado não passou nem falhou | idem |
-| `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4, 5 ou 6 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
-| `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) |
+| `kit origem nao consultada` | o degrau 3 do Passo 1d (irmãos de `${FLUX_ROOT}`) foi barrado pela guarda, porque `FLUX_ROOT` veio dos candidatos 4 a 7 — sai com a remediação (`kits` no manifesto), nunca sozinho | o **Passo 1d**, e é o único token de kit que sai de lá: afirmar que uma origem não foi consultada não exige ler arquivo nenhum |
+| `fonte L1 por nome` | `holistic_reviewer` do manifesto é apenas um nome (sem arquivo correspondente legível), logo a fonte de instruções não pôde ser resolvida por ele e L1 caiu para o genérico da família — sai com o nome configurado e o path da fonte que de fato rodou | o Passo 3 do preflight, no runtime Codex (`${FLUX_ROOT}/shared/codex-compat.md`) e no OpenCode quando o nome não está registrado na sessão (`${FLUX_ROOT}/shared/opencode-compat.md`) |
 | `harness nao verificavel` | `HARNESS = unknown`: nenhum marcador identifica um único harness depois da precedência (marcadores ausentes ou em conflito) — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
 | `transporte mcp` | um canal com dois caminhos (`${FLUX_ROOT}/shared/api-first.md`) foi servido pelo MCP em vez da API — sai com o canal e o motivo em grafia fixa: `transporte mcp (linear: sem token \| token nao autentica \| token mal formatado \| alvo nao enxergado \| canario falhou \| leitura falhou \| opt-out)`. `token mal formatado` substitui `token nao autentica` quando a conferência de "Ler o token" acusa aspas ou espaço em volta do valor. Caminho por API não gera token: é o default, e declarar o default é ruído | o elo que aplicou o contrato (`issue`, `build`, `land`) |
 | `versao ilegivel` | `FLUX_VERSION = unknown`: nenhum dos três manifests (`plugin.json`) existe, ou o primeiro que existe está ilegível ou sem o campo `version` — a linha `carimbo:` exibe `unknown` | o Passo 1a-harness |
 | `chain interrompido` | um elo do chain parou por falha, ou deixou decisão sem resposta, e os elos seguintes **não rodaram** — sai com o elo e o motivo, e acompanha o bloco de estado do chain. Usuário que escolhe a saída inócua de um gate **não** gera este token: é decisão, não interrupção | o `flux:chain` (`${FLUX_ROOT}/shared/chain.md`, "Falha no meio") |
-| `pergunta estruturada ausente` | o harness é Codex, `request_user_input` não está disponível na sessão foi aceita sem escolha ou voltou vazia nas três tentativas, e o GATE caiu no menu numerado de `${FLUX_ROOT}/shared/hitl.md`; sai sem motivo adicional. Menu que não coube na ferramenta e sessão headless não geram token: o numerado ali é o contrato, não ausência | o elo que apresenta o gate (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário") |
+| `pergunta estruturada ausente` | o GATE caiu no menu numerado de `${FLUX_ROOT}/shared/hitl.md` por uma das condições que o adaptador do harness marca como geradoras do token, em "Perguntas ao usuário" de `${FLUX_ROOT}/shared/codex-compat.md` ou de `${FLUX_ROOT}/shared/opencode-compat.md`; sai sem motivo adicional. Quais casos geram ou não o token é definido só pelo adaptador: no Codex, e no OpenCode depois da comprovação do round-trip, chamada recusada, menu que não coube na ferramenta e sessão com `gate_signal:` não geram token, porque o numerado ali é o contrato, não ausência; no OpenCode antes da comprovação, toda sessão sem `gate_signal:` gera o token, inclusive menu que não caberia na tool (`${FLUX_ROOT}/shared/hitl.md`, "Fallback quando o round-trip não está comprovado") | o elo que apresenta o gate (`${FLUX_ROOT}/shared/codex-compat.md` ou `${FLUX_ROOT}/shared/opencode-compat.md`, "Perguntas ao usuário") |
 | `gate signal indisponivel` | o bloco `PREFLIGHT RESOLVIDO` da invocação traz `gate_signal: indisponivel (<motivo>)`: a CLI não tem como receber o sinal de gate pendente nesta execução; sai com o motivo que o bloco trouxe, sem reescrever. Campo ausente **não** gera token | ainda não implementado por nenhum elo: quem passar a **ler** o bloco da invocação e puder parar num gate (`${FLUX_ROOT}/shared/hitl.md`, "Execução headless") |
 | `gate signal nao gravado` | o bloco traz `gate_signal: <caminho>` e a gravação do sinal falhou (diretório ausente, sem permissão, rename recusado): sai com o motivo literal do erro, e o gate ficou pendente sem sinal. Não bloqueia o elo | ainda não implementado por nenhum elo: o mesmo que lê `gate_signal` (`${FLUX_ROOT}/shared/hitl.md`, "Execução headless") |
 | `rastro de force-push so no chat` | o elo pode publicar resolução de conflito com `--force-with-lease` (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5) e roda sem board, então o relato do push sai só no resumo da rodada. Declarado no banner inicial, antes de qualquer push. `--dry` e `--no-rebase` não geram o token: não publicam resolução | o `flux:iterate` em perfil sem `VAULT_ROOT` e sem `--parent-board` |

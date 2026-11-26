@@ -481,7 +481,7 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
 3. **Conciliar a atribuição da PR.** Se o motor abriu PR, a main (depois do retorno, não o motor)
    aplica `flux:build@<FLUX_VERSION>` e concilia uma entrada legada `Gerado por: <par-do-motor>` na
    linha `🤖 Generated with ...`, pelo algoritmo de `${FLUX_ROOT}/shared/pr-attribution.md`, com o
-   `HARNESS_LABEL` do preflight (o mesmo para Claude Code, Cursor, Codex ou `AI agent`), no mesmo ciclo
+   `HARNESS_LABEL` do preflight (o mesmo para Claude Code, Cursor, Codex, OpenCode ou `AI agent`), no mesmo ciclo
    de publicação do item 2. Forma ambígua → preservar o body. `pr: null` → nada a conciliar.
    `PR_NUMBER` e `REPO_FULL` vêm da URL devolvida pelo motor; `SCRATCH` é o diretório temporário da
    sessão; `IS_OWN_PR` é o do item 2, reutilizado sem novo `gh api user`. Falso → não carimbar.

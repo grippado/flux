@@ -407,9 +407,11 @@ Ele quer dizer: "achei, mas não pelo caminho normal, confira se é o contexto c
 
 O CLI precisa saber onde estão os arquivos de contrato (`shared/*.md`) para verificar os requisitos duros. A ordem:
 
-1. `$FLUX_HOME`, se definido e existente. Sai como `env:FLUX_HOME`.
-2. As variáveis de plugin do harness (`CLAUDE_PLUGIN_ROOT`, `CURSOR_PLUGIN_ROOT`, `CODEX_PLUGIN_ROOT`).
-3. **Heurística**: varre `~/.claude*` e `~/.cursor` procurando `plugins/cache/flux/flux/<versao>/`, e escolhe a maior versão.
+1. As variáveis de plugin do harness (`CLAUDE_PLUGIN_ROOT`, `CURSOR_PLUGIN_ROOT`, `CODEX_PLUGIN_ROOT`).
+2. O marcador `.codex-plugin/plugin.json` acima do binário (`codex-plugin-marker`) e o diretório dois níveis acima dele, quando tem `shared/` (`two-levels-up`).
+3. `$FLUX_HOME`, se definido e com `shared/`. Sai como `env:FLUX_HOME`. Sem `shared/`, é ignorado com aviso.
+4. Numa sessão OpenCode (`OPENCODE_SESSION_ID` presente e `CODEX_THREAD_ID` ausente), o `source` do manifesto de instalação (`${FLUX_OPENCODE_DIR:-~/.config/opencode}/.flux-install.json`), quando é caminho absoluto com `shared/`. Sai como `opencode-install-manifest`. Manifesto legível com `source` que não vale gera aviso com o remédio: rodar `scripts/install-opencode.sh` de novo.
+5. **Heurística**: varre `~/.claude*` e `~/.cursor` procurando `plugins/cache/flux/flux/<versao>/`, e escolhe a maior versão.
 
 A heurística emite aviso, porque ela pode acertar o cache errado quando você tem mais de uma conta ou config dir:
 

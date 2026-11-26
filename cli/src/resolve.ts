@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from "fs";
-import { join, dirname, basename, resolve as resolvePath } from "path";
+import { join, dirname, basename, isAbsolute, resolve as resolvePath } from "path";
 import { homedir } from "os";
 import * as readline from "readline";
 
@@ -102,7 +102,44 @@ export function resolveFluxRootHeuristic(homeDir?: string): { root: string; sour
   return null;
 }
 
-function resolveFluxRoot(): { root: string; source: string } {
+function isFluxRoot(dir: string): boolean {
+  return existsSync(join(dir, "shared"));
+}
+
+export function resolveFluxRootOpenCode(
+  homeDir?: string,
+  warnings?: string[]
+): { root: string; source: string } | null {
+  if (!process.env["OPENCODE_SESSION_ID"]) return null;
+  if (process.env["CODEX_THREAD_ID"]) return null;
+  const configDir = process.env["FLUX_OPENCODE_DIR"] || join(homeDir ?? homedir(), ".config", "opencode");
+  const manifestPath = join(configDir, ".flux-install.json");
+  let data: unknown;
+  try {
+    data = JSON.parse(readFileSync(manifestPath, "utf-8"));
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") {
+      warnings?.push(
+        `manifesto do OpenCode em ${manifestPath} ilegível (${(e as Error).message}); ` +
+          "rode scripts/install-opencode.sh de novo a partir do checkout"
+      );
+    }
+    return null;
+  }
+  const source = data && typeof data === "object" ? (data as Record<string, unknown>)["source"] : undefined;
+  if (typeof source === "string" && isAbsolute(source) && isFluxRoot(source)) {
+    return { root: source, source: "opencode-install-manifest" };
+  }
+  warnings?.push(
+    `manifesto do OpenCode em ${manifestPath} aponta para ${JSON.stringify(source ?? null)}, que não é raiz do flux; ` +
+      "rode scripts/install-opencode.sh de novo a partir do checkout"
+  );
+  return null;
+}
+
+export function resolveFluxRoot(
+  opts: { homeDir?: string; warnings?: string[] } = {}
+): { root: string; source: string } {
   const candidateEnvs = [
     ["CLAUDE_PLUGIN_ROOT", "env:CLAUDE_PLUGIN_ROOT"],
     ["CURSOR_PLUGIN_ROOT", "env:CURSOR_PLUGIN_ROOT"],
@@ -125,12 +162,18 @@ function resolveFluxRoot(): { root: string; source: string } {
     selfDir = dirname(selfPath);
   }
   const twoUp = resolvePath(selfDir, "..", "..");
-  if (existsSync(join(twoUp, "shared"))) return { root: twoUp, source: "two-levels-up" };
+  if (isFluxRoot(twoUp)) return { root: twoUp, source: "two-levels-up" };
 
   const fluxHome = process.env["FLUX_HOME"];
-  if (fluxHome && existsSync(fluxHome)) return { root: fluxHome, source: "env:FLUX_HOME" };
+  if (fluxHome) {
+    if (isFluxRoot(fluxHome)) return { root: fluxHome, source: "env:FLUX_HOME" };
+    opts.warnings?.push(`FLUX_HOME=${fluxHome} ignorado: não é raiz do flux (falta shared/)`);
+  }
 
-  const heuristic = resolveFluxRootHeuristic();
+  const openCode = resolveFluxRootOpenCode(opts.homeDir, opts.warnings);
+  if (openCode) return openCode;
+
+  const heuristic = resolveFluxRootHeuristic(opts.homeDir);
   if (heuristic) return heuristic;
 
   return { root: "UNAVAILABLE", source: "nenhum" };
@@ -338,6 +381,7 @@ export async function resolveContext(opts: {
   targetPath?: string | null;
   cwd?: string;
   searchRoots?: string[];
+  homeDir?: string;
 }): Promise<ResolvedContext> {
   const cwd = opts.cwd ?? process.cwd();
   const repoSlug = opts.repoSlug ?? null;
@@ -399,7 +443,7 @@ export async function resolveContext(opts: {
 
   const { manifest, path: manifestPath, dir: _manifestDir } = resolveManifestFromCandidates(anchor, warnings);
 
-  const { root: fluxRoot, source: fluxRootSource } = resolveFluxRoot();
+  const { root: fluxRoot, source: fluxRootSource } = resolveFluxRoot({ homeDir: opts.homeDir, warnings });
   if (fluxRootSource === "heuristica-cli") {
     warnings.push("FLUX_ROOT resolvido por heuristica-cli: instalação formal recomendada");
   }

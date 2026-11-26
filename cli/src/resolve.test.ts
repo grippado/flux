@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { resolveContext } from "./resolve.ts";
+import { resolveContext, resolveFluxRootOpenCode } from "./resolve.ts";
 import { buildPrompt, buildCommand, resolveInvocation } from "./prompt.ts";
 import { resolveHarness, UNKNOWN_HARNESS } from "./harness.ts";
 import { SUPPORTED_VERBS, TICKET_PATTERN, LINEAR_URL_PATTERN } from "./index.ts";
@@ -471,5 +471,191 @@ describe("ticket como alvo: fora da v0", () => {
   it("detecta URL do Linear", () => {
     expect(LINEAR_URL_PATTERN.test("https://linear.app/g-lab-s/issue/LAB-126/foo")).toBe(true);
     expect(LINEAR_URL_PATTERN.test("https://github.com/foo")).toBe(false);
+  });
+});
+
+describe("FLUX_ROOT: manifesto do instalador do OpenCode e precedência", () => {
+  const ENV_KEYS = [
+    "CLAUDE_PLUGIN_ROOT",
+    "CURSOR_PLUGIN_ROOT",
+    "CODEX_PLUGIN_ROOT",
+    "FLUX_HOME",
+    "CLAUDECODE",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CODEX_THREAD_ID",
+    "OPENCODE_SESSION_ID",
+    "FLUX_OPENCODE_DIR",
+  ];
+  const saved: Record<string, string | undefined> = {};
+
+  beforeEach(() => {
+    for (const key of ENV_KEYS) {
+      saved[key] = process.env[key];
+      delete process.env[key];
+    }
+  });
+
+  afterEach(() => {
+    for (const key of ENV_KEYS) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
+  });
+
+  function fakeHome(): { home: string; cache: string; checkout: string } {
+    const home = join(tmpDir, "home");
+    const cache = join(home, ".claude", "plugins", "cache", "flux", "flux", "1.54.0");
+    mkdirSync(join(cache, "shared"), { recursive: true });
+    const checkout = join(tmpDir, "checkout", "plugins", "flux");
+    mkdirSync(join(checkout, "shared"), { recursive: true });
+    return { home, cache, checkout };
+  }
+
+  function install(configDir: string, content: unknown): void {
+    mkdirSync(configDir, { recursive: true });
+    const raw = typeof content === "string" ? content : JSON.stringify(content);
+    writeFileSync(join(configDir, ".flux-install.json"), raw);
+  }
+
+  function defaultConfigDir(home: string): string {
+    return join(home, ".config", "opencode");
+  }
+
+  async function resolveIn(home: string) {
+    const cwd = join(tmpDir, "cwd");
+    mkdirSync(cwd, { recursive: true });
+    return resolveContext({ cwd, homeDir: home, searchRoots: [cwd] });
+  }
+
+  it("sem sessão OpenCode, a heurística acha o cache do Claude Code", async () => {
+    const { home, cache, checkout } = fakeHome();
+    install(defaultConfigDir(home), { source: checkout });
+    const ctx = await resolveIn(home);
+    expect(ctx.flux_root_source).toBe("heuristica-cli");
+    expect(ctx.flux_root).toBe(cache);
+  });
+
+  it("numa sessão OpenCode, o manifesto no default ~/.config/opencode vence o cache do Claude Code", async () => {
+    const { home, checkout } = fakeHome();
+    install(defaultConfigDir(home), { source: checkout });
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    const ctx = await resolveIn(home);
+    expect(ctx.flux_root_source).toBe("opencode-install-manifest");
+    expect(ctx.flux_root).toBe(checkout);
+    expect(ctx.warnings).toEqual([]);
+  });
+
+  it("FLUX_HOME válido vence o manifesto do OpenCode", async () => {
+    const { home, checkout } = fakeHome();
+    install(defaultConfigDir(home), { source: checkout });
+    const other = join(tmpDir, "outra-raiz");
+    mkdirSync(join(other, "shared"), { recursive: true });
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    process.env["FLUX_HOME"] = other;
+    const ctx = await resolveIn(home);
+    expect(ctx.flux_root_source).toBe("env:FLUX_HOME");
+    expect(ctx.flux_root).toBe(other);
+  });
+
+  it("FLUX_HOME sem shared/ é ignorado com aviso, e o manifesto resolve", async () => {
+    const { home, checkout } = fakeHome();
+    install(defaultConfigDir(home), { source: checkout });
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    process.env["FLUX_HOME"] = defaultConfigDir(home);
+    const ctx = await resolveIn(home);
+    expect(ctx.flux_root_source).toBe("opencode-install-manifest");
+    expect(ctx.flux_root).toBe(checkout);
+    expect(ctx.warnings.some((w) => w.includes("FLUX_HOME") && w.includes("shared/"))).toBe(true);
+  });
+
+  it("source que é diretório real sem shared/ é ignorado com aviso e remédio", async () => {
+    const { home, cache } = fakeHome();
+    const moved = join(tmpDir, "checkout-velho");
+    mkdirSync(moved, { recursive: true });
+    install(defaultConfigDir(home), { source: moved });
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    const ctx = await resolveIn(home);
+    expect(ctx.flux_root_source).toBe("heuristica-cli");
+    expect(ctx.flux_root).toBe(cache);
+    const warning = ctx.warnings.find((w) => w.includes("manifesto do OpenCode"));
+    expect(warning).toBeDefined();
+    expect(warning).toContain(moved);
+    expect(warning).toContain("scripts/install-opencode.sh");
+  });
+
+  it("source relativo é ignorado com aviso, mesmo que exista a partir do cwd", () => {
+    const { home } = fakeHome();
+    install(defaultConfigDir(home), { source: "relativo" });
+    const base = join(tmpDir, "base");
+    mkdirSync(join(base, "relativo", "shared"), { recursive: true });
+    const previous = process.cwd();
+    process.chdir(base);
+    try {
+      process.env["OPENCODE_SESSION_ID"] = "ses_test";
+      const warnings: string[] = [];
+      expect(resolveFluxRootOpenCode(home, warnings)).toBeNull();
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain("scripts/install-opencode.sh");
+    } finally {
+      process.chdir(previous);
+    }
+  });
+
+  it("manifesto sem source avisa", () => {
+    const { home } = fakeHome();
+    install(defaultConfigDir(home), { skills: [] });
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    const warnings: string[] = [];
+    expect(resolveFluxRootOpenCode(home, warnings)).toBeNull();
+    expect(warnings).toHaveLength(1);
+  });
+
+  it("FLUX_OPENCODE_DIR troca o diretório do manifesto", () => {
+    const { home, checkout } = fakeHome();
+    const custom = join(tmpDir, "opencode-custom");
+    install(custom, { source: checkout });
+    process.env["FLUX_OPENCODE_DIR"] = custom;
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    expect(resolveFluxRootOpenCode(home)).toEqual({ root: checkout, source: "opencode-install-manifest" });
+  });
+
+  it("ignora o manifesto com CODEX_THREAD_ID na mesma sessão, sem aviso", async () => {
+    const { home, cache, checkout } = fakeHome();
+    install(defaultConfigDir(home), { source: checkout });
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    process.env["CODEX_THREAD_ID"] = "thr_test";
+    const ctx = await resolveIn(home);
+    expect(ctx.flux_root_source).toBe("heuristica-cli");
+    expect(ctx.flux_root).toBe(cache);
+    expect(ctx.warnings.some((w) => w.includes("manifesto do OpenCode"))).toBe(false);
+  });
+
+  it("manifesto ilegível é ignorado com aviso e remédio", () => {
+    const { home } = fakeHome();
+    install(defaultConfigDir(home), "{");
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    const warnings: string[] = [];
+    expect(resolveFluxRootOpenCode(home, warnings)).toBeNull();
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain(".flux-install.json");
+    expect(warnings[0]).toContain("scripts/install-opencode.sh");
+  });
+
+  it("manifesto ausente não avisa", () => {
+    const { home } = fakeHome();
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    const warnings: string[] = [];
+    expect(resolveFluxRootOpenCode(home, warnings)).toBeNull();
+    expect(warnings).toEqual([]);
+  });
+
+  it("CLAUDECODE na mesma sessão OpenCode não bloqueia o manifesto", async () => {
+    const { home, checkout } = fakeHome();
+    install(defaultConfigDir(home), { source: checkout });
+    process.env["OPENCODE_SESSION_ID"] = "ses_test";
+    process.env["CLAUDECODE"] = "1";
+    const ctx = await resolveIn(home);
+    expect(ctx.flux_root_source).toBe("opencode-install-manifest");
+    expect(ctx.flux_root).toBe(checkout);
   });
 });

@@ -28,7 +28,7 @@ Comandos:
   start        [--slug S] [--cli-version V]                       imprime o run_id
   stage-start  --run ID --verb V [--writer cli|script|prose]
                [--session-id S] [--target T] [--retry-of N]
-               [--harness-value claude-code|cursor|codex|unknown]
+               [--harness-value claude-code|cursor|codex|opencode|unknown]
                [--harness-source cli-launch|default|plugin-root-env|unknown]
                [--cap-hint H] [--cap-missing nome:hard|soft]...
                [--cap-degradation TEXTO]...                      imprime a sequence (NN)
@@ -462,7 +462,7 @@ cmd_stage_start() {
     require_run
     [[ "$VERB" =~ ^[a-z]+$ ]] || die "$EX_USAGE" "--verb inválido ou ausente."
     case "$WRITER" in cli | script | prose) ;; *) die "$EX_INVALID" "--writer inválido: $WRITER" ;; esac
-    case "$HARNESS_VALUE" in claude-code | cursor | codex | unknown) ;; *) die "$EX_INVALID" "--harness-value inválido: $HARNESS_VALUE" ;; esac
+    case "$HARNESS_VALUE" in claude-code | cursor | codex | opencode | unknown) ;; *) die "$EX_INVALID" "--harness-value inválido: $HARNESS_VALUE" ;; esac
     case "$HARNESS_SOURCE" in cli-launch | default | plugin-root-env | unknown) ;; *) die "$EX_INVALID" "--harness-source inválido: $HARNESS_SOURCE" ;; esac
     [ -z "$SESSION_ID" ] || [[ "$SESSION_ID" =~ ^[a-z0-9]+-[0-9a-f]{8}$ ]] || die "$EX_INVALID" "--session-id inválido: $SESSION_ID"
     [ -z "$TARGET" ] || reject_abs_path "--target" "$TARGET"

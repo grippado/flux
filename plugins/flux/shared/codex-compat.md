@@ -118,7 +118,8 @@ auditável é o caminho da fonte efetivamente lida. Assim, um manifesto que decl
 banner declara a configuração indisponível e, quando presente, o `pr-reviewer.md` genérico é a
 L1 que realmente rodou.
 
-Esta é uma exceção limitada ao runtime Codex. Não criar cópias, symlinks, registros artificiais nem
+Esta exceção vale no runtime Codex e, nas condições de
+[`opencode-compat.md`](opencode-compat.md), "Adaptador de instruções de agente", no OpenCode. Não criar cópias, symlinks, registros artificiais nem
 arquivos `commands/` para simular a descoberta dos outros harnesses; Claude Code e Cursor preservam
 exatamente sua resolução por `subagent_type`.
 

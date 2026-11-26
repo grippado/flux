@@ -19,7 +19,8 @@ acontece.
 
 Todo gate nasce de uma única `GateSpec`, montada pelo elo antes de qualquer chamada ao harness. A
 especificação é o contrato entre quem conhece o estado do trabalho e quem só o apresenta: Claude,
-Codex e o fallback numerado **renderizam a mesma spec**, nunca remontam um menu abreviado próprio.
+Codex, OpenCode e o fallback numerado **renderizam a mesma spec**, nunca remontam um menu abreviado
+próprio.
 
 ```text
 GateSpec {
@@ -49,8 +50,8 @@ GateSpec {
    ou descrição incompatível, não renderizar ação externa: abrir apenas uma spec segura para
    esclarecer o estado ou encerrar sem agir.
 4. Só depois dessa validação o elo escolhe o renderer. O renderer não pode acrescentar, remover,
-   reordenar, resumir ou inferir opções. Uma opção automática da interface do Codex não pertence à
-   `GateSpec` e não entra no rastro do Flux.
+   reordenar, resumir ou inferir opções. Uma opção automática da interface do Codex, ou o campo de
+   resposta livre que o OpenCode acrescenta, não pertence à `GateSpec` e não entra no rastro do Flux.
 
 ### Registrar antes e depois
 
@@ -110,9 +111,10 @@ quando o round-trip estiver comprovado na sessão atual: a pergunta e as opçõe
 escolha dela retorna ao mesmo contexto principal. A mera disponibilidade de uma ferramenta, a
 aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse round-trip.
 
-- Use `AskUserQuestion` (Claude Code, Cursor) ou `request_user_input` (Codex) só quando esse
-  round-trip estiver comprovado. A comprovação e as condições de queda de cada harness vivem em
-  `${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário".
+- Use `AskUserQuestion` (Claude Code, Cursor), `request_user_input` (Codex) ou `question`
+  (OpenCode) só quando esse round-trip estiver comprovado. A comprovação e as condições de queda de
+  cada harness vivem em "Perguntas ao usuário" de `${FLUX_ROOT}/shared/codex-compat.md` e de
+  `${FLUX_ROOT}/shared/opencode-compat.md`; no OpenCode, o estado da comprovação mora nesse arquivo.
 - O Codex acrescenta sozinho a opção "None of the above" com campo de notas ao menu de
   `request_user_input`. Não declará-la no menu: a saída inócua continua sendo a última opção
   declarada.
@@ -128,7 +130,7 @@ aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse 
 
 ## Fallback quando o round-trip não está comprovado
 
-`AskUserQuestion` e `request_user_input` são tools do harness, não uma garantia da linguagem nem da interface. Quando a
+`AskUserQuestion`, `request_user_input` e `question` são tools do harness, não uma garantia da linguagem nem da interface. Quando a
 sessão não oferece o mecanismo ou o round-trip não está comprovado, o gate **não desaparece** — muda
 de forma:
 
@@ -144,6 +146,10 @@ de forma:
    ausente, aceita sem escolha ou vazia nas três tentativas gera `pergunta estruturada ausente`; menu que não cabe
    na ferramenta e sessão headless seguem o fallback numerado sem esse token, pois esses casos são
    tratados como caminhos esperados pelo adaptador (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
+   No OpenCode, as condições do token estão em `${FLUX_ROOT}/shared/opencode-compat.md`, "Perguntas
+   ao usuário". Enquanto o round-trip da tool `question` não estiver comprovado, todo gate de sessão
+   sem `gate_signal:` gera o token, inclusive menu que não caberia na tool e `opencode run`; depois
+   da comprovação, a semântica passa a ser a do Codex.
 
 > **A degradação é de forma, nunca de rigor.** Um gate que vira "escolhi a recomendada porque não
 > tinha como perguntar" é pior do que não ter gate nenhum: produz uma ação não autorizada com

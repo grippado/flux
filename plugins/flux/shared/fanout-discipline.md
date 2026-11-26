@@ -11,6 +11,9 @@
 > paralelo, com prompt autocontido, retorno curto e nenhum gate no subagente. Ver
 > [`codex-compat.md`](codex-compat.md) para o contrato completo.
 >
+> **Adaptador OpenCode:** no OpenCode, `Task tool` significa a tool `subagent`, com as mesmas regras;
+> ver [`opencode-compat.md`](opencode-compat.md), "Delegação".
+>
 > É par simétrico de [`worktree-discipline.md`](worktree-discipline.md) — aquele isola a **escrita
 > em disco**, este isola o **consumo de contexto**. E é o braço operacional de
 > [`context-budget.md`](context-budget.md): o budget explica o custo, este documento diz o que fazer.
