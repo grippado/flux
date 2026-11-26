@@ -310,8 +310,9 @@ no 1b-bis, e é lá que ele se mantém. Não repetir aqui.
 - **Proveniência obrigatória.** Gravar no índice o `sha256` do conjunto de origem
   (`l3.mirror.synced_from_sha256`), calculado pela receita do hash do conjunto (1b do
   `${FLUX_ROOT}/shared/review-agents.md`) sobre o diretório de agents do repo. Receita vazia na hora
-  de gravar: não gravar o `synced_from_sha256` (nunca `""`) e declarar a ausência no relatório. É o que permite a um elo declarar a degradação `L3 stale`
-  (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) em vez de rodar uma cópia velha em silêncio.
+  de gravar: ver o 1b do `${FLUX_ROOT}/shared/review-agents.md`. É o que permite a um elo declarar a
+  degradação `L3 stale` (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) em vez de rodar uma cópia
+  velha em silêncio.
 - **Re-executar é idempotente**: origem inalterada ⇒ nada a escrever, e diga isso em uma linha.
 
 **A pergunta que o usuário precisa responder antes**, porque a resposta muda o que fica na máquina
