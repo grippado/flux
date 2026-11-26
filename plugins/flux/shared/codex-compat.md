@@ -48,12 +48,13 @@ No Codex, a pergunta estruturada é a ferramenta nativa `request_user_input`. El
 feature `default_mode_request_user_input` está ligada (`under development` e desligada por padrão no
 Codex; ligar é configuração da máquina, não do flux).
 
-Quando `request_user_input` estiver disponível na sessão, a main renderiza a `GateSpec` validada de
-`hitl.md` para todo GATE, com uma question single-select por gate, e espera a escolha retornar à
-mesma sessão antes de agir. O gate
-continua na main: não delegar a um subagente. O round-trip está comprovado para o Codex 0.161.0 ou
-superior com a feature ligada; uma resposta com escolha na própria sessão é a confirmação de que ele
-funciona ali, e não se exige prova adicional antes da primeira chamada.
+**Enquanto o Codex estiver na linha de auto-resolução**, todo gate segue `hitl.md`, "Auto-resolução
+por tempo", pela evidência de "Auto-resolução no Codex (incidente de 2026-11-25)", abaixo. O gate
+continua na main: não delegar a um subagente. O uso da ferramenta descrito abaixo (round-trip,
+respostas vazias e as quedas que dependem de chamá-la) só volta a valer quando uma medição registrada
+na tabela de `hitl.md`, "Auto-resolução por tempo", tirar o Codex dessa linha: aí a main renderiza a
+`GateSpec` validada de `hitl.md`, com uma question single-select por gate, e espera a escolha
+retornar à mesma sessão antes de agir.
 
 Rótulos, descrições, ordem, recomendação e saída inócua vêm literalmente da spec. O Codex pode
 acrescentar uma opção automática de campo livre, mas ela não é opção do Flux e não é registrada como
@@ -62,11 +63,14 @@ tal no artefato ou board.
 Round-trip comprovado em 2026-10-08, no Codex 0.161.0 com
 `-c features.default_mode_request_user_input=true`: a ferramenta desenhou o menu com seta e descrição
 por opção, e a escolha voltou à mesma sessão ("Questions 1/1 answered"). Esta comprovação vale para
-essa versão com a feature ligada e se estende a versões posteriores até um caso em contrário. Não foi apurado o comportamento em `codex exec` headless nem com menus de 5 ou mais opções.
+essa versão com a feature ligada. A extensão a versões posteriores caiu com o caso em contrário
+registrado em "Auto-resolução no Codex (incidente de 2026-11-25)". Não foi apurado o comportamento em `codex exec` headless nem com menus de 5 ou mais opções.
 
 Cai no fallback numerado de [`hitl.md`](hitl.md), com as opções e descrições completas e espera de
 escolha explícita no chat, quando qualquer destas condições valer:
 
+- o harness está na linha de auto-resolução (`hitl.md`, "Auto-resolução por tempo"), mesmo com a
+  ferramenta disponível: vale para todo gate;
 - a ferramenta não está disponível na sessão (feature desligada ou versão anterior à 0.161.0);
 - a chamada é aceita sem devolver escolha nenhuma (por exemplo, `{"accepted":true}` da variante
   assíncrona): isso não comprova round-trip, e o gate cai no numerado na hora;
@@ -75,16 +79,29 @@ escolha explícita no chat, quando qualquer destas condições valer:
 - a sessão é headless (o bloco de preflight traz `gate_signal:`): vale o sinal `flux-gate/1` de
   `hitl.md`, "Execução headless".
 
-**Resposta vazia não é recusa.** A chamada espera a pessoa por um limite fixo (cerca de 120 segundos
-no Codex 0.161.0, sem chave de configuração conhecida; acompanhamento em
+**Resposta vazia não é recusa.** No Codex 0.161.0 com a feature ligada, a chamada espera a pessoa por
+um limite fixo (cerca de 120 segundos, sem chave de configuração conhecida; com auto-resolução, ver
+"Auto-resolução no Codex (incidente de 2026-11-25)"; acompanhamento em
 [openai/codex#37472](https://github.com/openai/codex/issues/37472)) e devolve `{"answers":{}}` quando ele expira. Isso
 só diz que a pessoa ainda não respondeu: repetir a mesma pergunta estruturada, sem alterar texto nem
 opções, até três vezes, e só então cair no numerado. Nenhuma ação acontece sem escolha explícita, em
 nenhuma das tentativas.
 
-Quando cair no numerado porque a pergunta estruturada está ausente, foi aceita sem escolha ou voltou
-vazia nas três tentativas, declarar `pergunta estruturada ausente` em `degradacoes:`
-(`${FLUX_ROOT}/shared/preflight.md`, Passo 5).
+O token de cada queda, e a exclusividade entre `pergunta estruturada ausente` e `gate digitado`,
+vivem só no `${FLUX_ROOT}/shared/preflight.md`, Passo 5.
+
+#### Auto-resolução no Codex (incidente de 2026-11-25)
+
+Em 2026-11-25, um gate de escrita renderizado por `request_user_input` apareceu com o rodapé
+`auto-resolves in 30s` e o cursor sobre a opção 1. A run foi encerrada à mão antes do prazo, e nada
+foi postado. A versão do Codex e a configuração que liga esse prazo não foram apuradas, e o que a
+pergunta devolve ao expirar também não. O contrato trata o pior caso como o real: ao expirar, o Codex
+devolve a opção em foco como se fosse a escolha da pessoa, e a resposta não carrega marca que a
+distinga de um gesto humano.
+
+Por isso **o Codex é harness com auto-resolução** até que uma medição registrada na tabela de
+`hitl.md`, "Auto-resolução por tempo", mostre o contrário. A skill não enxerga o rodapé nem o prazo,
+então não tenta detectá-lo. Todo gate segue `${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo".
 
 ### Adaptador de instruções de agente
 

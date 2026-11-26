@@ -524,6 +524,9 @@ Mostre no chat o plano resumido (vereditos + ações de threads abertas e resolv
   4. `Cancelar` — descrição: `Não posta nada. Os arquivos alterados ficam no working tree pra você inspecionar ou reverter.`
 
 > A opção recomendada é a primeira, com `(Recomendado)` no label. Com `--auto`, assuma a opção 1 sem perguntar.
+> O renderer dos dois menus deste passo e do GATE do 9a segue `${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo".
+> A opção 1 assumida pelo `--auto` vem de flag explícita (renúncia do usuário ou procuração do
+> `flux:land`) ou do gate da 1ª passada do watch, nunca de auto-resolução do harness.
 
 **`IS_OWN_PR == false`** (modo `no-push` por default — RN-01): sem escrita já concedida nesta rodada
 (ver "Pedido explícito de escrita" abaixo), o GATE **não oferece nem executa commit/push como caminho
@@ -753,8 +756,8 @@ impede avisar o mesmo revisor duas vezes no mesmo `round`. Rascunho não salvo (
 `sem-rascunho`) não grava `slackNotified`: o próximo tick tenta de novo, e o relatório diz o motivo uma vez.
 
 Para cada grupo não vazio cujo intent exista num canal do diretório, na passada interativa, abrir **um GATE**
-(`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado no fallback de
-`${FLUX_ROOT}/shared/codex-compat.md`), single-select, "Avisar {revisores} no canal de PR?":
+(`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; renderer conforme `${FLUX_ROOT}/shared/hitl.md`,
+"Auto-resolução por tempo"), single-select, "Avisar {revisores} no canal de PR?":
 - `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório (com um canal só, é a
   primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada).
 - `Agora não`.
