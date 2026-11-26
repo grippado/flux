@@ -39,7 +39,8 @@ exatamente o que ele não olhava.
 ## Quando aplicar
 
 - **Sempre** que o fluxo puder escrever na branch: `flux:iterate` (1ª passada **e** todo tick do
-  watch, porque a base anda enquanto o watch dorme), `flux:land` por PR do lote.
+  watch, porque a base anda enquanto o watch dorme), `flux:land` por PR do lote. Pilha de PRs
+  defasada sem conflito é outro protocolo: `${FLUX_ROOT}/shared/stack-propagation.md`.
 - **Nunca** em fluxo read-only: `flux:peek`, `flux:review`, `flux:iterate --dry`. Nesses, o estado de
   integração é **reportado** (é informação de primeira ordem sobre a PR) e nada é resolvido.
 
@@ -89,7 +90,10 @@ devolve. Classificar pelos **arquivos em conflito** e pela natureza da sobreposi
     versão **mais alta**, e nunca se regride o que já está na base;
   - arquivos de append cronológico (`CHANGELOG.md`, changelog de docs) → **preservar as duas
     contribuições** na ordem que o arquivo já usa, sem descartar entrada de ninguém;
-  - imports/barrel files, blocos adicionados em pontas opostas do mesmo arquivo.
+  - imports/barrel files, blocos adicionados em pontas opostas do mesmo arquivo;
+  - doc de instrução (`CLAUDE.md`, `AGENTS.md`) em que os dois lados **só acrescentaram** parágrafos
+    no mesmo ponto, sem editar nem apagar linha existente → **preservar os dois**, o da base primeiro.
+    Bastou um lado editar uma linha que o outro também tocou, é semântico.
 - **Semântico** — duas mudanças de intenção sobre a mesma lógica: mesma função, mesma condição, mesmo
   teste, migração de schema, contrato de API. **Nunca resolver sozinho**, nem em `--auto`, nem no
   watch. Registrar bloqueio e devolver ao usuário com os arquivos e o que cada lado fez.
@@ -116,6 +120,12 @@ Escolher **`merge origin/$BASE`** (e não rebase) quando qualquer uma valer:
 
 Em qualquer um desses casos, rebase é escolha errada mesmo que o repo prefira histórico linear: a
 linearidade se resolve no squash do merge, o trabalho perdido não se resolve.
+
+**Exceção: propagação em pilha.** Quando quem reescreve é o protocolo de
+`${FLUX_ROOT}/shared/stack-propagation.md`, a primeira e a terceira condições acima **não** forçam
+merge: a pilha é reescrita inteira na mesma rodada, então nenhuma PR de cima fica órfã, e o custo das
+threads virarem `isOutdated` é aceito (decisão D2 da LAB-438). A segunda condição continua valendo
+sem exceção: branch de terceiro ou coautorada bloqueia a propagação da pilha inteira.
 
 ## 4. Resolução (em subagente, na worktree, sem push)
 

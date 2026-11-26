@@ -22,6 +22,7 @@ Não confundir com os comandos que **planejam e criam** PRs a partir de tasks: e
 **Resolução de contexto:** `${FLUX_ROOT}/shared/flux-context.md`
 **Disciplina de worktree (o iterate de cada PR escreve sempre em worktree):** `${FLUX_ROOT}/shared/worktree-discipline.md`
 **Gate de integração com a base (conflito bloqueia merge-ready):** `${FLUX_ROOT}/shared/merge-conflict-gate.md`
+**Propagação em pilha (ajuste num slice levado aos de cima, numa rodada):** `${FLUX_ROOT}/shared/stack-propagation.md`
 **Diagnóstico de quality gates externos via API (consultar antes de reportar go/no-go com CI vermelho):** `${FLUX_ROOT}/shared/quality-gate-api.md`
 **Disciplina de fan-out (OBRIGATÓRIA — uma PR = um subagente; nada pesado na main):** `${FLUX_ROOT}/shared/fanout-discipline.md`
 **Orçamento de contexto (OBRIGATÓRIO — delivery é multi-repo, é o comando que mais sofre):** `${FLUX_ROOT}/shared/context-budget.md`
@@ -59,6 +60,10 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:land` n
 | `/flux:land ... --once` | Uma passada só (desliga o watch consolidado) |
 | `/flux:land ... --solo` | Pula os specialists de regressão; roda só o holístico |
 | `/flux:land ... --board <path>` | Assume/atualiza uma nota-board existente em vez de criar nova |
+| `/flux:land ... --restack` | Propaga agora, pela pilha inteira, o que mudou num slice (fase 4a) e segue o fluxo normal; com `--once`, propaga, relata e sai |
+| `/flux:land ... --no-restack` | Desliga a propagação em pilha: a defasagem é detectada e reportada no painel, nenhuma branch é reescrita |
+
+> **Propagação em pilha é o default** (desliga com `--no-restack`): numa entrega empilhada, o land reescreve as branches de cima com `--force-with-lease` quando detecta um slice de baixo à frente delas, sem gate humano por branch (fase 4a). Invocar o land sem `--no-restack` é a autorização desse push.
 
 > **Watch consolidado é o default** (desliga com `--once`). Após a 1ª passada, o comando fica vivo num único loop varrendo TODAS as PRs da entrega (CI + novas rodadas do bot), mantendo cada uma merge-ready e o board atualizado, até a entrega assentar. `--solo` vale em todas as rodadas.
 
@@ -71,6 +76,7 @@ As flags podem aparecer em qualquer posição e combinadas.
 3. **Abrir o board** no vault — anunciar o caminho no chat desde o início; atualizar a cada passo relevante (não acumular updates para o final).
 4. **Montar** o grafo de ordem + locks de merge → refletir no painel.
 5. **Validar** regressão de subida de cada PR (contra o código real de `main`) → refletir no painel.
+5b. **Propagar** cada pilha defasada (ou todas, com `--restack`) **despachando um subagente por pilha** (fase 4a), antes de iterar as PRs dela.
 6. **Iterar** cada PR acionável **despachando um subagente por PR** (que roda `/flux:iterate --auto --once` lá dentro) para deixá-la merge-ready → atualizar a linha dela no painel com o retorno curto de cada subagente.
 7. **Pedido de review no Slack** (gatilho: PR sai de draft) → perguntar ao usuário onde postar e registrar no board.
 8. **Consolidar** o go/no-go no board.
@@ -136,8 +142,8 @@ Se o `pwd` não estiver sob `WORKSPACE_ROOT`, avise para `cd` no workspace antes
 **Parse de flags:**
 
 ```bash
-ONCE=false; SOLO=false; BOARD=""
-# separar targets (issues ou URLs de PR) das flags --once / --solo / --board
+ONCE=false; SOLO=false; BOARD=""; RESTACK=false; NO_RESTACK=false
+# separar targets (issues ou URLs de PR) das flags --once / --solo / --board / --restack / --no-restack
 ```
 
 ### 1. Descoberta das PRs
@@ -294,6 +300,34 @@ retorno; se precisar de verificação, despacha outro subagente.
 
 > Herdam do iterate: verificação contra código real, formatação markdown das réplicas, convenção de commit por repo (atenção ao commitlint: alguns repos rejeitam emoji prefix), e o guardrail de thread humana `needs-discussion`.
 
+### 4a. Propagação em pilha (detectada, ou forçada com `--restack`)
+
+Quando a entrega é uma pilha (PRs cujo `baseRefName` é o `headRefName` de outra PR da entrega), um
+ajuste num slice de baixo **não** chega aos de cima pela fase 4: o iterate só integra a base quando a
+PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo inteiro está em
+`${FLUX_ROOT}/shared/stack-propagation.md`; o que é do land:
+
+- **Detectar na main**, a cada passada e a cada tick: o teste de ancestralidade da seção 1 do shared,
+  aresta por aresta, comparando também com o grafo guardado no estado (pai que mergeou e saiu da
+  aresta). É metadado barato, não leitura de código. `--restack` trata toda pilha da entrega como
+  defasada, mesmo que o teste não acuse. `--no-restack` para aqui: a aresta defasada vai para o
+  painel como `pilha defasada` e a PR de cima entra em `hold`.
+- **Manter o `stackedOn` de cada PR filha** no estado: em toda leitura em que a aresta passa no teste,
+  gravar o tip atual do pai. É o limite do `--onto` (seção 3 do shared), e é o único jeito de propagar
+  um pai que foi reescrito ou squash-mergeado sem depender do reflog do clone.
+- **Despachar um subagente por pilha**, não por PR. O prompt carrega a pilha em ordem, o `stackedOn`
+  de cada PR filha, o `retainedResolutionSha` de cada branch quando houver, o quality gate do repo e o
+  contrato de retorno da seção 7 do shared, literal.
+- **Pilhas de repos diferentes vão em paralelo**, num único bloco. No tick em que uma pilha propaga,
+  nenhuma PR dela recebe iterate: o subagente da propagação é o único escritor daquelas worktrees.
+  Iterate das PRs da pilha volta no tick seguinte, sobre a pilha já propagada.
+- **Gravar o retorno**: cada branch atualiza sua linha do painel (`publicada`, `retida` ou
+  `bloqueada`, mais a validação: `nao-validada` aparece por nome, nunca some), `lastHeadSha` vira o
+  `shaDepois`, e o evento entra na Timeline com o tipo `conflito` quando houve conflito resolvido, senão
+  `push`. Branch `retida` ou `bloqueada` entra em **`hold`** e não recebe `go`.
+- **Go/no-go**: uma branch `nao-validada` pode receber `go` (decisão D1 da LAB-438: só o topo é
+  validado), mas o go/no-go diz por nome quais branches subiram sem gate próprio.
+
 ### 4b. Pedido de review no Slack (gatilho: PR sai de draft)
 
 **Gatilho:** em qualquer tick, se uma PR tinha `isDraft: true` na última leitura e agora está `isDraft: false` — seja porque o usuário tirou o draft manualmente, seja porque o `/flux:iterate` chegou nesse estado. Não dispara para PR que nasceu já `ready for review` fora de um tick observado; nesse caso, ofereça a mesma pergunta como parte da confirmação da fase 4, se o usuário não tiver pedido review ainda.
@@ -352,6 +386,7 @@ Após postar, registrar o canal usado e o link da mensagem no board (Timeline, t
   "prs": [
     { "repo": "<ORG>/backoffice-bff", "number": 1054, "worktree": "...",
       "lastHeadSha": "", "lastCiConclusion": "null", "resolvedThreadIds": [], "iterateRounds": 0, "verdict": "safe-solo",
+      "headRefName": "", "baseRefName": "main", "stackedOn": null, "retainedResolutionSha": null,
       "wasDraft": true, "reviewRequestedAt": null, "reviewRequestedChannel": null }
   ],
   "order": ["#1054", "#8057", "#1157"],
@@ -378,6 +413,10 @@ Cada **tick**:
    go/no-go que diz "CI vermelho, causa desconhecida" quando a causa é consultável é um go/no-go
    pior do que precisa ser. Sem manifesto/token: degradação declarada por `quality-gate-api.md`,
    o go/no-go inclui o aviso e reporta CI vermelho com link do log.
+2b. **Pilha defasada** (teste da seção 1 de `${FLUX_ROOT}/shared/stack-propagation.md`, aresta por
+   aresta) → despachar o subagente de propagação daquela pilha (fase 4a) e **pular o passo 3** para as
+   PRs dela neste tick. Um push num slice de baixo é o caso típico: o próximo tick já o propaga, sem
+   esperar conflito nem thread.
 3. Se há delta de threads numa PR → despachar **um subagente** para rodar `${FLUX_CMD}iterate <url> --auto --once --parent-board "<path deste board>"` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
 3b. **Checar transição de draft** (compare `isDraft` atual com `wasDraft` salvo). Se alguma PR virou `ready for review` neste tick, dispare a pergunta do passo 4b (agrupando por ticket) antes de seguir. Atualize `wasDraft` para o valor atual de todas as PRs.
 4. Se algum head/base mudou → recomputar ordem/regressão afetada (fases 2–3) só do que mudou.
@@ -386,13 +425,14 @@ Cada **tick**:
 7. Reagendar com `ScheduleWakeup` (mesmo input do comando), cadência pelo agregado:
    - Qualquer PR com **CI rodando** ou **rodada recém-fechada** → **270s**.
    - Todas verdes + zero threads (quiet) → **1200s**.
+   - Propagação em pilha recém-publicada → **270s** (o CI das branches reescritas está rodando).
    - Nunca 300s. `reason` específico (ex.: `"delivery cpu4335: #1157 CI rodando, re-checo em 270s"`).
 
 **Condições de saída (encerrar o watch):**
 - Todas as PRs `MERGED`/`CLOSED`.
 - **Assentou**: todas merge-ready (CI verde + zero threads + **`mergeable == MERGEABLE`** + veredito `safe`/`needs-order` resolvido) por **2 ticks** (`quietTicks >= 2`) → emitir **go/no-go final** com a ordem e encerrar.
 
-> **Conflito com a base é `no-go` por PR, não detalhe de merge.** O `mergeable` já vem na descoberta (fase 1); uma PR `CONFLICTING` **não** é merge-ready, e o gate quem aplica é o `${FLUX_CMD}iterate` da fase 4 dentro do subagente daquela PR (passo 2b dele, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`). O land não resolve conflito por conta própria. O `${FLUX_CMD}iterate` despachado aqui roda sem `--no-rebase`, então a resolução mecânica sai publicada nas condições da seção 5 do shared, sem gate humano; o relato chega pelos campos `headShaAntes`/`headShaDepois`, `revListAntes`/`revListDepois`, `arquivosResolvidos` e `gates` do contrato da fase 4 e é gravado no board do land, que sempre existe (o Step 0 cai em `--board` ou cria o board no `pwd` quando não há `VAULT_ROOT`). O land lê esse retorno, marca a PR como `hold` no painel quando o gate ficou em modo degradado, e nunca emite `go` para PR conflitante. Numa entrega, isso é ainda mais crítico que numa PR só: a ordem de merge existe justamente porque mergear a #A muda a base da #B, então uma #B já conflitante tende a piorar a cada merge do lote.
+> **Conflito com a base é `no-go` por PR, não detalhe de merge.** O `mergeable` já vem na descoberta (fase 1); uma PR `CONFLICTING` **não** é merge-ready, e o gate quem aplica é o `${FLUX_CMD}iterate` da fase 4 dentro do subagente daquela PR (passo 2b dele, protocolo em `${FLUX_ROOT}/shared/merge-conflict-gate.md`). O land não resolve conflito por conta própria; a única outra mão que reescreve branch da entrega é o subagente de propagação da fase 4a, e só para pilha defasada. O `${FLUX_CMD}iterate` despachado aqui roda sem `--no-rebase`, então a resolução mecânica sai publicada nas condições da seção 5 do shared, sem gate humano; o relato chega pelos campos `headShaAntes`/`headShaDepois`, `revListAntes`/`revListDepois`, `arquivosResolvidos` e `gates` do contrato da fase 4 e é gravado no board do land, que sempre existe (o Step 0 cai em `--board` ou cria o board no `pwd` quando não há `VAULT_ROOT`). O land lê esse retorno, marca a PR como `hold` no painel quando o gate ficou em modo degradado, e nunca emite `go` para PR conflitante. Numa entrega, isso é ainda mais crítico que numa PR só: a ordem de merge existe justamente porque mergear a #A muda a base da #B, então uma #B já conflitante tende a piorar a cada merge do lote.
 - Limite de segurança: `>~6h` sem assentar → encerrar avisando (provável discussão humana/CI cronicamente vermelho).
 - Usuário interrompe.
 
