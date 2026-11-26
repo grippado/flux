@@ -29,11 +29,22 @@ por PR) é o que transforma uma operação de segundos numa de dezenas de minuto
   defasada (abaixo) dispara a propagação daquela pilha.
 - **Uma tentativa por par de SHAs.** Se a propagação de uma aresta terminou sem publicá-la (bloqueio,
   abort, folha vermelha), o elo guarda os tips remotos de pai e filho de depois da
-  rodada, e não redespacha aquela aresta enquanto os dois forem os mesmos, nem com o gatilho
-  explícito repetido. É a regra "uma tentativa por SHA da base" da seção 5 do
-  `merge-conflict-gate.md`, aplicada à aresta. Lease recusado **não** consome a
+  rodada, e não redespacha aquela aresta enquanto os dois forem os mesmos. A reentrada pelo
+  `ScheduleWakeup` do watch, que repete o mesmo input (inclusive o gatilho explícito), não libera
+  nada. É a regra "uma tentativa por SHA da base" da seção 5 do
+  `merge-conflict-gate.md`, aplicada à aresta, mas a chave é o par `{paiSha, filhoSha}`, não o SHA
+  da base. Lease recusado **não** consome a
   tentativa, como no gate: quem andou foi a branch, e a próxima rodada tenta de novo depois do
   refetch. No `flux:land`, o campo é `restackAttemptedAt`.
+- **Zerar a guarda: só uma invocação nova do usuário.** Junto com a guarda, o elo grava o id da
+  invocação que a gravou, e o gatilho explícito só zera a guarda da pilha quando a invocação atual é
+  diferente dessa. O id é o `lastInvocationId` do estado do elo, gravado no início de cada passada, e
+  vem da mesma fonte que o preflight usa para o run (`${FLUX_ROOT}/shared/preflight.md`, Passo
+  1a-run): `LAUNCHER_RUN_ID`, senão `SESSION_ID`; sem os dois, o timestamp da invocação. É o caminho
+  para pedir nova tentativa depois de um destravamento manual que não muda tip remoto (limpar
+  `worktree-retida`, publicar à mão), sem empurrar commit artificial. Como o id é o da sessão,
+  repetir o gatilho explícito na mesma sessão não zera a guarda: o destrave pede uma invocação de
+  outra sessão ou de outro run do lançador.
 - **Sem despacho possível**, porque o `FLUX_CMD` não é utilizável (`UNAVAILABLE`, o caso do Codex)
   ou porque não há como despachar subagente: a defasagem é só **reportada** como `pilha defasada`, a
   PR de cima entra em `hold` e nada é reescrito. Nunca propagar na main como consolo (seção 7). O elo

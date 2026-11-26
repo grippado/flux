@@ -60,7 +60,7 @@ nome do elo na primeira linha usa `${FLUX_CMD}` já substituído (`/flux:land` n
 | `/flux:land ... --once` | Uma passada só (desliga o watch consolidado) |
 | `/flux:land ... --solo` | Pula os specialists de regressão; roda só o holístico |
 | `/flux:land ... --board <path>` | Assume/atualiza uma nota-board existente em vez de criar nova |
-| `/flux:land ... --restack` | Propaga agora, pela pilha inteira, o que mudou num slice (fase 4a) e segue o fluxo normal; com `--once`, propaga, relata e sai |
+| `/flux:land ... --restack` | Propaga agora, pela pilha inteira, o que mudou num slice (fase 4a) e segue o fluxo normal; com `--once`, propaga, relata e sai. Numa invocação nova (outra sessão ou outro run), zera a guarda de tentativa da pilha; a reentrada pelo watch não zera |
 | `/flux:land ... --no-restack` | Desliga a propagação em pilha: a defasagem é detectada e reportada no painel, a propagação não reescreve nenhuma branch, e o iterate da PR filha roda o gate normal (seção 7 do shared). Junto com `--restack`, vence `--no-restack` |
 
 > **Propagação em pilha é o default** (desliga com `--no-restack`): numa entrega empilhada, o land reescreve as branches de cima com `--force-with-lease` quando detecta um slice de baixo à frente delas, sem gate humano por branch (fase 4a). Invocar o land sem `--no-restack` é a autorização desse push.
@@ -325,9 +325,12 @@ PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo 
   gravar o tip atual do pai, e no retorno de cada branch publicada (abaixo). É o limite do `--onto`
   (seção 3 do shared), e é o único jeito de propagar um pai que foi reescrito ou mergeado por squash
   sem depender do reflog do clone.
-- **Respeitar a guarda de tentativa**: aresta cujo `restackAttemptedAt` bate com os tips atuais não é
-  redespachada (seção "Quando aplicar" do shared). Vale também com `--restack`, que o `ScheduleWakeup`
-  repete a cada tick.
+- **Respeitar a guarda de tentativa** (`restackAttemptedAt`): regra, chave e reentrada pelo
+  `ScheduleWakeup` estão na seção "Quando aplicar" do shared. O que é do land: gravar
+  `lastInvocationId` no estado no início de toda passada, com a fonte que o shared define, e, quando
+  a passada traz `--restack` e o `lastInvocationId` atual é diferente do `invocationId` gravado na
+  guarda, zerar `restackAttemptedAt` das PRs daquela pilha antes de detectar. Reentrada pelo
+  `ScheduleWakeup` na mesma sessão tem o mesmo id e não zera.
 - **Despachar um subagente por pilha**, não por PR. O prompt carrega a pilha em ordem, o `stackedOn`
   de cada PR filha, o `retainedResolutionSha` de cada branch quando houver, o quality gate do repo e o
   contrato de retorno da seção 7 do shared, literal. Durante a propagação, o land é a fonte do
@@ -365,7 +368,7 @@ PR fica `CONFLICTING`, e um ajuste pedido no chat não gera thread. O protocolo 
     iterate da PR filha (seção 7 do shared).
 
   Se a pilha terminou com alguma aresta ainda defasada, gravar `restackAttemptedAt = {paiSha,
-  filhoSha}` na PR filha de cada uma, com os tips remotos de **depois** da rodada (refetch). Lease
+  filhoSha, invocationId}` na PR filha de cada uma (`invocationId` = o `lastInvocationId` desta passada), com os tips remotos de **depois** da rodada (refetch). Lease
   recusado não grava o campo: não consome a tentativa (seção "Quando aplicar" do shared). Com os
   de antes, uma publicação parcial mudaria o pai e dispararia mais uma rodada idêntica. O evento
   entra na Timeline com o tipo `conflito` quando houve conflito resolvido, senão `push`.
@@ -438,6 +441,7 @@ Após postar, registrar o canal usado e o link da mensagem no board (Timeline, t
   ],
   "order": ["#1054", "#8057", "#1157"],
   "quietTicks": 0,
+  "lastInvocationId": null,
   "startedAt": "<ISO>",
   "lastTickAt": "<ISO>"
 }
@@ -465,10 +469,8 @@ Cada **tick**:
    PRs dela neste tick. Um push num slice de baixo é o caso típico: o próximo tick já o propaga, sem
    esperar conflito nem thread. Com `--no-restack` (que vence `--restack` quando vêm juntas), nada é
    despachado: só o painel e o `hold`. O mesmo vale sem despacho possível (`FLUX_CMD` `UNAVAILABLE` ou
-   sem subagente): só reportar, como na fase 4a. **Guarda de tentativa**: aresta cujo `restackAttemptedAt`
-   (`{paiSha, filhoSha}`) é igual aos tips remotos atuais de pai e filho não é redespachada, com a
-   mesma lógica do "uma tentativa por SHA da base" da seção 5 do `merge-conflict-gate.md`; um push
-   em qualquer um dos dois lados muda o SHA e libera uma tentativa nova. Enquanto a pilha estiver
+   sem subagente): só reportar, como na fase 4a. **Guarda de tentativa**: aresta guardada por
+   `restackAttemptedAt` não é redespachada (seção "Quando aplicar" do shared; como zerar, fase 4a). Enquanto a pilha estiver
    parada pela guarda, o passo 3 volta a rodar para as PRs dela: o `hold` da propagação segura o
    `go`, não o iterate. **Menos a PR `retida`**, que fica fora do passo 3 com o iterate suspenso
    (`retida (iterate suspenso)` no painel) até a propagação publicar ou a retenção ser descartada
