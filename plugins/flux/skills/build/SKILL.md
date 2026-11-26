@@ -131,7 +131,7 @@ Seguir o protocolo de `${FLUX_ROOT}/shared/flux-context.md`. Em resumo:
 
    A tripla de descoberta (`specialists_root`, `kits_root`, `write_destinations`) é extraída inteira
    mesmo sem revisar nada: a linha `lentes` e a escolha entre `--agents-only` e `--engine-only` no
-   Step 4 dependem do passo 1a do `review-agents.md`, que a lê em cascata; faltando uma, o build
+   Step 4 dependem do passo 1a do `${FLUX_ROOT}/shared/review-agents.md`, que a lê em cascata; faltando uma, o build
    declara `L2 ausente` para repo que tem suite.
 
 3. Se não encontrar (perfil genérico):
@@ -507,9 +507,8 @@ A partir daqui **o motor assume**. O dispatcher não interfere, não opina no me
      porque o build não sabe qual canal o usuário quer.
    - `Agora não`.
 
-   Com um canal só, a opção é a primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada.
-
-   Aceitar roda `${FLUX_CMD}reply "<match> <nome do canal> <url>"`, **sempre entre aspas**, com uma frase
+   Aceitar roda, por exemplo, `${FLUX_CMD}reply "<match> <nome do canal> <url>"`, **sempre entre aspas**
+   (um verbo do reply dentro do `match` não pode ser lido como verbo do comando), com uma frase
    de `match` literal do intent `pedir-review` daquele canal (a primeira da lista do diretório), o nome
    do canal (primeiro alias; sem `aliases`, o slug) e a URL completa da PR
    (`https://github.com/<REPO_FULL>/pull/<PR_NUMBER>`). A frase vem do diretório para garantir o
