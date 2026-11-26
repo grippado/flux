@@ -306,8 +306,8 @@ do usuário, e passa pelo gate de destino (`${FLUX_ROOT}/shared/write-destinatio
 
 ### 1b — L3, specialists do repo
 
-Varrer `<repo-checkout>/.claude/agents/**.md` e **filtrar por intenção de review**. A varredura é
-feita com o **comando canônico de descoberta de agents**, que vale para toda raiz de agents que a
+Varrer `<repo-checkout>/.claude/agents/` com o **comando canônico de descoberta de agents** abaixo e
+**filtrar por intenção de review**. O comando vale para toda raiz de agents que a
 família lista em disco (o diretório de agents do repo, a raiz de agents do usuário, uma suite curada,
 um espelho):
 
@@ -324,6 +324,53 @@ limita a descida que o `-L` abre: o arranjo mais fundo que a família produz é 
 (`<raiz>/<ctx>/<slug>-l3/<agent>.md`, profundidade 3), e o nível a mais cobre uma subpasta de suite
 dentro dele; sem limite, um symlink para um diretório grande vira uma descida inteira por ele. Quem
 precisa listar agents em disco aponta para este comando, não o reescreve.
+
+**Receita do hash do conjunto.** O `dir_sha256` e o `synced_from_sha256` do
+`${FLUX_ROOT}/shared/agents-index.md` são sempre esta receita, e quem grava ou confere um deles aponta
+para cá. O **conjunto** é a saída crua do comando canônico acima, antes do filtro de intenção de
+review: todo `.md` até a profundidade 4, com o path relativo à raiz (começando em `./`), em ordem de
+bytes (`LC_ALL=C`), e o conteúdo lido através de symlink. Entrada: `AGENTS_DIR`, a raiz; pode vir
+com `~` (é como o `dir` do índice é gravado), e o bloco expande o `~/` do começo. Saída:
+`AGENTS_SHA256`, vazio quando a raiz não existe, quando um arquivo listado não pode ser lido (o que
+inclui nome de arquivo com newline, que a leitura linha a linha parte em dois) ou quando não há
+`sha256sum` nem `shasum` na máquina. Diretório sem permissão de leitura e symlink quebrado saem do
+conjunto em silêncio (é o `2>/dev/null` do comando canônico), sem esvaziar o hash; raiz existente sem
+nenhum `.md` dá um hash constante, não vazio.
+
+```bash
+AGENTS_SHA256=
+flux_sha() { if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi | cut -d' ' -f1; }
+case ${AGENTS_DIR:-} in \~/*) AGENTS_DIR=$HOME/${AGENTS_DIR#\~/} ;; esac
+if [ -d "${AGENTS_DIR:-}" ] && FLUX_LISTA=$(CDPATH='' cd -- "$AGENTS_DIR" > /dev/null &&
+  find -L . -maxdepth 4 -type f -name '*.md' 2>/dev/null | LC_ALL=C sort |
+  while IFS= read -r flux_f; do
+    [ -r "$flux_f" ] || exit 1
+    printf '%s %s\n' "$(flux_sha < "$flux_f")" "$flux_f"
+  done); then
+  AGENTS_SHA256=$(printf '%s\n' "$FLUX_LISTA" | flux_sha)
+fi
+```
+
+Cada linha da lista é o hash de um arquivo seguido do path, e o hash à esquerda é o `sha256` daquele
+arquivo. Path relativo é o que deixa o hash igual entre máquinas e entre a origem e um clone;
+o `-L` é o que faz um agent exposto por symlink mudar o hash quando o arquivo de destino muda, em vez
+de um espelho velho passar por fresco. O `CDPATH=''` e o `> /dev/null` impedem que um `CDPATH`
+exportado faça o `cd` imprimir o diretório dentro da lista e mudar o hash da mesma árvore.
+`AGENTS_SHA256` vazio nunca é comparado, porque um hash de
+entrada vazia compararia igual na próxima vez, e invalida só a **comparação**, não a lente: o elo
+trata aquela entrada do índice como stale, segue a varredura direta e declara `indice stale` com a
+causa, o mesmo caminho do "Divergiu" da seção Frescor do `${FLUX_ROOT}/shared/agents-index.md`.
+Na conferência do espelho (`synced_from_sha256`, token `L3 stale` do `${FLUX_ROOT}/shared/preflight.md`),
+hash atual vazio ou `synced_from_sha256` ausente no índice declara `L3 stale` com a causa, porque
+frescor desconhecido não passa por fresco; o `indice stale` segue valendo para o `dir_sha256`. A
+receita não reclassifica lente: raiz inexistente continua `ausente` pelo passo 1a, e arquivo ilegível
+continua `inalcancavel` pelo 1a-bis. Na hora de gravar, receita vazia significa não gravar o campo
+(`dir_sha256` ou `synced_from_sha256`) e declarar isso no relatório; nunca gravar `""`. O `synced_from_sha256` usa
+o conjunto cru de propósito, embora o espelho copie só os agents filtrados: mudar um arquivo não-agent
+da origem (um README, um `AGENT.md`) acende `L3 stale` num espelho que não mudou, e o erro fica do lado
+seguro. A receita é POSIX e
+roda igual em `sh`, `bash` e `zsh`, com `sha256sum` (GNU) ou `shasum -a 256` (macOS); o
+`scripts/test-run.sh` executa este bloco contra uma fixture com symlink de arquivo e de diretório.
 
 Um agent entra em L3 quando satisfaz **qualquer** critério:
 
