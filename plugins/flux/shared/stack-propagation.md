@@ -28,10 +28,12 @@ por PR) é o que transforma uma operação de segundos numa de dezenas de minuto
 - **Gatilho detectado:** em todo tick do watch do `flux:land`, uma aresta pai → filho da pilha
   defasada (abaixo) dispara a propagação daquela pilha.
 - **Uma tentativa por par de SHAs.** Se a propagação de uma aresta terminou sem publicá-la (bloqueio,
-  abort, folha vermelha, lease recusado), o elo guarda os tips remotos de pai e filho de depois da
+  abort, folha vermelha), o elo guarda os tips remotos de pai e filho de depois da
   rodada, e não redespacha aquela aresta enquanto os dois forem os mesmos, nem com o gatilho
   explícito repetido. É a regra "uma tentativa por SHA da base" da seção 5 do
-  `merge-conflict-gate.md`, aplicada à aresta. No `flux:land`, o campo é `restackAttemptedAt`.
+  `merge-conflict-gate.md`, aplicada à aresta. Lease recusado **não** consome a
+  tentativa, como no gate: quem andou foi a branch, e a próxima rodada tenta de novo depois do
+  refetch. No `flux:land`, o campo é `restackAttemptedAt`.
 - **Sem despacho possível**, porque o `FLUX_CMD` não é utilizável (`UNAVAILABLE`, o caso do Codex)
   ou porque não há como despachar subagente: a defasagem é só **reportada** como `pilha defasada`, a
   PR de cima entra em `hold` e nada é reescrito. Nunca propagar na main como consolo (seção 7). O elo
@@ -229,10 +231,10 @@ Retorno (< 40 linhas, sem diff colado):
 
 ```
 - pilha: <owner/repo> #A -> #B -> #C (ordem topológica)
-- gatilho: <restack | defasada:<pai>-><filho> | squash:<pai>>
+- gatilho: <restack | defasada:<pai>-><filho> | mergeado:<pai>>
 - por branch, uma linha: <branch> · <publicada|retida|bloqueada|intocada> · <shaAntes>-><shaDepois> · stackedOn:<sha completo do NOVO_PAI, só em publicada | n/a> · base:<n/a|reapontada:<base>|falhou> · validacao:<ok|vermelho|nao-validada> · conflitos:<n/a|arquivo: decisão>
 - topo: <branch> · gates <por gate: ok|vermelho|n/a>
-- bloqueios: <lista curta com o motivo em grafia fixa (terceiro, coautorada, filho-fora-da-entrega, worktree-retida, tip-desconhecido, convencao-merge, abortado, semantico), ou nenhum>
+- bloqueios: <lista curta com o motivo em grafia fixa (terceiro, coautorada, filho-fora-da-entrega, worktree-retida, tip-desconhecido, convencao-merge, lease-recusado, abortado, semantico), ou nenhum>
 ```
 
 O relato substitui a pergunta, como no gate de conflito: SHA antes e depois, e a validação de cada
