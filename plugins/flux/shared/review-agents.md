@@ -359,7 +359,10 @@ exportado faça o `cd` imprimir o diretório dentro da lista e mudar o hash da m
 `AGENTS_SHA256` vazio nunca é comparado, porque um hash de
 entrada vazia compararia igual na próxima vez, e invalida só a **comparação**, não a lente: o elo
 trata aquela entrada do índice como stale, segue a varredura direta e declara `indice stale` com a
-causa, o mesmo caminho do "Divergiu" da seção Frescor do `${FLUX_ROOT}/shared/agents-index.md`. A
+causa, o mesmo caminho do "Divergiu" da seção Frescor do `${FLUX_ROOT}/shared/agents-index.md`.
+Na conferência do espelho (`synced_from_sha256`, token `L3 stale` do `${FLUX_ROOT}/shared/preflight.md`),
+hash atual vazio ou `synced_from_sha256` ausente no índice declara `L3 stale` com a causa, porque
+frescor desconhecido não passa por fresco; o `indice stale` segue valendo para o `dir_sha256`. A
 receita não reclassifica lente: raiz inexistente continua `ausente` pelo passo 1a, e arquivo ilegível
 continua `inalcancavel` pelo 1a-bis. Na hora de gravar, receita vazia significa não gravar o campo
 (`dir_sha256` ou `synced_from_sha256`) e declarar isso no relatório; nunca gravar `""`. O `synced_from_sha256` usa
