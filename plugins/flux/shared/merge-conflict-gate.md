@@ -253,11 +253,14 @@ correção nem pushei`. O usuário precisa saber que a PR saiu da rodada ainda t
 - Eventos para o board (o vocabulário de tipo `conflito` já existe em
   `${FLUX_ROOT}/shared/board-template.md`) e para o hook Slack, quando configurado:
   `conflito-detectado`, `conflito-resolvido`, `conflito-bloqueado`.
-- Em cada tentativa, registrar antes do handoff os specialists invocados (ou nenhum/falha), a
-  classificação final (`mecânico` ou `semântico`) e o resultado (resolução, fallback ou bloqueio) na
-  Timeline Verbosa; a Timeline de Eventos Relevantes recebe a linha correspondente com
-  `tipo: conflito`. O board não declara resolução se a base não foi incorporada, ainda houver paths
-  conflitantes ou algum quality gate aplicável estiver vermelho.
+- Em cada tentativa, registrar na Timeline Verbosa os specialists invocados (ou nenhum/falha) e a
+  classificação final (`mecânico` ou `semântico`) antes de despachar o executor ou pedir decisão
+  humana. Registrar o resultado (resolução, fallback ou bloqueio) ao concluir a tentativa: após o
+  retorno do executor nos caminhos mecânicos, ou ao declarar o bloqueio semântico. Se uma decisão
+  humana iniciar outra tentativa, registrar o novo resultado quando ela terminar. A Timeline de
+  Eventos Relevantes recebe a linha
+  correspondente com `tipo: conflito`. O board não declara resolução se a base não foi incorporada,
+  ainda houver paths conflitantes ou algum quality gate aplicável estiver vermelho.
 - Conflito detectado **conta como trabalho acionável** para efeito de criar o board: uma PR sem
   threads e sem CI vermelho, mas conflitante, tem board.
 

@@ -498,13 +498,10 @@ validações necessárias. Dúvida deve ser classificada como semântica. Num co
 explicar alternativas, mas não escolhem por uma delas. Respostas incompatíveis ou incertas não
 autorizam aplicação automática.
 
-O consumidor espera todas as respostas antes de despachar um único executor. Esse executor consolida
-as propostas e aplica a resolução na worktree segundo o gate compartilhado. Sem cobertura, em caso de
-falha de specialist ou quando uma proposta não puder ser validada com segurança, o mesmo executor usa
-o fallback genérico já previsto no gate, com os mesmos SHAs, arquivos e contexto. Se o fallback não
-encontrar resolução mecânica segura, ele bloqueia a escrita; conflitos semânticos continuam sujeitos
-à decisão humana. Não despachar um segundo executor. O consumidor registra quais specialists foram
-invocados, a classificação final e o resultado no artefato próprio do fluxo.
+O consumidor espera todas as respostas e as entrega ao contrato
+`${FLUX_ROOT}/shared/merge-conflict-gate.md`, que define a classificação final e a resolução,
+incluindo executor, fallback e bloqueio. Este shared limita-se à descoberta/invocabilidade dos
+specialists e ao formato de seus pareceres read-only.
 
 ## Passo 3 — Reconciliar (substitui o benchmark)
 

@@ -347,11 +347,8 @@ permitidas por aquele contrato e registra o bloqueio no board.
 
 **Em `--dry`:** apenas **reportar** o estado de integração, como se faz com o CI. Não resolver nada.
 
-Conflito detectado **conta como trabalho acionável** para o passo 2a (a PR tem board). Emitir os
-eventos `conflito-detectado`, `conflito-resolvido` ou `conflito-bloqueado` no board e no hook Slack.
-Antes de seguir para réplicas ou threads, registrar na Timeline Verbosa os specialists invocados (ou
-nenhum/falha), a classificação final (`mecânico` ou `semântico`) e o resultado (resolução, fallback
-ou bloqueio); a Timeline de Eventos Relevantes recebe a linha correspondente com `tipo: conflito`.
+Conflito detectado **conta como trabalho acionável** para o passo 2a (a PR tem board). Os eventos e
+o registro da tentativa no board seguem a seção 7 de `${FLUX_ROOT}/shared/merge-conflict-gate.md`.
 
 ### 2c. Triagem de CI (1ª passada E cada tick do watch)
 
