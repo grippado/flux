@@ -308,8 +308,11 @@ no 1b-bis, e é lá que ele se mantém. Não repetir aqui.
 - **Nada além do `name:` é reescrito.** O corpo do agent é do time que o mantém; reescrever conteúdo
   transformaria um espelho em fork, e o próximo `--expose-l3` teria que decidir entre duas verdades.
 - **Proveniência obrigatória.** Gravar no índice o `sha256` do conjunto de origem
-  (`l3.mirror.synced_from_sha256`). É o que permite a um elo declarar a degradação `L3 stale`
-  (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) em vez de rodar uma cópia velha em silêncio.
+  (`l3.mirror.synced_from_sha256`), calculado pela receita do hash do conjunto (1b do
+  `${FLUX_ROOT}/shared/review-agents.md`) sobre o diretório de agents do repo. Receita vazia na hora
+  de gravar: ver o 1b do `${FLUX_ROOT}/shared/review-agents.md`. É o que permite a um elo declarar a
+  degradação `L3 stale` (`${FLUX_ROOT}/shared/preflight.md`, Passo 5) em vez de rodar uma cópia
+  velha em silêncio.
 - **Re-executar é idempotente**: origem inalterada ⇒ nada a escrever, e diga isso em uma linha.
 
 **A pergunta que o usuário precisa responder antes**, porque a resposta muda o que fica na máquina
@@ -326,7 +329,8 @@ voltam no contrato de retorno, e a main do `map` reconcilia (um escritor por exe
 verbo roda igual, com o contrato de destino inteiro valendo.
 
 Invocado direto, sem `--from-map`: ao equipar um repo (Steps 4, 4b e 5), **atualizar a entrada dele**
-no `flux-agents.json` e recomputar `collisions`.
+no `flux-agents.json`, com o `l3.dir_sha256` recalculado pela receita do hash do conjunto (1b do
+`${FLUX_ROOT}/shared/review-agents.md`), e recomputar `collisions`.
 
 ### Arquivo existente sob `--from-map`
 
