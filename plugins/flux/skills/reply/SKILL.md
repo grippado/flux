@@ -362,6 +362,8 @@ citação estava tentando provar.
 
 Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva (a variante `--auto` do caminho rápido é a única exceção).
 
+Os menus deste passo que salvam rascunho ou reagem no Slack, nos dois caminhos e no segundo GATE de status, são gates de escrita: no Codex, menu numerado com resposta digitada, nunca opção em foco (`${FLUX_ROOT}/shared/hitl.md`, "Gate de escrita e auto-resolução"). O menu de `JULGAMENTO = nada` também é, porque `Forçar rascunho de resposta` leva a uma escrita. A variante `--auto` é procuração do `flux:iterate`, não auto-resolução do harness.
+
 **Preview antes de gravar (vale para as opções 1 e 2, nos dois caminhos, e para as que herdam o fluxo de responder, como `Rascunhar resposta mesmo assim` e `Forçar rascunho de resposta`).** Antes de abrir o GATE, imprimir no
 chat o que será gravado, num bloco: o destino (`#canal` ou DM com a pessoa, e `réplica na thread de <autor>,
 <data e hora>` quando houver `THREAD_TS`) e o **texto exato**, depois de todas as varreduras. É o próprio

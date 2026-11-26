@@ -49,11 +49,12 @@ feature `default_mode_request_user_input` está ligada (`under development` e de
 Codex; ligar é configuração da máquina, não do flux).
 
 Quando `request_user_input` estiver disponível na sessão, a main renderiza a `GateSpec` validada de
-`hitl.md` para todo GATE, com uma question single-select por gate, e espera a escolha retornar à
-mesma sessão antes de agir. O gate
-continua na main: não delegar a um subagente. O round-trip está comprovado para o Codex 0.161.0 ou
-superior com a feature ligada; uma resposta com escolha na própria sessão é a confirmação de que ele
-funciona ali, e não se exige prova adicional antes da primeira chamada.
+`hitl.md` para todo GATE **sem opção de escrita**, com uma question single-select por gate, e espera
+a escolha retornar à mesma sessão antes de agir. **Gate de escrita não usa `request_user_input`**: vai
+direto ao menu numerado com resposta digitada, pelo motivo de "Auto-resolução por tempo", abaixo. O
+gate continua na main: não delegar a um subagente. O round-trip está comprovado para o Codex 0.161.0
+com a feature ligada, mas uma resposta com opção escolhida não prova, sozinha, que houve gesto
+humano: ela pode ter vindo da auto-resolução.
 
 Rótulos, descrições, ordem, recomendação e saída inócua vêm literalmente da spec. O Codex pode
 acrescentar uma opção automática de campo livre, mas ela não é opção do Flux e não é registrada como
@@ -62,11 +63,14 @@ tal no artefato ou board.
 Round-trip comprovado em 2026-10-08, no Codex 0.161.0 com
 `-c features.default_mode_request_user_input=true`: a ferramenta desenhou o menu com seta e descrição
 por opção, e a escolha voltou à mesma sessão ("Questions 1/1 answered"). Esta comprovação vale para
-essa versão com a feature ligada e se estende a versões posteriores até um caso em contrário. Não foi apurado o comportamento em `codex exec` headless nem com menus de 5 ou mais opções.
+essa versão com a feature ligada. A extensão a versões posteriores caiu com o caso em contrário
+registrado em "Auto-resolução por tempo". Não foi apurado o comportamento em `codex exec` headless nem com menus de 5 ou mais opções.
 
 Cai no fallback numerado de [`hitl.md`](hitl.md), com as opções e descrições completas e espera de
 escolha explícita no chat, quando qualquer destas condições valer:
 
+- o gate é de escrita (`hitl.md`, "Gate de escrita e auto-resolução"), mesmo com a ferramenta
+  disponível;
 - a ferramenta não está disponível na sessão (feature desligada ou versão anterior à 0.161.0);
 - a chamada é aceita sem devolver escolha nenhuma (por exemplo, `{"accepted":true}` da variante
   assíncrona): isso não comprova round-trip, e o gate cai no numerado na hora;
@@ -85,6 +89,32 @@ nenhuma das tentativas.
 Quando cair no numerado porque a pergunta estruturada está ausente, foi aceita sem escolha ou voltou
 vazia nas três tentativas, declarar `pergunta estruturada ausente` em `degradacoes:`
 (`${FLUX_ROOT}/shared/preflight.md`, Passo 5).
+
+#### Auto-resolução por tempo
+
+Em 2026-11-25, um gate de escrita renderizado por `request_user_input` apareceu com o rodapé
+`auto-resolves in 30s` e o cursor sobre a opção 1. A run foi encerrada à mão antes do prazo, e nada
+foi postado. A versão do Codex e a configuração que liga esse prazo não foram apuradas, e o que a
+pergunta devolve ao expirar também não. O contrato trata o pior caso como o real: ao expirar, o Codex
+devolve a opção em foco como se fosse a escolha da pessoa, e a resposta não carrega marca que a
+distinga de um gesto humano.
+
+Consequências, todas aplicando `hitl.md`, "Gate de escrita e auto-resolução":
+
+- **O Codex é harness com auto-resolução** até que uma medição mostre o contrário na sessão. A skill
+  não enxerga o rodapé nem o prazo, então não tenta detectá-lo: a regra vale para todo
+  `HARNESS = codex`.
+- **Gate de escrita:** menu numerado no chat, com a `GateSpec` inteira, e espera de resposta digitada
+  (número ou rótulo). `request_user_input` não é chamado, então não há foco nem prazo. Declarar
+  `gate de escrita digitado` em `degradacoes:` quando `request_user_input` estava disponível e ao
+  menos um gate de escrita foi apresentado assim. Com a ferramenta ausente, vale só `pergunta
+  estruturada ausente`, como antes: nunca os dois tokens pelo mesmo motivo.
+- **Gate sem opção de escrita:** pode seguir por `request_user_input`. Resposta que o Codex marque
+  como auto-resolvida é tratada como resposta vazia, com as mesmas três tentativas de "Resposta vazia
+  não é recusa".
+- **Resposta vinda da auto-resolução nunca vale como escolha**, em gate nenhum. Se um gate de
+  escrita chegou a ser renderizado por `request_user_input` por engano, a resposta não autoriza
+  nada, venha de onde vier: reapresentar o mesmo gate no menu numerado e esperar a resposta digitada.
 
 ### Adaptador de instruções de agente
 

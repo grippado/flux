@@ -527,6 +527,9 @@ Mostre no chat o plano resumido (vereditos + ações de threads abertas e resolv
   4. `Cancelar` — descrição: `Não posta nada. Os arquivos alterados ficam no working tree pra você inspecionar ou reverter.`
 
 > A opção recomendada é a primeira, com `(Recomendado)` no label. Com `--auto`, assuma a opção 1 sem perguntar.
+> Os dois menus deste passo e o GATE do 9a são gates de escrita: no Codex, menu numerado com resposta
+> digitada, nunca opção em foco (`${FLUX_ROOT}/shared/hitl.md`, "Gate de escrita e auto-resolução").
+> A opção 1 escolhida pelo `--auto` é procuração de quem despachou, não auto-resolução do harness.
 
 **`IS_OWN_PR == false`** (modo `no-push` por default — RN-01): sem escrita já concedida nesta rodada
 (ver "Pedido explícito de escrita" abaixo), o GATE **não oferece nem executa commit/push como caminho
@@ -756,8 +759,8 @@ impede avisar o mesmo revisor duas vezes no mesmo `round`. Rascunho não salvo (
 `sem-rascunho`) não grava `slackNotified`: o próximo tick tenta de novo, e o relatório diz o motivo uma vez.
 
 Para cada grupo não vazio cujo intent exista num canal do diretório, na passada interativa, abrir **um GATE**
-(`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado no fallback de
-`${FLUX_ROOT}/shared/codex-compat.md`), single-select, "Avisar {revisores} no canal de PR?":
+(`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; `AskUserQuestion` no Claude Code, menu numerado digitado no
+Codex por ser gate de escrita, `${FLUX_ROOT}/shared/codex-compat.md`), single-select, "Avisar {revisores} no canal de PR?":
 - `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório (com um canal só, é a
   primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada).
 - `Agora não`.

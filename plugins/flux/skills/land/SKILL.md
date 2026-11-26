@@ -300,7 +300,7 @@ retorno; se precisar de verificação, despacha outro subagente.
 
 **Agrupamento:** se mais de uma PR da MESMA issue/ticket vira `ready for review` no mesmo tick, agrupe todas num ÚNICO pedido de review.
 
-Abra um GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select:
+Abra um GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select. É gate de escrita: onde o harness auto-resolve a pergunta estruturada, menu numerado com resposta digitada (`${FLUX_ROOT}/shared/hitl.md`, "Gate de escrita e auto-resolução").
 
 - **Header:** `Pedir review?`
 - **Question:** `{N} PR(s) da entrega saíram de draft e estão prontas pra review: {lista "#PR (repo)"}. Postar pedido no Slack?`

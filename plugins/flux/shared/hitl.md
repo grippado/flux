@@ -118,6 +118,8 @@ aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse 
   declarada.
 - Sem round-trip comprovado, use o fallback numerado abaixo, mesmo que a ferramenta esteja
   disponível ou tenha aceitado a solicitação.
+- Round-trip comprovado não basta para gate de escrita em harness com auto-resolução: ver "Gate de
+  escrita e auto-resolução", abaixo.
 
 - A opção **recomendada é a primeira**, e leva `(Recomendado)` no label.
 - O renderer usa integralmente `question`, `label` e `description` da spec. O usuário decide pelo
@@ -125,6 +127,35 @@ aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse 
 - A última opção é a saída inócua da spec (`Não fazer nada`, `Não postar`). Um gate sem porta de
   saída não é um gate, é um pedágio.
 - Multi-select só quando as escolhas forem de fato independentes. Na dúvida, single-select.
+- A opção que **aprova** trabalho alheio (aprovar a PR) nunca é recomendada e fica na penúltima
+  posição, imediatamente antes da saída inócua. Num menu de duas opções ela é a primeira, e o menu
+  fica sem recomendada.
+
+### Gate de escrita e auto-resolução
+
+**Gate de escrita** é o gate em que ao menos uma opção elegível executa uma ação da tabela "Ações
+que exigem GATE" com `kind` diferente de `ambiguous-target`: postar, aprovar, reagir, resolver
+thread, commitar, pushar, salvar rascunho ou enviar no Slack, criar issue, abrir PR, escrever fora do
+repo ou no manifesto. A saída inócua, imprimir no chat e escrever no vault não são escrita.
+
+**Auto-resolução** é o renderer responder sozinho depois de um prazo, sem gesto da pessoa. A resposta
+que ela produz pode trazer a opção em foco como se fosse escolha, e não há como distinguir depois do
+fato. Por isso a defesa é não fazer a chamada:
+
+- **Harness com auto-resolução, ou onde ela não pode ser descartada:** gate de escrita **não usa a
+  pergunta estruturada**. Vai direto ao menu numerado da seção seguinte, que exige resposta digitada
+  (número ou rótulo). Sem foco, nenhuma opção é escolhida pelo tempo, e a recomendada continua em
+  primeiro sem risco. Declarar no banner o token `gate de escrita digitado`
+  (`${FLUX_ROOT}/shared/preflight.md`, Passo 5). Quais harnesses estão nesta linha, e por quê, vive no
+  adaptador de cada um (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
+- **Gate sem opção de escrita**, no mesmo harness: pode usar a pergunta estruturada. Resposta que o
+  harness marca como auto-resolvida não é escolha: tratar como resposta vazia.
+- **Harness sem auto-resolução conhecida** (o `AskUserQuestion` espera a pessoa confirmar): a ordem
+  de sempre vale, e a opção em foco só é escolhida por gesto explícito. Constatada auto-resolução
+  num harness, ele passa para a primeira linha, registrado no adaptador.
+
+Resultado, em qualquer harness: nenhuma opção de escrita é escolhida sem gesto humano, nem pelo foco
+nem pelo tempo.
 
 ## Fallback quando o round-trip não está comprovado
 
@@ -144,6 +175,8 @@ de forma:
    ausente, aceita sem escolha ou vazia nas três tentativas gera `pergunta estruturada ausente`; menu que não cabe
    na ferramenta e sessão headless seguem o fallback numerado sem esse token, pois esses casos são
    tratados como caminhos esperados pelo adaptador (`${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário").
+   Gate de escrita que veio para o numerado por auto-resolução gera `gate de escrita digitado`, e não
+   `pergunta estruturada ausente`: a ferramenta existia e não foi usada de propósito.
 
 > **A degradação é de forma, nunca de rigor.** Um gate que vira "escolhi a recomendada porque não
 > tinha como perguntar" é pior do que não ter gate nenhum: produz uma ação não autorizada com
@@ -210,7 +243,7 @@ pendente em execução headless", e não se repete aqui.
 
 - **Menu com opções de categorias diferentes** (por exemplo, "Aplicar correções" é `commit-push` e
   "Postar comentários inline" é `github-post` no mesmo gate): o `kind` é o da **opção recomendada**,
-  a primeira do menu (seção "Como perguntar"). Num gate pendente ninguém escolheu, então o `kind`
+  a primeira do menu (seção "Como perguntar"); menu sem recomendada usa o da primeira opção. Num gate pendente ninguém escolheu, então o `kind`
   descreve o que a recomendada faria, e a skill não escolhe por precedência própria.
 - `question` (texto) e `options` (lista de textos) são opcionais e só para exibição: a pergunta e os
   rótulos do menu numerado do passo 1. No máximo 200 caracteres cada e 8 opções; a CLI trunca e remove

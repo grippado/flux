@@ -510,8 +510,11 @@ representar (`${FLUX_ROOT}/shared/hitl.md`).
 | `do-nothing` | Não fazer nada | Review fica só no board. Você decide depois. | encerra sem alterar working tree ou GitHub | sempre |
 | `do-not-post` | Não postar | Review fica só no board. Eu reviso antes de decidir. | encerra sem publicar no GitHub | sempre |
 
-A recomendada leva `(Recomendado)` no label e nunca é inferida pelo renderer: é a primeira do ramo,
-com a única exceção de `approved-with-questions`, abaixo. A ordem do menu nunca muda por causa dela.
+A recomendada leva `(Recomendado)` no label, nunca é inferida pelo renderer e é sempre a primeira do
+ramo. `post-and-approve` nunca é recomendada e fica na penúltima posição, antes da saída inócua
+(`${FLUX_ROOT}/shared/hitl.md`, "Como perguntar"). Os gates do Step 8 (os dois daqui, o aviso no canal
+de PR) e o d8a são gates de escrita: no Codex, vão ao menu numerado com resposta digitada
+(`${FLUX_ROOT}/shared/hitl.md`, "Gate de escrita e auto-resolução"). O d8b não é: só escreve no vault.
 
 **Segundo gate** (`id: review-reverified-threads`), só no ramo aprovar e com `reopen_candidates` não
 vazio, depois do primeiro: "Responder também as threads reverificadas?"
@@ -540,14 +543,13 @@ Header `Postar na PR?`, question `Quer postar algum subset dos comentários dire
 A ordem depende do `STATUS` do Step 7, lido como já impresso, sem reanalisar:
 
 - **Veredito aprovar** (`approved`, `approved-with-suggestions`, `approved-with-questions`; até 4
-  opções, o limite do `AskUserQuestion`): `post-and-approve` (recomendada), `post-priorities-praise`,
-  `post-all`, `do-not-post`. Neste ramo, a description de `post-all` acrescenta `Para só prioridades,
-  sem praise, use o campo livre "Other".` Em `approved-with-questions`, a ordem é a mesma, mas
-  `post-and-approve` perde o `(Recomendado)`, que passa à segunda opção, `post-priorities-praise`, e a
-  description de `post-and-approve` acrescenta `Atenção: aprovar libera o merge com perguntas ainda
-  abertas.` Sem comentário acionável (exceção do Step 7): só `post-and-approve` (recomendada; posta o
-  corpo e o placar, sem comentários inline, e aprova) e `do-not-post`. Com `reopen_candidates`, o
-  segundo gate, depois deste.
+  opções, o limite do `AskUserQuestion`): `post-priorities-praise` (recomendada), `post-all`,
+  `post-and-approve`, `do-not-post`. Neste ramo, a description de `post-all` acrescenta `Para só
+  prioridades, sem praise, use o campo livre "Other".` Em `approved-with-questions`, a ordem é a
+  mesma, e a description de `post-and-approve` acrescenta `Atenção: aprovar libera o merge com
+  perguntas ainda abertas.` Sem comentário acionável (exceção do Step 7): só `post-and-approve` (posta
+  o corpo e o placar, sem comentários inline, e aprova) e `do-not-post`, sem recomendada. Com
+  `reopen_candidates`, o segundo gate, depois deste.
 - **Demais vereditos** (`request-changes`, ausente ou não reconhecido) e o `post-inline` do 8a:
   `post-priorities-praise` (recomendada), `post-priorities`, `post-all`, `answer-reverified-threads`
   (só com `reopen_candidates`), `do-not-post`.
@@ -638,8 +640,8 @@ Rodada 2 em diante = há rodada anterior desta PR no vault (Passo 3b) **ou** rev
 Os dois sinais só contam rodadas, nunca mudam o conteúdo do review.
 
 Algum canal do diretório com o intent do desfecho: abrir **um GATE** (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`;
-`AskUserQuestion` no Claude Code, menu numerado no fallback de `${FLUX_ROOT}/shared/codex-compat.md`),
-single-select, "Avisar no canal de PR ({desfecho})?":
+`AskUserQuestion` no Claude Code, menu numerado digitado no Codex por ser gate de escrita,
+`${FLUX_ROOT}/shared/codex-compat.md`), single-select, "Avisar no canal de PR ({desfecho})?":
 - `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório. Com um canal só, é a
   primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada.
 - `Agora não`.
