@@ -83,7 +83,7 @@ As flags podem aparecer em qualquer posição e combinadas.
 - Não pusha `main`, não troca de branch sozinho.
 - Não cria PRs nem implementa features novas — para isso, o elo é o `${FLUX_CMD}build`.
 - Não resolve thread humana em `needs-discussion` (herda o guardrail do iterate).
-- **Não posta no Slack.** O aviso aos revisores (fase 4c) só delega ao `${FLUX_CMD}reply`, que rascunha, e só depois de um GATE aceito por PR e por grupo.
+- **Na fase 4c, não posta no Slack.** O aviso aos revisores só delega ao `${FLUX_CMD}reply`, em subagente, que rascunha, e só depois de um GATE aceito por PR e por grupo. A fase 4b (pedido de review) é outra coisa: posta, sob GATE próprio.
 - Não roda escrita em repo sem checkout local: registra o bloqueio e segue.
 - **Não roda o `/flux:iterate` inline** no contexto principal (fase 4): sempre via subagente. Ver `${FLUX_ROOT}/shared/context-budget.md`.
 - **Não roda o `${FLUX_CMD}reply` inline** (fase 4c): o `--preview` e o `--auto` vão sempre a subagente, como o iterate. Na main ficam o GATE, o preview impresso no chat e o registro.
@@ -115,6 +115,7 @@ As flags podem aparecer em qualquer posição e combinadas.
    - `REPOS` = `repos` (lista de repos conhecidos do contexto)
    - `LINEAR_TOKEN_ENV` = `linear_token_env` e `SECRETS_FILE` = `secrets_file` (leitura da issue por API, `${FLUX_ROOT}/shared/api-first.md`; ausentes = `LINEAR_API_KEY` e `~/.secrets`)
    - `SLACK_DIR` = `slack_directory` (diretório de alias do Slack, `${FLUX_ROOT}/shared/slack-directory.md`; só para o aviso aos revisores da fase 4c, opcional)
+   - `MCP_SLACK` = `mcp.slack` (prefixo do Slack; sem o campo, procurar na sessão um servidor que ofereça as capacidades de Slack). Só a fase 4c usa, e só para saber se há Slack na sessão
    - `WORKSPACE_ROOT` = `workspace_root`; sem o campo, o pai do diretório (`.claude/` ou `.cursor/`)
      onde o manifesto foi encontrado (ex.: manifesto em `<raiz>/.cursor/` → `WORKSPACE_ROOT=<raiz>`)
 
@@ -296,6 +297,8 @@ Proibido no retorno: diffs, conteúdo de arquivo, log de CI cru, transcrição d
 O contexto principal **não relê** os arquivos que o subagente tocou para conferir — confia no
 retorno; se precisar de verificação, despacha outro subagente.
 
+**Rodadas.** Ao colher o retorno de cada subagente, incrementar o `iterateRounds` daquela PR: a 1ª passada deixa `1`, alinhado com o `round` do iterate, e cada tick que despacha o iterate de novo soma um (seção 6, passo 3). Com `revisores` no retorno, seguir para a fase 4c.
+
 **Gravar o delta do filho:** o iterate despachado com `--parent-board` não escreve board; ele devolve o delta da PR (até 5 linhas de Timeline e o resumo da rodada), que vira a seção `## 🔁 iterate · PR #N`. Quem grava é o escritor único deste board (o board-keeper com watch, a main com `--once`). Se a PR já tinha board de outro caso (achado por `case_keys`), linkar com wikilink em **🔗 Boards relacionados**; senão, `n/d`.
 
 > Herdam do iterate: verificação contra código real, formatação markdown das réplicas, convenção de commit por repo (atenção ao commitlint: alguns repos rejeitam emoji prefix), e o guardrail de thread humana `needs-discussion`.
@@ -307,15 +310,33 @@ retorno da fase 4 quem foi tratado e em que grupo, e o aviso é deste elo, que �
 usuário. Os grupos (`iterate-enderecado`, `iterate-aguardando`, `abertos`) são os do passo 9a de
 `${FLUX_CMD}iterate`, lidos do retorno, nunca recalculados aqui.
 
-**Condições**, todas, por PR: PR própria (`author.login` igual à conta do `gh`; PR de terceiro não gera
-aviso, mesmo com `revisores` preenchido); `revisores` diferente de `n/a`; `SLACK_DIR` com canal que tenha o
-intent do grupo; `FLUX_CMD` utilizável; e Slack na sessão (`mcp.slack` do manifesto ou servidor achado
-na sessão). Faltando qualquer uma, nada acontece, sem pergunta e sem token de degradação.
+**Quando roda**, por PR. Três casos de não rodar, e só o terceiro vai ao banner:
+- **Não aplicável:** PR de terceiro (`author.login` diferente da conta do `gh`), mesmo com `revisores`
+  preenchido, ou `revisores: n/a`. Nada acontece, sem pergunta e sem token.
+- **Opt-in ausente:** sem `SLACK_DIR`, ou nenhum canal do diretório com intent `iterate-*`. Nada
+  acontece, sem pergunta e sem token.
+- **Configurado e indisponível:** o diretório tem canal com intent `iterate-*`, mas `MCP_SLACK` não acha
+  Slack na sessão. Nada é perguntado nem rascunhado, e o banner declara
+  `aviso aos revisores indisponivel (sem slack na sessao)` em `degradacoes:` (tabela do
+  `${FLUX_ROOT}/shared/preflight.md`, Passo 5). As duas condições são conhecidas no Step 0, então o token
+  sai já no banner inicial. `FLUX_CMD` inutilizável não chega a este caso: sem ele a fase 4 aborta
+  (seção 4), e a 4c depende do retorno dela.
+
+Fora desses casos, a fase roda para cada grupo cujo intent exista em algum canal do diretório.
 
 **Um aviso por revisor por round.** O estado é o do delivery, não o da PR: `prs[].slackNotified`
-(`<login>` → `{grupo, abertos, round, recusado}`), com `round` = o `iterateRounds` daquela PR. A chave
-é a PR mais o login: o mesmo revisor em duas PRs da entrega recebe uma pergunta em cada. Revisor que já
-tem entrada com o `round` corrente não entra no grupo.
+(schema na seção 6), com `round` = o `iterateRounds` daquela PR depois do incremento da rodada que
+trouxe o revisor (a 1ª passada da fase 4 grava `1`, como o `round` do iterate). A chave é a PR mais o
+login: o mesmo revisor em duas PRs da entrega recebe uma pergunta em cada. Revisor com entrada no
+`round` corrente e sem `pendente` (rascunho salvo ou `Agora não`) sai do grupo; com `pendente`,
+continua. Depois desse filtro, o `abertos` do grupo é a soma do `abertos` dos revisores que restaram (o
+agrupamento em `enderecado` e `aguardando` continua vindo do iterate); grupo vazio não gera preview nem
+pergunta.
+
+**Pendente reabre.** Revisor com `pendente` volta a esta fase no próximo ponto interativo: no início do
+tick seguinte do watch (seção 6, passo 0), mesmo sem iterate novo naquela PR, com o `grupo` e o
+`abertos` gravados, refazendo o preview. Iterate novo que traga o mesmo revisor troca a entrada pela do
+round novo. Com `--once` não há tick seguinte: o pendente fica no estado e no relatório final.
 
 **Preview em subagente, um por canal candidato.** O `reply` desta fase nunca roda na main
 (`${FLUX_ROOT}/shared/context-budget.md`, Regra 2): cada chamada vai a um subagente, como o iterate da
@@ -354,8 +375,9 @@ do canal dela:
   canal só, é a primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada).
 - `Agora não`.
 
-Várias perguntas seguidas no mesmo turno quando o harness aceitar; senão, uma por vez. A resposta de
-uma PR não decide a outra: recusa numa não pula a pergunta da seguinte.
+GATEs em sequência estrita, uma question por GATE (`${FLUX_ROOT}/shared/hitl.md`, "Como perguntar"): o
+seguinte só abre depois da resposta do anterior. A resposta de uma PR não decide a outra: recusa numa
+não pula a pergunta da seguinte.
 
 **Salvar em subagente.** Aceitar despacha um subagente que roda
 `${FLUX_CMD}reply --auto --expect-preview <arquivo do canal escolhido> "<string do canal escolhido>"`. A
@@ -365,15 +387,22 @@ o do arquivo. O prompt exige como retorno exatamente uma das três linhas da var
 `${FLUX_CMD}reply`, e o land consome só elas: `salvo: <canal> <link do rascunho>`, `draft-pendente` ou
 `sem-rascunho: <motivo>` (o desvio do preview aprovado chega como `sem-rascunho: preview mudou`).
 
-**Um rascunho por canal.** O Slack aceita um rascunho anexado por canal: depois de salvar um, a
-pergunta seguinte para o mesmo canal avisa que o salvamento fica pendente até o usuário enviar ou
-apagar o anterior. Aceita assim mesmo, o `reply` devolve `draft-pendente`, e o relatório do land diz
-`draft-pendente` com PR e canal.
+**Um rascunho por canal.** Vale a regra de `${FLUX_ROOT}/shared/slack-directory.md`, "Uma PR por
+pedido" (salva o primeiro, e o próximo espera o usuário enviar ou apagar o anterior). Nesta fase, isso
+quer dizer: depois de um `salvo` num canal nesta passada, os avisos seguintes para o mesmo canal **não**
+viram opção de rascunhar, porque já se sabe que voltariam `draft-pendente`. O canal sai das opções do
+GATE seguinte; sem canal restante, o GATE não abre, os revisores daquele grupo ficam com
+`pendente: "draft-pendente"`, e a main diz no chat quais PRs e revisores ficaram esperando qual canal.
 
-**Registro.** `salvo` grava `slackNotified` com `recusado: false`; `Agora não` grava `recusado: true`;
-`draft-pendente` e `sem-rascunho` não gravam, e o revisor volta a ser oferecido no próximo ponto
-interativo. A `GateSpec` e o resultado de cada pergunta vão ao board da entrega pelo escritor único
-(Timeline, tipo `decisão`), como manda o `hitl.md`.
+**Registro.** Por revisor do grupo, em `prs[].slackNotified[<login>]`:
+- `salvo` → `{grupo, abertos, round, recusado: false, pendente: null}`;
+- `Agora não` → `recusado: true`, `pendente: null`;
+- `draft-pendente` (do `reply`, ou do canal já usado nesta passada) e `sem-rascunho` (do preview ou do
+  salvamento) → `pendente: "draft-pendente"` ou `pendente: "sem-rascunho"`, com o motivo no board, e o
+  revisor reabre como em "Pendente reabre".
+
+A persistência de cada GATE segue `${FLUX_ROOT}/shared/hitl.md`, "Registrar antes e depois", no board da
+entrega, pelo escritor único (seção 5). O estado do delivery é gravado também com `--once` (seção 6).
 
 ### 4b. Pedido de review no Slack (gatilho: PR sai de draft)
 
@@ -442,7 +471,15 @@ Após postar, registrar o canal usado e o link da mensagem no board (Timeline, t
 }
 ```
 
+O estado é gravado também com `--once`, quando há `VAULT_ROOT`. Sem `VAULT_ROOT`, ele vive só na sessão,
+e o relatório final diz isso: um land seguinte não sabe, por exemplo, quem já foi avisado na fase 4c.
+
+- **`slackNotified`**: `{"<login>": {"grupo": "enderecado|aguardando", "abertos": N, "round": N, "recusado": false, "pendente": null}}`,
+  com `pendente` em `null`, `"draft-pendente"` ou `"sem-rascunho"`. É o schema do `slackNotified` do watch
+  do `${FLUX_CMD}iterate`, mais o `pendente`. Só a fase 4c grava (regra lá); nasce `{}`.
+
 Cada **tick**:
+0. **Pendentes da fase 4c:** PR com revisor em `slackNotified` com `pendente` → rodar a 4c para ele antes do resto do tick, refazendo o preview e interrompendo o watch para as perguntas (exceção do `hitl.md`, "Modo watch").
 1. **Re-descoberta** (seção 1, descoberta primária por conteúdo): rode de novo para cada ticket-id da entrega. Compare com `prs[]` do estado — qualquer PR nova (mergeada ou não) entra no painel, gera linha `descoberta` na Timeline e é anunciada no chat.
 2. Para cada PR (incluindo recém-descobertas): mini-tick (estado da PR, CI agregado via `gh pr checks`,
    delta de threads via GraphQL `reviewThreads` filtrando `resolvedThreadIds`, **e delta de issue comments**
@@ -477,7 +514,7 @@ Cada **tick**:
 - Limite de segurança: `>~6h` sem assentar → encerrar avisando (provável discussão humana/CI cronicamente vermelho).
 - Usuário interrompe.
 
-Em qualquer saída, **relatório final** no chat: ordem de merge recomendada, veredito por PR, PRs em `hold` (com motivo), threads humanas deixadas em `needs-discussion`, o range de commits pushados durante o watch, e os avisos da fase 4c que não viraram rascunho (`draft-pendente` ou `sem-rascunho`, com PR, canal e motivo).
+Em qualquer saída, **relatório final** no chat: ordem de merge recomendada, veredito por PR, PRs em `hold` (com motivo), threads humanas deixadas em `needs-discussion`, o range de commits pushados durante o watch, e os avisos da fase 4c que ficaram pendentes (`draft-pendente` ou `sem-rascunho`, com PR, canal e motivo). Pendente da 4c não segura o assentar: o go/no-go é das PRs, e o aviso sai no relatório.
 
 ---
 

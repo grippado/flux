@@ -301,6 +301,7 @@ usuário: o texto dele não é lido como decisão, gate pendente continua penden
 usuário num ponto interativo o fecha.
 
 Exceção já prevista: gatilho que muda o estado do trabalho de forma relevante (PR saindo de draft no
-`flux:land`, ou revisor de PR própria com threads tratadas no tick, fase 4c do `flux:land`) pode
+`flux:land`, ou aviso aos revisores da fase 4c do `flux:land`, por revisor de PR própria com threads
+tratadas no tick ou pendente de tick anterior) pode
 interromper o watch e abrir um gate, porque aí existe uma decisão nova que não
 estava na mesa quando o watch começou.
