@@ -73,9 +73,11 @@ escolha explícita no chat, quando qualquer destas condições valer:
   ferramenta disponível: vale para todo gate;
 - a ferramenta não está disponível na sessão (feature desligada ou versão anterior à 0.161.0);
 - a chamada é aceita sem devolver escolha nenhuma (por exemplo, `{"accepted":true}` da variante
-  assíncrona): isso não comprova round-trip, e o gate cai no numerado na hora;
+  assíncrona): isso não comprova round-trip, e o gate cai no numerado na hora, assim como os gates
+  seguintes da sessão;
 - a pergunta estruturada voltou vazia (`{"answers":{}}`) três vezes seguidas para o mesmo gate;
-- o menu do gate não cabe na ferramenta ou a chamada é recusada: nunca truncar opção em silêncio;
+- o menu do gate não cabe na ferramenta ou a chamada é recusada (`hitl.md`, "Menu numerado
+  (fallback e auto-resolução)");
 - a sessão é headless (o bloco de preflight traz `gate_signal:`): vale o sinal `flux-gate/1` de
   `hitl.md`, "Execução headless".
 
