@@ -72,6 +72,7 @@ As flags podem aparecer em qualquer posição e combinadas.
 4. **Montar** o grafo de ordem + locks de merge → refletir no painel.
 5. **Validar** regressão de subida de cada PR (contra o código real de `main`) → refletir no painel.
 6. **Iterar** cada PR acionável **despachando um subagente por PR** (que roda `/flux:iterate --auto --once` lá dentro) para deixá-la merge-ready → atualizar a linha dela no painel com o retorno curto de cada subagente.
+6b. **Aviso aos revisores no canal de PR** (fase 4c): com o retorno de cada iterate, um GATE por PR e por grupo de revisor, e só o aceito vira rascunho.
 7. **Pedido de review no Slack** (gatilho: PR sai de draft) → perguntar ao usuário onde postar e registrar no board.
 8. **Consolidar** o go/no-go no board.
 9. **Watch consolidado** (default): reagendar e repetir até assentar, atualizando o board a cada tick.
@@ -82,6 +83,7 @@ As flags podem aparecer em qualquer posição e combinadas.
 - Não pusha `main`, não troca de branch sozinho.
 - Não cria PRs nem implementa features novas — para isso, o elo é o `${FLUX_CMD}build`.
 - Não resolve thread humana em `needs-discussion` (herda o guardrail do iterate).
+- **Não posta no Slack.** O aviso aos revisores (fase 4c) só delega ao `${FLUX_CMD}reply`, que rascunha, e só depois de um GATE aceito por PR e por grupo.
 - Não roda escrita em repo sem checkout local: registra o bloqueio e segue.
 - **Não roda o `/flux:iterate` inline** no contexto principal (fase 4): sempre via subagente. Ver `${FLUX_ROOT}/shared/context-budget.md`.
 - **Não faz trabalho pesado na main, em fase nenhuma.** Investigar regressão (fase 3), iterar PR (fase 4) e qualquer varredura de repo vão para subagente, em paralelo. Na main ficam: descoberta via `gh` (JSON barato), grafo de ordem, board, HITL e watch. Ver `${FLUX_ROOT}/shared/fanout-discipline.md` — regra pétrea da família, como o worktree.
@@ -111,6 +113,7 @@ As flags podem aparecer em qualquer posição e combinadas.
    - `KITS` = `kits` (caminhos locais de kit; origem 1 do `KIT_ROOTS`, Passo 1d do preflight, opcional)
    - `REPOS` = `repos` (lista de repos conhecidos do contexto)
    - `LINEAR_TOKEN_ENV` = `linear_token_env` e `SECRETS_FILE` = `secrets_file` (leitura da issue por API, `${FLUX_ROOT}/shared/api-first.md`; ausentes = `LINEAR_API_KEY` e `~/.secrets`)
+   - `SLACK_DIR` = `slack_directory` (diretório de alias do Slack, `${FLUX_ROOT}/shared/slack-directory.md`; só para o aviso aos revisores da fase 4c, opcional)
    - `WORKSPACE_ROOT` = `workspace_root`; sem o campo, o pai do diretório (`.claude/` ou `.cursor/`)
      onde o manifesto foi encontrado (ex.: manifesto em `<raiz>/.cursor/` → `WORKSPACE_ROOT=<raiz>`)
 
@@ -121,6 +124,7 @@ As flags podem aparecer em qualquer posição e combinadas.
    - `NO_EMDASH` = `false`
    - `SPECIALISTS_ROOT` = o default de `specialists_root` da seção "Perfil genérico (sem manifesto)" de `${FLUX_ROOT}/shared/flux-context.md`
    - `REPOS` = [] (descoberta dinâmica a partir dos repos no workspace)
+   - `SLACK_DIR` = nenhum (a fase 4c não roda)
    - `WORKSPACE_ROOT` = `pwd`
 
 **ORG do GitHub:** inferir via `git -C <WORKSPACE_ROOT>/<repo> remote get-url origin` no primeiro repo com checkout disponível, extraindo o owner (`<ORG>/<repo>` na URL do remote).
@@ -278,6 +282,7 @@ literalmente este retorno, e nada além dele:
 - gates: <por gate: ok|vermelho|n/a; n/a nunca vira ok>                          # com conflito: resolvido:* ou bloqueado:gate-vermelho|lease-recusado
 - isDraft: <true|false>
 - pushed: <true|false>
+- revisores: <n/a | uma linha por revisor pessoa com thread tratada neste turno: login, grupo enderecado|aguardando, abertos N>   # n/a em PR de terceiro ou sem thread de pessoa tratada
 - bloqueios: <lista curta, ou nenhum>
 ```
 
@@ -293,6 +298,56 @@ retorno; se precisar de verificação, despacha outro subagente.
 **Gravar o delta do filho:** o iterate despachado com `--parent-board` não escreve board; ele devolve o delta da PR (até 5 linhas de Timeline e o resumo da rodada), que vira a seção `## 🔁 iterate · PR #N`. Quem grava é o escritor único deste board (o board-keeper com watch, a main com `--once`). Se a PR já tinha board de outro caso (achado por `case_keys`), linkar com wikilink em **🔗 Boards relacionados**; senão, `n/d`.
 
 > Herdam do iterate: verificação contra código real, formatação markdown das réplicas, convenção de commit por repo (atenção ao commitlint: alguns repos rejeitam emoji prefix), e o guardrail de thread humana `needs-discussion`.
+
+### 4c. Aviso aos revisores no canal de PR (o passo 9a do iterate, tocado pelo land)
+
+O iterate despachado com `--parent-board` não roda o próprio 9a: devolve no campo `revisores` do
+retorno da fase 4 quem foi tratado e em que grupo, e o aviso é deste elo, que é quem tem canal com o
+usuário. Os grupos (`iterate-enderecado`, `iterate-aguardando`, `abertos`) são os do passo 9a de
+`${FLUX_CMD}iterate`, lidos do retorno, nunca recalculados aqui.
+
+**Condições**, todas, por PR: PR própria (`author.login` igual à conta do `gh`; PR de terceiro não gera
+aviso, mesmo com `revisores` preenchido); `revisores` diferente de `n/a`; `SLACK_DIR` com canal que tenha o
+intent do grupo; `FLUX_CMD` utilizável; e Slack na sessão (`mcp.slack` do manifesto ou servidor achado
+na sessão). Faltando qualquer uma, nada acontece, sem pergunta e sem token de degradação.
+
+**Um aviso por revisor por round.** O estado é o do delivery, não o da PR: `prs[].slackNotified`
+(`<login>` → `{grupo, abertos, round, recusado}`), com `round` = o `iterateRounds` daquela PR. A chave
+é a PR mais o login: o mesmo revisor em duas PRs da entrega recebe uma pergunta em cada. Revisor que já
+tem entrada com o `round` corrente não entra no grupo.
+
+**Preview antes de perguntar.** Para cada PR e grupo não vazio, a main roda `${FLUX_CMD}reply --preview`
+com a string do passo 9a do iterate (frase de `match` literal do intent, nome do canal, URL completa da
+PR, revisores e, no `iterate-aguardando`, `abertos=<N>`), entre aspas. O `reply` acha o pedido de review
+pela URL da PR com `own_post_only` (`${FLUX_ROOT}/shared/slack-directory.md`, "Réplica na mensagem da
+PR"), nunca por janela de datas, e devolve o preview sem salvar nada, ou `sem-rascunho: <motivo>`.
+`sem-rascunho` não abre pergunta: vai ao relatório e ao board, e o revisor fica sem entrada em
+`slackNotified`.
+
+**Uma pergunta por rascunho, nunca agregada.** Com o preview em mãos, abrir um GATE
+(`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; renderer conforme `${FLUX_ROOT}/shared/hitl.md`,
+"Auto-resolução por tempo") por PR e por grupo, em sequência, single-select, "Avisar {revisores} da
+#{PR} ({repo}) no canal de PR?". O `snapshot` é o preview daquela réplica (canal, thread do pedido da
+PR, revisores, texto exato), no campo `preview` da opção de rascunhar no Claude Code:
+- `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório (com um canal só, é a
+  primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada).
+- `Agora não`.
+
+Várias perguntas seguidas no mesmo turno quando o harness aceitar; senão, uma por vez. A resposta de
+uma PR não decide a outra: recusa numa não pula a pergunta da seguinte. Aceitar roda
+`${FLUX_CMD}reply --auto` com a mesma string do preview, que salva o rascunho sem novo gate (a decisão
+foi tomada aqui) e devolve `salvo`, `draft-pendente` ou `sem-rascunho: <motivo>`. Se o texto renderizado
+divergir do preview aprovado, o `reply` não salva e devolve `sem-rascunho: preview mudou`.
+
+**Um rascunho por canal.** O Slack aceita um rascunho anexado por canal: depois de salvar um, a
+pergunta seguinte para o mesmo canal avisa que o salvamento fica pendente até o usuário enviar ou
+apagar o anterior. Aceita assim mesmo, o `reply` devolve `draft-pendente`, e o relatório do land diz
+`draft-pendente` com PR e canal.
+
+**Registro.** `salvo` grava `slackNotified` com `recusado: false`; `Agora não` grava `recusado: true`;
+`draft-pendente` e `sem-rascunho` não gravam, e o revisor volta a ser oferecido no próximo ponto
+interativo. A `GateSpec` e o resultado de cada pergunta vão ao board da entrega pelo escritor único
+(Timeline, tipo `decisão`), como manda o `hitl.md`.
 
 ### 4b. Pedido de review no Slack (gatilho: PR sai de draft)
 
@@ -352,7 +407,7 @@ Após postar, registrar o canal usado e o link da mensagem no board (Timeline, t
   "prs": [
     { "repo": "<ORG>/backoffice-bff", "number": 1054, "worktree": "...",
       "lastHeadSha": "", "lastCiConclusion": "null", "resolvedThreadIds": [], "iterateRounds": 0, "verdict": "safe-solo",
-      "wasDraft": true, "reviewRequestedAt": null, "reviewRequestedChannel": null }
+      "wasDraft": true, "reviewRequestedAt": null, "reviewRequestedChannel": null, "slackNotified": {} }
   ],
   "order": ["#1054", "#8057", "#1157"],
   "quietTicks": 0,
@@ -378,7 +433,7 @@ Cada **tick**:
    go/no-go que diz "CI vermelho, causa desconhecida" quando a causa é consultável é um go/no-go
    pior do que precisa ser. Sem manifesto/token: degradação declarada por `quality-gate-api.md`,
    o go/no-go inclui o aviso e reporta CI vermelho com link do log.
-3. Se há delta de threads numa PR → despachar **um subagente** para rodar `${FLUX_CMD}iterate <url> --auto --once --parent-board "<path deste board>"` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR.
+3. Se há delta de threads numa PR → despachar **um subagente** para rodar `${FLUX_CMD}iterate <url> --auto --once --parent-board "<path deste board>"` só nela (fase 4: nunca inline, mesmo no watch — o tick é onde o custo se acumula tick após tick); atualizar `resolvedThreadIds`/`lastHeadSha` a partir do retorno curto e **incrementar `iterateRounds`** dessa PR. Com `revisores` no retorno, rodar a fase 4c para ela, interrompendo o watch para as perguntas (exceção do `hitl.md`, "Modo watch").
 3b. **Checar transição de draft** (compare `isDraft` atual com `wasDraft` salvo). Se alguma PR virou `ready for review` neste tick, dispare a pergunta do passo 4b (agrupando por ticket) antes de seguir. Atualize `wasDraft` para o valor atual de todas as PRs.
 4. Se algum head/base mudou → recomputar ordem/regressão afetada (fases 2–3) só do que mudou.
 5. Recomputar as métricas do painel e mandar o **delta do tick ao board-keeper** por `SendMessage` (contrato do delta em `fanout-discipline.md`); é ele que atualiza o **painel no topo do board** + próximo movimento + go/no-go. A main não relê o board nem o reescreve. **Rolar o carimbo de data em TODO tick** (mesmo tick sem mudança): frontmatter `updated:` e o `**Agora:**` do TL;DR, com a mesma leitura de `date`. Atualizar o estado (`lastTickAt`).
@@ -396,7 +451,7 @@ Cada **tick**:
 - Limite de segurança: `>~6h` sem assentar → encerrar avisando (provável discussão humana/CI cronicamente vermelho).
 - Usuário interrompe.
 
-Em qualquer saída, **relatório final** no chat: ordem de merge recomendada, veredito por PR, PRs em `hold` (com motivo), threads humanas deixadas em `needs-discussion`, e o range de commits pushados durante o watch.
+Em qualquer saída, **relatório final** no chat: ordem de merge recomendada, veredito por PR, PRs em `hold` (com motivo), threads humanas deixadas em `needs-discussion`, o range de commits pushados durante o watch, e os avisos da fase 4c que não viraram rascunho (`draft-pendente` ou `sem-rascunho`, com PR, canal e motivo).
 
 ---
 

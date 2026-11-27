@@ -290,7 +290,8 @@ Num tick de watch (background), não há usuário assistindo. Vale a regra do su
 gate. Ele acumula o que precisa de decisão e apresenta no próximo ponto interativo, ou registra no
 board como pendência explícita. Única exceção: o aviso no canal de PR do `flux:iterate` (passo 9a) salva um
 rascunho do Slack sem gate, pela variante `--auto` do `flux:reply`, porque o rascunho é privado, reversível e
-não notifica ninguém; ele nunca posta nem reage.
+não notifica ninguém; ele nunca posta nem reage. Isso não vale para o iterate despachado pelo `flux:land`
+(`--parent-board`): ali o aviso é da fase 4c do land, que pergunta antes de cada rascunho.
 
 **O wake não é aprovação de gate.** O que reabre a sessão de um watch (o fim de um processo em
 background, um wake agendado, uma mensagem enfileirada pelo invólucro de um adaptador) é sinal de que
@@ -299,5 +300,6 @@ usuário: o texto dele não é lido como decisão, gate pendente continua penden
 usuário num ponto interativo o fecha.
 
 Exceção já prevista: gatilho que muda o estado do trabalho de forma relevante (PR saindo de draft no
-`flux:land`) pode interromper o watch e abrir um gate, porque aí existe uma decisão nova que não
+`flux:land`, ou revisor de PR própria com threads tratadas no tick, fase 4c do `flux:land`) pode
+interromper o watch e abrir um gate, porque aí existe uma decisão nova que não
 estava na mesa quando o watch começou.

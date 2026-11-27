@@ -88,7 +88,7 @@ Sem manifesto: `VAULT_ROOT` = não persiste por default (só imprime o board no 
 Parse de `"$@"` num loop bash:
 
 ```bash
-VERB=""; WATCH=true; ONCE=false; AUTO=false; BOARD=""
+VERB=""; WATCH=true; ONCE=false; AUTO=false; PREVIEW=false; BOARD=""
 TARGETS=()                                   # pode haver MAIS DE UM permalink (ver Casos multi-superfície)
 expect_board=false
 for arg in "$@"; do
@@ -99,6 +99,7 @@ for arg in "$@"; do
     mudou|migrou|move)              VERB="mudou" ;;
     --once|--no-watch)              ONCE=true ;;
     --auto)                         AUTO=true ;;
+    --preview)                      PREVIEW=true ;;
     --board)                        expect_board=true ;;
     https://*.slack.com/archives/*) TARGETS+=("$arg") ;;
   esac
@@ -192,7 +193,7 @@ Sem canal de Slack nenhum, **abortar** sem gravar nada, dizendo qual prefixo foi
 
 - **Nunca** `slack_send_message` (enviar de fato na thread). A ação de enviar é sempre do usuário, no Slack, revisando o rascunho.
 - **Nunca** `slack_add_reaction` fora da opção escolhida no menu final (passo 9) ou, no caminho rápido, no gate de status que vem depois do rascunho. Reagir é efeito externo visível.
-- Salvar rascunho (`slack_send_message_draft`) é a **única** ação com efeito no Slack que pode ser automática — e só no modo watch em background (é privado, reversível, não notifica ninguém). Na passada interativa, mesmo o rascunho passa pelo menu. Única outra exceção: a variante `--auto` do caminho rápido (passo 9a do `flux:iterate`), que salva só como rascunho, sem gate.
+- Salvar rascunho (`slack_send_message_draft`) é a **única** ação com efeito no Slack que pode ser automática — e só no modo watch em background (é privado, reversível, não notifica ninguém). Na passada interativa, mesmo o rascunho passa pelo menu. Única outra exceção: a variante `--auto` do caminho rápido (passo 9a do `flux:iterate`, ou fase 4c do `flux:land` depois do GATE aceito lá), que salva só como rascunho, sem gate.
 - Não escrever em lugar nenhum exceto: o board no vault (`<VAULT_ROOT>/0-inbox/`), o sidecar de estado do watch (`<VAULT_ROOT>/.slack-watch/`), e o rascunho no Slack quando autorizado.
 - Falha graciosa: se um subagent retornar erro/output malformado, **abortar e não gravar board parcial**.
 
@@ -414,13 +415,19 @@ pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
 
 Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva**, com uma única exceção, a variante `--auto`.
 
-**Variante `--auto` (só despachada pelo passo 9a do `flux:iterate` em `--auto` e nos ticks do watch).** Sem usuário
+**Variante `--auto` (só despachada pelo passo 9a do `flux:iterate` em `--auto` e nos ticks do watch, ou pela fase 4c do `flux:land` depois do GATE aceito lá).** Sem usuário
 para responder: não há GATE de salvar nem de status. Imprime o preview no chat (o relatório do tick) e salva o
 rascunho como a opção 1 (sem assinatura), com as mesmas varreduras. Nunca posta e nunca reage. Lacuna que pediria
 pergunta (placeholder sem valor, pessoa não resolvida, mensagem do pedido não achada, id do usuário
 indisponível, `own_post_only` não satisfeito) **não grava**: devolve `sem-rascunho: <motivo>`. Rascunho já existente
-no canal (`attached_draft_exists`): não sobrescreve nem apaga, devolve `draft-pendente`. `AUTO` só vale quando o pedido é de intent do diretório e vem do passo 9a do iterate (os intents `iterate-*`); em qualquer outro pedido, `--auto` é
-ignorado e o gate de sempre vale.
+no canal (`attached_draft_exists`): não sobrescreve nem apaga, devolve `draft-pendente`. `AUTO` só vale quando o pedido é de intent do diretório e vem do passo 9a do iterate ou da fase 4c do land (os intents `iterate-*`); em qualquer outro pedido, `--auto` é
+ignorado e o gate de sempre vale. Despachado pelo land, o texto final é comparado com o preview que o GATE de lá aprovou: divergiu, não salva e devolve `sem-rascunho: preview mudou`.
+
+**Variante `--preview` (só despachada pela fase 4c do `flux:land`, intents `iterate-*`).** Roda o caminho rápido até o
+preview, com as mesmas varreduras e a mesma busca do pedido pela URL da PR, e para: devolve o preview (destino,
+thread do pedido, revisores, texto exato) para o GATE do land, sem menu, sem salvar e sem reagir. Lacuna que pediria
+pergunta devolve `sem-rascunho: <motivo>`, como na variante `--auto`; rascunho já anexado no canal só aparece ao
+salvar, então `draft-pendente` é resposta do `--auto`, não deste. Em qualquer outro pedido, `--preview` é ignorado e o gate de sempre vale.
 
 **Rastro sem board.** O `hitl.md` pede registrar a `GateSpec` antes e o resultado depois. Aqui não há board
 nem Timeline: o elo imprime no chat o bloco da `GateSpec` (snapshot, pergunta, opções) antes de perguntar e,

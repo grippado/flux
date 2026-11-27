@@ -292,7 +292,9 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
   rascunho.
 - O `flux:review` oferece, num GATE depois de postar (Step 8b), o intent do desfecho: `review-aprovada`,
   `review-aprovada-com-comentarios`, `review-comentada` ou, da rodada 2 em diante com comentário inline (além de `praise`) sem aprovar, `review-novos-pontos`. O `flux:iterate` oferece (passo 9a), em PR do
-  próprio usuário, `iterate-enderecado` e `iterate-aguardando`. Em ambos, a condição é diretório declarado,
+  próprio usuário, `iterate-enderecado` e `iterate-aguardando`; despachado pelo `flux:land`, ele só devolve os
+  grupos, e quem oferece é a fase 4c do land, uma pergunta por PR e por grupo, com o preview da variante
+  `--preview` do reply. Em ambos, a condição é diretório declarado,
   algum canal com o intent e capacidade de Slack na sessão. Aceitar delega ao caminho rápido do
   `flux:reply`, que acha o pedido, mostra o preview e só rascunha (no `--auto` e nos ticks do watch do iterate, a variante
   `--auto` do reply salva o rascunho sem gate); review e iterate não leem o Slack, não
