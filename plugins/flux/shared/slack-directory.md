@@ -1,7 +1,9 @@
 # Diretório do Slack — alias de pessoa e canal resolvido pelo manifesto
 
 > Fonte única do formato do diretório e da regra que transforma "falar com o fulano no canal tal" em
-> alvo Slack resolvido. Consumido pelo `flux:reply` e oferecido pelo `flux:equip` (`--slack-directory`).
+> alvo Slack resolvido. Consumido pelo `flux:reply` e oferecido pelo `flux:equip` (`--slack-directory`);
+> os intents dele são oferecidos pelo `flux:build`, `flux:review`, `flux:iterate` e `flux:land`, sempre
+> via `flux:reply` (ver "Efeitos no resto do pipeline").
 > **Não duplicar esta lógica** nos verbos: apontar para cá.
 >
 > **Aqui só vive o formato.** Nome, `user_id` e `channel_id` reais são dado do time e moram no arquivo
@@ -255,7 +257,8 @@ numa mensagem.
 
 **Réplica na mensagem da PR (`in_thread_of_pr_post`).** O rascunho vira réplica na thread da mensagem
 do canal que contém a PR: buscar no canal pela URL da PR (`slack_search_public_and_private` com
-`in:<canal>`), pegar o `ts` e o autor da mensagem do pedido e usar o `ts` como `thread_ts` (o autor alimenta `{requester}`). Não achou: GATE com `Rascunhar mensagem nova no
+`in:<canal>`), pegar o `ts` e o autor da mensagem do pedido e usar o `ts` como `thread_ts` (o autor alimenta `{requester}`). O pedido é achado só por essa busca
+pela URL da PR, conferido pelo `own_post_only` quando o intent o declara, nunca por janela de datas. Não achou: GATE com `Rascunhar mensagem nova no
 canal`, `Informar o link da mensagem` e `Não fazer nada`.
 
 **Réplica na thread do permalink (`in_thread_of_target`).** Vale quando o usuário passa o permalink de
@@ -292,13 +295,14 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
   rascunho.
 - O `flux:review` oferece, num GATE depois de postar (Step 8b), o intent do desfecho: `review-aprovada`,
   `review-aprovada-com-comentarios`, `review-comentada` ou, da rodada 2 em diante com comentário inline (além de `praise`) sem aprovar, `review-novos-pontos`. O `flux:iterate` oferece (passo 9a), em PR do
-  próprio usuário, `iterate-enderecado` e `iterate-aguardando`; despachado pelo `flux:land`, ele só devolve os
-  grupos, e quem oferece é a fase 4c do land, uma pergunta por PR e por grupo, com o preview da variante
-  `--preview` do reply. Em ambos, a condição é diretório declarado,
+  próprio usuário, `iterate-enderecado` e `iterate-aguardando`; despachado pelo `flux:land`
+  (`--parent-board`), ele só devolve os grupos, e quem oferece é a fase 4c do land, uma pergunta por PR e
+  por grupo, com o preview da variante `--preview` do reply. Em todos, a condição é diretório declarado,
   algum canal com o intent e capacidade de Slack na sessão. Aceitar delega ao caminho rápido do
-  `flux:reply`, que acha o pedido, mostra o preview e só rascunha (no `--auto` e nos ticks do watch do iterate, a variante
-  `--auto` do reply salva o rascunho sem gate); review e iterate não leem o Slack, não
-  postam e não salvam rascunho. Sem o intent do desfecho, o review só sugere o `review-feita` numa linha.
+  `flux:reply`, que acha o pedido, mostra o preview e só rascunha (no `--auto` e nos ticks do watch do
+  iterate, e na fase 4c do land depois do GATE aceito lá, a variante `--auto` do reply salva o rascunho
+  sem gate). Review e iterate não leem o Slack, não postam e não salvam rascunho; o land lê o Slack só
+  pelo `reply --preview`, em subagente, e também não posta nem salva rascunho por conta própria. Sem o intent do desfecho, o review só sugere o `review-feita` numa linha.
 
 ## Degradação
 

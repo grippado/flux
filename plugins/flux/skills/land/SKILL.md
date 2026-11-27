@@ -71,9 +71,9 @@ As flags podem aparecer em qualquer posição e combinadas.
 3. **Abrir o board** no vault — anunciar o caminho no chat desde o início; atualizar a cada passo relevante (não acumular updates para o final).
 4. **Montar** o grafo de ordem + locks de merge → refletir no painel.
 5. **Validar** regressão de subida de cada PR (contra o código real de `main`) → refletir no painel.
-6. **Iterar** cada PR acionável **despachando um subagente por PR** (que roda `/flux:iterate --auto --once` lá dentro) para deixá-la merge-ready → atualizar a linha dela no painel com o retorno curto de cada subagente.
+6. **Iterar** cada PR acionável **despachando um subagente por PR** (que roda `${FLUX_CMD}iterate --auto --once` lá dentro) para deixá-la merge-ready → atualizar a linha dela no painel com o retorno curto de cada subagente.
 6b. **Aviso aos revisores no canal de PR** (fase 4c): com o retorno de cada iterate, um GATE por PR e por grupo de revisor, e só o aceito vira rascunho.
-7. **Pedido de review no Slack** (gatilho: PR sai de draft) → perguntar ao usuário onde postar e registrar no board.
+7. **Pedido de review no Slack** (fase 4b; gatilho: PR sai de draft) → perguntar ao usuário onde postar e registrar no board.
 8. **Consolidar** o go/no-go no board.
 9. **Watch consolidado** (default): reagendar e repetir até assentar, atualizando o board a cada tick.
 
@@ -303,12 +303,42 @@ retorno; se precisar de verificação, despacha outro subagente.
 
 > Herdam do iterate: verificação contra código real, formatação markdown das réplicas, convenção de commit por repo (atenção ao commitlint: alguns repos rejeitam emoji prefix), e o guardrail de thread humana `needs-discussion`.
 
+### 4b. Pedido de review no Slack (gatilho: PR sai de draft)
+
+**Gatilho:** em qualquer tick, se uma PR tinha `isDraft: true` na última leitura e agora está `isDraft: false` — seja porque o usuário tirou o draft manualmente, seja porque o `/flux:iterate` chegou nesse estado. Não dispara para PR que nasceu já `ready for review` fora de um tick observado; nesse caso, ofereça a mesma pergunta como parte da confirmação da fase 4, se o usuário não tiver pedido review ainda.
+
+**Agrupamento:** se mais de uma PR da MESMA issue/ticket vira `ready for review` no mesmo tick, agrupe todas num ÚNICO pedido de review.
+
+Abra um GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select, com o renderer de `${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo".
+
+- **Header:** `Pedir review?`
+- **Question:** `{N} PR(s) da entrega saíram de draft e estão prontas pra review: {lista "#PR (repo)"}. Postar pedido no Slack?`
+- **Options:**
+  1. `Canal do time (Recomendado)` — `Posta só no canal de PRs do próprio time dono do repo. Sem cc — é o canal certo, o time já está lá.`
+  2. `#code-review (escopo aberto)` — `Posta no canal geral #code-review, com "cc @<time>" para chamar atenção de fora do time.`
+  3. `Nos dois canais` — `Posta a mesma mensagem no canal do time E no #code-review.`
+  4. `Não postar agora` — `Só registra no board que a PR está pronta pra review; o usuário posta manualmente.`
+
+**Formato da mensagem** (uma linha `:open-pr:` por PR, agrupadas pelo mesmo ticket):
+
+```
+:open-pr:  [ENG-4262] Ajusta visual do banner de ativação de notificações < backoffice
+:open-pr:  [ENG-4262] Ajusta visual do banner de ativação de notificações < rf-monorepo
+```
+
+A linha `cc @<time>` **só aparece quando o post vai para `#code-review`** — no canal do próprio time nunca entra.
+
+**Descobrir canal do time e handle de cc:** inferir o squad a partir do time Linear da issue ou de memória salva. Não existe mapeamento confiável automatizado repo/squad → canal/handle; se não souber com confiança, **perguntar ao usuário** antes de postar — nunca adivinhar um nome de canal Slack.
+
+Após postar, registrar o canal usado e o link da mensagem no board (Timeline, tipo `review`). **Registro no estado:** cada PR em `prs[]` ganha os campos `wasDraft`, `reviewRequestedAt` e `reviewRequestedChannel` (para não perguntar de novo na mesma PR).
+
 ### 4c. Aviso aos revisores no canal de PR (o passo 9a do iterate, tocado pelo land)
 
 O iterate despachado com `--parent-board` não roda o próprio 9a: devolve no campo `revisores` do
 retorno da fase 4 quem foi tratado e em que grupo, e o aviso é deste elo, que é quem tem canal com o
-usuário. Os grupos (`iterate-enderecado`, `iterate-aguardando`, `abertos`) são os do passo 9a de
-`${FLUX_CMD}iterate`, lidos do retorno, nunca recalculados aqui.
+usuário. Os grupos (`iterate-enderecado`, `iterate-aguardando`) e o `abertos` de cada revisor são os do
+passo 9a de `${FLUX_CMD}iterate`, lidos do retorno, nunca recalculados aqui; o land só soma o `abertos`
+dos revisores que restam no grupo (abaixo).
 
 **Quando roda**, por PR. Três casos de não rodar, e só o terceiro vai ao banner:
 - **Não aplicável:** PR de terceiro (`author.login` diferente da conta do `gh`), mesmo com `revisores`
@@ -403,35 +433,6 @@ GATE seguinte; sem canal restante, o GATE não abre, os revisores daquele grupo 
 
 A persistência de cada GATE segue `${FLUX_ROOT}/shared/hitl.md`, "Registrar antes e depois", no board da
 entrega, pelo escritor único (seção 5). O estado do delivery é gravado também com `--once` (seção 6).
-
-### 4b. Pedido de review no Slack (gatilho: PR sai de draft)
-
-**Gatilho:** em qualquer tick, se uma PR tinha `isDraft: true` na última leitura e agora está `isDraft: false` — seja porque o usuário tirou o draft manualmente, seja porque o `/flux:iterate` chegou nesse estado. Não dispara para PR que nasceu já `ready for review` fora de um tick observado; nesse caso, ofereça a mesma pergunta como parte da confirmação da fase 4, se o usuário não tiver pedido review ainda.
-
-**Agrupamento:** se mais de uma PR da MESMA issue/ticket vira `ready for review` no mesmo tick, agrupe todas num ÚNICO pedido de review.
-
-Abra um GATE (`${FLUX_ROOT}/shared/hitl.md`), single-select, com o renderer de `${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo".
-
-- **Header:** `Pedir review?`
-- **Question:** `{N} PR(s) da entrega saíram de draft e estão prontas pra review: {lista "#PR (repo)"}. Postar pedido no Slack?`
-- **Options:**
-  1. `Canal do time (Recomendado)` — `Posta só no canal de PRs do próprio time dono do repo. Sem cc — é o canal certo, o time já está lá.`
-  2. `#code-review (escopo aberto)` — `Posta no canal geral #code-review, com "cc @<time>" para chamar atenção de fora do time.`
-  3. `Nos dois canais` — `Posta a mesma mensagem no canal do time E no #code-review.`
-  4. `Não postar agora` — `Só registra no board que a PR está pronta pra review; o usuário posta manualmente.`
-
-**Formato da mensagem** (uma linha `:open-pr:` por PR, agrupadas pelo mesmo ticket):
-
-```
-:open-pr:  [ENG-4262] Ajusta visual do banner de ativação de notificações < backoffice
-:open-pr:  [ENG-4262] Ajusta visual do banner de ativação de notificações < rf-monorepo
-```
-
-A linha `cc @<time>` **só aparece quando o post vai para `#code-review`** — no canal do próprio time nunca entra.
-
-**Descobrir canal do time e handle de cc:** inferir o squad a partir do time Linear da issue ou de memória salva. Não existe mapeamento confiável automatizado repo/squad → canal/handle; se não souber com confiança, **perguntar ao usuário** antes de postar — nunca adivinhar um nome de canal Slack.
-
-Após postar, registrar o canal usado e o link da mensagem no board (Timeline, tipo `review`). **Registro no estado:** cada PR em `prs[]` ganha os campos `wasDraft`, `reviewRequestedAt` e `reviewRequestedChannel` (para não perguntar de novo na mesma PR).
 
 ### 5. Board no vault (nota viva)
 

@@ -173,7 +173,9 @@ escrita e, nas seguintes, só atualiza a última linha cujo `harness` e `machine
 
 ### 1b — `FLUX_CMD`
 
-Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR dentro de subagente;
+Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR e o `reply` da fase 4c
+dentro de subagente; o `flux:build`, o `flux:review` e o `flux:iterate`, que oferecem o aviso no canal de
+PR pelo `reply`, o iterate só fora de `--parent-board`, porque com a flag ele devolve os grupos ao land;
 o `flux:chain`, que roda os elos do chain em sequência na main;
 o `flux:map`, que despacha o equip por repo; os elos com watch, que
 reinvocam a si mesmos pelo `prompt` do `ScheduleWakeup`: o `flux:reply` em todo wake, e o
