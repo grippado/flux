@@ -169,8 +169,7 @@ ou a chamada é recusada: a spec vai integral ao menu numerado, e nunca se trunc
 reaproveita uma opção. O menu numerado segue estes passos:
 
 1. Imprimir imediatamente a pergunta e todas as opções aplicáveis **numeradas** no chat, com os
-   mesmos rótulos e descrições, mantendo a recomendada em primeiro e a saída inócua por último. Não
-   truncar o menu por limite de opções de uma ferramenta estruturada.
+   mesmos rótulos e descrições, mantendo a recomendada em primeiro e a saída inócua por último.
 2. **Parar e esperar uma escolha explícita e válida.** Não seguir para o passo seguinte, não escolher
    a recomendada por iniciativa própria, não interpretar silêncio, aceitação técnica da chamada ou
    retorno sem escolha como consentimento. Numa execução headless não há quem responda: antes de
