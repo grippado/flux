@@ -6,6 +6,8 @@
 # rodá-los na mão, o que degrada para zero na primeira contribuição de terceiro.
 #
 # check-manifests.sh   — version e name iguais nos cinco manifests.
+# check-shared-refs.sh — toda referência a shared/<nome>.md existe, a seção de aviso
+#   do Slack é declarada no SKILL e nenhum shared fica órfão. É heurística textual.
 # check-codex-agent-contract.sh — as frases que sustentam o adaptador Codex
 #   continuam nos shared/. É um canário anti-deleção, não uma prova das
 #   invariantes: apagar a seção falha, reescrevê-la preservando a regra também
@@ -51,8 +53,14 @@ jobs:
       - name: check-agents-hash
         run: scripts/check-agents-hash.sh
 
+      - name: check-shared-refs
+        run: scripts/check-shared-refs.sh
+
+      - name: test-check-shared-refs
+        run: scripts/test-check-shared-refs.sh
+
       - name: shellcheck
-        run: shellcheck plugins/flux/scripts/run.sh scripts/test-run.sh scripts/check-prune-parity.sh scripts/check-context-ascent.sh scripts/check-agents-hash.sh
+        run: shellcheck plugins/flux/scripts/run.sh scripts/test-run.sh scripts/check-prune-parity.sh scripts/check-context-ascent.sh scripts/check-agents-hash.sh scripts/check-shared-refs.sh scripts/test-check-shared-refs.sh
 
       - name: awk do runner
         run: (awk --version 2>/dev/null || awk -W version 2>&1) | head -1

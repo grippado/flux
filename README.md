@@ -513,6 +513,8 @@ scripts/check-manifests.sh            # version e name iguais nos cinco manifest
 scripts/check-codex-agent-contract.sh # o adaptador Codex continua descrito nos shared/
 scripts/check-prune-parity.sh         # poda da varredura de manifestos igual no flux-context.md e na CLI; roda em CI
 scripts/check-context-ascent.sh       # todo verbo sobe a árvore por .claude/ e .cursor/ (ou aponta para o shared)
+scripts/check-shared-refs.sh          # toda referência a shared/<nome>.md existe, a declaração aviso-slack: está nos SKILLs, sem shared órfão; roda em CI
+scripts/test-check-shared-refs.sh     # fixtures do check-shared-refs.sh; roda em CI
 scripts/check-agents-hash.sh          # receita do hash do conjunto de agents no 1b do review-agents.md, e agents-index, map, equip e preflight apontam para ela
 shellcheck plugins/flux/scripts/*.sh  # recomendado ao tocar em scripts (ver "Scripts auxiliares")
 scripts/test-iterate-watch-gate.sh    # ao tocar em iterate-watch-gate.sh: gh e sleep falsos, sem rede e sem espera
@@ -525,7 +527,7 @@ nenhum dos dois enxerga `.cursor-plugin/` nem `.codex-plugin/`. É por isso que 
 existe: um bump que esquece parte dos cinco passa verde nos dois `validate`, e o mesmo corpo de skills
 chega ao usuário com versão diferente conforme o harness. O `check-codex-agent-contract.sh` faz o
 mesmo pelo texto dos `shared/`: é um canário que falha se a descrição do adaptador Codex sumir de
-`codex-compat.md`, `preflight.md` ou `review-agents.md`. O `check-context-ascent.sh` é o canário da
+`codex-compat.md`, `preflight.md` ou `review-agents.md`. O `check-shared-refs.sh` pega referência a `shared/<nome>.md` que não existe, SKILL que cita a seção de aviso do Slack sem declarar `aviso-slack:` e shared que ninguém cita (é heurística textual). O `check-context-ascent.sh` é o canário da
 subida do manifesto: falha se um SKILL listar `.claude/flux-context.json` sem o `.cursor/`
 correspondente a até 3 linhas, se um parágrafo descrever a subida (`subindo`, `sobe`, `sobem`, `subir`)
 só por `.claude/`, ancorar a raiz do workspace só no `.claude/` ou copiar o default de

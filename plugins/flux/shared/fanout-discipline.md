@@ -154,9 +154,25 @@ subagente — a diferença é só quem é a main.
 `flux-agents.json` e o `flux-context.json` não são. Os dois são escritos na reconciliação, uma vez, e
 nunca pelos filhos.
 
+### Usar um shared (todo elo)
+
+Os três pontos abaixo existem porque shared citado como protocolo e nunca aberto foi a causa de gate
+pulado e de afirmação sem leitura:
+
+- **O shared é aberto no passo que o cita, quando o passo roda.** Não de memória, não de outra
+  sessão, e não todos na abertura (o custo de ler tudo antes está em `context-budget.md`).
+- **Obrigação que um shared impõe à resposta** (linha de declaração, token de banner, gate) é copiada
+  para o modelo de resposta do passo que a cumpre. O modelo copia o que está no template e esquece o
+  que ficou só no shared, e um modelo de resposta que manda terminar "só com" o resultado cancela a
+  obrigação em silêncio.
+- **Estado de arquivo, manifesto ou serviço só é afirmado depois da leitura.** "O campo X não existe" e
+  "o serviço Y não está acessível" citam a leitura ou a consulta que os sustenta. Para serviço com dois
+  caminhos (API e MCP), a leitura inclui `${FLUX_ROOT}/shared/api-first.md`: a API é o default, e o MCP
+  de uma conta não prova que o workspace de outra é inacessível.
+
 ### Auto-verificação (todo elo, antes de responder)
 
-Antes de emitir a resposta final, o elo confere e o veredito é binário — com a exceção acima já
+Antes de emitir a resposta final, o elo confere os oito itens abaixo e o veredito é binário — com a exceção acima já
 descontada, e ela é a **única** que desconta:
 
 1. Todo trabalho que abriu repo, leu mais de 2 arquivos ou rodou outro `flux:*` foi para subagente,
@@ -166,6 +182,14 @@ descontada, e ela é a **única** que desconta:
    arquivo inteiro)?
 3. A main escreveu só onde tem direito (board/artefato), e nenhum subagente escreveu no mesmo lugar?
 4. Todo gate com o usuário aconteceu na main, nunca dentro de subagente?
+5. O banner de perfil abriu a resposta, copiado do gabarito do elo, e a resposta final traz as linhas de
+   declaração que o elo e os shared que ele cita exigem (por exemplo `aviso-slack:`)?
+6. Todo gate que o elo prevê abriu, ou o motivo de não ter aberto está declarado pela lista fechada do
+   shared que é dono dele?
+7. Toda afirmação sobre estado (arquivo, manifesto, serviço, campo ausente) saiu depois da leitura que a
+   sustenta, e cita essa leitura?
+8. Os shared que os passos executados citam como protocolo foram abertos nesta execução? (É
+   autodeclaração, a mais fraca dos itens 5 a 8: o que a sustenta são as linhas verificáveis dos itens 5 a 7.)
 
 Qualquer "não" é violação da regra pétrea. **Declarar no output** o que rodou fora do contrato, em vez
 de esconder: um elo que violou e avisou é corrigível, um que violou calado vira precedente.
