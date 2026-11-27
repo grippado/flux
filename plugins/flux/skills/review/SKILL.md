@@ -542,8 +542,9 @@ Header `Postar na PR?`, question `Quer postar algum subset dos comentários dire
 A ordem depende do `STATUS` do Step 7, lido como já impresso, sem reanalisar:
 
 - **Veredito aprovar** (`approved`, `approved-with-suggestions`, `approved-with-questions`):
-  `post-priorities-praise` (recomendada), `post-all`, `post-priorities`, `post-and-approve`,
-  `do-not-post`. Em `approved-with-questions`, a description de `post-and-approve` acrescenta
+  `post-priorities-praise` (recomendada), `post-priorities`, `post-all`, `post-and-approve`,
+  `do-not-post`, na mesma ordem do ramo "Demais vereditos". Se o menu não couber na ferramenta, vale
+  `${FLUX_ROOT}/shared/hitl.md`, "Menu numerado (fallback e auto-resolução)". Em `approved-with-questions`, a description de `post-and-approve` acrescenta
   `Atenção: aprovar libera o merge com perguntas ainda abertas.` Sem comentário acionável (exceção do
   Step 7): só `post-and-approve` (posta o corpo e o placar, sem comentários inline, e aprova) e
   `do-not-post`, sem recomendada. Com `reopen_candidates`, o segundo gate, depois deste.

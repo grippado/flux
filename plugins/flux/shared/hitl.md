@@ -113,9 +113,8 @@ aceitação técnica da chamada ou uma resposta sem escolha não comprovam esse 
 - Use `AskUserQuestion` (Claude Code, Cursor) ou `request_user_input` (Codex) só quando esse
   round-trip estiver comprovado. A comprovação e as condições de queda de cada harness vivem em
   `${FLUX_ROOT}/shared/codex-compat.md`, "Perguntas ao usuário".
-- Se a `GateSpec` validada exceder o limite do renderer estruturado, ou a chamada for recusada,
-  renderizar a spec integral no menu numerado abaixo. Nunca truncar, remover, reordenar ou
-  reaproveitar uma opção.
+- Menu que não cabe na ferramenta, ou chamada recusada: ver "Menu numerado (fallback e
+  auto-resolução)", abaixo.
 - O Codex acrescenta sozinho a opção "None of the above" com campo de notas ao menu de
   `request_user_input`. Não declará-la no menu: a saída inócua continua sendo a última opção
   declarada.
@@ -163,8 +162,11 @@ tempo.
 ## Menu numerado (fallback e auto-resolução)
 
 `AskUserQuestion` e `request_user_input` são tools do harness, não uma garantia da linguagem nem da interface. Quando a
-sessão não oferece o mecanismo, o round-trip não está comprovado, o menu do gate não cabe na
-ferramenta ou o harness está na linha de auto-resolução, o gate **não desaparece** — muda de forma:
+sessão não oferece o mecanismo, o round-trip não está comprovado ou o harness está na linha de
+auto-resolução, o gate **não desaparece**: muda de forma. O mesmo vale, em qualquer harness, quando o
+menu do gate não cabe na ferramenta (a `GateSpec` validada excede o limite do renderer estruturado)
+ou a chamada é recusada: a spec vai integral ao menu numerado, e nunca se trunca, remove, reordena ou
+reaproveita uma opção. O menu numerado segue estes passos:
 
 1. Imprimir imediatamente a pergunta e todas as opções aplicáveis **numeradas** no chat, com os
    mesmos rótulos e descrições, mantendo a recomendada em primeiro e a saída inócua por último. Não
