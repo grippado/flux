@@ -731,6 +731,8 @@ Tabela curta: por thread aberta ou finding persistente de thread reaberta `{path
 
 **Sempre reportar o estado de integração com a base**, mesmo quando ele estava limpo (é a informação que decide se a PR pode mergear). Quando este run foi despachado por um orquestrador (`--parent-board` presente, ou seja, rodando dentro do subagente de um `/flux:land`), o retorno inclui os campos estruturados `mergeable` e `conflito` do contrato da fase 4 do land, e não só a prosa: quem consome é máquina, e inferir conflito de texto livre é frágil no dado que decide o go/no-go. Inclui também os campos do relato definidos no contrato de retorno da fase 4 do `${FLUX_CMD}land`. Se o gate do passo 2b agiu, dizer os itens do relato da seção 5 do shared. Se o gate ficou em **modo degradado**, dizer explicitamente o que **não** foi feito: `conflito semântico em <arquivos> — respondi as threads, não apliquei correção nem pushei`. Nunca fechar o relatório dando a PR por pronta quando ela segue conflitante.
 
+**Fechar sempre com a linha `aviso-slack:`** (`aviso-slack: oferecido ({intent})` ou `aviso-slack: nao-aplicavel ({motivo})`, definida no shared de diretório do Slack), uma por grupo avisado ou uma só quando nenhum é elegível. É a última linha da resposta e de cada relatório de tick; sem ela, o passo 9a não foi cumprido. Ver o passo 9a.
+
 Quando o passo 8a mexeu em título ou descrição, dizer em uma linha **o que foi corrigido e por quê** (e, no caso do título, mostrar o antes/depois) (ex.: `descrição: a seção "A proposta" ainda anunciava o verbo-fachada, refutado na thread X`). Quando a PR é de terceiro e a reconciliação virou sugestão em comentário, sinalizar isso explicitamente.
 
 ### 9a. Aviso no canal de PR (GATE na passada interativa, automático em `--auto` e em todo tick do watch, nunca posta)
@@ -738,9 +740,13 @@ Quando o passo 8a mexeu em título ou descrição, dizer em uma linha **o que fo
 Depois do passo 7 (e do 8, quando houve push), só quando **todas** valem: PR própria; o turno
 respondeu, reagiu ou resolveu thread de **pessoa** (bot e o próprio autor não contam); fora de `--dry` e
 de run despachado por orquestrador (`--parent-board`); `SLACK_DIR` com canal que tenha o intent do grupo;
-`FLUX_CMD` utilizável; e Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão). Faltando qualquer uma, nada acontece, sem token de
-degradação; as lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`) saem só no relatório do
-tick. Não confundir com o Hook Slack (feed de status).
+`FLUX_CMD` utilizável; e Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão). Faltando qualquer uma, o gate não abre e o motivo é **declarado**, nunca omitido: resolver
+`directory_status` e a ordem de motivos como manda `${FLUX_ROOT}/shared/slack-directory.md`, seção "Aviso no
+canal de PR: elegibilidade e declaração" (fonte única, a lista não se repete aqui). Condição de PR própria,
+`--dry`, `--parent-board` ou turno sem pessoa vira `fora-de-escopo-do-elo`. Sem token de degradação no
+banner; o resultado sai na linha `aviso-slack:` da resposta do passo 9 e de cada relatório de tick, junto
+com as lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`). Não confundir com o Hook Slack (feed
+de status).
 
 Agrupar por revisor (o `author.login` da thread tratada, pessoas apenas):
 - **`iterate-enderecado`**: revisores cujas threads tratadas neste run ficaram **todas** respondidas, reagidas

@@ -11,6 +11,7 @@ export const SESSION_REVALIDATION_FIELDS = [
   "adddir_cmd",
   "holistic_verification",
   "capability_level",
+  "slack_capability",
 ] as const;
 
 export const GENERIC_HOLISTIC_FORMS = ["flux:pr-reviewer", "flux-pr-reviewer", "pr-reviewer"] as const;
@@ -109,6 +110,18 @@ export interface HolisticResolution {
   generic_forms: string[];
 }
 
+export type SlackDirectoryStatus = "ok" | "absent" | "invalid" | "undeclared";
+
+export interface SlackChannelIntent {
+  channel: string;
+  intents: string[];
+}
+
+export interface SlackPreflight {
+  directory_status: SlackDirectoryStatus;
+  channels_with_intent: SlackChannelIntent[];
+}
+
 export interface PreflightResult {
   schema_version: string;
   status: "ok" | "degraded" | "abort";
@@ -130,6 +143,7 @@ export interface PreflightResult {
   lenses: ResolvedContext["lenses"];
   requirements: { hard: RequirementResult[]; soft: RequirementResult[] };
   degradations: string[];
+  slack: SlackPreflight;
   session_revalidation_required: string[];
   warnings: string[];
 }
@@ -235,6 +249,45 @@ export function resolveHolisticFromDisk(opts: {
     }
   }
   return { candidate: GENERIC_HOLISTIC_FORMS[0], source: "generico", generic_forms: [...GENERIC_HOLISTIC_FORMS] };
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+export function resolveSlackPreflight(opts: {
+  manifest: FluxManifest | null;
+  manifestPath: string | null;
+}): SlackPreflight {
+  const declared = opts.manifest?.["slack_directory"];
+  if (typeof declared !== "string" || !declared.trim() || !opts.manifestPath) {
+    return { directory_status: "undeclared", channels_with_intent: [] };
+  }
+  const trimmed = declared.trim();
+  const path = trimmed.startsWith("~/")
+    ? expandHome(trimmed)
+    : resolvePath(dirname(opts.manifestPath), trimmed);
+  if (!existsSync(path)) return { directory_status: "absent", channels_with_intent: [] };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(readFileSync(path, "utf-8"));
+  } catch {
+    return { directory_status: "invalid", channels_with_intent: [] };
+  }
+  if (!isPlainObject(parsed) || parsed["version"] !== 1) {
+    return { directory_status: "invalid", channels_with_intent: [] };
+  }
+  const channels_with_intent: SlackChannelIntent[] = [];
+  for (const section of ["channels", "groups"]) {
+    const entries = parsed[section];
+    if (!isPlainObject(entries)) continue;
+    for (const [channel, entry] of Object.entries(entries)) {
+      if (!isPlainObject(entry) || !isPlainObject(entry["intents"])) continue;
+      const intents = Object.keys(entry["intents"]);
+      if (intents.length > 0) channels_with_intent.push({ channel, intents });
+    }
+  }
+  return { directory_status: "ok", channels_with_intent };
 }
 
 function checkRequirement(
@@ -384,6 +437,7 @@ export async function runPreflight(opts: {
     lenses: ctx.lenses,
     requirements: { hard, soft },
     degradations,
+    slack: resolveSlackPreflight({ manifest, manifestPath: ctx.manifest_path }),
     session_revalidation_required: aborted ? [] : [...SESSION_REVALIDATION_FIELDS],
     warnings: ctx.warnings,
   };

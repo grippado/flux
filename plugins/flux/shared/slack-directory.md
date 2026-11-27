@@ -290,13 +290,50 @@ Intent que não casa não é erro: segue o pipeline normal, só com o `PURPOSE_C
   quando o diretório está declarado, algum canal tem o intent e há capacidade de Slack na sessão.
   Aceitar delega ao caminho rápido do `flux:reply`, que só rascunha; o build não posta nem salva
   rascunho.
-- O `flux:review` oferece, num GATE depois de postar (Step 8b), o intent do desfecho: `review-aprovada`,
+- O `flux:review` oferece, num GATE depois de postar (passo 8d), o intent do desfecho: `review-aprovada`,
   `review-aprovada-com-comentarios`, `review-comentada` ou, da rodada 2 em diante com comentário inline (além de `praise`) sem aprovar, `review-novos-pontos`. O `flux:iterate` oferece (passo 9a), em PR do
   próprio usuário, `iterate-enderecado` e `iterate-aguardando`. Em ambos, a condição é diretório declarado,
   algum canal com o intent e capacidade de Slack na sessão. Aceitar delega ao caminho rápido do
   `flux:reply`, que acha o pedido, mostra o preview e só rascunha (no `--auto` e nos ticks do watch do iterate, a variante
   `--auto` do reply salva o rascunho sem gate); review e iterate não leem o Slack, não
   postam e não salvam rascunho. Sem o intent do desfecho, o review só sugere o `review-feita` numa linha.
+
+## Aviso no canal de PR: elegibilidade e declaração
+
+Fonte única de quando o `flux:review` (passo 8d) e o `flux:iterate` (passo 9a) abrem o aviso no canal
+de PR e de como a ausência dele é declarada. Os dois elos apontam para cá e só acrescentam as condições
+que são deles.
+
+**Resolver antes de agir, nunca de cabeça.** O estado do diretório vem do campo `slack.directory_status`
+do `flux preflight --json` (`${FLUX_ROOT}/shared/step0-cli.md`) ou, sem a CLI, de ler o manifesto e
+tentar abrir o arquivo. Os valores são `ok`, `undeclared`, `absent` e `invalid`. A capacidade de Slack
+na sessão não é da CLI: a sessão a confere (`slack_capability` em `session_revalidation_required`).
+Declarar que o diretório não existe exige ter feito essa leitura. Afirmar que o manifesto não declara
+`slack_directory` sem tê-lo lido é falha do elo, não degradação.
+
+**Todo elo declara o resultado** numa linha própria, a última da resposta final e de cada relatório de
+tick, nunca no banner de perfil (o gabarito dele é fechado):
+
+```
+aviso-slack: oferecido ({intent})
+aviso-slack: nao-aplicavel ({motivo})
+```
+
+`oferecido` vale quando o gate abriu, qualquer que tenha sido a escolha. O `{motivo}` é o **primeiro**
+que falha, nesta ordem, e só estes:
+
+| motivo | quando |
+|---|---|
+| `fora-de-escopo-do-elo` | condição própria do elo que não é de Slack (iterate: PR de terceiro, `--dry`, run orquestrado, nenhum turno com pessoa) |
+| `sem-postagem` | review: nada foi postado (`Não postar`, falha na postagem ou gate cancelado) |
+| `sem-diretorio` | `directory_status` diferente de `ok` |
+| `sem-slack-na-sessao` | nenhum servidor de Slack na sessão |
+| `flux-cmd-indisponivel` | `FLUX_CMD` não utilizável no harness |
+| `sem-intent-no-canal` | diretório `ok`, mas nenhum canal tem o intent do desfecho |
+
+Recusar o gate (`Agora não`) não é motivo de não aplicabilidade: o gate abriu, a linha é `oferecido`.
+
+Elo que encerra sem a linha `aviso-slack:` violou este contrato, e a resposta final fica incompleta.
 
 ## Degradação
 

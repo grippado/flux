@@ -45,7 +45,7 @@ mensagem já montada.
   da afirmação explícita do system prompt, e fica `unknown` sem nenhum dos dois sinais. Nunca inferir
   valores.
 
-Revalidar **apenas** o que `session_revalidation_required` lista — tipicamente 4 itens, todos
+Revalidar **apenas** o que `session_revalidation_required` lista — tipicamente 5 itens, todos
 introspecção de sessão que nenhum processo externo pode fazer (preflight.md, 3-bis):
 
 1. `flux_cmd` — qual forma a sessão expõe (`/flux:` → `/flux-` → `/`), senão `UNAVAILABLE`.
@@ -53,6 +53,22 @@ introspecção de sessão que nenhum processo externo pode fazer (preflight.md, 
 3. `holistic_verification` — o candidato está registrado na sessão? Não → seguir a cascata do
    Passo 3 com as formas de `holistic.generic_forms`; nenhuma → abortar como o Passo 3 manda.
 4. `capability_level` — classificar FULL/REDUCED/THIN definitivo com os agents confirmados.
+5. `slack_capability` — a sessão expõe as ferramentas do MCP de Slack? A CLI não enxerga isso. Sem
+   elas, o aviso no canal não pode ser enviado, e o elo declara a ausência em vez de pular o gate
+   em silêncio.
+
+O JSON traz ainda o objeto `slack`, sempre presente, resolvido pela CLI a partir do
+`slack_directory` do manifesto (contrato em `${FLUX_ROOT}/shared/slack-directory.md`):
+
+- `directory_status`: `ok` (lido e válido), `absent` (declarado, arquivo inexistente), `invalid`
+  (JSON inválido ou `version` diferente de 1) ou `undeclared` (manifesto sem o campo, ou sem
+  manifesto).
+- `channels_with_intent`: lista de `{ channel, intents }` só com os slugs dos canais e grupos que
+  têm intents, vazia quando o status não é `ok`. Nunca traz ids, nomes, aliases nem templates; o
+  conteúdo do diretório continua sendo lido pela sessão quando o gate precisar dele.
+
+Com `directory_status: "ok"` e um canal com intent aplicável ao elo, o gate de aviso no Slack é
+avaliado por este campo, não de cabeça.
 
 **3. CLI ausente (exit 127) ou saída que não parseia como JSON** — fallback integral: executar
 `${FLUX_ROOT}/shared/preflight.md` e o Step 0-context como sempre. Nada muda, nenhum elo quebra
