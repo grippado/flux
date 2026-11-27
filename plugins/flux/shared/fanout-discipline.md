@@ -180,7 +180,7 @@ Cada elo declara a sua, mas o padrão é este:
 | `flux:review` (doc) | Um agente por doc + um por repo citado | `<DOC_REVIEWER>` + prospectors |
 | `flux:peek` | Um agente (o holístico) — alvo único, mas ainda fora da main | `<HOLISTIC>` |
 | `flux:iterate` | **Verificação**: um agente por lente sobre o lote de threads. **Execução**: um agente para aplicar+quality gate no worktree | specialists / `general-purpose` |
-| `flux:land` | **Uma PR** — um subagente rodando `${FLUX_CMD}iterate --auto --once` por PR | `general-purpose` |
+| `flux:land` | **Uma PR** — um subagente rodando `${FLUX_CMD}iterate --auto --once` por PR. Na fase 4c, um subagente por `${FLUX_CMD}reply --preview` (PR, grupo e canal) e um por `${FLUX_CMD}reply --auto --expect-preview` aceito no GATE | `general-purpose` |
 | `flux:map` | **Duas unidades, e as duas por repo.** *Levantamento*: um agente por repo apurando as três lentes e os hashes. *Despacho*: um subagente rodando `${FLUX_CMD}equip <slug> --from-map` por repo, só para os consertos aceitos no gate (Forma 2, acima) | `general-purpose` |
 | `flux:build` | O motor de execução do repo inteiro (a main mantém o board de execução) | `general-purpose` |
 | `flux:equip` | Detecção de stack, leitura de L3 e autoria (suite e motor), em paralelo quando independentes — a main fica com gates, destino e registro | `general-purpose` |

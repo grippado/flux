@@ -261,13 +261,14 @@ Então:
 - O gate vive no **contexto principal**, antes de despachar ou depois de colher o retorno.
 - Quem despacha resolve o gate primeiro e passa a decisão já tomada ao subagente.
 - Elos que rodam dentro de subagente recebem uma flag de procuração, que **pula os gates porque a
-  decisão já foi tomada por quem despachou** — não porque gates sejam opcionais. São duas hoje, e a
+  decisão já foi tomada por quem despachou** — não porque gates sejam opcionais. São três hoje, e a
   diferença entre elas não é cosmética:
 
 | flag | quem despacha | o que a procuração cobre | o que ela **não** cobre |
 |---|---|---|---|
 | `--auto` | `flux:land` → `flux:iterate`, por PR | autonomia de iteração sobre uma PR que a main já escolheu | nada fora daquela PR |
 | `--from-map` | `flux:map` → `flux:equip`, por repo | escopo do conserto e destino de escrita, ambos aceitos no gate da main | **arquivo existente** e **manifesto**: o filho para e devolve, e a main abre o gate |
+| `--auto --expect-preview <arquivo>` | `flux:land` → `flux:reply`, por PR, grupo e canal (fase 4c), depois de GATE aceito no land | salvar como rascunho, sem novo gate, o texto exato do preview aceito, que o arquivo guarda | texto que divergiu do arquivo (devolve `sem-rascunho: preview mudou`), postar, reagir, e qualquer intent fora de `iterate-*` |
 
 **A segunda linha é a categoria mais forte que a família delega, e por isso ela vem com limite
 explícito.** `--from-map` transfere consentimento de **escrita no disco do usuário, fora do repo
@@ -290,7 +291,8 @@ Num tick de watch (background), não há usuário assistindo. Vale a regra do su
 gate. Ele acumula o que precisa de decisão e apresenta no próximo ponto interativo, ou registra no
 board como pendência explícita. Única exceção: o aviso no canal de PR do `flux:iterate` (passo 9a) salva um
 rascunho do Slack sem gate, pela variante `--auto` do `flux:reply`, porque o rascunho é privado, reversível e
-não notifica ninguém; ele nunca posta nem reage.
+não notifica ninguém; ele nunca posta nem reage. Isso não vale para o iterate despachado pelo `flux:land`
+(`--parent-board`): ali o aviso é da fase 4c do land, que pergunta antes de cada rascunho.
 
 **O wake não é aprovação de gate.** O que reabre a sessão de um watch (o fim de um processo em
 background, um wake agendado, uma mensagem enfileirada pelo invólucro de um adaptador) é sinal de que
@@ -299,5 +301,7 @@ usuário: o texto dele não é lido como decisão, gate pendente continua penden
 usuário num ponto interativo o fecha.
 
 Exceção já prevista: gatilho que muda o estado do trabalho de forma relevante (PR saindo de draft no
-`flux:land`) pode interromper o watch e abrir um gate, porque aí existe uma decisão nova que não
+`flux:land`, ou aviso aos revisores da fase 4c do `flux:land`, por revisor de PR própria com threads
+tratadas no tick ou pendente de tick anterior) pode
+interromper o watch e abrir um gate, porque aí existe uma decisão nova que não
 estava na mesa quando o watch começou.

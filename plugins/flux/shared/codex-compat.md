@@ -198,7 +198,10 @@ diferença é o que importa aqui:
 **`flux:build`, `flux:review` e `flux:iterate`** também despacham o `reply`, mas só como oferta de aviso no
 canal de PR (pedir review, avisar o desfecho, avisar revisores). Sem `FLUX_CMD`, a oferta some em silêncio e o
 verbo roda inteiro: perda parcial, sem token de degradação por design, e a ausência vale também para as
-lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`), que saem só no relatório do tick.
+lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`), que saem só no relatório do tick. O `iterate`
+com `--parent-board` não despacha o `reply`: devolve os grupos ao land. Numa entrega, quem avisa os
+revisores é o **`flux:land`**, na fase 4c, com o `reply --preview` e o `reply --auto --expect-preview` em
+subagente; sem `FLUX_CMD` ele já abortou na fase 4, então a 4c nunca roda sem ele.
 
 Os demais funcionam normalmente. **Exceção parcial: o `flux:refine`.** Sem `FLUX_CMD`, o verbo inteiro
 continua funcionando (T0/T1, PRD, TRD, plano, Caminho grill); só o encadeamento fatia-por-fatia do

@@ -88,17 +88,20 @@ Sem manifesto: `VAULT_ROOT` = não persiste por default (só imprime o board no 
 Parse de `"$@"` num loop bash:
 
 ```bash
-VERB=""; WATCH=true; ONCE=false; AUTO=false; BOARD=""
+VERB=""; WATCH=true; ONCE=false; AUTO=false; PREVIEW=false; EXPECT_PREVIEW=""; BOARD=""
 TARGETS=()                                   # pode haver MAIS DE UM permalink (ver Casos multi-superfície)
-expect_board=false
+expect_board=false; expect_preview=false
 for arg in "$@"; do
   if $expect_board; then BOARD="$arg"; expect_board=false; continue; fi
+  if $expect_preview; then EXPECT_PREVIEW="$arg"; expect_preview=false; continue; fi
   case "$arg" in
     responder|draft|reply)          VERB="responder" ;;
     acompanhar|watch)               VERB="acompanhar" ;;
     mudou|migrou|move)              VERB="mudou" ;;
     --once|--no-watch)              ONCE=true ;;
     --auto)                         AUTO=true ;;
+    --preview)                      PREVIEW=true ;;
+    --expect-preview)               expect_preview=true ;;
     --board)                        expect_board=true ;;
     https://*.slack.com/archives/*) TARGETS+=("$arg") ;;
   esac
@@ -109,12 +112,14 @@ done
 [ ${#TARGETS[@]} -gt 1 ] && [ "$VERB" = "responder" ] && VERB="mudou"
 # acompanhar é a forma explícita do watch; --once desliga em qualquer verbo
 [ "$ONCE" = true ] && WATCH=false
+[ "$PREVIEW" = true ] && AUTO=false && EXPECT_PREVIEW=""
 TARGET="${TARGETS[-1]}"                      # a superfície ATUAL é sempre a última informada
 ```
 
 - Se não há permalink Slack válido em `TARGETS`, tentar **alvo por alias** (próxima subseção) quando há `SLACK_DIR` e o pedido cita pessoa ou canal. Só se isso também não resolver, **abortar** com mensagem pedindo o link (`${FLUX_CMD}reply responder <permalink>`).
 - **A superfície atual é a ÚLTIMA da lista.** Quando o usuário passa dois links ("era nessa thread, agora o papo tá aqui"), o primeiro é histórico e o último é onde a conversa está viva agora.
 - `--board <path>` assume um board existente em vez de procurar/criar. Atalho para quando o usuário já sabe qual é.
+- `--expect-preview <arquivo>` só vale junto de `--auto`, na variante `--auto` do caminho rápido (passo 9); sem `--auto`, é ignorado e o menu de sempre vale. `--preview` com `--auto`: o `--preview` tem precedência (a linha que zera `AUTO` acima), só há preview e nada é salvo.
 - **Watch é DEFAULT-ON**: depois da 1ª passada, o comando fica vigiando o caso até assentar. `--once` (alias `--no-watch`) faz uma passada só. **Exceção:** alvo por alias (próxima subseção) começa com o watch desligado.
 - **Linguagem natural conta como sinal de migração.** Se o pedido do usuário descreve movimento ("moveram pra cá", "o papo continuou em", "mandei por DM e ele respondeu em", "agora tá no canal X"), tratar como `mudou` mesmo sem o verbo literal. Ele não vai lembrar de digitar o verbo; o comando é que tem que reconhecer a situação.
 
@@ -192,7 +197,7 @@ Sem canal de Slack nenhum, **abortar** sem gravar nada, dizendo qual prefixo foi
 
 - **Nunca** `slack_send_message` (enviar de fato na thread). A ação de enviar é sempre do usuário, no Slack, revisando o rascunho.
 - **Nunca** `slack_add_reaction` fora da opção escolhida no menu final (passo 9) ou, no caminho rápido, no gate de status que vem depois do rascunho. Reagir é efeito externo visível.
-- Salvar rascunho (`slack_send_message_draft`) é a **única** ação com efeito no Slack que pode ser automática — e só no modo watch em background (é privado, reversível, não notifica ninguém). Na passada interativa, mesmo o rascunho passa pelo menu. Única outra exceção: a variante `--auto` do caminho rápido (passo 9a do `flux:iterate`), que salva só como rascunho, sem gate.
+- Salvar rascunho (`slack_send_message_draft`) é a **única** ação com efeito no Slack que pode ser automática — e só no modo watch em background (é privado, reversível, não notifica ninguém). Na passada interativa, mesmo o rascunho passa pelo menu. Única outra exceção: a variante `--auto` do caminho rápido (passo 9a do `flux:iterate`, ou, com `--expect-preview`, fase 4c do `flux:land` depois do GATE aceito lá), que salva só como rascunho, sem gate.
 - Não escrever em lugar nenhum exceto: o board no vault (`<VAULT_ROOT>/0-inbox/`), o sidecar de estado do watch (`<VAULT_ROOT>/.slack-watch/`), e o rascunho no Slack quando autorizado.
 - Falha graciosa: se um subagent retornar erro/output malformado, **abortar e não gravar board parcial**.
 
@@ -362,7 +367,7 @@ citação estava tentando provar.
 
 Single-select, recomendada na posição 1, **condicionada ao `JULGAMENTO`**. Nunca agir sem escolha positiva (a variante `--auto` do caminho rápido é a única exceção).
 
-O renderer dos menus deste passo, nos dois caminhos e no segundo GATE de status, segue `${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo". A variante `--auto` é a exceção declarada em `${FLUX_ROOT}/shared/hitl.md`, "Modo watch", não auto-resolução do harness.
+O renderer dos menus deste passo, nos dois caminhos e no segundo GATE de status, segue `${FLUX_ROOT}/shared/hitl.md`, "Auto-resolução por tempo". A variante `--auto` é exceção declarada em `${FLUX_ROOT}/shared/hitl.md`, não auto-resolução do harness: sem `--expect-preview` (passo 9a do iterate), a do "Modo watch"; com ele (fase 4c do land), a procuração da tabela de "Subagente não tem canal com o usuário".
 
 **Preview antes de gravar (vale para as opções 1 e 2, nos dois caminhos, e para as que herdam o fluxo de responder, como `Rascunhar resposta mesmo assim` e `Forçar rascunho de resposta`).** Antes de abrir o GATE, imprimir no
 chat o que será gravado, num bloco: o destino (`#canal` ou DM com a pessoa, e `réplica na thread de <autor>,
@@ -414,13 +419,35 @@ pronto para `#{canal}`{, como réplica na thread}. O que fazer?":
 
 Sem o menu respondido, não há rascunho: este caminho **nunca auto-salva**, com uma única exceção, a variante `--auto`.
 
-**Variante `--auto` (só despachada pelo passo 9a do `flux:iterate` em `--auto` e nos ticks do watch).** Sem usuário
-para responder: não há GATE de salvar nem de status. Imprime o preview no chat (o relatório do tick) e salva o
-rascunho como a opção 1 (sem assinatura), com as mesmas varreduras. Nunca posta e nunca reage. Lacuna que pediria
-pergunta (placeholder sem valor, pessoa não resolvida, mensagem do pedido não achada, id do usuário
-indisponível, `own_post_only` não satisfeito) **não grava**: devolve `sem-rascunho: <motivo>`. Rascunho já existente
-no canal (`attached_draft_exists`): não sobrescreve nem apaga, devolve `draft-pendente`. `AUTO` só vale quando o pedido é de intent do diretório e vem do passo 9a do iterate (os intents `iterate-*`); em qualquer outro pedido, `--auto` é
-ignorado e o gate de sempre vale.
+**Variante `--auto` (só despachada pelo passo 9a do `flux:iterate` em `--auto` e nos ticks do watch, ou, com `--expect-preview`, pela fase 4c do `flux:land` depois do GATE aceito lá).** Sem usuário
+para responder: não há GATE de salvar nem de status. Imprime o preview no chat (o relatório do tick ou o retorno ao
+land) e salva o rascunho como a opção 1 (sem assinatura), com as mesmas varreduras. Nunca posta e nunca reage. Toda
+pergunta que o caminho rápido abriria vira lacuna, inclusive a escolha entre servidores de Slack de "Validar
+ambiente": placeholder sem valor, pessoa não resolvida, mensagem do pedido não achada, id do usuário
+indisponível, `own_post_only` não satisfeito, mais de um servidor de Slack. Lacuna **não grava**. `AUTO` só vale
+quando o pedido é de intent do diretório `iterate-*`; em qualquer outro pedido, `--auto` é ignorado e o gate de
+sempre vale.
+
+Quem chamou se distingue pelo argumento, nunca pelo intent:
+- **Sem `--expect-preview`** (passo 9a do iterate): salva o texto renderizado.
+- **Com `--expect-preview <arquivo>`** (fase 4c do land): `<arquivo>` traz o texto do preview aprovado no GATE do
+  land. Antes de salvar, comparar o texto renderizado, depois de todas as varreduras, com o conteúdo do arquivo,
+  ignorando só a quebra de linha final. Divergiu: não salva e devolve `sem-rascunho: preview mudou`. Arquivo
+  ausente ou ilegível: não salva e devolve `sem-rascunho: preview ilegivel`.
+
+Devolve exatamente uma destas três linhas, e quem despacha consome só elas:
+- `salvo: <canal> <link do rascunho>`: rascunho salvo; o link é o que a ferramenta de rascunho devolver, e sem
+  link, o permalink da mensagem do pedido.
+- `draft-pendente`: rascunho já anexado no canal (`attached_draft_exists`); não sobrescreve nem apaga.
+- `sem-rascunho: <motivo>`: lacuna, ou desvio do preview esperado; nada foi gravado.
+
+**Variante `--preview` (só despachada pela fase 4c do `flux:land`, intents `iterate-*`).** Roda o caminho rápido até o
+preview, com as mesmas varreduras e a mesma busca do pedido pela URL da PR, e para: devolve o preview (destino,
+thread do pedido, revisores, texto exato) para o GATE do land, sem menu, sem salvar e sem reagir. Lacuna que pediria
+pergunta devolve `sem-rascunho: <motivo>`, como na variante `--auto`; rascunho já anexado no canal só aparece ao
+salvar, então `draft-pendente` é resposta do `--auto`, não deste. Fora do caso previsto, falha fechada: pedido que
+não é de intent `iterate-*` devolve `sem-rascunho: preview fora de intent iterate-*`, sem menu e sem seguir o
+caminho normal. Com `--auto` junto, `--preview` tem precedência: só o preview, nada é salvo.
 
 **Rastro sem board.** O `hitl.md` pede registrar a `GateSpec` antes e o resultado depois. Aqui não há board
 nem Timeline: o elo imprime no chat o bloco da `GateSpec` (snapshot, pergunta, opções) antes de perguntar e,

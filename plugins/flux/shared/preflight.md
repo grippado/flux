@@ -173,7 +173,9 @@ escrita e, nas seguintes, só atualiza a última linha cujo `harness` e `machine
 
 ### 1b — `FLUX_CMD`
 
-Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR dentro de subagente;
+Um elo `flux:` que despacha outro elo (o `flux:land`, que roda o iterate por PR e o `reply` da fase 4c
+dentro de subagente; o `flux:build`, o `flux:review` e o `flux:iterate`, que oferecem o aviso no canal de
+PR pelo `reply`, o iterate só fora de `--parent-board`, porque com a flag ele devolve os grupos ao land;
 o `flux:chain`, que roda os elos do chain em sequência na main;
 o `flux:map`, que despacha o equip por repo; os elos com watch, que
 reinvocam a si mesmos pelo `prompt` do `ScheduleWakeup`: o `flux:reply` em todo wake, e o
@@ -498,6 +500,7 @@ que o banner precisa ser.
 | `rastro de force-push so no chat` | o elo pode publicar resolução de conflito com `--force-with-lease` (`${FLUX_ROOT}/shared/merge-conflict-gate.md`, seção 5) e roda sem board, então o relato do push sai só no resumo da rodada. Declarado no banner inicial, antes de qualquer push. `--dry` e `--no-rebase` não geram o token: não publicam resolução | o `flux:iterate` em perfil sem `VAULT_ROOT` e sem `--parent-board` |
 | `fallback generico no conflito (<causa>)` | a tentativa de resolução do `flux:iterate` usa o executor genérico por falta de orientação aplicável dos specialists; `<causa>` identifica o caso real. Depois de conhecido o resultado, reemitir o banner completo, preservando as lentes disponíveis e anexando o token a `degradacoes:` | o `flux:iterate`, em runtime, conforme `${FLUX_ROOT}/shared/merge-conflict-gate.md` |
 | `alias sem diretorio` | o pedido ao `flux:reply` não traz permalink do Slack e nomeia pessoa ou canal por nome ("com X", "no Y"), e o manifesto não declara `slack_directory` (ou o arquivo não abre, ou `version` não é a conhecida). Permalink informado **não** gera o token: não havia alias a resolver. Sai sem motivo adicional | o `flux:reply` (`${FLUX_ROOT}/shared/slack-directory.md`, "Degradação") |
+| `aviso aos revisores indisponivel` | o `flux:land` tem `slack_directory` com algum canal de intent `iterate-*` (opt-in declarado) e não há Slack na sessão, então a fase 4c não pergunta nem rascunha. Sai com o motivo em grafia fixa: `aviso aos revisores indisponivel (sem slack na sessao)`, já no banner inicial. Sem diretório, ou sem intent `iterate-*`, não gera token: é opt-in ausente, não degradação. PR de terceiro também não: é não aplicável | o `flux:land` (fase 4c) |
 | `rastro de gate so no chat` | o `flux:reply` rodou o caminho rápido do diretório (sem board, sem Timeline) e apresentou GATE: o bloco da `GateSpec` e o resultado da escolha saem só no chat, como pede `${FLUX_ROOT}/shared/hitl.md`, "Registrar antes e depois". Sai sem motivo adicional | o `flux:reply`, no caminho rápido |
 | `sem vault` | o elo grava board, mas `VAULT_ROOT` não está resolvido: o board sai só no chat (ou em `--save <dir>`). Pode levar motivo entre parênteses, ex.: `sem vault (parecer nao persiste)` | todo elo que grava board (`${FLUX_ROOT}/shared/board-template.md`, "Resolver o board") |
 | `sessao nao identificavel` | `LAUNCHER_RUN_ID` e `SESSION_ID` são `null` (Passo 1a-run): a regra de um board por sessão depende do path anunciado no chat. Sai sem motivo adicional | todo elo que grava board |

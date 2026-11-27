@@ -138,7 +138,7 @@ As flags `--auto`, `--once` (alias `--no-watch`), `--dry`, `--solo`, `--no-rebas
 - **Não mexer no prefixo de ticket do título** (`[ENG-1234]`, `[PROD-000]`). É chave de rastreabilidade para Linear e CI; trocar ou remover quebra automação em silêncio.
 - **Não renomear título que só ficou genérico.** Renomeia-se apenas título que nomeia desenho refutado. A barra do título é mais alta que a da descrição, porque ele vira mensagem de squash commit e circula em notificação.
 - **Não regerar a descrição da PR do zero.** Editar sempre sobre o body atual, cirurgicamente. Body regenerado apaga contexto humano (links de PRs irmãs, checklist marcada pelo revisor) de forma silenciosa e irreversível pela UI.
-- **Não postar no Slack nem salvar rascunho aqui.** O aviso do passo 9a só delega ao `${FLUX_CMD}reply`: na passada interativa, depois de um GATE aceito; em `--auto` e nos ticks do watch, direto, pela variante `--auto`. O `reply` só rascunha, nunca posta.
+- **Não postar no Slack nem salvar rascunho aqui.** O aviso do passo 9a só delega ao `${FLUX_CMD}reply`: na passada interativa, depois de um GATE aceito; em `--auto` sem `--parent-board` e nos ticks do watch, direto, pela variante `--auto`. Com `--parent-board`, não delega nada: só devolve os grupos ao land (passo 9a). O `reply` só rascunha, nunca posta.
 - Em modo `--dry`: **nunca** escrever no GitHub (sem reply, sem reação, sem resolve, sem commit, sem push).
 - **Não entrar num segundo repo.** O iterate fecha o loop de UMA PR, logo toca UM repo. Se a correção parecer exigir mexer noutro repo, isso é escopo de `/flux:land` (que despacha um subagente por PR): registre como bloqueio e reporte, não abra o segundo checkout aqui. Ver `${FLUX_ROOT}/shared/context-budget.md` (Regra 1: cada root de repo custa 10-20k tokens permanentes).
 - **Não despejar saída crua no contexto**: `gh run view`, `type-check`, `test` e afins sempre filtrados na origem (`| tail -N`, `| grep -E 'error|fail'`). Regra 4 do orçamento de contexto.
@@ -729,16 +729,24 @@ Tabela curta: por thread aberta ou finding persistente de thread reaberta `{path
 
 **Dizer onde ficou a worktree e em que estado ela está** (path, e quantos envs foram provisionados do cofre, ou por que não foram). Quando o cofre não tinha entrada para o repo, ou o manifesto não declara `env_vault`, dizer isso explicitamente em vez de deixar a worktree parecer pronta para subir. Sinalize threads humanas deixadas abertas (`needs-discussion`) e quais foram marcadas como `duplicate`/`related-but-distinct` (com link da irmã). Não repita os bodies completos das réplicas.
 
-**Sempre reportar o estado de integração com a base**, mesmo quando ele estava limpo (é a informação que decide se a PR pode mergear). Quando este run foi despachado por um orquestrador (`--parent-board` presente, ou seja, rodando dentro do subagente de um `/flux:land`), o retorno inclui os campos estruturados `mergeable` e `conflito` do contrato da fase 4 do land, e não só a prosa: quem consome é máquina, e inferir conflito de texto livre é frágil no dado que decide o go/no-go. Inclui também os campos do relato definidos no contrato de retorno da fase 4 do `${FLUX_CMD}land`. Se o gate do passo 2b agiu, dizer os itens do relato da seção 5 do shared. Se o gate ficou em **modo degradado**, dizer explicitamente o que **não** foi feito: `conflito semântico em <arquivos> — respondi as threads, não apliquei correção nem pushei`. Nunca fechar o relatório dando a PR por pronta quando ela segue conflitante.
+**Sempre reportar o estado de integração com a base**, mesmo quando ele estava limpo (é a informação que decide se a PR pode mergear). Quando este run foi despachado por um orquestrador (`--parent-board` presente, ou seja, rodando dentro do subagente de um `${FLUX_CMD}land`), o retorno inclui os campos estruturados `mergeable` e `conflito` do contrato da fase 4 do land, e não só a prosa: quem consome é máquina, e inferir conflito de texto livre é frágil no dado que decide o go/no-go. Inclui também os campos do relato definidos no contrato de retorno da fase 4 do `${FLUX_CMD}land`, e o campo `revisores` que o passo 9a preenche nesse modo. Se o gate do passo 2b agiu, dizer os itens do relato da seção 5 do shared. Se o gate ficou em **modo degradado**, dizer explicitamente o que **não** foi feito: `conflito semântico em <arquivos> — respondi as threads, não apliquei correção nem pushei`. Nunca fechar o relatório dando a PR por pronta quando ela segue conflitante.
 
 Quando o passo 8a mexeu em título ou descrição, dizer em uma linha **o que foi corrigido e por quê** (e, no caso do título, mostrar o antes/depois) (ex.: `descrição: a seção "A proposta" ainda anunciava o verbo-fachada, refutado na thread X`). Quando a PR é de terceiro e a reconciliação virou sugestão em comentário, sinalizar isso explicitamente.
 
-### 9a. Aviso no canal de PR (GATE na passada interativa, automático em `--auto` e em todo tick do watch, nunca posta)
+### 9a. Aviso no canal de PR (GATE na passada interativa, automático em `--auto` e em todo tick do watch, nunca posta; com `--parent-board`, só agrupa)
 
-Depois do passo 7 (e do 8, quando houve push), só quando **todas** valem: PR própria; o turno
-respondeu, reagiu ou resolveu thread de **pessoa** (bot e o próprio autor não contam); fora de `--dry` e
-de run despachado por orquestrador (`--parent-board`); `SLACK_DIR` com canal que tenha o intent do grupo;
-`FLUX_CMD` utilizável; e Slack na sessão (`mcp.slack` do manifesto ou servidor achado na sessão). Faltando qualquer uma, nada acontece, sem token de
+**Com `--parent-board`** (dentro do subagente de um `${FLUX_CMD}land`), este passo só agrupa e devolve:
+em PR própria, roda o agrupamento abaixo e devolve os grupos no campo `revisores` do contrato de
+retorno da fase 4 do `${FLUX_CMD}land` (login, grupo e `abertos` de cada revisor pessoa tratado no
+turno; `n/a` em PR de terceiro ou sem thread de pessoa tratada). Não depende de `SLACK_DIR` nem de
+Slack na sessão (quem confere é o land), não chama o `reply`, não abre gate e não grava
+`slackNotified`. O resto do passo não se aplica: o aviso é do land, na fase 4c dele, que tem canal com
+o usuário e guarda o `slackNotified` no estado do delivery.
+
+Sem `--parent-board`, depois do passo 7 (e do 8, quando houve push), só quando **todas** valem: PR
+própria; o turno respondeu, reagiu ou resolveu thread de **pessoa** (bot e o próprio autor não contam);
+fora de `--dry`; `SLACK_DIR` com canal que tenha o intent do grupo; `FLUX_CMD` utilizável; e Slack na
+sessão (`mcp.slack` do manifesto ou servidor achado na sessão). Faltando qualquer uma, nada acontece, sem token de
 degradação; as lacunas do `reply --auto` (`draft-pendente`, `sem-rascunho`) saem só no relatório do
 tick. Não confundir com o Hook Slack (feed de status).
 
@@ -749,9 +757,9 @@ Agrupar por revisor (o `author.login` da thread tratada, pessoas apenas):
   resposta deles (`needs-discussion`, ou defesa mantida aberta). `abertos` é a contagem dessas threads
   (a soma dos revisores do grupo), e o revisor com threads dos dois tipos entra só neste grupo.
 
-**No `--auto` e em todo tick do watch**, sem gate: o aviso vai pelo `${FLUX_CMD}reply --auto`, que
+**No `--auto` sem `--parent-board` e em todo tick do watch**, sem gate: o aviso vai pelo `${FLUX_CMD}reply --auto`, que
 imprime o preview no relatório e salva o rascunho (privado, reversível, não notifica). Só se avisa
-revisor com thread tratada **neste turno**; `slackNotified` (`<login>` → `{grupo, abertos, round}`)
+revisor com thread tratada **neste turno**; `slackNotified` (`<login>` → `{grupo, abertos, round, recusado}`)
 impede avisar o mesmo revisor duas vezes no mesmo `round`. Rascunho não salvo (`draft-pendente`,
 `sem-rascunho`) não grava `slackNotified`: o próximo tick tenta de novo, e o relatório diz o motivo uma vez.
 
@@ -930,7 +938,7 @@ O que cada campo guarda, e a regra de gravação que o gate depende:
   `flux-watch-gate-pr-<PR_NUMBER>.json`, que este elo não edita.
 - **`slackNotified`**: `{"<login>": {"grupo": "enderecado|aguardando", "abertos": N, "round": N, "recusado": false}}`,
   gravado pelo 9a no rascunho salvo e no `Agora não` (`recusado: true`); falha em salvar não grava; nasce
-  `{}`.
+  `{}`. Com `--parent-board`, não é gravado aqui: o do land vive em `prs[].slackNotified` do estado do delivery.
 
 **Na 1ª passada**, gravar o estado inicial com `round: 1`, o que a passada processou e classificou nas
 listas acima, o SHA pós-push, o CI do passo 2, `conflictAttemptedAtBaseSha` = `baseRefOid` se o 2b
