@@ -86,7 +86,8 @@ As flags podem aparecer em qualquer posição e combinadas.
 - **Não posta no Slack.** O aviso aos revisores (fase 4c) só delega ao `${FLUX_CMD}reply`, que rascunha, e só depois de um GATE aceito por PR e por grupo.
 - Não roda escrita em repo sem checkout local: registra o bloqueio e segue.
 - **Não roda o `/flux:iterate` inline** no contexto principal (fase 4): sempre via subagente. Ver `${FLUX_ROOT}/shared/context-budget.md`.
-- **Não faz trabalho pesado na main, em fase nenhuma.** Investigar regressão (fase 3), iterar PR (fase 4) e qualquer varredura de repo vão para subagente, em paralelo. Na main ficam: descoberta via `gh` (JSON barato), grafo de ordem, board, HITL e watch. Ver `${FLUX_ROOT}/shared/fanout-discipline.md` — regra pétrea da família, como o worktree.
+- **Não roda o `${FLUX_CMD}reply` inline** (fase 4c): o `--preview` e o `--auto` vão sempre a subagente, como o iterate. Na main ficam o GATE, o preview impresso no chat e o registro.
+- **Não faz trabalho pesado na main, em fase nenhuma.** Investigar regressão (fase 3), iterar PR (fase 4) e qualquer varredura de repo vão para subagente, em paralelo. Na main ficam: descoberta via `gh` (JSON barato), grafo de ordem, board, HITL (inclusive o GATE da fase 4c, com o `reply` em subagente) e watch. Ver `${FLUX_ROOT}/shared/fanout-discipline.md` — regra pétrea da família, como o worktree.
 - **Não escreve, edita nem roda comando dentro do checkout de um segundo repo** a partir do contexto principal. O contexto principal orquestra e mantém o board; quem entra em repo é subagente.
 - Não relê o board inteiro a cada tick: atualiza a seção afetada (Regra 4 do orçamento de contexto).
 
@@ -316,28 +317,53 @@ na sessão). Faltando qualquer uma, nada acontece, sem pergunta e sem token de d
 é a PR mais o login: o mesmo revisor em duas PRs da entrega recebe uma pergunta em cada. Revisor que já
 tem entrada com o `round` corrente não entra no grupo.
 
-**Preview antes de perguntar.** Para cada PR e grupo não vazio, a main roda `${FLUX_CMD}reply --preview`
-com a string do passo 9a do iterate (frase de `match` literal do intent, nome do canal, URL completa da
-PR, revisores e, no `iterate-aguardando`, `abertos=<N>`), entre aspas. O `reply` acha o pedido de review
-pela URL da PR com `own_post_only` (`${FLUX_ROOT}/shared/slack-directory.md`, "Réplica na mensagem da
-PR"), nunca por janela de datas, e devolve o preview sem salvar nada, ou `sem-rascunho: <motivo>`.
-`sem-rascunho` não abre pergunta: vai ao relatório e ao board, e o revisor fica sem entrada em
-`slackNotified`.
+**Preview em subagente, um por canal candidato.** O `reply` desta fase nunca roda na main
+(`${FLUX_ROOT}/shared/context-budget.md`, Regra 2): cada chamada vai a um subagente, como o iterate da
+fase 4 (`${FLUX_ROOT}/shared/fanout-discipline.md`). Para cada PR e grupo não vazio, e para **cada
+canal** do diretório que tenha o intent do grupo, despachar um subagente que roda
+`${FLUX_CMD}reply --preview "<string>"`, com a string do passo 9a do iterate (frase de `match` literal do
+intent, nome do canal, URL completa da PR, revisores e, no `iterate-aguardando`, `abertos=<N>`). Os
+previews são independentes e vão no mesmo bloco de Task calls. O pedido de review é achado pela URL da
+PR, como manda `${FLUX_ROOT}/shared/slack-directory.md`, "Réplica na mensagem da PR".
 
-**Uma pergunta por rascunho, nunca agregada.** Com o preview em mãos, abrir um GATE
+A main passa a cada subagente o caminho do arquivo do preview daquele canal,
+`<VAULT_ROOT>/.delivery/<slug>/preview-<pr>-<grupo>-<canal>.txt`, ao lado do estado da seção 6 (sem
+`VAULT_ROOT`, `${TMPDIR:-/tmp}/flux-land-<slug>/preview-<pr>-<grupo>-<canal>.txt`, que vive só na
+sessão). O subagente grava ali, sem reescrever, o texto exato que o `reply --preview` devolveu,
+sobrescrevendo o de passada anterior. O prompt exige literalmente este retorno, e nada além dele:
+
+```
+- canal: <slug do canal>
+- arquivo: <caminho onde o texto exato foi gravado>
+- destino: <canal, thread do pedido, revisores>
+```
+
+ou, quando o `reply` não chegou ao preview, só `- sem-rascunho: <motivo>`. O texto viaja pelo arquivo,
+não pelo retorno: o que a main imprime no GATE é lido do arquivo, e é o mesmo arquivo que o salvamento
+confere. Canal em `sem-rascunho` não vira opção; com todos os canais em `sem-rascunho`, não há pergunta,
+e o motivo vai ao relatório e ao board.
+
+**Uma pergunta por rascunho, nunca agregada.** Com os previews em mãos, abrir um GATE
 (`${FLUX_ROOT}/shared/hitl.md`, `GateSpec`; renderer conforme `${FLUX_ROOT}/shared/hitl.md`,
-"Auto-resolução por tempo") por PR e por grupo, em sequência, single-select, "Avisar {revisores} da
-#{PR} ({repo}) no canal de PR?". O `snapshot` é o preview daquela réplica (canal, thread do pedido da
-PR, revisores, texto exato), no campo `preview` da opção de rascunhar no Claude Code:
-- `Rascunhar aviso em <nome do canal>`, uma opção por canal na ordem do diretório (com um canal só, é a
-  primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada).
+"Auto-resolução por tempo") por PR e por grupo, single-select, "Avisar {revisores} da #{PR} ({repo}) no
+canal de PR?". **Antes de cada GATE, em todo harness**, imprimir no chat o preview de cada canal
+candidato, lido do arquivo (destino, thread do pedido, revisores, texto exato): é o `snapshot` da
+`GateSpec`. No Claude Code, preencher também o campo `preview` de cada opção de rascunhar com o preview
+do canal dela:
+- `Rascunhar aviso em <nome do canal>`, uma opção por canal com preview, na ordem do diretório (com um
+  canal só, é a primeira e leva `(Recomendado)`; com mais de um, nenhuma é recomendada).
 - `Agora não`.
 
 Várias perguntas seguidas no mesmo turno quando o harness aceitar; senão, uma por vez. A resposta de
-uma PR não decide a outra: recusa numa não pula a pergunta da seguinte. Aceitar roda
-`${FLUX_CMD}reply --auto` com a mesma string do preview, que salva o rascunho sem novo gate (a decisão
-foi tomada aqui) e devolve `salvo`, `draft-pendente` ou `sem-rascunho: <motivo>`. Se o texto renderizado
-divergir do preview aprovado, o `reply` não salva e devolve `sem-rascunho: preview mudou`.
+uma PR não decide a outra: recusa numa não pula a pergunta da seguinte.
+
+**Salvar em subagente.** Aceitar despacha um subagente que roda
+`${FLUX_CMD}reply --auto --expect-preview <arquivo do canal escolhido> "<string do canal escolhido>"`. A
+decisão foi tomada no GATE daqui, e o subagente leva a procuração de `${FLUX_ROOT}/shared/hitl.md`,
+"Subagente não tem canal com o usuário": o `reply` salva sem novo gate, e só se o texto renderizado for
+o do arquivo. O prompt exige como retorno exatamente uma das três linhas da variante `--auto` do
+`${FLUX_CMD}reply`, e o land consome só elas: `salvo: <canal> <link do rascunho>`, `draft-pendente` ou
+`sem-rascunho: <motivo>` (o desvio do preview aprovado chega como `sem-rascunho: preview mudou`).
 
 **Um rascunho por canal.** O Slack aceita um rascunho anexado por canal: depois de salvar um, a
 pergunta seguinte para o mesmo canal avisa que o salvamento fica pendente até o usuário enviar ou

@@ -261,13 +261,14 @@ Então:
 - O gate vive no **contexto principal**, antes de despachar ou depois de colher o retorno.
 - Quem despacha resolve o gate primeiro e passa a decisão já tomada ao subagente.
 - Elos que rodam dentro de subagente recebem uma flag de procuração, que **pula os gates porque a
-  decisão já foi tomada por quem despachou** — não porque gates sejam opcionais. São duas hoje, e a
+  decisão já foi tomada por quem despachou** — não porque gates sejam opcionais. São três hoje, e a
   diferença entre elas não é cosmética:
 
 | flag | quem despacha | o que a procuração cobre | o que ela **não** cobre |
 |---|---|---|---|
 | `--auto` | `flux:land` → `flux:iterate`, por PR | autonomia de iteração sobre uma PR que a main já escolheu | nada fora daquela PR |
 | `--from-map` | `flux:map` → `flux:equip`, por repo | escopo do conserto e destino de escrita, ambos aceitos no gate da main | **arquivo existente** e **manifesto**: o filho para e devolve, e a main abre o gate |
+| `--auto --expect-preview <arquivo>` | `flux:land` → `flux:reply`, por PR, grupo e canal (fase 4c), depois de GATE aceito no land | salvar como rascunho, sem novo gate, o texto exato do preview aceito, que o arquivo guarda | texto que divergiu do arquivo (devolve `sem-rascunho: preview mudou`), postar, reagir, e qualquer intent fora de `iterate-*` |
 
 **A segunda linha é a categoria mais forte que a família delega, e por isso ela vem com limite
 explícito.** `--from-map` transfere consentimento de **escrita no disco do usuário, fora do repo
